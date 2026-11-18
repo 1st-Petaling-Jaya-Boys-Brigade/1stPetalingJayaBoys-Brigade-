@@ -11,73 +11,364 @@
 // ── Default Badge Catalog (41 Official Badges in 4 Categories) ───────────────
 var DEFAULT_BB_BADGES = [
   // ── Compulsory Awards (5 badges) ──────────────────────────────────────────
-  { id: 'bb1',  name: 'Target Badge',             cat: 'Compulsory Awards', hasAdvanced: false, tier: 'none', image: 'assets/BB%20Badges/0%20Target.png' },
-  { id: 'bb13', name: 'Christian Education',      cat: 'Compulsory Awards', hasAdvanced: true,  tier: 'both', image: 'assets/BB%20Badges/Christian%20Education.png' },
-  { id: 'bb6',  name: 'Drill',                    cat: 'Compulsory Awards', hasAdvanced: true,  tier: 'both', image: 'assets/BB%20Badges/Drill.png' },
-  { id: 'bb8',  name: 'NCO Star / Proficiency',   cat: 'Compulsory Awards', hasAdvanced: true,  tier: 'both', image: 'assets/BB%20Badges/NCO%20Proficiency.png' },
-  { id: 'bb_recruitment', name: 'Recruitment',    cat: 'Compulsory Awards', hasAdvanced: true,  tier: 'both', image: 'assets/BB%20Badges/Recruitment.png' },
+  {
+    id: 'bb1',
+    name: 'Target Badge',
+    cat: 'Compulsory Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: 'assets/BB%20Badges/0%20Target.png'
+  },
+  {
+    id: 'bb13',
+    name: 'Christian Education',
+    cat: 'Compulsory Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Christian%20Education.png'
+  },
+  {
+    id: 'bb6',
+    name: 'Drill',
+    cat: 'Compulsory Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Drill.png'
+  },
+  {
+    id: 'bb8',
+    name: 'NCO Star / Proficiency',
+    cat: 'Compulsory Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/NCO%20Proficiency.png'
+  },
+  {
+    id: 'bb_recruitment',
+    name: 'Recruitment',
+    cat: 'Compulsory Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Recruitment.png'
+  },
 
   // ── Proficiency Awards (28 badges - Alphabetical Order, 5 per row in Grid) ─
-  { id: 'bb_arts',                      name: 'Arts',                       cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Arts.png' },
-  { id: 'bb_athletics',                 name: 'Athletics',                  cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Athletics.png' },
-  { id: 'bb_bandsman',                  name: 'Bandsman',                   cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Bandsman.png' },
-  { id: 'bb_buglers',                   name: 'Buglers',                    cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Buglers.png' },
-  { id: 'bb10',                         name: 'Camping',                    cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Camping.png' },
-  { id: 'bb_citizenship',               name: 'Citizenship',                cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Citizenship.png' },
-  { id: 'bb_communications',            name: 'Communications',             cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Communications.png' },
-  { id: 'bb9',                          name: 'Community Service',          cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Community%20Service.png' },
-  { id: 'bb_computer_knowledge',        name: 'Computer Knowledge',         cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Computer%20Knowledge.png' },
-  { id: 'bb_crafts',                    name: 'Crafts',                     cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Crafts.png' },
-  { id: 'bb_drummers',                  name: 'Drummers',                   cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Drummers.png' },
-  { id: 'bb_environmental_conservation', name: 'Environmental Conservation', cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Enviromental%20Conservation.png' },
-  { id: 'bb11',                         name: 'Expedition',                 cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Expedition.png' },
-  { id: 'bb_financial_stewardship',     name: 'Financial Stewardship',      cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Financial%20Stewardship.png' },
-  { id: 'bb5',                          name: 'Fire and Rescue',            cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Fire%20and%20Rescue.png' },
-  { id: 'bb4',                          name: 'First Aid',                  cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/First%20Aid.png' },
-  { id: 'bb_gymnastics',                name: 'Gymnastics',                 cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Gymnastics.png' },
-  { id: 'bb_hobbies',                   name: 'Hobbies',                    cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Hobbies.png' },
-  { id: 'bb_international_relations',   name: 'International Relations',    cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/International%20Relations.png' },
-  { id: 'bb_life_saving',               name: 'Life Saving',                cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Life%20Saving.png' },
-  { id: 'bb_nature_awareness',          name: 'Nature Awareness',           cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Nature%20Awareness.png' },
-  { id: 'bb_physical_training',         name: 'Physical Training',          cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Physical%20Training.png' },
-  { id: 'bb_safety',                    name: 'Safety',                     cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Safety.png' },
-  { id: 'bb_social_entrepreneurship',   name: 'Social Entrepreneurship',    cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Social%20Entreprenuership.png' },
-  { id: 'bb_sports',                    name: 'Sports',                     cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Sports.png' },
-  { id: 'bb_sustainability',            name: 'Sustainability',             cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Sustainability.png' },
-  { id: 'bb12',                         name: 'Swimming',                   cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Swimming.png' },
-  { id: 'bb_water_adventure',           name: 'Water Adventure',            cat: 'Proficiency Awards', hasAdvanced: true, tier: 'both', image: 'assets/BB%20Badges/Water%20Adventure.png' },
+  {
+    id: 'bb_arts',
+    name: 'Arts',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Arts.png'
+  },
+  {
+    id: 'bb_athletics',
+    name: 'Athletics',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Athletics.png'
+  },
+  {
+    id: 'bb_bandsman',
+    name: 'Bandsman',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Bandsman.png'
+  },
+  {
+    id: 'bb_buglers',
+    name: 'Buglers',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Buglers.png'
+  },
+  {
+    id: 'bb10',
+    name: 'Camping',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Camping.png'
+  },
+  {
+    id: 'bb_citizenship',
+    name: 'Citizenship',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Citizenship.png'
+  },
+  {
+    id: 'bb_communications',
+    name: 'Communications',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Communications.png'
+  },
+  {
+    id: 'bb9',
+    name: 'Community Service',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Community%20Service.png'
+  },
+  {
+    id: 'bb_computer_knowledge',
+    name: 'Computer Knowledge',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Computer%20Knowledge.png'
+  },
+  {
+    id: 'bb_crafts',
+    name: 'Crafts',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Crafts.png'
+  },
+  {
+    id: 'bb_drummers',
+    name: 'Drummers',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Drummers.png'
+  },
+  {
+    id: 'bb_environmental_conservation',
+    name: 'Environmental Conservation',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Enviromental%20Conservation.png'
+  },
+  {
+    id: 'bb11',
+    name: 'Expedition',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Expedition.png'
+  },
+  {
+    id: 'bb_financial_stewardship',
+    name: 'Financial Stewardship',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Financial%20Stewardship.png'
+  },
+  {
+    id: 'bb5',
+    name: 'Fire and Rescue',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Fire%20and%20Rescue.png'
+  },
+  {
+    id: 'bb4',
+    name: 'First Aid',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/First%20Aid.png'
+  },
+  {
+    id: 'bb_gymnastics',
+    name: 'Gymnastics',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Gymnastics.png'
+  },
+  {
+    id: 'bb_hobbies',
+    name: 'Hobbies',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Hobbies.png'
+  },
+  {
+    id: 'bb_international_relations',
+    name: 'International Relations',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/International%20Relations.png'
+  },
+  {
+    id: 'bb_life_saving',
+    name: 'Life Saving',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Life%20Saving.png'
+  },
+  {
+    id: 'bb_nature_awareness',
+    name: 'Nature Awareness',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Nature%20Awareness.png'
+  },
+  {
+    id: 'bb_physical_training',
+    name: 'Physical Training',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Physical%20Training.png'
+  },
+  {
+    id: 'bb_safety',
+    name: 'Safety',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Safety.png'
+  },
+  {
+    id: 'bb_social_entrepreneurship',
+    name: 'Social Entrepreneurship',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Social%20Entreprenuership.png'
+  },
+  {
+    id: 'bb_sports',
+    name: 'Sports',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Sports.png'
+  },
+  {
+    id: 'bb_sustainability',
+    name: 'Sustainability',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Sustainability.png'
+  },
+  {
+    id: 'bb12',
+    name: 'Swimming',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Swimming.png'
+  },
+  {
+    id: 'bb_water_adventure',
+    name: 'Water Adventure',
+    cat: 'Proficiency Awards',
+    hasAdvanced: true,
+    tier: 'both',
+    image: 'assets/BB%20Badges/Water%20Adventure.png'
+  },
 
   // ── Service Awards (2 badges) ─────────────────────────────────────────────
-  { id: 'bb_3year_service',             name: 'Three Year Service Badge',   cat: 'Service Awards',     hasAdvanced: false, tier: 'none', image: 'assets/BB%20Badges/Three%20Year%20Service%20Badge.png' },
-  { id: 'bb_long_year_service',         name: 'Long Year Service',          cat: 'Service Awards',     hasAdvanced: false, tier: 'none', image: 'assets/BB%20Badges/Long%20Year%20Service.png', repeatable: true },
+  {
+    id: 'bb_3year_service',
+    name: 'Three Year Service Badge',
+    cat: 'Service Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: 'assets/BB%20Badges/Three%20Year%20Service%20Badge.png'
+  },
+  {
+    id: 'bb_long_year_service',
+    name: 'Long Year Service',
+    cat: 'Service Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: 'assets/BB%20Badges/Long%20Year%20Service.png',
+    repeatable: true
+  },
 
   // ── Special Awards (6 badges) ─────────────────────────────────────────────
-  { id: 'bb2',                          name: "BB Founder's Award",         cat: 'Special Awards',     hasAdvanced: false, tier: 'none', image: "assets/BB%20Badges/Founder's%20Award.png" },
-  { id: 'bb3',                          name: "President's Award",          cat: 'Special Awards',     hasAdvanced: false, tier: 'none', image: "assets/BB%20Badges/President's%20Award.png" },
-  { id: 'bb_gold_award',                name: 'Gold Award',                 cat: 'Special Awards',     hasAdvanced: false, tier: 'none', image: 'assets/BB%20Badges/Gold%20Award.png' },
-  { id: 'bb_bronze_scholastic',         name: 'Bronze Scholastic',          cat: 'Special Awards',     hasAdvanced: false, tier: 'none', image: 'assets/BB%20Badges/Bronze%20Scholastic.png' },
-  { id: 'bb_silver_scholastic',         name: 'Silver Scholastic',          cat: 'Special Awards',     hasAdvanced: false, tier: 'none', image: 'assets/BB%20Badges/Silver%20Scholastic.png' },
-  { id: 'bb_gold_scholastic',           name: 'Gold Scholastic',            cat: 'Special Awards',     hasAdvanced: false, tier: 'none', image: 'assets/BB%20Badges/Gold%20Scholastic.png' }
+  {
+    id: 'bb2',
+    name: "BB Founder's Award",
+    cat: 'Special Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: "assets/BB%20Badges/Founder's%20Award.png"
+  },
+  {
+    id: 'bb3',
+    name: "President's Award",
+    cat: 'Special Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: "assets/BB%20Badges/President's%20Award.png"
+  },
+  {
+    id: 'bb_gold_award',
+    name: 'Gold Award',
+    cat: 'Special Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: 'assets/BB%20Badges/Gold%20Award.png'
+  },
+  {
+    id: 'bb_bronze_scholastic',
+    name: 'Bronze Scholastic',
+    cat: 'Special Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: 'assets/BB%20Badges/Bronze%20Scholastic.png'
+  },
+  {
+    id: 'bb_silver_scholastic',
+    name: 'Silver Scholastic',
+    cat: 'Special Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: 'assets/BB%20Badges/Silver%20Scholastic.png'
+  },
+  {
+    id: 'bb_gold_scholastic',
+    name: 'Gold Scholastic',
+    cat: 'Special Awards',
+    hasAdvanced: false,
+    tier: 'none',
+    image: 'assets/BB%20Badges/Gold%20Scholastic.png'
+  }
 ];
 
 // ── Default President's & Founder's Requirements ─────────────────────────────
 var DEFAULT_PRESIDENTS_REQS = [
-  { label: 'First Aid (Advanced)',        badgeMatch: 'First Aid',         tier: 'advanced' },
-  { label: 'Leadership / NCO (Advanced)', badgeMatch: 'NCO',              tier: 'advanced' },
-  { label: 'Camping (Advanced)',          badgeMatch: 'Camping',           tier: 'advanced' },
-  { label: 'Swimming (any level)',        badgeMatch: 'Swimming',          tier: 'any'      },
-  { label: 'Drill (any level)',           badgeMatch: 'Drill',             tier: 'any'      },
-  { label: 'Community Service',           badgeMatch: 'Community Service', tier: 'any'      },
-  { label: 'Fire Safety / Rescue',        badgeMatch: 'Fire',              tier: 'any'      }
+  { label: 'First Aid (Advanced)', badgeMatch: 'First Aid', tier: 'advanced' },
+  { label: 'Leadership / NCO (Advanced)', badgeMatch: 'NCO', tier: 'advanced' },
+  { label: 'Camping (Advanced)', badgeMatch: 'Camping', tier: 'advanced' },
+  { label: 'Swimming (any level)', badgeMatch: 'Swimming', tier: 'any' },
+  { label: 'Drill (any level)', badgeMatch: 'Drill', tier: 'any' },
+  { label: 'Community Service', badgeMatch: 'Community Service', tier: 'any' },
+  { label: 'Fire Safety / Rescue', badgeMatch: 'Fire', tier: 'any' }
 ];
 
 var DEFAULT_FOUNDERS_REQS = [
-  { id: 'service',     label: '3 Years of Service', minYears: 3 },
-  { id: 'total6',      label: 'At least 6 awards total (all groups)', minAwards: 6 },
+  { id: 'service', label: '3 Years of Service', minYears: 3 },
+  { id: 'total6', label: 'At least 6 awards total (all groups)', minAwards: 6 },
   { id: 'onepergroup', label: 'At least 1 award from each group', minGroups: 4 },
-  { id: 'basic2',      label: 'At least 2 awards at Basic level', minBasic: 2 },
-  { id: 'adv4',        label: 'At least 4 awards at Advanced level', minAdv: 4 },
-  { id: 'compulsory',  label: 'All compulsory badges (NCO Star, Christian Education, Drill, Recruitment)' }
+  { id: 'basic2', label: 'At least 2 awards at Basic level', minBasic: 2 },
+  { id: 'adv4', label: 'At least 4 awards at Advanced level', minAdv: 4 },
+  {
+    id: 'compulsory',
+    label: 'All compulsory badges (NCO Star, Christian Education, Drill, Recruitment)'
+  }
 ];
 
 // In-memory caches to eliminate N+1 network waterfalls
@@ -85,7 +376,9 @@ var _badgeDefsCache = null;
 var _memberBadgesCache = {};
 var _deletedBadgesCache = null;
 var PRESIDENTS_REQS = DEFAULT_PRESIDENTS_REQS;
-var _badgesDisplayMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('bb_badges_display_mode') : null) || 'grid';
+var _badgesDisplayMode =
+  (typeof localStorage !== 'undefined' ? localStorage.getItem('bb_badges_display_mode') : null) ||
+  'grid';
 var _badgesActiveCategory = 'all';
 var _badgeDeletionPending = false;
 
@@ -107,8 +400,10 @@ function safeMigrateEntry(raw) {
     return window.migrateEntry(raw);
   }
   if (!raw) return { basic: false, basicDate: '', advanced: false, advancedDate: '' };
-  if (typeof raw === 'boolean') return { basic: raw, basicDate: '', advanced: false, advancedDate: '' };
-  if (typeof raw === 'string') return { basic: true, basicDate: raw, advanced: false, advancedDate: '' };
+  if (typeof raw === 'boolean')
+    return { basic: raw, basicDate: '', advanced: false, advancedDate: '' };
+  if (typeof raw === 'string')
+    return { basic: true, basicDate: raw, advanced: false, advancedDate: '' };
   return {
     basic: !!raw.basic,
     basicDate: raw.basicDate || '',
@@ -130,13 +425,13 @@ function getBadgesDisplayMode() {
  * @param {string} mode
  */
 function setBadgesDisplayMode(mode) {
-  _badgesDisplayMode = (mode === 'list') ? 'list' : 'grid';
+  _badgesDisplayMode = mode === 'list' ? 'list' : 'grid';
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('bb_badges_display_mode', _badgesDisplayMode);
     }
   } catch (_) {}
-  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var ic = typeof sessionGet === 'function' ? sessionGet('ic') : '';
   if (ic) {
     loadBadges(ic);
   }
@@ -148,7 +443,7 @@ function setBadgesDisplayMode(mode) {
  */
 function filterBadgesByCategory(cat) {
   _badgesActiveCategory = cat || 'all';
-  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
+  var ic = typeof sessionGet === 'function' ? sessionGet('ic') : '';
   if (ic) {
     loadBadges(ic);
   }
@@ -159,14 +454,14 @@ function filterBadgesByCategory(cat) {
  */
 function checkBadgesAccess() {
   if (typeof document === 'undefined') return;
-  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : '';
-  var gate     = document.getElementById('badges-gate');
+  var ic = typeof sessionGet === 'function' ? sessionGet('ic') : '';
+  var gate = document.getElementById('badges-gate');
   var loggedIn = document.getElementById('badges-logged-in');
   if (!ic) {
-    if (gate)     gate.style.display = 'block';
+    if (gate) gate.style.display = 'block';
     if (loggedIn) loggedIn.style.display = 'none';
   } else {
-    if (gate)     gate.style.display = 'none';
+    if (gate) gate.style.display = 'none';
     if (loggedIn) loggedIn.style.display = 'block';
     loadBadges(ic);
     renderPresidentsTracker(ic);
@@ -182,10 +477,16 @@ function checkBadgesAccess() {
 function isBadgeDeleted(b, deletedList) {
   var list = deletedList || _deletedBadgesCache || [];
   if (!b || !list || !list.length) return false;
-  var bId = String(b.id || '').toLowerCase().trim();
-  var bName = String(b.name || '').toLowerCase().trim();
-  return list.some(function(d) {
-    var dNorm = String(d || '').toLowerCase().trim();
+  var bId = String(b.id || '')
+    .toLowerCase()
+    .trim();
+  var bName = String(b.name || '')
+    .toLowerCase()
+    .trim();
+  return list.some(function (d) {
+    var dNorm = String(d || '')
+      .toLowerCase()
+      .trim();
     if (!dNorm) return false;
     return (bId && dNorm === bId) || (bName && dNorm === bName);
   });
@@ -212,7 +513,9 @@ async function getDeletedBadges(force) {
   var client = getSupaClient();
   if (client) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_deleted_badges&select=value', { cache: !force });
+      var rows = await client.get('bb_config?key=eq.bb_deleted_badges&select=value', {
+        cache: !force
+      });
       if (rows && rows.length && rows[0].value) {
         var parsedRemote = JSON.parse(rows[0].value);
         if (Array.isArray(parsedRemote)) {
@@ -237,10 +540,12 @@ async function getDeletedBadges(force) {
  */
 async function saveDeletedBadges(deletedList) {
   var next = Array.isArray(deletedList) ? deletedList : [];
-  if (!await writeBadgeConfig('bb_deleted_badges', next)) return false;
+  if (!(await writeBadgeConfig('bb_deleted_badges', next))) return false;
   _deletedBadgesCache = next;
   _badgeDefsCache = null;
-  try { localStorage.setItem('bb_deleted_badges', JSON.stringify(next)); } catch (_) {}
+  try {
+    localStorage.setItem('bb_deleted_badges', JSON.stringify(next));
+  } catch (_) {}
   return true;
 }
 
@@ -257,7 +562,7 @@ async function recordBadgeDeletion(badgeOrBadges) {
     var currentDeleted = (await getDeletedBadges(true)).slice();
     var changed = false;
 
-    list.forEach(function(b) {
+    list.forEach(function (b) {
       if (!b) return;
       var id = (typeof b === 'object' ? b.id : b) || '';
       var name = (typeof b === 'object' ? b.name : '') || '';
@@ -275,8 +580,11 @@ async function recordBadgeDeletion(badgeOrBadges) {
           changed = true;
         }
       }
-      var def = DEFAULT_BB_BADGES.find(function(d) {
-        return (id && d.id && d.id.toLowerCase() === id.toLowerCase()) || (name && d.name && d.name.toLowerCase() === name.toLowerCase());
+      var def = DEFAULT_BB_BADGES.find(function (d) {
+        return (
+          (id && d.id && d.id.toLowerCase() === id.toLowerCase()) ||
+          (name && d.name && d.name.toLowerCase() === name.toLowerCase())
+        );
       });
       if (def) {
         if (def.id && currentDeleted.indexOf(def.id.toLowerCase()) === -1) {
@@ -291,7 +599,7 @@ async function recordBadgeDeletion(badgeOrBadges) {
     });
 
     if (changed) {
-      if (!await saveDeletedBadges(currentDeleted)) return null;
+      if (!(await saveDeletedBadges(currentDeleted))) return null;
     }
     return currentDeleted;
   } finally {
@@ -307,7 +615,7 @@ async function unrecordBadgeDeletion(badgeNameOrId) {
   if (!badgeNameOrId) return;
   var target = String(badgeNameOrId).toLowerCase().trim();
   var currentDeleted = (await getDeletedBadges()).slice();
-  var matchingDef = DEFAULT_BB_BADGES.find(function(d) {
+  var matchingDef = DEFAULT_BB_BADGES.find(function (d) {
     return (d.id && d.id.toLowerCase() === target) || (d.name && d.name.toLowerCase() === target);
   });
   var toRemove = [target];
@@ -315,11 +623,13 @@ async function unrecordBadgeDeletion(badgeNameOrId) {
     if (matchingDef.id) toRemove.push(matchingDef.id.toLowerCase());
     if (matchingDef.name) toRemove.push(matchingDef.name.toLowerCase());
   }
-  var filtered = currentDeleted.filter(function(x) {
-    var xNorm = String(x || '').toLowerCase().trim();
+  var filtered = currentDeleted.filter(function (x) {
+    var xNorm = String(x || '')
+      .toLowerCase()
+      .trim();
     return toRemove.indexOf(xNorm) === -1;
   });
-  return filtered.length === currentDeleted.length || await saveDeletedBadges(filtered);
+  return filtered.length === currentDeleted.length || (await saveDeletedBadges(filtered));
 }
 
 /**
@@ -331,27 +641,31 @@ async function unrecordBadgeDeletion(badgeNameOrId) {
 function enrichBadgeCatalog(remoteDefs, deletedBadges) {
   var deletedList = deletedBadges || _deletedBadgesCache || [];
   if (!Array.isArray(remoteDefs) || !remoteDefs.length) {
-    return DEFAULT_BB_BADGES.filter(function(def) {
+    return DEFAULT_BB_BADGES.filter(function (def) {
       return !isBadgeDeleted(def, deletedList);
-    }).map(function(def) { return Object.assign({}, def); });
+    }).map(function (def) {
+      return Object.assign({}, def);
+    });
   }
   var map = new Map();
-  DEFAULT_BB_BADGES.forEach(function(d) {
+  DEFAULT_BB_BADGES.forEach(function (d) {
     map.set(d.id, d);
     if (d.name) map.set(d.name.toLowerCase(), d);
   });
 
-  var enriched = remoteDefs.filter(function(b) {
-    return b && b.id && !isBadgeDeleted(b, deletedList);
-  }).map(function(b) {
-    var def = map.get(b.id) || map.get(String(b.name || '').toLowerCase());
-    return Object.assign({}, def, b);
-  });
+  var enriched = remoteDefs
+    .filter(function (b) {
+      return b && b.id && !isBadgeDeleted(b, deletedList);
+    })
+    .map(function (b) {
+      var def = map.get(b.id) || map.get(String(b.name || '').toLowerCase());
+      return Object.assign({}, def, b);
+    });
 
   // Ensure any official badges missing from remote config are included ONLY if NOT explicitly deleted
-  DEFAULT_BB_BADGES.forEach(function(def) {
+  DEFAULT_BB_BADGES.forEach(function (def) {
     if (isBadgeDeleted(def, deletedList)) return;
-    var exists = enriched.some(function(b) {
+    var exists = enriched.some(function (b) {
       return b.id === def.id || (b.name && b.name.toLowerCase() === def.name.toLowerCase());
     });
     if (!exists) {
@@ -399,9 +713,11 @@ async function getBadgeDefs(force) {
     }
   } catch (_) {}
 
-  _badgeDefsCache = DEFAULT_BB_BADGES.filter(function(def) {
+  _badgeDefsCache = DEFAULT_BB_BADGES.filter(function (def) {
     return !isBadgeDeleted(def, deletedList);
-  }).map(function(def) { return Object.assign({}, def); });
+  }).map(function (def) {
+    return Object.assign({}, def);
+  });
   return _badgeDefsCache;
 }
 
@@ -424,9 +740,11 @@ async function writeBadgeConfig(key, value) {
  * @param {Array} defs
  */
 async function saveBadgeDefs(defs) {
-  if (!await writeBadgeConfig('bb_badge_defs', defs)) return false;
+  if (!(await writeBadgeConfig('bb_badge_defs', defs))) return false;
   _badgeDefsCache = defs;
-  try { localStorage.setItem('bb_badge_defs', JSON.stringify(defs)); } catch (_) {}
+  try {
+    localStorage.setItem('bb_badge_defs', JSON.stringify(defs));
+  } catch (_) {}
   return true;
 }
 
@@ -438,11 +756,15 @@ async function saveBadgeDefs(defs) {
 async function deleteBadgeDef(id) {
   if (!id) return await getBadgeDefs();
   var currentDefs = await getBadgeDefs();
-  var badge = currentDefs.find(function(b) { return b.id === id; });
+  var badge = currentDefs.find(function (b) {
+    return b.id === id;
+  });
   if (!badge) return currentDefs;
 
-  if (!await recordBadgeDeletion(badge)) return currentDefs;
-  var updatedDefs = currentDefs.filter(function(b) { return b.id !== id; });
+  if (!(await recordBadgeDeletion(badge))) return currentDefs;
+  var updatedDefs = currentDefs.filter(function (b) {
+    return b.id !== id;
+  });
   _badgeDefsCache = updatedDefs;
 
   if (typeof logAuditEvent === 'function') {
@@ -458,9 +780,12 @@ async function deleteBadgeDef(id) {
   // Clean up President's Award requirements if referenced
   try {
     var reqs = await getPresidentsReqs();
-    var cleanedReqs = reqs.filter(function(r) {
+    var cleanedReqs = reqs.filter(function (r) {
       var match = (r.badgeMatch || '').toLowerCase().trim();
-      return match !== (badge.name || '').toLowerCase().trim() && match !== (badge.id || '').toLowerCase().trim();
+      return (
+        match !== (badge.name || '').toLowerCase().trim() &&
+        match !== (badge.id || '').toLowerCase().trim()
+      );
     });
     if (cleanedReqs.length !== reqs.length) {
       await savePresidentsReqs(cleanedReqs);
@@ -478,11 +803,15 @@ async function deleteBadgeDef(id) {
 async function deleteBadgeSection(cat) {
   if (!cat) return await getBadgeDefs();
   var currentDefs = await getBadgeDefs();
-  var badgesInCat = currentDefs.filter(function(b) { return b.cat === cat; });
+  var badgesInCat = currentDefs.filter(function (b) {
+    return b.cat === cat;
+  });
   if (badgesInCat.length) {
-    if (!await recordBadgeDeletion(badgesInCat)) return currentDefs;
+    if (!(await recordBadgeDeletion(badgesInCat))) return currentDefs;
   }
-  var updatedDefs = currentDefs.filter(function(b) { return b.cat !== cat; });
+  var updatedDefs = currentDefs.filter(function (b) {
+    return b.cat !== cat;
+  });
   _badgeDefsCache = updatedDefs;
   return updatedDefs;
 }
@@ -504,7 +833,9 @@ async function getPresidentsReqs() {
       // Fallback to default
     }
   }
-  return DEFAULT_PRESIDENTS_REQS.map(function(req) { return Object.assign({}, req); });
+  return DEFAULT_PRESIDENTS_REQS.map(function (req) {
+    return Object.assign({}, req);
+  });
 }
 
 /**
@@ -525,11 +856,15 @@ var _isSavingBadges = false;
 async function upsertMemberBadges(ic, saved) {
   if (!ic) return false;
   if (!_memberBadgesCache) _memberBadgesCache = {};
-  var prevSaved = _memberBadgesCache[ic] ? JSON.parse(JSON.stringify(_memberBadgesCache[ic])) : null;
+  var prevSaved = _memberBadgesCache[ic]
+    ? JSON.parse(JSON.stringify(_memberBadgesCache[ic]))
+    : null;
   var client = getSupaClient();
   try {
     if (!client) throw new Error('Database client unavailable');
-    var existing = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=id');
+    var existing = await client.get(
+      'bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=id'
+    );
     if (existing && existing.length) {
       await client.patch('bb_member_badges?ic=eq.' + encodeURIComponent(ic), {
         badge_data: JSON.stringify(saved),
@@ -567,7 +902,7 @@ function evaluateFoundersCriteria(saved, defs) {
 
   // 1. Service years count
   var serviceYears = 0;
-  defs.forEach(function(b) {
+  defs.forEach(function (b) {
     if (!b.repeatable || (b.cat !== 'Service Awards' && !/service/i.test(b.name))) return;
     var repData = saved[b.id + '_rep'];
     if (repData && Number.isFinite(Number(repData.count))) {
@@ -577,36 +912,59 @@ function evaluateFoundersCriteria(saved, defs) {
       if (old.basic || old.advanced) serviceYears++;
     }
   });
-  if (defs.some(function(badge) { return badge.id === 'bb_3year_service'; }) &&
-      (safeMigrateEntry(saved.bb_3year_service).basic || safeMigrateEntry(saved.bb_3year_service).advanced)) {
+  if (
+    defs.some(function (badge) {
+      return badge.id === 'bb_3year_service';
+    }) &&
+    (safeMigrateEntry(saved.bb_3year_service).basic ||
+      safeMigrateEntry(saved.bb_3year_service).advanced)
+  ) {
     serviceYears = Math.max(serviceYears, 3);
   }
 
   // 2. Discover award groups
   var cats = [];
-  defs.forEach(function(b) {
+  defs.forEach(function (b) {
     if (cats.indexOf(b.cat) === -1) cats.push(b.cat);
   });
 
   function findGroupCat(letter) {
-    return cats.find(function(c) {
-      return c.toLowerCase().replace(/[^a-z]/g, '').indexOf('group' + letter.toLowerCase()) !== -1;
-    }) || null;
+    return (
+      cats.find(function (c) {
+        return (
+          c
+            .toLowerCase()
+            .replace(/[^a-z]/g, '')
+            .indexOf('group' + letter.toLowerCase()) !== -1
+        );
+      }) || null
+    );
   }
 
   var groupLetters = ['a', 'b', 'c', 'd'];
   var groups = [];
-  groupLetters.forEach(function(letter) {
+  groupLetters.forEach(function (letter) {
     var catName = findGroupCat(letter);
     var items = defs
-      .filter(function(b) { return (catName ? b.cat === catName : getBadgeGroup(b) === letter.toUpperCase()) &&
-        b.name !== '(Add badges below)' && !b.repeatable && !['Special Awards', 'Service Awards'].includes(b.cat); })
-      .map(function(b) {
+      .filter(function (b) {
+        return (
+          (catName ? b.cat === catName : getBadgeGroup(b) === letter.toUpperCase()) &&
+          b.name !== '(Add badges below)' &&
+          !b.repeatable &&
+          !['Special Awards', 'Service Awards'].includes(b.cat)
+        );
+      })
+      .map(function (b) {
         var entry = safeMigrateEntry(saved[b.id]);
         return { badge: b, entry: entry };
       });
     if (items.length) {
-      var colorMap = { a: 'var(--blue)', b: 'var(--green)', c: 'var(--accent)', d: 'var(--purple)' };
+      var colorMap = {
+        a: 'var(--blue)',
+        b: 'var(--green)',
+        c: 'var(--accent)',
+        d: 'var(--purple)'
+      };
       groups.push({
         label: 'Group ' + letter.toUpperCase(),
         catName: catName || 'Group ' + letter.toUpperCase(),
@@ -621,9 +979,13 @@ function evaluateFoundersCriteria(saved, defs) {
   var totalAdvanced = 0;
   var atLeastOnePerGroup = groups.length > 0;
 
-  var groupResults = groups.map(function(g) {
-    var awarded = g.items.filter(function(i) { return i.entry.basic || i.entry.advanced; }).length;
-    var advanced = g.items.filter(function(i) { return i.entry.advanced; }).length;
+  var groupResults = groups.map(function (g) {
+    var awarded = g.items.filter(function (i) {
+      return i.entry.basic || i.entry.advanced;
+    }).length;
+    var advanced = g.items.filter(function (i) {
+      return i.entry.advanced;
+    }).length;
     if (awarded === 0) atLeastOnePerGroup = false;
     totalAwarded += awarded;
     totalAdvanced += advanced;
@@ -642,25 +1004,39 @@ function evaluateFoundersCriteria(saved, defs) {
   // 4. Compulsory badges
   var COMPULSORY = [
     { label: 'NCO Star', badgeMatch: 'NCO Star', tier: 'any' },
-    { label: 'Christian Education (Advanced)', badgeMatch: 'Christian Education', tier: 'advanced' },
+    {
+      label: 'Christian Education (Advanced)',
+      badgeMatch: 'Christian Education',
+      tier: 'advanced'
+    },
     { label: 'Drill (Advanced)', badgeMatch: 'Drill', tier: 'advanced' },
     { label: 'Recruitment (Basic)', badgeMatch: 'Recruitment', tier: 'basic' }
   ];
 
-  var compResults = COMPULSORY.map(function(c) {
-    var badge = defs.find(function(b) {
-      return !b.repeatable && (String(b.name || '').toLowerCase().includes(c.badgeMatch.toLowerCase()) ||
-        (c.badgeMatch === 'NCO Star' && b.id === 'bb8'));
+  var compResults = COMPULSORY.map(function (c) {
+    var badge = defs.find(function (b) {
+      return (
+        !b.repeatable &&
+        (String(b.name || '')
+          .toLowerCase()
+          .includes(c.badgeMatch.toLowerCase()) ||
+          (c.badgeMatch === 'NCO Star' && b.id === 'bb8'))
+      );
     });
     if (!badge) return { label: c.label, done: false, missing: true };
     var entry = safeMigrateEntry(saved[badge.id]);
-    var done = c.tier === 'advanced' ? entry.advanced
-             : c.tier === 'basic' ? (entry.basic || entry.advanced)
-             : (entry.basic || entry.advanced);
+    var done =
+      c.tier === 'advanced'
+        ? entry.advanced
+        : c.tier === 'basic'
+          ? entry.basic || entry.advanced
+          : entry.basic || entry.advanced;
     return { label: c.label, done: done, missing: false };
   });
 
-  var allCompDone = compResults.every(function(r) { return r.done; });
+  var allCompDone = compResults.every(function (r) {
+    return r.done;
+  });
 
   // 5. Checklist rules
   var reqs = [
@@ -681,9 +1057,22 @@ function evaluateFoundersCriteria(saved, defs) {
     {
       id: 'onepergroup',
       label: 'At least 1 award from each group',
-      detail: groups.length === 0 ? 'No groups found' : groupResults.map(function(g) { return g.label + ': ' + g.awarded; }).join(' \u00b7 '),
+      detail:
+        groups.length === 0
+          ? 'No groups found'
+          : groupResults
+              .map(function (g) {
+                return g.label + ': ' + g.awarded;
+              })
+              .join(' \u00b7 '),
       done: atLeastOnePerGroup && groups.length >= 4,
-      pct: Math.round((groupResults.filter(function(g) { return g.awarded > 0; }).length / 4) * 100)
+      pct: Math.round(
+        (groupResults.filter(function (g) {
+          return g.awarded > 0;
+        }).length /
+          4) *
+          100
+      )
     },
     {
       id: 'basic2',
@@ -702,14 +1091,28 @@ function evaluateFoundersCriteria(saved, defs) {
     {
       id: 'compulsory',
       label: 'All compulsory badges',
-      detail: compResults.filter(function(r) { return r.done; }).length + ' / ' + compResults.length + ' compulsory badges',
+      detail:
+        compResults.filter(function (r) {
+          return r.done;
+        }).length +
+        ' / ' +
+        compResults.length +
+        ' compulsory badges',
       done: allCompDone,
-      pct: Math.round((compResults.filter(function(r) { return r.done; }).length / compResults.length) * 100),
+      pct: Math.round(
+        (compResults.filter(function (r) {
+          return r.done;
+        }).length /
+          compResults.length) *
+          100
+      ),
       sub: compResults
     }
   ];
 
-  var metCount = reqs.filter(function(r) { return r.done; }).length;
+  var metCount = reqs.filter(function (r) {
+    return r.done;
+  }).length;
   var allDone = metCount === reqs.length && allCompDone;
   var overallPct = Math.round((metCount / reqs.length) * 100);
 
@@ -790,9 +1193,20 @@ function getBadgeGroup(b) {
   }
   // 4. Known badge name keywords
   var nm = (b.name || '').toLowerCase();
-  if (/citizenship|international\s*relations|social\s*entrep|financial\s*stew/i.test(nm)) return 'A';
-  if (/communications|community\s*service|computer|environmental|fire|first\s*aid|safety|sustainability/i.test(nm)) return 'B';
-  if (/athletics|camping|expedition|gymnastics|life\s*saving|nature\s*awareness|physical\s*training|sports|swimming|water\s*adventure/i.test(nm)) return 'C';
+  if (/citizenship|international\s*relations|social\s*entrep|financial\s*stew/i.test(nm))
+    return 'A';
+  if (
+    /communications|community\s*service|computer|environmental|fire|first\s*aid|safety|sustainability/i.test(
+      nm
+    )
+  )
+    return 'B';
+  if (
+    /athletics|camping|expedition|gymnastics|life\s*saving|nature\s*awareness|physical\s*training|sports|swimming|water\s*adventure/i.test(
+      nm
+    )
+  )
+    return 'C';
   if (/arts|bandsman|bugler|craft|drummer|hobbies/i.test(nm)) return 'D';
   return null;
 }
@@ -822,7 +1236,7 @@ function evaluatePresidentsCriteria(saved, defs) {
   var serviceYears = 0;
   var has3YearBadge = false;
 
-  defs.forEach(function(b) {
+  defs.forEach(function (b) {
     if (b.repeatable && (b.cat === 'Service Awards' || /service/i.test(b.name))) {
       var repData = saved[b.id + '_rep'];
       if (repData && Number.isFinite(Number(repData.count))) {
@@ -832,7 +1246,10 @@ function evaluatePresidentsCriteria(saved, defs) {
         if (old.basic || old.advanced) serviceYears++;
       }
     }
-    if (b.id === 'bb_3year_service' || (b.name && b.name.toLowerCase().indexOf('three year service') !== -1)) {
+    if (
+      b.id === 'bb_3year_service' ||
+      (b.name && b.name.toLowerCase().indexOf('three year service') !== -1)
+    ) {
       var sEntry = safeMigrateEntry(saved[b.id]);
       if (sEntry.basic || sEntry.advanced) {
         has3YearBadge = true;
@@ -857,58 +1274,90 @@ function evaluatePresidentsCriteria(saved, defs) {
 
   // 2. Compulsory Awards Check (5 sub-requirements)
   function findBadgeByPattern(regex, excludeRepeatable) {
-    return defs.find(function(b) {
-      if (excludeRepeatable && b.repeatable) return false;
-      return regex.test(b.id || '') || regex.test(b.name || '');
-    }) || null;
+    return (
+      defs.find(function (b) {
+        if (excludeRepeatable && b.repeatable) return false;
+        return regex.test(b.id || '') || regex.test(b.name || '');
+      }) || null
+    );
   }
 
   var ceBadge = findBadgeByPattern(/^(bb13$|.*christian\s*education.*)/i, true);
-  var ceEntry = ceBadge ? safeMigrateEntry(saved[ceBadge.id]) : (saved.bb13 ? safeMigrateEntry(saved.bb13) : safeMigrateEntry(null));
+  var ceEntry = ceBadge
+    ? safeMigrateEntry(saved[ceBadge.id])
+    : saved.bb13
+      ? safeMigrateEntry(saved.bb13)
+      : safeMigrateEntry(null);
 
   var ncoBadge = findBadgeByPattern(/^(bb8$|.*nco.*)/i, true);
-  var ncoEntry = ncoBadge ? safeMigrateEntry(saved[ncoBadge.id]) : (saved.bb8 ? safeMigrateEntry(saved.bb8) : safeMigrateEntry(null));
+  var ncoEntry = ncoBadge
+    ? safeMigrateEntry(saved[ncoBadge.id])
+    : saved.bb8
+      ? safeMigrateEntry(saved.bb8)
+      : safeMigrateEntry(null);
 
   var drillBadge = findBadgeByPattern(/^(bb6$|.*drill.*)/i, true);
-  var drillEntry = drillBadge ? safeMigrateEntry(saved[drillBadge.id]) : (saved.bb6 ? safeMigrateEntry(saved.bb6) : safeMigrateEntry(null));
+  var drillEntry = drillBadge
+    ? safeMigrateEntry(saved[drillBadge.id])
+    : saved.bb6
+      ? safeMigrateEntry(saved.bb6)
+      : safeMigrateEntry(null);
 
   var recruitBadge = findBadgeByPattern(/^(bb_recruitment$|.*recruitment.*)/i, true);
-  var recruitEntry = recruitBadge ? safeMigrateEntry(saved[recruitBadge.id]) : (saved.bb_recruitment ? safeMigrateEntry(saved.bb_recruitment) : safeMigrateEntry(null));
+  var recruitEntry = recruitBadge
+    ? safeMigrateEntry(saved[recruitBadge.id])
+    : saved.bb_recruitment
+      ? safeMigrateEntry(saved.bb_recruitment)
+      : safeMigrateEntry(null);
 
   var compResults = [
     {
       id: 'comp_service',
       label: '3-Year Service Award',
-      detail: has3YearBadge ? 'Earned' : (serviceYears + ' / 3 years completed'),
+      detail: has3YearBadge ? 'Earned' : serviceYears + ' / 3 years completed',
       done: serviceRequirementDone
     },
     {
       id: 'comp_ce',
       label: 'Christian Education (Advanced)',
-      detail: ceEntry.advanced ? 'Advanced Earned' : (ceEntry.basic ? 'Basic Only (Needs Advanced)' : 'Not Started'),
+      detail: ceEntry.advanced
+        ? 'Advanced Earned'
+        : ceEntry.basic
+          ? 'Basic Only (Needs Advanced)'
+          : 'Not Started',
       done: !!ceEntry.advanced
     },
     {
       id: 'comp_nco',
       label: 'NCO Proficiency Star (Advanced)',
-      detail: ncoEntry.advanced ? 'Advanced Earned' : (ncoEntry.basic ? 'Basic Only (Needs Advanced)' : 'Not Started'),
+      detail: ncoEntry.advanced
+        ? 'Advanced Earned'
+        : ncoEntry.basic
+          ? 'Basic Only (Needs Advanced)'
+          : 'Not Started',
       done: !!ncoEntry.advanced
     },
     {
       id: 'comp_drill',
       label: 'Drill (Advanced)',
-      detail: drillEntry.advanced ? 'Advanced Earned' : (drillEntry.basic ? 'Basic Only (Needs Advanced)' : 'Not Started'),
+      detail: drillEntry.advanced
+        ? 'Advanced Earned'
+        : drillEntry.basic
+          ? 'Basic Only (Needs Advanced)'
+          : 'Not Started',
       done: !!drillEntry.advanced
     },
     {
       id: 'comp_recruitment',
       label: 'Recruitment (Basic)',
-      detail: (recruitEntry.basic || recruitEntry.advanced) ? 'Earned' : 'Not Started',
+      detail: recruitEntry.basic || recruitEntry.advanced ? 'Earned' : 'Not Started',
       done: !!(recruitEntry.basic || recruitEntry.advanced)
     }
   ];
 
-  var compDoneCount = compResults.filter(function(r) { return r.done; }).length;
+  var compDoneCount = compResults.filter(function (r) {
+    return r.done;
+  }).length;
   var allCompDone = compDoneCount === compResults.length;
 
   // 3. Group A, B, C, D Badge Evaluation
@@ -922,7 +1371,7 @@ function evaluatePresidentsCriteria(saved, defs) {
   var totalGroupAwarded = 0;
   var totalGroupAdvanced = 0;
 
-  defs.forEach(function(b) {
+  defs.forEach(function (b) {
     if (b.repeatable) return;
     if (b.cat === 'Special Awards' || b.cat === 'Service Awards') return;
     var group = getBadgeGroup(b);
@@ -943,7 +1392,7 @@ function evaluatePresidentsCriteria(saved, defs) {
     }
   });
 
-  var groupsWithAtLeastOne = ['A', 'B', 'C', 'D'].filter(function(g) {
+  var groupsWithAtLeastOne = ['A', 'B', 'C', 'D'].filter(function (g) {
     return groupCounts[g].awarded >= 1;
   }).length;
   var hasOnePerGroup = groupsWithAtLeastOne === 4;
@@ -974,7 +1423,15 @@ function evaluatePresidentsCriteria(saved, defs) {
       num: 3,
       label: 'At Least 1 Badge from Each Group (A, B, C & D)',
       sublabel: 'Minimum 1 award from each individual group',
-      detail: 'Group A: ' + groupCounts.A.awarded + ' · Group B: ' + groupCounts.B.awarded + ' · Group C: ' + groupCounts.C.awarded + ' · Group D: ' + groupCounts.D.awarded,
+      detail:
+        'Group A: ' +
+        groupCounts.A.awarded +
+        ' · Group B: ' +
+        groupCounts.B.awarded +
+        ' · Group C: ' +
+        groupCounts.C.awarded +
+        ' · Group D: ' +
+        groupCounts.D.awarded,
       done: hasOnePerGroup,
       pct: Math.round((groupsWithAtLeastOne / 4) * 100),
       groups: groupCounts
@@ -990,7 +1447,9 @@ function evaluatePresidentsCriteria(saved, defs) {
     }
   ];
 
-  var metCount = reqs.filter(function(r) { return r.done; }).length;
+  var metCount = reqs.filter(function (r) {
+    return r.done;
+  }).length;
   var allDone = metCount === reqs.length;
   var overallPct = Math.round((metCount / reqs.length) * 100);
 
@@ -1018,106 +1477,214 @@ function evaluatePresidentsCriteria(saved, defs) {
  */
 
 async function loadBadges(ic, preloadedSaved) {
+  var container = typeof document !== 'undefined' ? document.getElementById('badges-list') : null;
+  if (
+    container &&
+    (!container.children ||
+      container.children.length === 0 ||
+      (!preloadedSaved && (!_memberBadgesCache || !_memberBadgesCache[ic])))
+  ) {
+    container.setAttribute('aria-busy', 'true');
+    container.innerHTML =
+      typeof renderSkeletonCard === 'function'
+        ? renderSkeletonCard(4, 'badge')
+        : '<div class="skeleton-shimmer" style="height:140px;border-radius:12px;"></div>';
+  }
+
   var client = getSupaClient();
   var saved = preloadedSaved || (_memberBadgesCache && _memberBadgesCache[ic]) || null;
   if (!saved && client) {
     try {
-      var brows = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+      var brows = await client.get(
+        'bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data'
+      );
       if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
       else saved = {};
       if (!_memberBadgesCache) _memberBadgesCache = {};
       _memberBadgesCache[ic] = saved;
     } catch (e) {
-      saved = {};
+      if (container) {
+        var errMsg = (e && e.message) || 'Failed to load badges.';
+        var safeMsg = typeof escapeHtml === 'function' ? escapeHtml(errMsg) : errMsg;
+        container.innerHTML =
+          '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+          safeMsg +
+          '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+        var retryBtn = container.querySelector('.btn-retry');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', function (ev) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            loadBadges(ic);
+          });
+        }
+      }
+      return;
     }
   }
   saved = saved || {};
-  var defs = await getBadgeDefs();
-  var container = (typeof document !== 'undefined') ? document.getElementById('badges-list') : null;
+  var defs;
+  try {
+    defs = await getBadgeDefs();
+  } catch (e) {
+    if (container) {
+      var errMsgCatalog = (e && e.message) || 'Failed to load badge catalog.';
+      var safeMsgCatalog =
+        typeof escapeHtml === 'function' ? escapeHtml(errMsgCatalog) : errMsgCatalog;
+      container.innerHTML =
+        '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+        safeMsgCatalog +
+        '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+      var retryBtnCatalog = container.querySelector('.btn-retry');
+      if (retryBtnCatalog) {
+        retryBtnCatalog.addEventListener('click', function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          loadBadges(ic);
+        });
+      }
+    }
+    return;
+  }
   if (!container) return;
 
   var displayMode = getBadgesDisplayMode();
   var activeCat = _badgesActiveCategory || 'all';
 
   // 4 Primary Official Categories
-  var CATEGORIES = [
-    'Compulsory Awards',
-    'Proficiency Awards',
-    'Service Awards',
-    'Special Awards'
-  ];
-  defs = defs.filter(function(b) { return b.name !== '(Add badges below)'; });
-  CATEGORIES.push(...new Set(defs.map(function(b) { return b.cat; }).filter(function(cat) {
-    return cat && !CATEGORIES.includes(cat);
-  })));
+  var CATEGORIES = ['Compulsory Awards', 'Proficiency Awards', 'Service Awards', 'Special Awards'];
+  defs = defs.filter(function (b) {
+    return b.name !== '(Add badges below)';
+  });
+  CATEGORIES.push(
+    ...new Set(
+      defs
+        .map(function (b) {
+          return b.cat;
+        })
+        .filter(function (cat) {
+          return cat && !CATEGORIES.includes(cat);
+        })
+    )
+  );
 
   var counts = Object.create(null);
-  CATEGORIES.forEach(function(c) {
-    counts[c] = defs.filter(function(b) { return b.cat === c; }).length;
+  CATEGORIES.forEach(function (c) {
+    counts[c] = defs.filter(function (b) {
+      return b.cat === c;
+    }).length;
   });
 
   // 1. Render Top View Controls (Category Filter Chips & View Mode Toggle)
-  var html = '<div class="badges-view-header">'
-    + '<div class="badge-cat-chips-bar">'
-    +   '<button type="button" class="badge-cat-chip' + (activeCat === 'all' ? ' active' : '') + '" onclick="filterBadgesByCategory(\'all\')">All Badges (' + defs.length + ')</button>';
+  var html =
+    '<div class="badges-view-header">' +
+    '<div class="badge-cat-chips-bar">' +
+    '<button type="button" class="badge-cat-chip' +
+    (activeCat === 'all' ? ' active' : '') +
+    '" onclick="filterBadgesByCategory(\'all\')">All Badges (' +
+    defs.length +
+    ')</button>';
 
-  CATEGORIES.forEach(function(cat) {
+  CATEGORIES.forEach(function (cat) {
     var cCount = counts[cat] || 0;
     if (!cCount) return;
-    html += '<button type="button" class="badge-cat-chip' + (activeCat === cat ? ' active' : '') + '" data-badge-category="' + escapeHtml(cat) + '">' + escapeHtml(cat) + ' (' + cCount + ')</button>';
+    html +=
+      '<button type="button" class="badge-cat-chip' +
+      (activeCat === cat ? ' active' : '') +
+      '" data-badge-category="' +
+      escapeHtml(cat) +
+      '">' +
+      escapeHtml(cat) +
+      ' (' +
+      cCount +
+      ')</button>';
   });
 
-  html += '</div>'
-    + '<div class="badges-view-toggle">'
-    +   '<button type="button" class="badge-view-toggle-btn' + (displayMode === 'grid' ? ' active' : '') + '" onclick="setBadgesDisplayMode(\'grid\')" title="Grid View (Board)">'
-    +     '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>'
-    +     '<span>Grid</span>'
-    +   '</button>'
-    +   '<button type="button" class="badge-view-toggle-btn' + (displayMode === 'list' ? ' active' : '') + '" onclick="setBadgesDisplayMode(\'list\')" title="List View">'
-    +     '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>'
-    +     '<span>List</span>'
-    +   '</button>'
-    + '</div>'
-    + '</div>';
+  html +=
+    '</div>' +
+    '<div class="badges-view-toggle">' +
+    '<button type="button" class="badge-view-toggle-btn' +
+    (displayMode === 'grid' ? ' active' : '') +
+    '" onclick="setBadgesDisplayMode(\'grid\')" title="Grid View (Board)">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>' +
+    '<span>Grid</span>' +
+    '</button>' +
+    '<button type="button" class="badge-view-toggle-btn' +
+    (displayMode === 'list' ? ' active' : '') +
+    '" onclick="setBadgesDisplayMode(\'list\')" title="List View">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>' +
+    '<span>List</span>' +
+    '</button>' +
+    '</div>' +
+    '</div>';
 
   // 2. Render Categories in Sequence
-  CATEGORIES.forEach(function(cat) {
-    var catBadges = defs.filter(function(b) { return b.cat === cat && b.name !== '(Add badges below)'; });
+  CATEGORIES.forEach(function (cat) {
+    var catBadges = defs.filter(function (b) {
+      return b.cat === cat && b.name !== '(Add badges below)';
+    });
     if (!catBadges.length) return;
 
     // Proficiency awards ordered alphabetically
     if (cat === 'Proficiency Awards') {
-      catBadges.sort(function(a, b) {
+      catBadges.sort(function (a, b) {
         return (a.name || '').localeCompare(b.name || '');
       });
     }
 
-    var isCatFilteredOut = (activeCat !== 'all' && activeCat !== cat);
+    var isCatFilteredOut = activeCat !== 'all' && activeCat !== cat;
     var catDisplayStyle = isCatFilteredOut ? 'display:none;' : '';
 
-    html += '<div class="badge-cat-section" data-cat-section="' + escapeHtml(cat) + '" style="' + catDisplayStyle + '">';
-    html += '<div class="badge-cat-header" data-cat-label="1">'
-      + '<span class="badge-cat-title">' + escapeHtml(cat) + '</span>'
-      + '<span class="badge-cat-badge-count">' + catBadges.length + ' Badges' + (cat === 'Proficiency Awards' && displayMode === 'grid' ? ' &bull; 5 per row' : '') + '</span>'
-      + '</div>';
+    html +=
+      '<div class="badge-cat-section" data-cat-section="' +
+      escapeHtml(cat) +
+      '" style="' +
+      catDisplayStyle +
+      '">';
+    html +=
+      '<div class="badge-cat-header" data-cat-label="1">' +
+      '<span class="badge-cat-title">' +
+      escapeHtml(cat) +
+      '</span>' +
+      '<span class="badge-cat-badge-count">' +
+      catBadges.length +
+      ' Badges' +
+      (cat === 'Proficiency Awards' && displayMode === 'grid' ? ' &bull; 5 per row' : '') +
+      '</span>' +
+      '</div>';
 
     if (displayMode === 'grid') {
       // ── Grid View ─────────────────────────────────────────────────────────
       html += '<div class="badges-grid">';
-      catBadges.forEach(function(b) {
-        var safeBadgeImg = b.image ? ((typeof safeUrl === 'function') ? safeUrl(b.image, '') : b.image) : '';
+      catBadges.forEach(function (b) {
+        var safeBadgeImg = b.image
+          ? typeof safeUrl === 'function'
+            ? safeUrl(b.image, '')
+            : b.image
+          : '';
         var entry = safeMigrateEntry(saved[b.id]);
         var isEarned = entry.basic || entry.advanced;
         var hasAdvOption = !!b.hasAdvanced;
 
-        html += '<div class="badge-grid-card" data-badge-card="1" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-badge-name="' + escapeHtml(String(b.name || '').toLowerCase()) + '">';
+        html +=
+          '<div class="badge-grid-card" data-badge-card="1" data-badge-id="' +
+          escapeHtml(String(b.id ?? '')) +
+          '" data-badge-name="' +
+          escapeHtml(String(b.name || '').toLowerCase()) +
+          '">';
 
         // Image
         html += '<div class="badge-card-img-wrap">';
         if (safeBadgeImg) {
-          html += '<img class="badge-card-img" src="' + escapeHtml(safeBadgeImg) + '" alt="' + escapeHtml(b.name) + '" loading="lazy"/>';
+          html +=
+            '<img class="badge-card-img" src="' +
+            escapeHtml(safeBadgeImg) +
+            '" alt="' +
+            escapeHtml(b.name) +
+            '" loading="lazy"/>';
         } else {
-          html += '<div style="width:64px;height:64px;border-radius:12px;background:rgba(245,197,66,0.1);border:1px solid rgba(245,197,66,0.3);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:24px;font-weight:700;">' + (b.name ? b.name.charAt(0) : 'B') + '</div>';
+          html +=
+            '<div style="width:64px;height:64px;border-radius:12px;background:rgba(245,197,66,0.1);border:1px solid rgba(245,197,66,0.3);display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:24px;font-weight:700;">' +
+            (b.name ? b.name.charAt(0) : 'B') +
+            '</div>';
         }
         html += '</div>';
 
@@ -1129,53 +1696,122 @@ async function loadBadges(ic, preloadedSaved) {
           var repData = saved[b.id + '_rep'];
           if (!repData || typeof repData !== 'object' || Array.isArray(repData)) {
             var old = safeMigrateEntry(saved[b.id]);
-            repData = { count: (old.basic || old.advanced) ? 1 : 0, dates: old.basic ? [old.basicDate] : [] };
+            repData = {
+              count: old.basic || old.advanced ? 1 : 0,
+              dates: old.basic ? [old.basicDate] : []
+            };
           }
           var count = repData.count || 0;
           var dates = repData.dates || [];
 
           html += '<div class="badge-card-actions" style="margin-bottom:8px;">';
-          html += '<button type="button" class="badge-tier-btn" data-rep-dec="' + escapeHtml(String(b.id ?? '')) + '" data-ic="' + escapeHtml(String(ic ?? '')) + '" style="flex:0 0 34px;height:34px;border-radius:50%;font-size:18px;">&minus;</button>';
-          html += '<div style="text-align:center;min-width:44px;">'
-            + '<div style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:' + (count > 0 ? 'var(--brand-gold)' : 'var(--text-muted)') + ';line-height:1;">' + count + '</div>'
-            + '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">years</div>'
-            + '</div>';
-          html += '<button type="button" class="badge-tier-btn" data-rep-inc="' + escapeHtml(String(b.id ?? '')) + '" data-ic="' + escapeHtml(String(ic ?? '')) + '" style="flex:0 0 34px;height:34px;border-radius:50%;font-size:18px;color:var(--brand-gold);background:rgba(245,197,66,0.15);border-color:rgba(245,197,66,0.4);">+</button>';
+          html +=
+            '<button type="button" class="badge-tier-btn" data-rep-dec="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '" style="flex:0 0 34px;height:34px;border-radius:50%;font-size:18px;">&minus;</button>';
+          html +=
+            '<div style="text-align:center;min-width:44px;">' +
+            '<div style="font-family:var(--font-headline);font-size:22px;font-weight:700;color:' +
+            (count > 0 ? 'var(--brand-gold)' : 'var(--text-muted)') +
+            ';line-height:1;">' +
+            count +
+            '</div>' +
+            '<div style="font-size:9px;color:var(--text-muted);text-transform:uppercase;margin-top:2px;">years</div>' +
+            '</div>';
+          html +=
+            '<button type="button" class="badge-tier-btn" data-rep-inc="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '" style="flex:0 0 34px;height:34px;border-radius:50%;font-size:18px;color:var(--brand-gold);background:rgba(245,197,66,0.15);border-color:rgba(245,197,66,0.4);">+</button>';
           html += '</div>';
 
           if (count > 0) {
             html += '<div class="badge-card-date-wrap">';
             for (var di = 0; di < count; di++) {
-              html += '<input type="date" id="badge-rep-' + b.id + '-' + di + '" value="' + escapeHtml(String(dates[di] ?? '')) + '" class="badge-date-input" title="Year ' + (di + 1) + '" style="margin-bottom:3px;"/>';
+              html +=
+                '<input type="date" id="badge-rep-' +
+                b.id +
+                '-' +
+                di +
+                '" value="' +
+                escapeHtml(String(dates[di] ?? '')) +
+                '" class="badge-date-input" title="Year ' +
+                (di + 1) +
+                '" style="margin-bottom:3px;"/>';
             }
             html += '</div>';
           }
         } else if (hasAdvOption) {
           html += '<div class="badge-card-actions">';
-          html += '<button type="button" class="badge-tier-btn tier-basic' + (entry.basic ? ' active' : '') + '" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-tier="basic" data-ic="' + escapeHtml(String(ic ?? '')) + '">Basic' + (entry.basic ? ' &#10003;' : '') + '</button>';
-          html += '<button type="button" class="badge-tier-btn tier-advanced' + (entry.advanced ? ' active' : '') + '" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-tier="advanced" data-ic="' + escapeHtml(String(ic ?? '')) + '">Advanced' + (entry.advanced ? ' &#10003;' : '') + '</button>';
+          html +=
+            '<button type="button" class="badge-tier-btn tier-basic' +
+            (entry.basic ? ' active' : '') +
+            '" data-badge-id="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-tier="basic" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '">Basic' +
+            (entry.basic ? ' &#10003;' : '') +
+            '</button>';
+          html +=
+            '<button type="button" class="badge-tier-btn tier-advanced' +
+            (entry.advanced ? ' active' : '') +
+            '" data-badge-id="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-tier="advanced" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '">Advanced' +
+            (entry.advanced ? ' &#10003;' : '') +
+            '</button>';
           html += '</div>';
 
           // Dates
           if (isEarned) {
             html += '<div class="badge-card-date-wrap">';
             if (entry.basic) {
-              html += '<input type="date" id="badge-basic-' + escapeHtml(String(b.id ?? '')) + '" class="badge-date-input" value="' + escapeHtml(String(entry.basicDate ?? '')) + '" title="Basic Date Achieved" style="margin-bottom:3px;"/>';
+              html +=
+                '<input type="date" id="badge-basic-' +
+                escapeHtml(String(b.id ?? '')) +
+                '" class="badge-date-input" value="' +
+                escapeHtml(String(entry.basicDate ?? '')) +
+                '" title="Basic Date Achieved" style="margin-bottom:3px;"/>';
             }
             if (entry.advanced) {
-              html += '<input type="date" id="badge-adv-' + escapeHtml(String(b.id ?? '')) + '" class="badge-date-input" value="' + escapeHtml(String(entry.advancedDate ?? '')) + '" title="Advanced Date Achieved"/>';
+              html +=
+                '<input type="date" id="badge-adv-' +
+                escapeHtml(String(b.id ?? '')) +
+                '" class="badge-date-input" value="' +
+                escapeHtml(String(entry.advancedDate ?? '')) +
+                '" title="Advanced Date Achieved"/>';
             }
             html += '</div>';
           }
         } else {
           // Single milestone / awarded
           html += '<div class="badge-card-actions">';
-          html += '<button type="button" class="badge-tier-btn tier-single' + (isEarned ? ' active' : '') + '" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-tier="basic" data-ic="' + escapeHtml(String(ic ?? '')) + '">' + (isEarned ? 'Awarded &#10003;' : 'Mark as Earned') + '</button>';
+          html +=
+            '<button type="button" class="badge-tier-btn tier-single' +
+            (isEarned ? ' active' : '') +
+            '" data-badge-id="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-tier="basic" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '">' +
+            (isEarned ? 'Awarded &#10003;' : 'Mark as Earned') +
+            '</button>';
           html += '</div>';
 
           if (isEarned) {
             html += '<div class="badge-card-date-wrap">';
-            html += '<input type="date" id="badge-basic-' + escapeHtml(String(b.id ?? '')) + '" class="badge-date-input" value="' + escapeHtml(String(entry.basicDate ?? '')) + '" title="Date Achieved"/>';
+            html +=
+              '<input type="date" id="badge-basic-' +
+              escapeHtml(String(b.id ?? '')) +
+              '" class="badge-date-input" value="' +
+              escapeHtml(String(entry.basicDate ?? '')) +
+              '" title="Date Achieved"/>';
             html += '</div>';
           }
         }
@@ -1186,25 +1822,48 @@ async function loadBadges(ic, preloadedSaved) {
     } else {
       // ── List View ─────────────────────────────────────────────────────────
       html += '<div class="badges-list-table">';
-      catBadges.forEach(function(b) {
-        var safeBadgeImg = b.image ? ((typeof safeUrl === 'function') ? safeUrl(b.image, '') : b.image) : '';
+      catBadges.forEach(function (b) {
+        var safeBadgeImg = b.image
+          ? typeof safeUrl === 'function'
+            ? safeUrl(b.image, '')
+            : b.image
+          : '';
         var entry = safeMigrateEntry(saved[b.id]);
         var isEarned = entry.basic || entry.advanced;
         var hasAdvOption = !!b.hasAdvanced;
 
-        html += '<div class="badge-list-row" data-badge-card="1" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-badge-name="' + escapeHtml(String(b.name || '').toLowerCase()) + '">';
+        html +=
+          '<div class="badge-list-row" data-badge-card="1" data-badge-id="' +
+          escapeHtml(String(b.id ?? '')) +
+          '" data-badge-name="' +
+          escapeHtml(String(b.name || '').toLowerCase()) +
+          '">';
 
         // Left: Thumbnail + Name + Category
         html += '<div class="badge-list-left">';
         if (safeBadgeImg) {
-          html += '<img class="badge-list-thumb" src="' + escapeHtml(safeBadgeImg) + '" alt="' + escapeHtml(b.name) + '" loading="lazy"/>';
+          html +=
+            '<img class="badge-list-thumb" src="' +
+            escapeHtml(safeBadgeImg) +
+            '" alt="' +
+            escapeHtml(b.name) +
+            '" loading="lazy"/>';
         } else {
-          html += '<div style="width:36px;height:36px;border-radius:8px;background:rgba(245,197,66,0.1);display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;">' + (b.name ? b.name.charAt(0) : 'B') + '</div>';
+          html +=
+            '<div style="width:36px;height:36px;border-radius:8px;background:rgba(245,197,66,0.1);display:flex;align-items:center;justify-content:center;color:var(--gold);font-weight:700;">' +
+            (b.name ? b.name.charAt(0) : 'B') +
+            '</div>';
         }
-        html += '<div class="badge-list-info">'
-          + '<div class="badge-list-name">' + escapeHtml(b.name) + '</div>'
-          + '<div class="badge-list-cat">' + escapeHtml(cat) + (hasAdvOption ? ' &bull; Basic &amp; Advanced' : '') + '</div>'
-          + '</div>';
+        html +=
+          '<div class="badge-list-info">' +
+          '<div class="badge-list-name">' +
+          escapeHtml(b.name) +
+          '</div>' +
+          '<div class="badge-list-cat">' +
+          escapeHtml(cat) +
+          (hasAdvOption ? ' &bull; Basic &amp; Advanced' : '') +
+          '</div>' +
+          '</div>';
         html += '</div>';
 
         // Right: Interactive Controls & Date
@@ -1213,20 +1872,86 @@ async function loadBadges(ic, preloadedSaved) {
           var repData = saved[b.id + '_rep'];
           if (!repData || typeof repData !== 'object' || Array.isArray(repData)) {
             var old = safeMigrateEntry(saved[b.id]);
-            repData = { count: (old.basic || old.advanced) ? 1 : 0, dates: old.basic ? [old.basicDate] : [] };
+            repData = {
+              count: old.basic || old.advanced ? 1 : 0,
+              dates: old.basic ? [old.basicDate] : []
+            };
           }
           var count = repData.count || 0;
-          html += '<button type="button" class="badge-tier-btn" data-rep-dec="' + escapeHtml(String(b.id ?? '')) + '" data-ic="' + escapeHtml(String(ic ?? '')) + '" style="width:32px;height:32px;padding:0;border-radius:50%;">&minus;</button>';
-          html += '<span style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:' + (count > 0 ? 'var(--brand-gold)' : 'var(--text-muted)') + ';min-width:30px;text-align:center;">' + count + '</span>';
-          html += '<button type="button" class="badge-tier-btn" data-rep-inc="' + escapeHtml(String(b.id ?? '')) + '" data-ic="' + escapeHtml(String(ic ?? '')) + '" style="width:32px;height:32px;padding:0;border-radius:50%;color:var(--brand-gold);">+</button>';
+          html +=
+            '<button type="button" class="badge-tier-btn" data-rep-dec="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '" style="width:32px;height:32px;padding:0;border-radius:50%;">&minus;</button>';
+          html +=
+            '<span style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:' +
+            (count > 0 ? 'var(--brand-gold)' : 'var(--text-muted)') +
+            ';min-width:30px;text-align:center;">' +
+            count +
+            '</span>';
+          html +=
+            '<button type="button" class="badge-tier-btn" data-rep-inc="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '" style="width:32px;height:32px;padding:0;border-radius:50%;color:var(--brand-gold);">+</button>';
         } else if (hasAdvOption) {
-          html += '<button type="button" class="badge-tier-btn tier-basic' + (entry.basic ? ' active' : '') + '" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-tier="basic" data-ic="' + escapeHtml(String(ic ?? '')) + '">Basic' + (entry.basic ? ' &#10003;' : '') + '</button>';
-          html += '<input type="date" id="badge-basic-' + escapeHtml(String(b.id ?? '')) + '" class="badge-date-input" value="' + escapeHtml(String(entry.basicDate ?? '')) + '" title="Basic Date" style="' + (entry.basic ? '' : 'opacity:0.35;') + '"/>';
-          html += '<button type="button" class="badge-tier-btn tier-advanced' + (entry.advanced ? ' active' : '') + '" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-tier="advanced" data-ic="' + escapeHtml(String(ic ?? '')) + '">Advanced' + (entry.advanced ? ' &#10003;' : '') + '</button>';
-          html += '<input type="date" id="badge-adv-' + escapeHtml(String(b.id ?? '')) + '" class="badge-date-input" value="' + escapeHtml(String(entry.advancedDate ?? '')) + '" title="Advanced Date" style="' + (entry.advanced ? '' : 'opacity:0.35;') + '"/>';
+          html +=
+            '<button type="button" class="badge-tier-btn tier-basic' +
+            (entry.basic ? ' active' : '') +
+            '" data-badge-id="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-tier="basic" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '">Basic' +
+            (entry.basic ? ' &#10003;' : '') +
+            '</button>';
+          html +=
+            '<input type="date" id="badge-basic-' +
+            escapeHtml(String(b.id ?? '')) +
+            '" class="badge-date-input" value="' +
+            escapeHtml(String(entry.basicDate ?? '')) +
+            '" title="Basic Date" style="' +
+            (entry.basic ? '' : 'opacity:0.35;') +
+            '"/>';
+          html +=
+            '<button type="button" class="badge-tier-btn tier-advanced' +
+            (entry.advanced ? ' active' : '') +
+            '" data-badge-id="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-tier="advanced" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '">Advanced' +
+            (entry.advanced ? ' &#10003;' : '') +
+            '</button>';
+          html +=
+            '<input type="date" id="badge-adv-' +
+            escapeHtml(String(b.id ?? '')) +
+            '" class="badge-date-input" value="' +
+            escapeHtml(String(entry.advancedDate ?? '')) +
+            '" title="Advanced Date" style="' +
+            (entry.advanced ? '' : 'opacity:0.35;') +
+            '"/>';
         } else {
-          html += '<button type="button" class="badge-tier-btn tier-single' + (isEarned ? ' active' : '') + '" data-badge-id="' + escapeHtml(String(b.id ?? '')) + '" data-tier="basic" data-ic="' + escapeHtml(String(ic ?? '')) + '">' + (isEarned ? 'Awarded &#10003;' : 'Mark as Earned') + '</button>';
-          html += '<input type="date" id="badge-basic-' + escapeHtml(String(b.id ?? '')) + '" class="badge-date-input" value="' + escapeHtml(String(entry.basicDate ?? '')) + '" title="Date Achieved" style="' + (isEarned ? '' : 'opacity:0.35;') + '"/>';
+          html +=
+            '<button type="button" class="badge-tier-btn tier-single' +
+            (isEarned ? ' active' : '') +
+            '" data-badge-id="' +
+            escapeHtml(String(b.id ?? '')) +
+            '" data-tier="basic" data-ic="' +
+            escapeHtml(String(ic ?? '')) +
+            '">' +
+            (isEarned ? 'Awarded &#10003;' : 'Mark as Earned') +
+            '</button>';
+          html +=
+            '<input type="date" id="badge-basic-' +
+            escapeHtml(String(b.id ?? '')) +
+            '" class="badge-date-input" value="' +
+            escapeHtml(String(entry.basicDate ?? '')) +
+            '" title="Date Achieved" style="' +
+            (isEarned ? '' : 'opacity:0.35;') +
+            '"/>';
         }
         html += '</div>';
 
@@ -1239,13 +1964,15 @@ async function loadBadges(ic, preloadedSaved) {
   });
 
   container.innerHTML = html;
-  container.querySelectorAll('[data-badge-category]').forEach(function(button) {
-    button.addEventListener('click', function() { filterBadgesByCategory(button.getAttribute('data-badge-category')); });
+  container.querySelectorAll('[data-badge-category]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      filterBadgesByCategory(button.getAttribute('data-badge-category'));
+    });
   });
 
   // 3. Attach Interactive Event Listeners
-  container.querySelectorAll('.badge-tier-btn[data-badge-id]').forEach(function(el) {
-    el.addEventListener('click', function(e) {
+  container.querySelectorAll('.badge-tier-btn[data-badge-id]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
       e.preventDefault();
       var bId = el.getAttribute('data-badge-id');
       var bIc = el.getAttribute('data-ic');
@@ -1254,15 +1981,15 @@ async function loadBadges(ic, preloadedSaved) {
     });
   });
 
-  container.querySelectorAll('[data-rep-inc]').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
+  container.querySelectorAll('[data-rep-inc]').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
       e.preventDefault();
       adjustRepBadge(btn.getAttribute('data-rep-inc'), btn.getAttribute('data-ic'), 1);
     });
   });
 
-  container.querySelectorAll('[data-rep-dec]').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
+  container.querySelectorAll('[data-rep-dec]').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
       e.preventDefault();
       adjustRepBadge(btn.getAttribute('data-rep-dec'), btn.getAttribute('data-ic'), -1);
     });
@@ -1281,7 +2008,9 @@ async function adjustRepBadge(badgeId, ic, delta) {
   var client = getSupaClient();
   if (!saved && client) {
     try {
-      var brows = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+      var brows = await client.get(
+        'bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data'
+      );
       if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
       else saved = {};
       _memberBadgesCache[ic] = saved;
@@ -1293,13 +2022,16 @@ async function adjustRepBadge(badgeId, ic, delta) {
   var repData = saved[badgeId + '_rep'];
   if (!repData || typeof repData !== 'object' || Array.isArray(repData)) {
     var old = safeMigrateEntry(saved[badgeId]);
-    repData = { count: (old.basic || old.advanced) ? 1 : 0, dates: old.basic ? [old.basicDate] : [] };
+    repData = { count: old.basic || old.advanced ? 1 : 0, dates: old.basic ? [old.basicDate] : [] };
   }
   if (![-1, 1].includes(delta)) return;
   var newCount = Math.min(100, Math.max(0, (Math.floor(Number(repData.count)) || 0) + delta));
   var dates = Array.isArray(repData.dates) ? repData.dates.slice(0, newCount) : [];
   while (dates.length < newCount) dates.push('');
-  return persistBadgeCheckoff(ic, Object.assign({}, saved, { [badgeId + '_rep']: { count: newCount, dates: dates } }));
+  return persistBadgeCheckoff(
+    ic,
+    Object.assign({}, saved, { [badgeId + '_rep']: { count: newCount, dates: dates } })
+  );
 }
 
 /**
@@ -1314,7 +2046,9 @@ async function toggleBadge(badgeId, ic, tier) {
   var client = getSupaClient();
   if (!saved && client) {
     try {
-      var brows = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+      var brows = await client.get(
+        'bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data'
+      );
       if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
       else saved = {};
       _memberBadgesCache[ic] = saved;
@@ -1365,7 +2099,11 @@ async function saveBadges() {
   var ic = sessionGet('ic');
   if (!ic) return;
 
-  var saveBtn = typeof document !== 'undefined' ? (document.querySelector('button[onclick="saveBadges()"]') || document.querySelector('#badges-list ~ button.submit-btn')) : null;
+  var saveBtn =
+    typeof document !== 'undefined'
+      ? document.querySelector('button[onclick="saveBadges()"]') ||
+        document.querySelector('#badges-list ~ button.submit-btn')
+      : null;
   if (saveBtn) saveBtn.disabled = true;
   _isSavingBadges = true;
 
@@ -1374,20 +2112,20 @@ async function saveBadges() {
     if (!_memberBadgesCache) _memberBadgesCache = {};
     var saved = JSON.parse(JSON.stringify(_memberBadgesCache[ic] || {}));
 
-    defs.forEach(function(b) {
+    defs.forEach(function (b) {
       if (b.repeatable) {
         var repData = saved[b.id + '_rep'] || { count: 0, dates: [] };
         var newDates = [];
         for (var di = 0; di < repData.count; di++) {
           var el = document.getElementById('badge-rep-' + b.id + '-' + di);
-          newDates.push(el ? el.value : (repData.dates?.[di] || ''));
+          newDates.push(el ? el.value : repData.dates?.[di] || '');
         }
         repData.dates = newDates;
         saved[b.id + '_rep'] = repData;
       } else {
         var entry = safeMigrateEntry(saved[b.id]);
         var bd = document.getElementById('badge-basic-' + b.id);
-        var ad = document.getElementById('badge-adv-'   + b.id);
+        var ad = document.getElementById('badge-adv-' + b.id);
         if (bd) entry.basicDate = bd.value;
         if (ad) entry.advancedDate = ad.value;
         saved[b.id] = entry;
@@ -1432,10 +2170,10 @@ function filterBadges(query) {
   var catSections = document.querySelectorAll('#badges-list .badge-cat-section');
   var anyVisible = false;
 
-  catSections.forEach(function(sec) {
+  catSections.forEach(function (sec) {
     var cards = sec.querySelectorAll('[data-badge-card]');
     var catVisible = false;
-    cards.forEach(function(card) {
+    cards.forEach(function (card) {
       var name = (card.getAttribute('data-badge-name') || '').toLowerCase();
       var show = !q || name.indexOf(q) !== -1;
       card.style.display = show ? (getBadgesDisplayMode() === 'grid' ? 'flex' : 'flex') : 'none';
@@ -1457,7 +2195,8 @@ function filterBadges(query) {
  * @param {Object} [preloadedSaved]
  */
 async function renderPresidentsTracker(ic, preloadedSaved) {
-  var container = (typeof document !== 'undefined') ? document.getElementById('presidents-tracker') : null;
+  var container =
+    typeof document !== 'undefined' ? document.getElementById('presidents-tracker') : null;
   if (!container) return;
 
   var saved = preloadedSaved || (_memberBadgesCache && _memberBadgesCache[ic]) || null;
@@ -1465,7 +2204,9 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
     var client = getSupaClient();
     if (client) {
       try {
-        var brows = await client.get('bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data');
+        var brows = await client.get(
+          'bb_member_badges?ic=eq.' + encodeURIComponent(ic) + '&select=badge_data'
+        );
         if (brows && brows.length) saved = JSON.parse(brows[0].badge_data || '{}');
         else saved = {};
         if (!_memberBadgesCache) _memberBadgesCache = {};
@@ -1481,80 +2222,140 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
 
   var statusBadgeHtml = res.overallEligible
     ? '<span class="presidents-status-pill eligible"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Eligible for President\'s Award</span>'
-    : '<span class="presidents-status-pill in-progress"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> In Progress (' + res.metCount + ' / 4 Met)</span>';
+    : '<span class="presidents-status-pill in-progress"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> In Progress (' +
+      res.metCount +
+      ' / 4 Met)</span>';
 
-  var checkSvg = '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-  var pendingSvg = '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+  var checkSvg =
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  var pendingSvg =
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
 
-  var reqsHtml = res.reqs.map(function(r) {
-    var iconHtml = r.done
-      ? '<div class="presidents-req-status-icon met">' + checkSvg + '</div>'
-      : '<div class="presidents-req-status-icon pending">' + pendingSvg + '</div>';
+  var reqsHtml = res.reqs
+    .map(function (r) {
+      var iconHtml = r.done
+        ? '<div class="presidents-req-status-icon met">' + checkSvg + '</div>'
+        : '<div class="presidents-req-status-icon pending">' + pendingSvg + '</div>';
 
-    var subItemsHtml = '';
-    if (r.id === 'compulsory' && r.sub) {
-      subItemsHtml = '<div class="presidents-sub-list">' + r.sub.map(function(s) {
-        var sCls = s.done ? 'presidents-sub-chip met' : 'presidents-sub-chip';
-        var sIcon = s.done ? checkSvg : pendingSvg;
-        return '<span class="' + sCls + '">' + sIcon + ' ' + (typeof escapeHtml === 'function' ? escapeHtml(s.label) : s.label) + '</span>';
-      }).join('') + '</div>';
-    } else if (r.id === 'onepergroup' && r.groups) {
-      subItemsHtml = '<div class="presidents-group-chips">' + ['A', 'B', 'C', 'D'].map(function(g) {
-        var gInfo = r.groups[g];
-        var isMet = gInfo.awarded >= 1;
-        var gCls = isMet ? 'presidents-group-chip met' : 'presidents-group-chip';
-        var gIcon = isMet ? checkSvg : pendingSvg;
-        return '<span class="' + gCls + '">' + gIcon + ' Group ' + g + ' (' + gInfo.awarded + ')' + '</span>';
-      }).join('') + '</div>';
-    }
+      var subItemsHtml = '';
+      if (r.id === 'compulsory' && r.sub) {
+        subItemsHtml =
+          '<div class="presidents-sub-list">' +
+          r.sub
+            .map(function (s) {
+              var sCls = s.done ? 'presidents-sub-chip met' : 'presidents-sub-chip';
+              var sIcon = s.done ? checkSvg : pendingSvg;
+              return (
+                '<span class="' +
+                sCls +
+                '">' +
+                sIcon +
+                ' ' +
+                (typeof escapeHtml === 'function' ? escapeHtml(s.label) : s.label) +
+                '</span>'
+              );
+            })
+            .join('') +
+          '</div>';
+      } else if (r.id === 'onepergroup' && r.groups) {
+        subItemsHtml =
+          '<div class="presidents-group-chips">' +
+          ['A', 'B', 'C', 'D']
+            .map(function (g) {
+              var gInfo = r.groups[g];
+              var isMet = gInfo.awarded >= 1;
+              var gCls = isMet ? 'presidents-group-chip met' : 'presidents-group-chip';
+              var gIcon = isMet ? checkSvg : pendingSvg;
+              return (
+                '<span class="' +
+                gCls +
+                '">' +
+                gIcon +
+                ' Group ' +
+                g +
+                ' (' +
+                gInfo.awarded +
+                ')' +
+                '</span>'
+              );
+            })
+            .join('') +
+          '</div>';
+      }
 
-    return '<div class="presidents-req-card' + (r.done ? ' met' : '') + '">' +
-      '<div class="presidents-req-header">' +
+      return (
+        '<div class="presidents-req-card' +
+        (r.done ? ' met' : '') +
+        '">' +
+        '<div class="presidents-req-header">' +
         iconHtml +
         '<div class="presidents-req-info">' +
-          '<div class="presidents-req-title">' + r.num + '. ' + (typeof escapeHtml === 'function' ? escapeHtml(r.label) : r.label) + '</div>' +
-          '<div class="presidents-req-desc">' + (typeof escapeHtml === 'function' ? escapeHtml(r.detail) : r.detail) + '</div>' +
-          subItemsHtml +
+        '<div class="presidents-req-title">' +
+        r.num +
+        '. ' +
+        (typeof escapeHtml === 'function' ? escapeHtml(r.label) : r.label) +
         '</div>' +
-      '</div>' +
-    '</div>';
-  }).join('');
+        '<div class="presidents-req-desc">' +
+        (typeof escapeHtml === 'function' ? escapeHtml(r.detail) : r.detail) +
+        '</div>' +
+        subItemsHtml +
+        '</div>' +
+        '</div>' +
+        '</div>'
+      );
+    })
+    .join('');
 
-  var fillClass = res.overallEligible ? 'presidents-progress-fill complete' : 'presidents-progress-fill';
+  var fillClass = res.overallEligible
+    ? 'presidents-progress-fill complete'
+    : 'presidents-progress-fill';
 
-  var presBadgeDef = defs.find(function(b) {
+  var presBadgeDef = defs.find(function (b) {
     return b.id === 'bb3' || (b.name && b.name.toLowerCase().indexOf("president's award") !== -1);
   });
-  var presIconUrl = (presBadgeDef && presBadgeDef.image)
-    ? (typeof safeUrl === 'function' ? safeUrl(presBadgeDef.image, "assets/BB%20Badges/President's%20Award.png") : presBadgeDef.image)
-    : "assets/BB%20Badges/President's%20Award.png";
+  var presIconUrl =
+    presBadgeDef && presBadgeDef.image
+      ? typeof safeUrl === 'function'
+        ? safeUrl(presBadgeDef.image, "assets/BB%20Badges/President's%20Award.png")
+        : presBadgeDef.image
+      : "assets/BB%20Badges/President's%20Award.png";
 
   container.innerHTML =
     '<div class="presidents-tracker-card">' +
-      '<div class="presidents-tracker-header">' +
-        '<div class="presidents-tracker-title-wrap">' +
-          '<div class="presidents-tracker-icon">' +
-            '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(presIconUrl) : presIconUrl) + '" alt="President\'s Award" style="width:100%;height:100%;object-fit:contain;display:block;" onerror="this.style.display=\'none\'"/>' +
-          '</div>' +
-          '<div>' +
-            '<div class="presidents-tracker-title">President\'s Award Tracker</div>' +
-            '<div class="presidents-tracker-subtitle">Official Senior Section Award Requirements Checklist</div>' +
-          '</div>' +
-        '</div>' +
-        statusBadgeHtml +
-      '</div>' +
-      '<div class="presidents-progress-section">' +
-        '<div class="presidents-progress-track">' +
-          '<div class="' + fillClass + '" style="width:' + res.overallPct + '%;"></div>' +
-        '</div>' +
-        '<div class="presidents-progress-meta">' +
-          '<span><strong>' + res.metCount + ' of 4</strong> Criteria Completed</span>' +
-          '<span><strong>' + res.overallPct + '%</strong></span>' +
-        '</div>' +
-      '</div>' +
-      '<div class="presidents-reqs-grid">' +
-        reqsHtml +
-      '</div>' +
+    '<div class="presidents-tracker-header">' +
+    '<div class="presidents-tracker-title-wrap">' +
+    '<div class="presidents-tracker-icon">' +
+    '<img src="' +
+    (typeof escapeHtml === 'function' ? escapeHtml(presIconUrl) : presIconUrl) +
+    '" alt="President\'s Award" style="width:100%;height:100%;object-fit:contain;display:block;" onerror="this.style.display=\'none\'"/>' +
+    '</div>' +
+    '<div>' +
+    '<div class="presidents-tracker-title">President\'s Award Tracker</div>' +
+    '<div class="presidents-tracker-subtitle">Official Senior Section Award Requirements Checklist</div>' +
+    '</div>' +
+    '</div>' +
+    statusBadgeHtml +
+    '</div>' +
+    '<div class="presidents-progress-section">' +
+    '<div class="presidents-progress-track">' +
+    '<div class="' +
+    fillClass +
+    '" style="width:' +
+    res.overallPct +
+    '%;"></div>' +
+    '</div>' +
+    '<div class="presidents-progress-meta">' +
+    '<span><strong>' +
+    res.metCount +
+    ' of 4</strong> Criteria Completed</span>' +
+    '<span><strong>' +
+    res.overallPct +
+    '%</strong></span>' +
+    '</div>' +
+    '</div>' +
+    '<div class="presidents-reqs-grid">' +
+    reqsHtml +
+    '</div>' +
     '</div>';
 
   container.style.display = 'block';
@@ -1567,10 +2368,10 @@ async function renderPresidentsTracker(ic, preloadedSaved) {
  * @param {string} sub ('badgedefs' | 'presidentsreqs')
  */
 async function switchBadgeSubtab(sub) {
-  ['badgedefs', 'presidentsreqs'].forEach(function(s) {
-    var p = (typeof document !== 'undefined') ? document.getElementById('subpanel-' + s) : null;
-    var b = (typeof document !== 'undefined') ? document.getElementById('subtab-' + s) : null;
-    if (p) p.style.display = (s === sub) ? 'block' : 'none';
+  ['badgedefs', 'presidentsreqs'].forEach(function (s) {
+    var p = typeof document !== 'undefined' ? document.getElementById('subpanel-' + s) : null;
+    var b = typeof document !== 'undefined' ? document.getElementById('subtab-' + s) : null;
+    if (p) p.style.display = s === sub ? 'block' : 'none';
     if (b) b.classList.toggle('active-subtab', s === sub);
   });
   if (sub === 'badgedefs') {
@@ -1588,7 +2389,7 @@ function setReqTier(tier) {
   if (typeof document === 'undefined') return;
   var el = document.getElementById('req-tier-val');
   if (el) el.value = tier;
-  ['any', 'basic', 'advanced'].forEach(function(t) {
+  ['any', 'basic', 'advanced'].forEach(function (t) {
     var btn = document.getElementById('req-tier-' + t);
     if (btn) btn.classList.toggle('ftype-active', t === tier);
   });
@@ -1607,46 +2408,70 @@ async function renderAdminPresidentsReqs() {
   var sel = document.getElementById('req-badge-select');
   if (sel) {
     var opts = '<option value="">-- Select a badge --</option>';
-    var allBadges = defs.filter(function(b) { return b.name !== '(Add badges below)'; });
-    allBadges.forEach(function(b) {
-      opts += '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) + '">'
-        + (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) + ' ('
-        + (typeof escapeHtml === 'function' ? escapeHtml(b.cat) : b.cat) + ')</option>';
+    var allBadges = defs.filter(function (b) {
+      return b.name !== '(Add badges below)';
+    });
+    allBadges.forEach(function (b) {
+      opts +=
+        '<option value="' +
+        (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) +
+        '">' +
+        (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) +
+        ' (' +
+        (typeof escapeHtml === 'function' ? escapeHtml(b.cat) : b.cat) +
+        ')</option>';
     });
     sel.innerHTML = opts;
   }
 
   if (!reqs.length) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No requirements set. Add one below.</div>';
+    container.innerHTML =
+      '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px;">No requirements set. Add one below.</div>';
     return;
   }
 
   var tierColour = { any: '#66bb6a', basic: '#e8b830', advanced: '#ef5350' };
-  var tierLabel  = { any: 'Any Level', basic: 'Basic', advanced: 'Advanced' };
+  var tierLabel = { any: 'Any Level', basic: 'Basic', advanced: 'Advanced' };
 
   var html = '';
-  reqs.forEach(function(req, i) {
+  reqs.forEach(function (req, i) {
     var tc = tierColour[req.tier] || '#888';
-    var tl = tierLabel[req.tier]  || req.tier;
-    html += '<div style="background:var(--bg-card);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);display:flex;align-items:center;gap:12px;">'
-      + '<div style="width:28px;height:28px;border-radius:50%;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--brand-gold);flex-shrink:0;">' + (i + 1) + '</div>'
-      + '<div style="flex:1;">'
-        + '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' + (typeof escapeHtml === 'function' ? escapeHtml(req.badgeMatch) : req.badgeMatch) + '</div>'
-        + '<span style="font-size:10px;font-weight:700;background:' + tc + '22;color:' + tc + ';border:1px solid ' + tc + '44;padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;">' + tl + '</span>'
-      + '</div>'
-      + '<button data-del-req="' + i + '" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Remove</button>'
-      + '</div>';
+    var tl = tierLabel[req.tier] || req.tier;
+    html +=
+      '<div style="background:var(--bg-card);border-radius:12px;padding:12px 16px;margin-bottom:8px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);display:flex;align-items:center;gap:12px;">' +
+      '<div style="width:28px;height:28px;border-radius:50%;background:rgba(200,150,30,0.15);display:flex;align-items:center;justify-content:center;font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--brand-gold);flex-shrink:0;">' +
+      (i + 1) +
+      '</div>' +
+      '<div style="flex:1;">' +
+      '<div style="font-size:13px;color:var(--text-primary);font-weight:600;">' +
+      (typeof escapeHtml === 'function' ? escapeHtml(req.badgeMatch) : req.badgeMatch) +
+      '</div>' +
+      '<span style="font-size:10px;font-weight:700;background:' +
+      tc +
+      '22;color:' +
+      tc +
+      ';border:1px solid ' +
+      tc +
+      '44;padding:2px 8px;border-radius:20px;letter-spacing:1px;text-transform:uppercase;">' +
+      tl +
+      '</span>' +
+      '</div>' +
+      '<button data-del-req="' +
+      i +
+      '" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Remove</button>' +
+      '</div>';
   });
   container.innerHTML = html;
 
-  container.querySelectorAll('[data-del-req]').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
+  container.querySelectorAll('[data-del-req]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
       var idx = parseInt(btn.getAttribute('data-del-req'), 10);
       var currentReqs = await getPresidentsReqs();
       var name = currentReqs[idx] ? currentReqs[idx].badgeMatch : '';
-      var ok = (typeof showConfirmModal === 'function')
-        ? await showConfirmModal('Remove "' + name + '" from requirements?')
-        : true;
+      var ok =
+        typeof showConfirmModal === 'function'
+          ? await showConfirmModal('Remove "' + name + '" from requirements?')
+          : true;
       if (!ok) return;
       currentReqs.splice(idx, 1);
       await savePresidentsReqs(currentReqs);
@@ -1673,7 +2498,7 @@ async function deletePresidentsReq(idx) {
  */
 async function addPresidentsReq() {
   if (typeof document === 'undefined') return;
-  var sel  = document.getElementById('req-badge-select');
+  var sel = document.getElementById('req-badge-select');
   var tier = (document.getElementById('req-tier-val') || {}).value || 'any';
   var name = sel ? sel.value.trim() : '';
   if (!name) {
@@ -1682,9 +2507,14 @@ async function addPresidentsReq() {
   }
   var tierLabel = { any: '(any level)', basic: '(Basic)', advanced: '(Advanced)' };
   var label = name + ' ' + (tierLabel[tier] || '');
-  var reqs  = await getPresidentsReqs();
-  if (reqs.some(function(r) { return r.badgeMatch === name && r.tier === tier; })) {
-    if (typeof showToast === 'function') showToast('This badge and level combination is already a requirement.', 'warning');
+  var reqs = await getPresidentsReqs();
+  if (
+    reqs.some(function (r) {
+      return r.badgeMatch === name && r.tier === tier;
+    })
+  ) {
+    if (typeof showToast === 'function')
+      showToast('This badge and level combination is already a requirement.', 'warning');
     return;
   }
   reqs.push({ label: label, badgeMatch: name, tier: tier });
@@ -1701,83 +2531,136 @@ async function renderAdminBadges() {
   if (typeof document === 'undefined') return;
   var defs = await getBadgeDefs();
   var cats = [];
-  defs.forEach(function(b) {
+  defs.forEach(function (b) {
     if (cats.indexOf(b.cat) === -1) cats.push(b.cat);
   });
-  var container = document.getElementById('admin-badges-content') || document.getElementById('admin-badge-defs-list');
+  var container =
+    document.getElementById('admin-badges-content') ||
+    document.getElementById('admin-badge-defs-list');
   if (!container) return;
 
   var html = '';
-  cats.forEach(function(cat) {
-    var catBadges = defs.filter(function(b) { return b.cat === cat && b.name !== '(Add badges below)'; });
-    var inputKey  = 'nb_' + cat.replace(/[^a-zA-Z0-9]/g, '_');
+  cats.forEach(function (cat) {
+    var catBadges = defs.filter(function (b) {
+      return b.cat === cat && b.name !== '(Add badges below)';
+    });
+    var inputKey = 'nb_' + cat.replace(/[^a-zA-Z0-9]/g, '_');
     var rows = catBadges.length
-      ? catBadges.map(function(b) {
-          var tierMode = b.tier || (b.hasAdvanced ? 'both' : 'basic');
-          var advLabel = tierMode === 'both'
-            ? '<span style="font-size:9px;font-weight:700;background:rgba(239,83,80,0.15);color:#ef5350;border:1px solid rgba(239,83,80,0.3);padding:2px 7px;border-radius:20px;margin-left:6px;">Basic + Advanced</span>'
-            : tierMode === 'none'
-            ? '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">No levels</span>'
-            : '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">Basic only</span>';
-          var repLabel = b.repeatable
-            ? '<span style="font-size:9px;font-weight:700;background:rgba(102,187,106,0.15);color:#66bb6a;border:1px solid rgba(102,187,106,0.3);padding:2px 7px;border-radius:20px;margin-left:4px;">Repeatable</span>'
-            : '';
-          var safeBadgeImg = b.image ? ((typeof safeUrl === 'function') ? safeUrl(b.image, '') : b.image) : '';
-          var imgThumb = safeBadgeImg
-            ? '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(safeBadgeImg) : safeBadgeImg) + '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border-card);flex-shrink:0;"/>'
-            : '<div style="width:32px;height:32px;border-radius:6px;background:var(--bg-card-subtle);border:1px dashed var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>';
+      ? catBadges
+          .map(function (b) {
+            var tierMode = b.tier || (b.hasAdvanced ? 'both' : 'basic');
+            var advLabel =
+              tierMode === 'both'
+                ? '<span style="font-size:9px;font-weight:700;background:rgba(239,83,80,0.15);color:#ef5350;border:1px solid rgba(239,83,80,0.3);padding:2px 7px;border-radius:20px;margin-left:6px;">Basic + Advanced</span>'
+                : tierMode === 'none'
+                  ? '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">No levels</span>'
+                  : '<span style="font-size:9px;color:var(--text-muted);margin-left:6px;">Basic only</span>';
+            var repLabel = b.repeatable
+              ? '<span style="font-size:9px;font-weight:700;background:rgba(102,187,106,0.15);color:#66bb6a;border:1px solid rgba(102,187,106,0.3);padding:2px 7px;border-radius:20px;margin-left:4px;">Repeatable</span>'
+              : '';
+            var safeBadgeImg = b.image
+              ? typeof safeUrl === 'function'
+                ? safeUrl(b.image, '')
+                : b.image
+              : '';
+            var imgThumb = safeBadgeImg
+              ? '<img src="' +
+                (typeof escapeHtml === 'function' ? escapeHtml(safeBadgeImg) : safeBadgeImg) +
+                '" style="width:32px;height:32px;object-fit:cover;border-radius:6px;border:1px solid var(--border-card);flex-shrink:0;"/>'
+              : '<div style="width:32px;height:32px;border-radius:6px;background:var(--bg-card-subtle);border:1px dashed var(--border-card);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex-shrink:0;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg></div>';
 
-          return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border-subtle);flex-wrap:wrap;">'
-            + imgThumb
-            + '<div style="flex:1;min-width:140px;"><span style="font-size:13px;color:var(--text-primary);font-weight:600;">' + (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) + '</span>' + advLabel + repLabel + '</div>'
-            + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
-            + '<label style="background:var(--bg-input);border:1px solid var(--border-card);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--text-secondary);cursor:pointer;">'
-              + '<input type="file" accept="image/*" data-img-badge="' + escapeHtml(String(b.id ?? '')) + '" style="display:none;"/>Upload img'
-            + '</label>'
-            + (safeBadgeImg ? '<button data-clear-img="' + escapeHtml(String(b.id ?? '')) + '" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;padding:2px 4px;">Clear img</button>' : '')
-            + '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;">'
-              + '<input type="checkbox" data-toggle-rep="' + escapeHtml(String(b.id ?? '')) + '" ' + (b.repeatable ? 'checked' : '') + ' style="accent-color:var(--accent);"/>Repeatable'
-            + '</label>'
-            + '<select data-tier-sel="' + escapeHtml(String(b.id ?? '')) + '" style="background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:7px;padding:4px 6px;font-size:11px;cursor:pointer;">'
-              + '<option value="none" '  + (tierMode === 'none'  ? 'selected' : '') + '>No levels</option>'
-              + '<option value="basic" ' + (tierMode === 'basic' ? 'selected' : '') + '>Basic only</option>'
-              + '<option value="both" '  + (tierMode === 'both'  ? 'selected' : '') + '>Basic + Adv</option>'
-            + '</select>'
-            + '<button data-del-badge="' + escapeHtml(String(b.id ?? '')) + '" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:2px 6px;">×</button>'
-            + '</div>'
-            + '</div>';
-        }).join('')
+            return (
+              '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border-subtle);flex-wrap:wrap;">' +
+              imgThumb +
+              '<div style="flex:1;min-width:140px;"><span style="font-size:13px;color:var(--text-primary);font-weight:600;">' +
+              (typeof escapeHtml === 'function' ? escapeHtml(b.name) : b.name) +
+              '</span>' +
+              advLabel +
+              repLabel +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+              '<label style="background:var(--bg-input);border:1px solid var(--border-card);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--text-secondary);cursor:pointer;">' +
+              '<input type="file" accept="image/*" data-img-badge="' +
+              escapeHtml(String(b.id ?? '')) +
+              '" style="display:none;"/>Upload img' +
+              '</label>' +
+              (safeBadgeImg
+                ? '<button data-clear-img="' +
+                  escapeHtml(String(b.id ?? '')) +
+                  '" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;padding:2px 4px;">Clear img</button>'
+                : '') +
+              '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;">' +
+              '<input type="checkbox" data-toggle-rep="' +
+              escapeHtml(String(b.id ?? '')) +
+              '" ' +
+              (b.repeatable ? 'checked' : '') +
+              ' style="accent-color:var(--accent);"/>Repeatable' +
+              '</label>' +
+              '<select data-tier-sel="' +
+              escapeHtml(String(b.id ?? '')) +
+              '" style="background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border-card);border-radius:7px;padding:4px 6px;font-size:11px;cursor:pointer;">' +
+              '<option value="none" ' +
+              (tierMode === 'none' ? 'selected' : '') +
+              '>No levels</option>' +
+              '<option value="basic" ' +
+              (tierMode === 'basic' ? 'selected' : '') +
+              '>Basic only</option>' +
+              '<option value="both" ' +
+              (tierMode === 'both' ? 'selected' : '') +
+              '>Basic + Adv</option>' +
+              '</select>' +
+              '<button data-del-badge="' +
+              escapeHtml(String(b.id ?? '')) +
+              '" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer;padding:2px 6px;">×</button>' +
+              '</div>' +
+              '</div>'
+            );
+          })
+          .join('')
       : '<div style="font-size:12px;color:var(--text-muted);padding:6px 0;">No badges yet — add one below.</div>';
 
-    html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--brand-gold);">' + (typeof escapeHtml === 'function' ? escapeHtml(cat) : cat) + '</div>'
-        + '<button data-del-cat="' + escapeHtml(String(cat ?? '')) + '" style="background:#3a1a1a;border:1px solid #6a2a2a;color:#f66;padding:4px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">Delete section</button>'
-      + '</div>' + rows
-      + '<div style="display:flex;gap:8px;margin-top:10px;">'
-        + '<input type="text" id="' + inputKey + '" placeholder="New badge name..." style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>'
-        + '<button data-add-badge="' + escapeHtml(String(cat ?? '')) + '" style="background:rgba(200,150,30,0.15);border:1px solid rgba(200,150,30,0.35);color:var(--brand-gold);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;">+ Add</button>'
-      + '</div></div>';
+    html +=
+      '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border-card);">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+      '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--brand-gold);">' +
+      (typeof escapeHtml === 'function' ? escapeHtml(cat) : cat) +
+      '</div>' +
+      '<button data-del-cat="' +
+      escapeHtml(String(cat ?? '')) +
+      '" style="background:#3a1a1a;border:1px solid #6a2a2a;color:#f66;padding:4px 12px;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;">Delete section</button>' +
+      '</div>' +
+      rows +
+      '<div style="display:flex;gap:8px;margin-top:10px;">' +
+      '<input type="text" id="' +
+      inputKey +
+      '" placeholder="New badge name..." style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>' +
+      '<button data-add-badge="' +
+      escapeHtml(String(cat ?? '')) +
+      '" style="background:rgba(200,150,30,0.15);border:1px solid rgba(200,150,30,0.35);color:var(--brand-gold);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;white-space:nowrap;">+ Add</button>' +
+      '</div></div>';
   });
 
-  html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;border:1px dashed var(--border-card);">'
-    + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add New Section</div>'
-    + '<div style="display:flex;gap:8px;">'
-      + '<input type="text" id="new-cat-name" placeholder="Section name e.g. Leadership" style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>'
-      + '<button id="btn-add-cat" style="background:var(--accent);border:none;color:var(--navy);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">+ Add</button>'
-    + '</div></div>';
+  html +=
+    '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;border:1px dashed var(--border-card);">' +
+    '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:10px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> Add New Section</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<input type="text" id="new-cat-name" placeholder="Section name e.g. Leadership" style="flex:1;background:var(--bg-input);color:var(--text-primary);border:1.5px solid var(--border-card);border-radius:8px;padding:8px 10px;font-size:13px;outline:none;"/>' +
+    '<button id="btn-add-cat" style="background:var(--accent);border:none;color:var(--navy);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:700;">+ Add</button>' +
+    '</div></div>';
 
   container.innerHTML = html;
 
-  container.querySelectorAll('[data-img-badge]').forEach(function(input) {
-    input.addEventListener('change', function() {
+  container.querySelectorAll('[data-img-badge]').forEach(function (input) {
+    input.addEventListener('change', function () {
       var id = input.getAttribute('data-img-badge');
       var file = input.files[0];
       if (!file) return;
       var reader = new FileReader();
-      reader.onload = async function(e) {
+      reader.onload = async function (e) {
         var currentDefs = await getBadgeDefs();
-        var badge = currentDefs.find(function(b) { return b.id === id; });
+        var badge = currentDefs.find(function (b) {
+          return b.id === id;
+        });
         if (badge) {
           badge.image = e.target.result;
           await saveBadgeDefs(currentDefs);
@@ -1788,11 +2671,13 @@ async function renderAdminBadges() {
     });
   });
 
-  container.querySelectorAll('[data-clear-img]').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
+  container.querySelectorAll('[data-clear-img]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
       var id = btn.getAttribute('data-clear-img');
       var currentDefs = await getBadgeDefs();
-      var badge = currentDefs.find(function(b) { return b.id === id; });
+      var badge = currentDefs.find(function (b) {
+        return b.id === id;
+      });
       if (badge) {
         badge.image = null;
         await saveBadgeDefs(currentDefs);
@@ -1801,11 +2686,13 @@ async function renderAdminBadges() {
     });
   });
 
-  container.querySelectorAll('[data-toggle-rep]').forEach(function(chk) {
-    chk.addEventListener('change', async function() {
+  container.querySelectorAll('[data-toggle-rep]').forEach(function (chk) {
+    chk.addEventListener('change', async function () {
       var id = chk.getAttribute('data-toggle-rep');
       var currentDefs = await getBadgeDefs();
-      var badge = currentDefs.find(function(b) { return b.id === id; });
+      var badge = currentDefs.find(function (b) {
+        return b.id === id;
+      });
       if (badge) {
         badge.repeatable = chk.checked;
         await saveBadgeDefs(currentDefs);
@@ -1814,49 +2701,70 @@ async function renderAdminBadges() {
     });
   });
 
-  container.querySelectorAll('[data-tier-sel]').forEach(function(sel) {
-    sel.addEventListener('change', async function() {
+  container.querySelectorAll('[data-tier-sel]').forEach(function (sel) {
+    sel.addEventListener('change', async function () {
       var id = sel.getAttribute('data-tier-sel');
       var currentDefs = await getBadgeDefs();
-      var badge = currentDefs.find(function(b) { return b.id === id; });
+      var badge = currentDefs.find(function (b) {
+        return b.id === id;
+      });
       if (badge) {
         var val = sel.value;
         badge.tier = val;
-        badge.hasAdvanced = (val === 'both');
+        badge.hasAdvanced = val === 'both';
         await saveBadgeDefs(currentDefs);
         renderAdminBadges();
       }
     });
   });
 
-  container.querySelectorAll('[data-del-cat]').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
+  container.querySelectorAll('[data-del-cat]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
       var cat = btn.getAttribute('data-del-cat');
-      var ok = (typeof showConfirmModal === 'function')
-        ? await showConfirmModal('Delete the "' + escapeHtml(String(cat ?? '')) + '" section and all its badges?')
-        : true;
+      var ok =
+        typeof showConfirmModal === 'function'
+          ? await showConfirmModal(
+              'Delete the "' + escapeHtml(String(cat ?? '')) + '" section and all its badges?'
+            )
+          : true;
       if (!ok) return;
       var remaining = await deleteBadgeSection(cat);
-      if (remaining.some(function(badge) { return badge.cat === cat; })) return;
+      if (
+        remaining.some(function (badge) {
+          return badge.cat === cat;
+        })
+      )
+        return;
       if (typeof showToast === 'function') {
-        showToast('Section "' + escapeHtml(String(cat ?? '')) + '" and its badges deleted permanently.', 'success');
+        showToast(
+          'Section "' + escapeHtml(String(cat ?? '')) + '" and its badges deleted permanently.',
+          'success'
+        );
       }
       renderAdminBadges();
     });
   });
 
-  container.querySelectorAll('[data-del-badge]').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
+  container.querySelectorAll('[data-del-badge]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
       var id = btn.getAttribute('data-del-badge');
       var currentDefs = await getBadgeDefs();
-      var badge = currentDefs.find(function(b) { return b.id === id; });
+      var badge = currentDefs.find(function (b) {
+        return b.id === id;
+      });
       if (!badge) return;
-      var ok = (typeof showConfirmModal === 'function')
-        ? await showConfirmModal('Delete badge "' + badge.name + '"?')
-        : true;
+      var ok =
+        typeof showConfirmModal === 'function'
+          ? await showConfirmModal('Delete badge "' + badge.name + '"?')
+          : true;
       if (!ok) return;
       var remaining = await deleteBadgeDef(id);
-      if (remaining.some(function(badge) { return badge.id === id; })) return;
+      if (
+        remaining.some(function (badge) {
+          return badge.id === id;
+        })
+      )
+        return;
       if (typeof showToast === 'function') {
         showToast('Badge "' + badge.name + '" deleted permanently.', 'success');
       }
@@ -1864,8 +2772,8 @@ async function renderAdminBadges() {
     });
   });
 
-  container.querySelectorAll('[data-add-badge]').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
+  container.querySelectorAll('[data-add-badge]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
       var cat = btn.getAttribute('data-add-badge');
       var key = 'nb_' + cat.replace(/[^a-zA-Z0-9]/g, '_');
       var input = document.getElementById(key);
@@ -1874,7 +2782,7 @@ async function renderAdminBadges() {
         if (typeof showToast === 'function') showToast('Please enter a badge name.', 'warning');
         return;
       }
-      var currentDefs = (await getBadgeDefs()).filter(function(b) {
+      var currentDefs = (await getBadgeDefs()).filter(function (b) {
         return !(b.cat === cat && b.name === '(Add badges below)');
       });
       currentDefs.push({
@@ -1885,8 +2793,9 @@ async function renderAdminBadges() {
         tier: 'basic',
         repeatable: false
       });
-      if (!await saveBadgeDefs(currentDefs) || !await unrecordBadgeDeletion(name)) return;
-      if (typeof showToast === 'function') showToast('Badge added! Members will see it when they next open their badges.', 'success');
+      if (!(await saveBadgeDefs(currentDefs)) || !(await unrecordBadgeDeletion(name))) return;
+      if (typeof showToast === 'function')
+        showToast('Badge added! Members will see it when they next open their badges.', 'success');
       if (input) input.value = '';
       renderAdminBadges();
     });
@@ -1894,7 +2803,7 @@ async function renderAdminBadges() {
 
   var addCatBtn = document.getElementById('btn-add-cat');
   if (addCatBtn) {
-    addCatBtn.addEventListener('click', async function() {
+    addCatBtn.addEventListener('click', async function () {
       var input = document.getElementById('new-cat-name');
       var name = input ? input.value.trim() : '';
       if (!name) {
@@ -1902,11 +2811,20 @@ async function renderAdminBadges() {
         return;
       }
       var currentDefs = await getBadgeDefs();
-      if (currentDefs.some(function(b) { return b.cat === name; })) {
+      if (
+        currentDefs.some(function (b) {
+          return b.cat === name;
+        })
+      ) {
         if (typeof showToast === 'function') showToast('Section already exists.', 'warning');
         return;
       }
-      currentDefs.push({ id: 'b_' + Date.now(), name: '(Add badges below)', cat: name, hasAdvanced: false });
+      currentDefs.push({
+        id: 'b_' + Date.now(),
+        name: '(Add badges below)',
+        cat: name,
+        hasAdvanced: false
+      });
       await saveBadgeDefs(currentDefs);
       if (input) input.value = '';
       renderAdminBadges();
@@ -1916,45 +2834,45 @@ async function renderAdminBadges() {
 
 // ── Browser & Node Environment Exports ─────────────────────────────────────
 if (typeof window !== 'undefined') {
-  window.DEFAULT_BB_BADGES          = DEFAULT_BB_BADGES;
-  window.DEFAULT_PRESIDENTS_REQS    = DEFAULT_PRESIDENTS_REQS;
-  window.DEFAULT_FOUNDERS_REQS      = DEFAULT_FOUNDERS_REQS;
-  window.PRESIDENTS_REQS            = PRESIDENTS_REQS;
-  window._badgeDefsCache            = _badgeDefsCache;
-  window._memberBadgesCache         = _memberBadgesCache;
-  window.checkBadgesAccess          = checkBadgesAccess;
-  window.getBadgeDefs               = getBadgeDefs;
-  window.saveBadgeDefs              = saveBadgeDefs;
-  window.getPresidentsReqs          = getPresidentsReqs;
-  window.savePresidentsReqs          = savePresidentsReqs;
-  window.upsertMemberBadges         = upsertMemberBadges;
-  window.evaluateFoundersCriteria   = evaluateFoundersCriteria;
+  window.DEFAULT_BB_BADGES = DEFAULT_BB_BADGES;
+  window.DEFAULT_PRESIDENTS_REQS = DEFAULT_PRESIDENTS_REQS;
+  window.DEFAULT_FOUNDERS_REQS = DEFAULT_FOUNDERS_REQS;
+  window.PRESIDENTS_REQS = PRESIDENTS_REQS;
+  window._badgeDefsCache = _badgeDefsCache;
+  window._memberBadgesCache = _memberBadgesCache;
+  window.checkBadgesAccess = checkBadgesAccess;
+  window.getBadgeDefs = getBadgeDefs;
+  window.saveBadgeDefs = saveBadgeDefs;
+  window.getPresidentsReqs = getPresidentsReqs;
+  window.savePresidentsReqs = savePresidentsReqs;
+  window.upsertMemberBadges = upsertMemberBadges;
+  window.evaluateFoundersCriteria = evaluateFoundersCriteria;
   window.evaluatePresidentsCriteria = evaluatePresidentsCriteria;
-  window.getBadgeGroup              = getBadgeGroup;
-  window.BADGE_GROUP_MAP            = BADGE_GROUP_MAP;
-  window.loadBadges                 = loadBadges;
-  window.adjustRepBadge             = adjustRepBadge;
-  window.toggleBadge                = toggleBadge;
-  window.saveBadges                 = saveBadges;
-  window.filterBadges               = filterBadges;
-  window.renderPresidentsTracker    = renderPresidentsTracker;
-  window.switchBadgeSubtab          = switchBadgeSubtab;
-  window.setReqTier                 = setReqTier;
-  window.renderAdminPresidentsReqs  = renderAdminPresidentsReqs;
-  window.deletePresidentsReq        = deletePresidentsReq;
-  window.addPresidentsReq           = addPresidentsReq;
-  window.renderAdminBadges          = renderAdminBadges;
-  window.setBadgesDisplayMode       = setBadgesDisplayMode;
-  window.getBadgesDisplayMode       = getBadgesDisplayMode;
-  window.filterBadgesByCategory     = filterBadgesByCategory;
-  window.enrichBadgeCatalog         = enrichBadgeCatalog;
-  window.deleteBadgeDef             = deleteBadgeDef;
-  window.deleteBadgeSection         = deleteBadgeSection;
-  window.getDeletedBadges           = getDeletedBadges;
-  window.saveDeletedBadges          = saveDeletedBadges;
-  window.recordBadgeDeletion        = recordBadgeDeletion;
-  window.unrecordBadgeDeletion      = unrecordBadgeDeletion;
-  window.isBadgeDeleted             = isBadgeDeleted;
+  window.getBadgeGroup = getBadgeGroup;
+  window.BADGE_GROUP_MAP = BADGE_GROUP_MAP;
+  window.loadBadges = loadBadges;
+  window.adjustRepBadge = adjustRepBadge;
+  window.toggleBadge = toggleBadge;
+  window.saveBadges = saveBadges;
+  window.filterBadges = filterBadges;
+  window.renderPresidentsTracker = renderPresidentsTracker;
+  window.switchBadgeSubtab = switchBadgeSubtab;
+  window.setReqTier = setReqTier;
+  window.renderAdminPresidentsReqs = renderAdminPresidentsReqs;
+  window.deletePresidentsReq = deletePresidentsReq;
+  window.addPresidentsReq = addPresidentsReq;
+  window.renderAdminBadges = renderAdminBadges;
+  window.setBadgesDisplayMode = setBadgesDisplayMode;
+  window.getBadgesDisplayMode = getBadgesDisplayMode;
+  window.filterBadgesByCategory = filterBadgesByCategory;
+  window.enrichBadgeCatalog = enrichBadgeCatalog;
+  window.deleteBadgeDef = deleteBadgeDef;
+  window.deleteBadgeSection = deleteBadgeSection;
+  window.getDeletedBadges = getDeletedBadges;
+  window.saveDeletedBadges = saveDeletedBadges;
+  window.recordBadgeDeletion = recordBadgeDeletion;
+  window.unrecordBadgeDeletion = unrecordBadgeDeletion;
+  window.isBadgeDeleted = isBadgeDeleted;
 }
 
 if (typeof module !== 'undefined' && module.exports) {

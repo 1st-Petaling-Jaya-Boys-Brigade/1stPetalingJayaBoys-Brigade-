@@ -1,4 +1,4 @@
-(function() {
+(function () {
   'use strict';
 
   var dialog = document.querySelector('.install-app-dialog');
@@ -8,7 +8,8 @@
   var panels = [...dialog.querySelectorAll('[data-install-panel]')];
   var apkLink = dialog.querySelector('[data-install-apk]');
   var portalLink = dialog.querySelector('[data-install-portal]');
-  var deployedPortal = 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
+  var deployedPortal =
+    'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
 
   function httpsUrl(value) {
     try {
@@ -51,20 +52,27 @@
   }
 
   function selectPlatform(platform) {
-    tabs.forEach(function(tab) {
+    tabs.forEach(function (tab) {
       tab.setAttribute('aria-pressed', String(tab.dataset.installPlatform === platform));
     });
-    panels.forEach(function(panel) {
+    panels.forEach(function (panel) {
       panel.hidden = panel.dataset.installPanel !== platform;
     });
   }
 
-  tabs.forEach(function(tab) {
-    tab.addEventListener('click', function() { selectPlatform(tab.dataset.installPlatform); });
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      selectPlatform(tab.dataset.installPlatform);
+    });
   });
 
-  window.openInstallApp = function() {
-    if (!window.AuthGuard?.isUserAuthenticated() || window.Capacitor?.isNativePlatform?.() || dialog.open) return;
+  window.openInstallApp = function () {
+    if (
+      !window.AuthGuard?.isUserAuthenticated() ||
+      window.Capacitor?.isNativePlatform?.() ||
+      dialog.open
+    )
+      return;
 
     var apk = httpsUrl(window.ANDROID_APK_URL || '');
     var localHost = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
@@ -76,7 +84,12 @@
     dialog.querySelector('[data-install-download]').hidden = !apk;
     renderQr(panels[0], apk);
     renderQr(panels[1], portal);
-    selectPlatform(/iPhone|iPad|iPod/i.test(navigator.userAgent) || navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 ? 'ios' : 'android');
+    selectPlatform(
+      /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        ? 'ios'
+        : 'android'
+    );
     if (typeof window.closeSidebar === 'function') window.closeSidebar();
     dialog.showModal();
   };

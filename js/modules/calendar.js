@@ -6,122 +6,927 @@
  * and Day Schedule modal with Admin Console CRUD Synchronization
  */
 
-(function(_global) {
+(function (_global) {
   'use strict';
 
   // ── Authentic 2026 Company Calendar Dataset + Malaysian Public Holidays ─────
   var DEFAULT_2026_CALENDAR = [
     // January 2026
-    { id: 'hol-2026-01-01', date: '2026-01-01', title: "New Year's Day (regional holiday)", type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Happy New Year 2026!' },
-    { id: 'cal-2026-01-03', date: '2026-01-03', title: 'Fellowship Parade', type: 'special', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Fellowship Parade & Ice-breaking', jrDetails: 'No parade', notes: 'First parade of 2026. Welcome back!' },
-    { id: 'cal-2026-01-10', date: '2026-01-10', title: 'Regular Parade', type: 'parade', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill', jrDetails: 'Junior Games & Drill Introduction', notes: '' },
-    { id: 'cal-2026-01-17', date: '2026-01-17', title: 'Regular Parade', type: 'parade', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill', jrDetails: 'Junior Games & Squad Basics', notes: '' },
-    { id: 'cal-2026-01-24', date: '2026-01-24', title: 'Regular Parade & Parents Briefing', type: 'parade', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Parents & Recruits Briefing · Drill', jrDetails: 'Junior Games · Recruits Briefing · Parents Briefing', notes: 'Parents & Recruits Welcome Briefing at 4:30 PM' },
-    { id: 'hol-2026-01-31', date: '2026-01-31', title: 'Thaipusam (regional holiday)', type: 'holiday', kit: 'None', time: 'All day', location: 'Selangor & KL', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Thaipusam State Public Holiday' },
-    { id: 'cal-2026-01-31', date: '2026-01-31', title: 'Special Event (Optional)', type: 'special', kit: 'PT Kit', time: '2:15 PM – 5:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Special Event (Optional) · Squad Fellowship', jrDetails: 'No Parade (Company Break)', notes: 'Thaipusam on Jan 31' },
+    {
+      id: 'hol-2026-01-01',
+      date: '2026-01-01',
+      title: "New Year's Day (regional holiday)",
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Happy New Year 2026!'
+    },
+    {
+      id: 'cal-2026-01-03',
+      date: '2026-01-03',
+      title: 'Fellowship Parade',
+      type: 'special',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Fellowship Parade & Ice-breaking',
+      jrDetails: 'No parade',
+      notes: 'First parade of 2026. Welcome back!'
+    },
+    {
+      id: 'cal-2026-01-10',
+      date: '2026-01-10',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill',
+      jrDetails: 'Junior Games & Drill Introduction',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-01-17',
+      date: '2026-01-17',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill',
+      jrDetails: 'Junior Games & Squad Basics',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-01-24',
+      date: '2026-01-24',
+      title: 'Regular Parade & Parents Briefing',
+      type: 'parade',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails:
+        'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Parents & Recruits Briefing · Drill',
+      jrDetails: 'Junior Games · Recruits Briefing · Parents Briefing',
+      notes: 'Parents & Recruits Welcome Briefing at 4:30 PM'
+    },
+    {
+      id: 'hol-2026-01-31',
+      date: '2026-01-31',
+      title: 'Thaipusam (regional holiday)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'Selangor & KL',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Thaipusam State Public Holiday'
+    },
+    {
+      id: 'cal-2026-01-31',
+      date: '2026-01-31',
+      title: 'Special Event (Optional)',
+      type: 'special',
+      kit: 'PT Kit',
+      time: '2:15 PM – 5:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Special Event (Optional) · Squad Fellowship',
+      jrDetails: 'No Parade (Company Break)',
+      notes: 'Thaipusam on Jan 31'
+    },
 
     // February 2026
-    { id: 'hol-2026-02-01', date: '2026-02-01', title: 'Federal Territory Day (regional holiday)', type: 'holiday', kit: 'None', time: 'All day', location: 'KL & Putrajaya', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Federal Territory Day' },
-    { id: 'cal-2026-02-07', date: '2026-02-07', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill', jrDetails: 'JR - BB in Malaysia · Target · Badge Class 1', notes: 'Day Dress uniform inspection' },
-    { id: 'hol-2026-02-14', date: '2026-02-14', title: "Valentine's Day", type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Observance', jrDetails: 'Observance', notes: '' },
-    { id: 'cal-2026-02-14', date: '2026-02-14', title: 'Chinese New Year - No Parade', type: 'noparade', kit: 'None', time: 'All Day', location: 'No Parade', srDetails: 'Chinese New Year holiday break', jrDetails: 'Chinese New Year holiday break', notes: 'Happy Chinese New Year! No parade.' },
-    { id: 'hol-2026-02-17', date: '2026-02-17', title: "Chinese New Year's Day", type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Year of the Horse' },
-    { id: 'hol-2026-02-18', date: '2026-02-18', title: 'Second Day of Chinese New Year (regional holiday)', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Chinese New Year Holiday' },
-    { id: 'cal-2026-02-21', date: '2026-02-21', title: 'Chinese New Year - No Parade', type: 'noparade', kit: 'None', time: 'All Day', location: 'No Parade', srDetails: 'Chinese New Year holiday break', jrDetails: 'Chinese New Year holiday break', notes: 'CNY holidays: Feb 17-18' },
-    { id: 'hol-2026-02-24', date: '2026-02-24', title: 'Nuzul Al-Quran (regional holiday) (tentative)', type: 'holiday', kit: 'None', time: 'All day', location: 'Selangor & KL', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: '' },
-    { id: 'cal-2026-02-28', date: '2026-02-28', title: 'Special Event - Half Day', type: 'special', kit: 'Drill Kit', time: '2:15 PM – 5:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Special Event - Half Day (Squad Zulu) · NO CE · Target/Drill · Board Games', jrDetails: 'JR - Morse Code · Target · Special Event', notes: 'Squad Zulu in charge' },
+    {
+      id: 'hol-2026-02-01',
+      date: '2026-02-01',
+      title: 'Federal Territory Day (regional holiday)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'KL & Putrajaya',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Federal Territory Day'
+    },
+    {
+      id: 'cal-2026-02-07',
+      date: '2026-02-07',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill',
+      jrDetails: 'JR - BB in Malaysia · Target · Badge Class 1',
+      notes: 'Day Dress uniform inspection'
+    },
+    {
+      id: 'hol-2026-02-14',
+      date: '2026-02-14',
+      title: "Valentine's Day",
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Observance',
+      jrDetails: 'Observance',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-02-14',
+      date: '2026-02-14',
+      title: 'Chinese New Year - No Parade',
+      type: 'noparade',
+      kit: 'None',
+      time: 'All Day',
+      location: 'No Parade',
+      srDetails: 'Chinese New Year holiday break',
+      jrDetails: 'Chinese New Year holiday break',
+      notes: 'Happy Chinese New Year! No parade.'
+    },
+    {
+      id: 'hol-2026-02-17',
+      date: '2026-02-17',
+      title: "Chinese New Year's Day",
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Year of the Horse'
+    },
+    {
+      id: 'hol-2026-02-18',
+      date: '2026-02-18',
+      title: 'Second Day of Chinese New Year (regional holiday)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Chinese New Year Holiday'
+    },
+    {
+      id: 'cal-2026-02-21',
+      date: '2026-02-21',
+      title: 'Chinese New Year - No Parade',
+      type: 'noparade',
+      kit: 'None',
+      time: 'All Day',
+      location: 'No Parade',
+      srDetails: 'Chinese New Year holiday break',
+      jrDetails: 'Chinese New Year holiday break',
+      notes: 'CNY holidays: Feb 17-18'
+    },
+    {
+      id: 'hol-2026-02-24',
+      date: '2026-02-24',
+      title: 'Nuzul Al-Quran (regional holiday) (tentative)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'Selangor & KL',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-02-28',
+      date: '2026-02-28',
+      title: 'Special Event - Half Day',
+      type: 'special',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 5:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Special Event - Half Day (Squad Zulu) · NO CE · Target/Drill · Board Games',
+      jrDetails: 'JR - Morse Code · Target · Special Event',
+      notes: 'Squad Zulu in charge'
+    },
 
     // March 2026
-    { id: 'cal-2026-03-07', date: '2026-03-07', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill', jrDetails: 'JR - BB History · Target · Badge Class 1', notes: '' },
-    { id: 'cal-2026-03-14', date: '2026-03-14', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill', jrDetails: 'JR - Morse Code · Target · Badge Class 1', notes: '' },
-    { id: 'hol-2026-03-20', date: '2026-03-20', title: 'Hari Raya Puasa (tentative)', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Hari Raya Aidilfitri Day 1' },
-    { id: 'hol-2026-03-21', date: '2026-03-21', title: 'Hari Raya Puasa Holiday Day 2 (tentative)', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Hari Raya Aidilfitri Day 2' },
-    { id: 'cal-2026-03-21', date: '2026-03-21', title: '4 in 1 State Camp (20–22 Mar)', type: 'camp', kit: 'Drill Kit', time: 'Full Weekend', location: 'State Camp Site', srDetails: '4 in 1 State Camp (20-22 March)', jrDetails: 'JR - Bootcamp · 4 in 1 State Camp (20-22)', notes: 'Hari Raya Aidilfitri on Mar 21-22' },
-    { id: 'cal-2026-03-28', date: '2026-03-28', title: 'Special Event - Half Day', type: 'special', kit: 'PT Kit', time: '2:15 PM – 5:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Special Event - Half Day (Squad Alpha) · NO CE · Target Test / Drill · Intersquad Sports', jrDetails: 'JR - Morse Code Test · Target Test · Special Event', notes: 'Squad Alpha in charge' },
+    {
+      id: 'cal-2026-03-07',
+      date: '2026-03-07',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill',
+      jrDetails: 'JR - BB History · Target · Badge Class 1',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-03-14',
+      date: '2026-03-14',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Target · Comp. Knowledge (A) · Soc-Entrepreneur (B) · Drill',
+      jrDetails: 'JR - Morse Code · Target · Badge Class 1',
+      notes: ''
+    },
+    {
+      id: 'hol-2026-03-20',
+      date: '2026-03-20',
+      title: 'Hari Raya Puasa (tentative)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Hari Raya Aidilfitri Day 1'
+    },
+    {
+      id: 'hol-2026-03-21',
+      date: '2026-03-21',
+      title: 'Hari Raya Puasa Holiday Day 2 (tentative)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Hari Raya Aidilfitri Day 2'
+    },
+    {
+      id: 'cal-2026-03-21',
+      date: '2026-03-21',
+      title: '4 in 1 State Camp (20–22 Mar)',
+      type: 'camp',
+      kit: 'Drill Kit',
+      time: 'Full Weekend',
+      location: 'State Camp Site',
+      srDetails: '4 in 1 State Camp (20-22 March)',
+      jrDetails: 'JR - Bootcamp · 4 in 1 State Camp (20-22)',
+      notes: 'Hari Raya Aidilfitri on Mar 21-22'
+    },
+    {
+      id: 'cal-2026-03-28',
+      date: '2026-03-28',
+      title: 'Special Event - Half Day',
+      type: 'special',
+      kit: 'PT Kit',
+      time: '2:15 PM – 5:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails:
+        'Special Event - Half Day (Squad Alpha) · NO CE · Target Test / Drill · Intersquad Sports',
+      jrDetails: 'JR - Morse Code Test · Target Test · Special Event',
+      notes: 'Squad Alpha in charge'
+    },
 
     // April 2026
-    { id: 'hol-2026-04-03', date: '2026-04-03', title: 'Good Friday (regional holiday)', type: 'holiday', kit: 'None', time: 'All day', location: 'Observance', srDetails: 'Good Friday Service', jrDetails: 'Good Friday Service', notes: 'Blessed Good Friday' },
-    { id: 'cal-2026-04-04', date: '2026-04-04', title: 'Easter - No Parade', type: 'noparade', kit: 'None', time: 'All Day', location: 'No Parade', srDetails: 'Easter Weekend - No Parade', jrDetails: 'Easter Weekend - No Parade', notes: 'Blessed Easter!' },
-    { id: 'hol-2026-04-05', date: '2026-04-05', title: 'Easter Sunday', type: 'holiday', kit: 'None', time: 'All day', location: 'Trinity Methodist Church PJ', srDetails: 'Easter Sunrise & Morning Services', jrDetails: 'Easter Celebration', notes: 'Christ is Risen!' },
-    { id: 'cal-2026-04-11', date: '2026-04-11', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill', jrDetails: 'JR - BB Recruitment · Badge Class 2', notes: 'Stage 2 Badge Classes commence' },
-    { id: 'cal-2026-04-18', date: '2026-04-18', title: 'Regular Parade', type: 'parade', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill', jrDetails: 'JR - Sports · Badge Class 2', notes: '' },
-    { id: 'cal-2026-04-25', date: '2026-04-25', title: 'Rank Exchange Parade', type: 'parade', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'RANK EXCHANGE · Worship · CE · First Aid (B) · Campers (B+A) · Drill', jrDetails: 'JR - Sports · Badge Class 2', notes: 'Annual Senior Section Rank Exchange' },
+    {
+      id: 'hol-2026-04-03',
+      date: '2026-04-03',
+      title: 'Good Friday (regional holiday)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'Observance',
+      srDetails: 'Good Friday Service',
+      jrDetails: 'Good Friday Service',
+      notes: 'Blessed Good Friday'
+    },
+    {
+      id: 'cal-2026-04-04',
+      date: '2026-04-04',
+      title: 'Easter - No Parade',
+      type: 'noparade',
+      kit: 'None',
+      time: 'All Day',
+      location: 'No Parade',
+      srDetails: 'Easter Weekend - No Parade',
+      jrDetails: 'Easter Weekend - No Parade',
+      notes: 'Blessed Easter!'
+    },
+    {
+      id: 'hol-2026-04-05',
+      date: '2026-04-05',
+      title: 'Easter Sunday',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Easter Sunrise & Morning Services',
+      jrDetails: 'Easter Celebration',
+      notes: 'Christ is Risen!'
+    },
+    {
+      id: 'cal-2026-04-11',
+      date: '2026-04-11',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill',
+      jrDetails: 'JR - BB Recruitment · Badge Class 2',
+      notes: 'Stage 2 Badge Classes commence'
+    },
+    {
+      id: 'cal-2026-04-18',
+      date: '2026-04-18',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill',
+      jrDetails: 'JR - Sports · Badge Class 2',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-04-25',
+      date: '2026-04-25',
+      title: 'Rank Exchange Parade',
+      type: 'parade',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'RANK EXCHANGE · Worship · CE · First Aid (B) · Campers (B+A) · Drill',
+      jrDetails: 'JR - Sports · Badge Class 2',
+      notes: 'Annual Senior Section Rank Exchange'
+    },
 
     // May 2026
-    { id: 'hol-2026-05-01', date: '2026-05-01', title: 'Labour Day', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: "Workers' Day" },
-    { id: 'cal-2026-05-02', date: '2026-05-02', title: 'Labour Day / Wesak - No Parade', type: 'noparade', kit: 'None', time: 'All Day', location: 'No Parade', srDetails: 'Wesak Day / Labour Day Holiday - No Parade', jrDetails: 'JR - Junior Leadership Training (1-3) - No Parade', notes: 'Labour Day: May 1, Wesak: May 31' },
-    { id: 'cal-2026-05-09', date: '2026-05-09', title: 'BCM (8–10 May) - No Parade', type: 'noparade', kit: 'Day Dress', time: 'All Day', location: 'BCM Center', srDetails: "Boys' Brigade Council Meeting (BCM 8-10 May) - No Parade", jrDetails: 'BCM (8-10 May) - No Parade', notes: 'Officers attending national council meeting' },
-    { id: 'cal-2026-05-16', date: '2026-05-16', title: 'Regular Parade', type: 'parade', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill', jrDetails: "JR - Mother's Day Crafts · Badge Class 2", notes: "Mother's Day celebration" },
-    { id: 'cal-2026-05-23', date: '2026-05-23', title: 'Special Event - Half Day', type: 'special', kit: 'PT Kit', time: '2:15 PM – 5:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Special Event - Half Day (Squad Papa) · NO CE · Drill · Intersquad Sports', jrDetails: 'JR - Sports Outing · Special Event', notes: 'Squad Papa in charge' },
-    { id: 'cal-2026-05-30', date: '2026-05-30', title: '1st PJ Company Camp (30 May – 1 Jun)', type: 'camp', kit: 'PT Kit', time: 'Full Weekend', location: 'Company Campsite', srDetails: 'Company Camp / Family Outing (30-31 May)', jrDetails: 'JR - Company Camp (30 May - 1 June)', notes: 'Annual Company Camp for all members and families' },
-    { id: 'hol-2026-05-31', date: '2026-05-31', title: 'Wesak Day', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Wesak Day' },
+    {
+      id: 'hol-2026-05-01',
+      date: '2026-05-01',
+      title: 'Labour Day',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: "Workers' Day"
+    },
+    {
+      id: 'cal-2026-05-02',
+      date: '2026-05-02',
+      title: 'Labour Day / Wesak - No Parade',
+      type: 'noparade',
+      kit: 'None',
+      time: 'All Day',
+      location: 'No Parade',
+      srDetails: 'Wesak Day / Labour Day Holiday - No Parade',
+      jrDetails: 'JR - Junior Leadership Training (1-3) - No Parade',
+      notes: 'Labour Day: May 1, Wesak: May 31'
+    },
+    {
+      id: 'cal-2026-05-09',
+      date: '2026-05-09',
+      title: 'BCM (8–10 May) - No Parade',
+      type: 'noparade',
+      kit: 'Day Dress',
+      time: 'All Day',
+      location: 'BCM Center',
+      srDetails: "Boys' Brigade Council Meeting (BCM 8-10 May) - No Parade",
+      jrDetails: 'BCM (8-10 May) - No Parade',
+      notes: 'Officers attending national council meeting'
+    },
+    {
+      id: 'cal-2026-05-16',
+      date: '2026-05-16',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill',
+      jrDetails: "JR - Mother's Day Crafts · Badge Class 2",
+      notes: "Mother's Day celebration"
+    },
+    {
+      id: 'cal-2026-05-23',
+      date: '2026-05-23',
+      title: 'Special Event - Half Day',
+      type: 'special',
+      kit: 'PT Kit',
+      time: '2:15 PM – 5:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Special Event - Half Day (Squad Papa) · NO CE · Drill · Intersquad Sports',
+      jrDetails: 'JR - Sports Outing · Special Event',
+      notes: 'Squad Papa in charge'
+    },
+    {
+      id: 'cal-2026-05-30',
+      date: '2026-05-30',
+      title: '1st PJ Company Camp (30 May – 1 Jun)',
+      type: 'camp',
+      kit: 'PT Kit',
+      time: 'Full Weekend',
+      location: 'Company Campsite',
+      srDetails: 'Company Camp / Family Outing (30-31 May)',
+      jrDetails: 'JR - Company Camp (30 May - 1 June)',
+      notes: 'Annual Company Camp for all members and families'
+    },
+    {
+      id: 'hol-2026-05-31',
+      date: '2026-05-31',
+      title: 'Wesak Day',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Wesak Day'
+    },
 
     // June 2026
-    { id: 'hol-2026-06-01', date: '2026-06-01', title: "Agong's Birthday", type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: "King's Official Birthday" },
-    { id: 'cal-2026-06-06', date: '2026-06-06', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill', jrDetails: "JR - Respect & Obedience · Drill Assessment · Badge Class 2", notes: "Agong's Birthday on Jun 1" },
-    { id: 'cal-2026-06-13', date: '2026-06-13', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill', jrDetails: 'JR - Respect & Obedience · Badge Class 2', notes: '' },
-    { id: 'hol-2026-06-17', date: '2026-06-17', title: 'Awal Muharram', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Islamic New Year' },
-    { id: 'cal-2026-06-20', date: '2026-06-20', title: 'Enrolment Rehearsal', type: 'ceremonial', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church Sanctuary', srDetails: 'NO CE · BBGB Enrolment Full Rehearsal', jrDetails: "JR - Father's Day Craft · Enrolment Rehearsal", notes: 'Enrolment Service full walkthrough' },
-    { id: 'cal-2026-06-27', date: '2026-06-27', title: 'Enrolment Final Rehearsal', type: 'ceremonial', kit: 'PT Kit', time: '2:15 PM – 5:30 PM', location: 'Trinity Methodist Church Sanctuary', srDetails: 'NO CE · BBGB Enrolment Rehearsal', jrDetails: 'JR - BBGB Enrolment Rehearsal', notes: 'Final rehearsal before Sunday ceremony' },
-    { id: 'cal-2026-06-28', date: '2026-06-28', title: 'ENROLMENT SUNDAY', type: 'ceremonial', kit: 'Ceremonial', time: '8:30 AM – 1:00 PM', location: 'Trinity Methodist Church Sanctuary', srDetails: 'Company Enrolment Service & Dedication Ceremony', jrDetails: 'Company Enrolment Service & Dedication Ceremony', notes: 'Mandatory Full Ceremonial Kit for all members and officers' },
+    {
+      id: 'hol-2026-06-01',
+      date: '2026-06-01',
+      title: "Agong's Birthday",
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: "King's Official Birthday"
+    },
+    {
+      id: 'cal-2026-06-06',
+      date: '2026-06-06',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill',
+      jrDetails: 'JR - Respect & Obedience · Drill Assessment · Badge Class 2',
+      notes: "Agong's Birthday on Jun 1"
+    },
+    {
+      id: 'cal-2026-06-13',
+      date: '2026-06-13',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · First Aid (B) · Campers (B+A) · Drill',
+      jrDetails: 'JR - Respect & Obedience · Badge Class 2',
+      notes: ''
+    },
+    {
+      id: 'hol-2026-06-17',
+      date: '2026-06-17',
+      title: 'Awal Muharram',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Islamic New Year'
+    },
+    {
+      id: 'cal-2026-06-20',
+      date: '2026-06-20',
+      title: 'Enrolment Rehearsal',
+      type: 'ceremonial',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church Sanctuary',
+      srDetails: 'NO CE · BBGB Enrolment Full Rehearsal',
+      jrDetails: "JR - Father's Day Craft · Enrolment Rehearsal",
+      notes: 'Enrolment Service full walkthrough'
+    },
+    {
+      id: 'cal-2026-06-27',
+      date: '2026-06-27',
+      title: 'Enrolment Final Rehearsal',
+      type: 'ceremonial',
+      kit: 'PT Kit',
+      time: '2:15 PM – 5:30 PM',
+      location: 'Trinity Methodist Church Sanctuary',
+      srDetails: 'NO CE · BBGB Enrolment Rehearsal',
+      jrDetails: 'JR - BBGB Enrolment Rehearsal',
+      notes: 'Final rehearsal before Sunday ceremony'
+    },
+    {
+      id: 'cal-2026-06-28',
+      date: '2026-06-28',
+      title: 'ENROLMENT SUNDAY',
+      type: 'ceremonial',
+      kit: 'Ceremonial',
+      time: '8:30 AM – 1:00 PM',
+      location: 'Trinity Methodist Church Sanctuary',
+      srDetails: 'Company Enrolment Service & Dedication Ceremony',
+      jrDetails: 'Company Enrolment Service & Dedication Ceremony',
+      notes: 'Mandatory Full Ceremonial Kit for all members and officers'
+    },
 
     // July 2026
-    { id: 'cal-2026-07-04', date: '2026-07-04', title: 'Regular Parade & NCO Stayover', type: 'parade', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'SSDC Practice and NCO Stayover (4-5 July)', jrDetails: 'JR - Photo Session · CE Assessment', notes: 'Senior NCO stayover on Saturday evening' },
-    { id: 'cal-2026-07-11', date: '2026-07-11', title: 'SSDC at KSL Sports Puchong - No Parade', type: 'noparade', kit: 'Day Dress', time: '8:00 AM – 4:00 PM', location: 'KSL Sports Puchong', srDetails: 'SSDC at KSL Sports Puchong - No Regular Parade', jrDetails: 'JR - SSDC Prep & NCO Stayover', notes: 'State Sports & Drill Competition' },
-    { id: 'cal-2026-07-18', date: '2026-07-18', title: 'Regular Parade', type: 'parade', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill', jrDetails: 'JR - Fire & Rescue · Badge Class 3', notes: 'Badge Class 3 syllabus starts' },
-    { id: 'cal-2026-07-25', date: '2026-07-25', title: 'Campers & Expedition Assessment Camp', type: 'camp', kit: 'Drill Kit', time: 'Full Day / Overnight', location: 'Camp Site', srDetails: 'NO CE · Campers & Expedition Assessment Camp', jrDetails: 'JR - Fire & Rescue Outing', notes: 'Practical field assessment for Campers badge' },
+    {
+      id: 'cal-2026-07-04',
+      date: '2026-07-04',
+      title: 'Regular Parade & NCO Stayover',
+      type: 'parade',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'SSDC Practice and NCO Stayover (4-5 July)',
+      jrDetails: 'JR - Photo Session · CE Assessment',
+      notes: 'Senior NCO stayover on Saturday evening'
+    },
+    {
+      id: 'cal-2026-07-11',
+      date: '2026-07-11',
+      title: 'SSDC at KSL Sports Puchong - No Parade',
+      type: 'noparade',
+      kit: 'Day Dress',
+      time: '8:00 AM – 4:00 PM',
+      location: 'KSL Sports Puchong',
+      srDetails: 'SSDC at KSL Sports Puchong - No Regular Parade',
+      jrDetails: 'JR - SSDC Prep & NCO Stayover',
+      notes: 'State Sports & Drill Competition'
+    },
+    {
+      id: 'cal-2026-07-18',
+      date: '2026-07-18',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill',
+      jrDetails: 'JR - Fire & Rescue · Badge Class 3',
+      notes: 'Badge Class 3 syllabus starts'
+    },
+    {
+      id: 'cal-2026-07-25',
+      date: '2026-07-25',
+      title: 'Campers & Expedition Assessment Camp',
+      type: 'camp',
+      kit: 'Drill Kit',
+      time: 'Full Day / Overnight',
+      location: 'Camp Site',
+      srDetails: 'NO CE · Campers & Expedition Assessment Camp',
+      jrDetails: 'JR - Fire & Rescue Outing',
+      notes: 'Practical field assessment for Campers badge'
+    },
 
     // August 2026
-    { id: 'cal-2026-08-01', date: '2026-08-01', title: 'Mid-Year Recess - No Parade', type: 'noparade', kit: 'None', time: 'All Day', location: 'No Parade', srDetails: 'Mid-year Company Recess - No Parade', jrDetails: 'Mid-year Company Recess - No Parade', notes: 'Enjoy your rest!' },
-    { id: 'cal-2026-08-08', date: '2026-08-08', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill', jrDetails: 'JR - Road Safety · Badge Class 3', notes: '' },
-    { id: 'cal-2026-08-15', date: '2026-08-15', title: 'Regular Parade', type: 'parade', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill', jrDetails: 'JR - Road Safety · Badge Class 3', notes: '' },
-    { id: 'cal-2026-08-22', date: '2026-08-22', title: 'Regular Parade & Outing', type: 'parade', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill', jrDetails: 'JR - Road Safety Outing · Badge Class 3', notes: '' },
-    { id: 'cal-2026-08-29', date: '2026-08-29', title: 'Drill Camp (Optional)', type: 'special', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Special Event (Optional) / Drill Camp', jrDetails: 'JR - No Parade (National Day weekend)', notes: 'National Day (Merdeka) on Aug 31' },
-    { id: 'hol-2026-08-31', date: '2026-08-31', title: 'National Day (Merdeka)', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Hari Kebangsaan Malaysia' },
+    {
+      id: 'cal-2026-08-01',
+      date: '2026-08-01',
+      title: 'Mid-Year Recess - No Parade',
+      type: 'noparade',
+      kit: 'None',
+      time: 'All Day',
+      location: 'No Parade',
+      srDetails: 'Mid-year Company Recess - No Parade',
+      jrDetails: 'Mid-year Company Recess - No Parade',
+      notes: 'Enjoy your rest!'
+    },
+    {
+      id: 'cal-2026-08-08',
+      date: '2026-08-08',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill',
+      jrDetails: 'JR - Road Safety · Badge Class 3',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-08-15',
+      date: '2026-08-15',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill',
+      jrDetails: 'JR - Road Safety · Badge Class 3',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-08-22',
+      date: '2026-08-22',
+      title: 'Regular Parade & Outing',
+      type: 'parade',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill',
+      jrDetails: 'JR - Road Safety Outing · Badge Class 3',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-08-29',
+      date: '2026-08-29',
+      title: 'Drill Camp (Optional)',
+      type: 'special',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Special Event (Optional) / Drill Camp',
+      jrDetails: 'JR - No Parade (National Day weekend)',
+      notes: 'National Day (Merdeka) on Aug 31'
+    },
+    {
+      id: 'hol-2026-08-31',
+      date: '2026-08-31',
+      title: 'National Day (Merdeka)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Hari Kebangsaan Malaysia'
+    },
 
     // September 2026
-    { id: 'cal-2026-09-05', date: '2026-09-05', title: 'Regular Parade & Photo Session', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Photo Session · Safety (B) · Nature Awareness (B) · Drill', jrDetails: 'JR - Merdeka Craft · Badge Class 3 · Photo Session', notes: 'Annual squad & platoon official photography' },
-    { id: 'cal-2026-09-12', date: '2026-09-12', title: 'Regular Parade', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill Theory (B+A)', jrDetails: 'JR - Nature Awareness · Badge Class 3', notes: '' },
-    { id: 'hol-2026-09-16', date: '2026-09-16', title: 'Malaysia Day', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: 'Hari Malaysia' },
-    { id: 'cal-2026-09-19', date: '2026-09-19', title: 'Regular Parade', type: 'parade', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill Theory (B+A)', jrDetails: 'JR - Nature Awareness · Badge Class 3 · Drill Theory', notes: '' },
-    { id: 'hol-2026-09-25', date: '2026-09-25', title: 'Maulidur Rasul', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Public Holiday', jrDetails: 'Public Holiday', notes: "Prophet Muhammad's Birthday" },
-    { id: 'cal-2026-09-26', date: '2026-09-26', title: 'Career Talk with BB Alumni', type: 'special', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'NO CE · Career Talk with BB Alumni · Special Event (Officers)', jrDetails: 'JR - Nature Awareness Outing · Special Event', notes: 'BB Alumni career mentoring & sharing session' },
+    {
+      id: 'cal-2026-09-05',
+      date: '2026-09-05',
+      title: 'Regular Parade & Photo Session',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Photo Session · Safety (B) · Nature Awareness (B) · Drill',
+      jrDetails: 'JR - Merdeka Craft · Badge Class 3 · Photo Session',
+      notes: 'Annual squad & platoon official photography'
+    },
+    {
+      id: 'cal-2026-09-12',
+      date: '2026-09-12',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill Theory (B+A)',
+      jrDetails: 'JR - Nature Awareness · Badge Class 3',
+      notes: ''
+    },
+    {
+      id: 'hol-2026-09-16',
+      date: '2026-09-16',
+      title: 'Malaysia Day',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: 'Hari Malaysia'
+    },
+    {
+      id: 'cal-2026-09-19',
+      date: '2026-09-19',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Safety (B) · Nature Awareness (B) · Drill Theory (B+A)',
+      jrDetails: 'JR - Nature Awareness · Badge Class 3 · Drill Theory',
+      notes: ''
+    },
+    {
+      id: 'hol-2026-09-25',
+      date: '2026-09-25',
+      title: 'Maulidur Rasul',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Public Holiday',
+      jrDetails: 'Public Holiday',
+      notes: "Prophet Muhammad's Birthday"
+    },
+    {
+      id: 'cal-2026-09-26',
+      date: '2026-09-26',
+      title: 'Career Talk with BB Alumni',
+      type: 'special',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'NO CE · Career Talk with BB Alumni · Special Event (Officers)',
+      jrDetails: 'JR - Nature Awareness Outing · Special Event',
+      notes: 'BB Alumni career mentoring & sharing session'
+    },
 
     // October 2026
-    { id: 'cal-2026-10-03', date: '2026-10-03', title: "SELANGOR STATE FOUNDER'S DAY", type: 'ceremonial', kit: 'Ceremonial', time: '8:00 AM – 2:00 PM', location: 'State Assembly Grounds', srDetails: "Selangor State Founder's Day Celebration & Parade", jrDetails: "Selangor State Founder's Day Celebration", notes: 'State-level ceremonial gathering' },
-    { id: 'cal-2026-10-10', date: '2026-10-10', title: 'Planning Retreat - No Parade', type: 'noparade', kit: 'None', time: 'All Day', location: 'Retreat Center', srDetails: 'Planning Retreat (9-11 Oct) - No Parade', jrDetails: 'Planning Retreat (9-11 Oct) - No Parade', notes: 'Officers and NCO planning weekend' },
-    { id: 'cal-2026-10-17', date: '2026-10-17', title: 'Regular Parade & Hobbies Showcase', type: 'parade', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Arts, Crafts, Hobbies Presentation · Drill Theory (B+A)', jrDetails: 'PJR - Safe Touch · JR - BGR · SR - Award Assessment, Drill Theory', notes: '' },
-    { id: 'cal-2026-10-24', date: '2026-10-24', title: 'Regular Parade', type: 'parade', kit: 'PT Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Safety (A) · Drill Theory (B+A)', jrDetails: 'PJR - Safe Touch · JR - BGR · Safety, Drill Theory', notes: '' },
-    { id: 'cal-2026-10-31', date: '2026-10-31', title: 'Athletics & Drill Commanding', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'No Standard Parade · Athletics + Drill Commanding (B+A)', jrDetails: 'JR - Drill Assessments', notes: 'End-of-year practical badges assessment' },
+    {
+      id: 'cal-2026-10-03',
+      date: '2026-10-03',
+      title: "SELANGOR STATE FOUNDER'S DAY",
+      type: 'ceremonial',
+      kit: 'Ceremonial',
+      time: '8:00 AM – 2:00 PM',
+      location: 'State Assembly Grounds',
+      srDetails: "Selangor State Founder's Day Celebration & Parade",
+      jrDetails: "Selangor State Founder's Day Celebration",
+      notes: 'State-level ceremonial gathering'
+    },
+    {
+      id: 'cal-2026-10-10',
+      date: '2026-10-10',
+      title: 'Planning Retreat - No Parade',
+      type: 'noparade',
+      kit: 'None',
+      time: 'All Day',
+      location: 'Retreat Center',
+      srDetails: 'Planning Retreat (9-11 Oct) - No Parade',
+      jrDetails: 'Planning Retreat (9-11 Oct) - No Parade',
+      notes: 'Officers and NCO planning weekend'
+    },
+    {
+      id: 'cal-2026-10-17',
+      date: '2026-10-17',
+      title: 'Regular Parade & Hobbies Showcase',
+      type: 'parade',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Arts, Crafts, Hobbies Presentation · Drill Theory (B+A)',
+      jrDetails: 'PJR - Safe Touch · JR - BGR · SR - Award Assessment, Drill Theory',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-10-24',
+      date: '2026-10-24',
+      title: 'Regular Parade',
+      type: 'parade',
+      kit: 'PT Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Safety (A) · Drill Theory (B+A)',
+      jrDetails: 'PJR - Safe Touch · JR - BGR · Safety, Drill Theory',
+      notes: ''
+    },
+    {
+      id: 'cal-2026-10-31',
+      date: '2026-10-31',
+      title: 'Athletics & Drill Commanding',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'No Standard Parade · Athletics + Drill Commanding (B+A)',
+      jrDetails: 'JR - Drill Assessments',
+      notes: 'End-of-year practical badges assessment'
+    },
 
     // November 2026
-    { id: 'cal-2026-11-07', date: '2026-11-07', title: 'Regular Parade & Awards Submission', type: 'parade', kit: 'Day Dress', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Worship · CE · Awards Submission Review', jrDetails: 'JR - Drill & CE Assessment · Awards Submission', notes: 'Deepavali on Nov 8' },
-    { id: 'hol-2026-11-08', date: '2026-11-08', title: 'Diwali (regional holiday)', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Deepavali Public Holiday', jrDetails: 'Deepavali Public Holiday', notes: 'Happy Deepavali / Diwali!' },
-    { id: 'cal-2026-11-14', date: '2026-11-14', title: 'Brigade Officers Retreat - No Parade', type: 'noparade', kit: 'None', time: 'All Day', location: 'Retreat Center', srDetails: 'Brigade Officers Retreat - No Parade', jrDetails: 'Brigade Officers Retreat - No Parade', notes: 'Officers retreat weekend' },
-    { id: 'cal-2026-11-21', date: '2026-11-21', title: 'Regular Parade & Re-assessments', type: 'parade', kit: 'Drill Kit', time: '2:15 PM – 6:00 PM', location: 'Trinity Methodist Church PJ', srDetails: 'Senior Badges & Awards Application Submission', jrDetails: 'JR - Re-assessments · Awards Application Submission', notes: 'Final deadline for all badge claims' },
-    { id: 'cal-2026-11-28', date: '2026-11-28', title: 'Awards Day Preparation', type: 'special', kit: 'PT Kit', time: '2:15 PM – 5:30 PM', location: 'Trinity Methodist Church Hall', srDetails: 'Awards Day Rehearsal & Setup', jrDetails: 'JR - Awards Day Prep & Rehearsal', notes: 'Setup for Christmas Party & Awards Ceremony' },
+    {
+      id: 'cal-2026-11-07',
+      date: '2026-11-07',
+      title: 'Regular Parade & Awards Submission',
+      type: 'parade',
+      kit: 'Day Dress',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Worship · CE · Awards Submission Review',
+      jrDetails: 'JR - Drill & CE Assessment · Awards Submission',
+      notes: 'Deepavali on Nov 8'
+    },
+    {
+      id: 'hol-2026-11-08',
+      date: '2026-11-08',
+      title: 'Diwali (regional holiday)',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Deepavali Public Holiday',
+      jrDetails: 'Deepavali Public Holiday',
+      notes: 'Happy Deepavali / Diwali!'
+    },
+    {
+      id: 'cal-2026-11-14',
+      date: '2026-11-14',
+      title: 'Brigade Officers Retreat - No Parade',
+      type: 'noparade',
+      kit: 'None',
+      time: 'All Day',
+      location: 'Retreat Center',
+      srDetails: 'Brigade Officers Retreat - No Parade',
+      jrDetails: 'Brigade Officers Retreat - No Parade',
+      notes: 'Officers retreat weekend'
+    },
+    {
+      id: 'cal-2026-11-21',
+      date: '2026-11-21',
+      title: 'Regular Parade & Re-assessments',
+      type: 'parade',
+      kit: 'Drill Kit',
+      time: '2:15 PM – 6:00 PM',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Senior Badges & Awards Application Submission',
+      jrDetails: 'JR - Re-assessments · Awards Application Submission',
+      notes: 'Final deadline for all badge claims'
+    },
+    {
+      id: 'cal-2026-11-28',
+      date: '2026-11-28',
+      title: 'Awards Day Preparation',
+      type: 'special',
+      kit: 'PT Kit',
+      time: '2:15 PM – 5:30 PM',
+      location: 'Trinity Methodist Church Hall',
+      srDetails: 'Awards Day Rehearsal & Setup',
+      jrDetails: 'JR - Awards Day Prep & Rehearsal',
+      notes: 'Setup for Christmas Party & Awards Ceremony'
+    },
 
     // December 2026
-    { id: 'cal-2026-12-05', date: '2026-12-05', title: '1ST PJ AWARDS DAY & CHRISTMAS PARTY', type: 'ceremonial', kit: 'Day Dress', time: '2:00 PM – 7:30 PM', location: 'Trinity Methodist Church Grand Hall', srDetails: 'Annual Company Awards Ceremony, Rank Promotions & Christmas Celebration', jrDetails: 'Junior Section Awards Presentation & Christmas Celebration', notes: 'Annual Company celebration with parents, alumni and friends!' },
-    { id: 'hol-2026-12-11', date: '2026-12-11', title: "Sultan of Selangor's Birthday", type: 'holiday', kit: 'None', time: 'All day', location: 'Selangor', srDetails: 'State Public Holiday', jrDetails: 'State Public Holiday', notes: "Official Birthday of HRH The Sultan of Selangor" },
-    { id: 'hol-2026-12-24', date: '2026-12-24', title: 'Christmas Eve', type: 'holiday', kit: 'None', time: 'All day', location: 'Trinity Methodist Church PJ', srDetails: 'Christmas Eve Candlelight Service', jrDetails: 'Christmas Eve Candlelight Service', notes: 'Christmas Eve Candlelight Service at TMCPJ' },
-    { id: 'hol-2026-12-25', date: '2026-12-25', title: 'Christmas Day', type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: 'Christmas Day Celebration', jrDetails: 'Christmas Day Celebration', notes: 'Merry Christmas!' },
-    { id: 'hol-2026-12-31', date: '2026-12-31', title: "New Year's Eve", type: 'holiday', kit: 'None', time: 'All day', location: 'National', srDetails: "New Year's Eve Watchnight Service", jrDetails: "New Year's Eve Watchnight Service", notes: 'Farewell 2026, Welcome 2027!' }
+    {
+      id: 'cal-2026-12-05',
+      date: '2026-12-05',
+      title: '1ST PJ AWARDS DAY & CHRISTMAS PARTY',
+      type: 'ceremonial',
+      kit: 'Day Dress',
+      time: '2:00 PM – 7:30 PM',
+      location: 'Trinity Methodist Church Grand Hall',
+      srDetails: 'Annual Company Awards Ceremony, Rank Promotions & Christmas Celebration',
+      jrDetails: 'Junior Section Awards Presentation & Christmas Celebration',
+      notes: 'Annual Company celebration with parents, alumni and friends!'
+    },
+    {
+      id: 'hol-2026-12-11',
+      date: '2026-12-11',
+      title: "Sultan of Selangor's Birthday",
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'Selangor',
+      srDetails: 'State Public Holiday',
+      jrDetails: 'State Public Holiday',
+      notes: 'Official Birthday of HRH The Sultan of Selangor'
+    },
+    {
+      id: 'hol-2026-12-24',
+      date: '2026-12-24',
+      title: 'Christmas Eve',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'Trinity Methodist Church PJ',
+      srDetails: 'Christmas Eve Candlelight Service',
+      jrDetails: 'Christmas Eve Candlelight Service',
+      notes: 'Christmas Eve Candlelight Service at TMCPJ'
+    },
+    {
+      id: 'hol-2026-12-25',
+      date: '2026-12-25',
+      title: 'Christmas Day',
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: 'Christmas Day Celebration',
+      jrDetails: 'Christmas Day Celebration',
+      notes: 'Merry Christmas!'
+    },
+    {
+      id: 'hol-2026-12-31',
+      date: '2026-12-31',
+      title: "New Year's Eve",
+      type: 'holiday',
+      kit: 'None',
+      time: 'All day',
+      location: 'National',
+      srDetails: "New Year's Eve Watchnight Service",
+      jrDetails: "New Year's Eve Watchnight Service",
+      notes: 'Farewell 2026, Welcome 2027!'
+    }
   ];
 
   // ── Module State ───────────────────────────────────────────────────────────
-  var _calendarEvents   = JSON.parse(JSON.stringify(DEFAULT_2026_CALENDAR));
-  var _memberReminders  = [];
+  var _calendarEvents = JSON.parse(JSON.stringify(DEFAULT_2026_CALENDAR));
+  var _memberReminders = [];
   var _calendarViewMode = 'upcoming'; // 'upcoming' | 'week' | 'month' | 'year' | 'events'
-  var _calendarDate     = new Date();
-  var _currentMonth     = _calendarDate.getMonth();
-  var _currentYear      = _calendarDate.getFullYear();
-  var _selectedDateStr  = formatDateKey(_calendarDate);
+  var _calendarDate = new Date();
+  var _currentMonth = _calendarDate.getMonth();
+  var _currentYear = _calendarDate.getFullYear();
+  var _selectedDateStr = formatDateKey(_calendarDate);
   var _upcomingEventIndex = null;
   var _adminUpcomingEventIndex = null;
 
   function formatDateKey(dateObj) {
-    var d = (dateObj instanceof Date) ? dateObj : new Date(dateObj);
+    var d = dateObj instanceof Date ? dateObj : new Date(dateObj);
     var y = String(d.getFullYear()).padStart(4, '0');
     var m = String(d.getMonth() + 1).padStart(2, '0');
     var day = String(d.getDate()).padStart(2, '0');
@@ -129,8 +934,11 @@
   }
 
   function isCalendarDateKey(key) {
-    return typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key) &&
-      formatDateKey(new Date(key + 'T12:00:00')) === key;
+    return (
+      typeof key === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(key) &&
+      formatDateKey(new Date(key + 'T12:00:00')) === key
+    );
   }
 
   function calendarEventId(id) {
@@ -139,36 +947,82 @@
 
   // ── Zero-Emoji SVG Icon Registry for Calendar ──────────────────────────────
   var CAL_ICONS = {
-    clock: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    clock:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
     pin: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
-    shirt: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>',
-    senior: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="m18 15-6-6-6 6"/><path d="m18 9-6-6-6 6"/></svg>',
-    junior: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
-    badge: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
-    target: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
-    reminder: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:12px;height:12px;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V7a3 3 0 0 0-6 0v3.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>',
-    announcement: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
-    alert: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
-    calendar: '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    shirt:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>',
+    senior:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="m18 15-6-6-6 6"/><path d="m18 9-6-6-6 6"/></svg>',
+    junior:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    badge:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>',
+    target:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+    reminder:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:12px;height:12px;"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V7a3 3 0 0 0-6 0v3.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z"/></svg>',
+    announcement:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
+    alert:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+    calendar:
+      '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;width:13px;height:13px;"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
   };
 
   // ── Kit & Type Metadata (Zero Emojis) ──────────────────────────────────────
   var KIT_BADGES = {
-    'PT Kit':     { label: 'PT Kit',      color: 'var(--green)',          bg: 'rgba(16,185,129,0.14)' },
-    'Day Dress':  { label: 'Day Dress',   color: 'var(--blue)',           bg: 'rgba(59,130,246,0.14)' },
-    'Drill Kit':  { label: 'Drill Kit',   color: 'var(--accent)',         bg: 'var(--accent-soft)' },
-    'Ceremonial': { label: 'Ceremonial',  color: 'var(--purple)',         bg: 'rgba(168,85,247,0.14)' },
-    'Casual':     { label: 'Casual',      color: 'var(--text-secondary)', bg: 'var(--surface-tint)' },
-    'None':       { label: 'No Kit',      color: 'var(--text-muted)',     bg: 'var(--surface-tint)' }
+    'PT Kit': { label: 'PT Kit', color: 'var(--green)', bg: 'rgba(16,185,129,0.14)' },
+    'Day Dress': { label: 'Day Dress', color: 'var(--blue)', bg: 'rgba(59,130,246,0.14)' },
+    'Drill Kit': { label: 'Drill Kit', color: 'var(--accent)', bg: 'var(--accent-soft)' },
+    Ceremonial: { label: 'Ceremonial', color: 'var(--purple)', bg: 'rgba(168,85,247,0.14)' },
+    Casual: { label: 'Casual', color: 'var(--text-secondary)', bg: 'var(--surface-tint)' },
+    None: { label: 'No Kit', color: 'var(--text-muted)', bg: 'var(--surface-tint)' }
   };
 
   var TYPE_BADGES = {
-    'parade':     { label: 'Regular Parade',   color: '#22c55e', bg: 'rgba(34,197,94,0.16)',   border: 'rgba(34,197,94,0.4)',  dot: '#22c55e' },
-    'noparade':   { label: 'No Parade',        color: '#ef4444', bg: 'rgba(239,68,68,0.16)',  border: 'rgba(239,68,68,0.4)',  dot: '#ef4444' },
-    'special':    { label: 'Special Event',    color: '#eab308', bg: 'rgba(234,179,8,0.18)',  border: 'rgba(234,179,8,0.4)',  dot: '#eab308' },
-    'camp':       { label: 'Camp / Outing',    color: '#06b6d4', bg: 'rgba(6,182,212,0.16)',  border: 'rgba(6,182,212,0.4)',  dot: '#06b6d4' },
-    'ceremonial': { label: 'Ceremonial',       color: '#a855f7', bg: 'rgba(168,85,247,0.16)', border: 'rgba(168,85,247,0.4)', dot: '#a855f7' },
-    'holiday':    { label: 'Public Holiday',   color: '#16a34a', bg: 'rgba(22,163,74,0.18)',  border: 'rgba(22,163,74,0.5)',  dot: '#16a34a' }
+    parade: {
+      label: 'Regular Parade',
+      color: '#22c55e',
+      bg: 'rgba(34,197,94,0.16)',
+      border: 'rgba(34,197,94,0.4)',
+      dot: '#22c55e'
+    },
+    noparade: {
+      label: 'No Parade',
+      color: '#ef4444',
+      bg: 'rgba(239,68,68,0.16)',
+      border: 'rgba(239,68,68,0.4)',
+      dot: '#ef4444'
+    },
+    special: {
+      label: 'Special Event',
+      color: '#eab308',
+      bg: 'rgba(234,179,8,0.18)',
+      border: 'rgba(234,179,8,0.4)',
+      dot: '#eab308'
+    },
+    camp: {
+      label: 'Camp / Outing',
+      color: '#06b6d4',
+      bg: 'rgba(6,182,212,0.16)',
+      border: 'rgba(6,182,212,0.4)',
+      dot: '#06b6d4'
+    },
+    ceremonial: {
+      label: 'Ceremonial',
+      color: '#a855f7',
+      bg: 'rgba(168,85,247,0.16)',
+      border: 'rgba(168,85,247,0.4)',
+      dot: '#a855f7'
+    },
+    holiday: {
+      label: 'Public Holiday',
+      color: '#16a34a',
+      bg: 'rgba(22,163,74,0.18)',
+      border: 'rgba(22,163,74,0.5)',
+      dot: '#16a34a'
+    }
   };
 
   // ── Role Authorization Check ───────────────────────────────────────────────
@@ -180,24 +1034,46 @@
     }
     if (typeof sessionGet === 'function') {
       var role = (sessionGet('role') || '').toLowerCase();
-      if (role === 'admin' || role === 'superadmin' || role === 'officer' || role === 'captain') return true;
+      if (role === 'admin' || role === 'superadmin' || role === 'officer' || role === 'captain')
+        return true;
       var rank = (sessionGet('rank') || '').toLowerCase();
-      if (rank.includes('officer') || rank.includes('captain') || rank.includes('lieutenant') || rank.includes('chaplain')) return true;
+      if (
+        rank.includes('officer') ||
+        rank.includes('captain') ||
+        rank.includes('lieutenant') ||
+        rank.includes('chaplain')
+      )
+        return true;
     }
     return false;
   }
 
   // ── Supabase & Storage Persistence ─────────────────────────────────────────
 
-  async function loadCalendarEvents() {
+  var _calendarLoadError = null;
+  var _calendarFetchFailed = false;
+
+  async function loadCalendarEvents(_force) {
     try {
-      var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
+      var client =
+        typeof getSupaClient === 'function'
+          ? getSupaClient()
+          : typeof window !== 'undefined' && window.getSupaClient
+            ? window.getSupaClient()
+            : typeof supa !== 'undefined'
+              ? supa
+              : typeof window !== 'undefined'
+                ? window.supa
+                : null;
       if (client && typeof client.get === 'function') {
         var rows = await client.get('bb_config?key=eq.bb_company_calendar&select=value');
         if (rows && rows.length && rows[0].value) {
-          var parsed = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+          var parsed =
+            typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
           if (Array.isArray(parsed)) {
             _calendarEvents = parsed;
+            _calendarLoadError = null;
+            _calendarFetchFailed = false;
             try {
               localStorage.setItem('bb_company_calendar_cache', JSON.stringify(parsed));
             } catch (_) {}
@@ -205,7 +1081,11 @@
           }
         }
       }
+      _calendarLoadError = null;
+      _calendarFetchFailed = false;
     } catch (e) {
+      _calendarLoadError = e;
+      _calendarFetchFailed = true;
       console.warn('loadCalendarEvents error:', e);
     }
 
@@ -213,7 +1093,7 @@
       var cached = localStorage.getItem('bb_company_calendar_cache');
       if (cached) {
         var cParsed = JSON.parse(cached);
-          if (Array.isArray(cParsed)) {
+        if (Array.isArray(cParsed)) {
           _calendarEvents = cParsed;
           return _calendarEvents;
         }
@@ -226,18 +1106,40 @@
 
   async function saveCalendarEvents(eventsArray) {
     if (!Array.isArray(eventsArray)) return false;
-    if (typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('calendar')) return false;
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.authorizeAdminMutation === 'function' &&
+      !(await window.authorizeAdminMutation('calendar'))
+    )
+      return false;
 
     try {
-      var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
+      var client =
+        typeof getSupaClient === 'function'
+          ? getSupaClient()
+          : typeof window !== 'undefined' && window.getSupaClient
+            ? window.getSupaClient()
+            : typeof supa !== 'undefined'
+              ? supa
+              : typeof window !== 'undefined'
+                ? window.supa
+                : null;
       if (!client || typeof client.upsert !== 'function') return false;
-      await client.upsert('bb_config', {
+      await client.upsert(
+        'bb_config',
+        {
           key: 'bb_company_calendar',
           value: JSON.stringify(eventsArray),
           updated_at: new Date().toISOString()
-      }, 'key');
+        },
+        'key'
+      );
       _calendarEvents = eventsArray;
-      try { localStorage.setItem('bb_company_calendar_cache', JSON.stringify(eventsArray)); } catch (_) {}
+      _calendarLoadError = null;
+      _calendarFetchFailed = false;
+      try {
+        localStorage.setItem('bb_company_calendar_cache', JSON.stringify(eventsArray));
+      } catch (_) {}
       if (typeof logAuditEvent === 'function') {
         await logAuditEvent({
           action: 'calendar.update',
@@ -285,11 +1187,13 @@
       localStorage.setItem(getMemberStorageKey(), JSON.stringify(_memberReminders));
     } catch (_) {}
 
-    (async function() {
+    (async function () {
       try {
-        var userKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+        var userKey =
+          typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : null;
         if (!userKey) return;
-        var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+        var client =
+          typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
         if (client && typeof client.upsert === 'function') {
           var safeKey = 'bb_member_reminders_' + userKey.replace(/[^a-zA-Z0-9_-]/g, '_');
           await client.upsert('bb_config', {
@@ -305,24 +1209,28 @@
   }
 
   async function fetchRemoteMemberEvents() {
-    var userKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+    var userKey = typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : null;
     if (!userKey) return _memberReminders;
 
     var storageKey = getMemberStorageKey();
-    var configKey  = 'bb_member_reminders_' + userKey.replace(/[^a-zA-Z0-9_-]/g, '_');
+    var configKey = 'bb_member_reminders_' + userKey.replace(/[^a-zA-Z0-9_-]/g, '_');
 
     try {
-      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+      var client =
+        typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
       if (!client || typeof client.get !== 'function') return _memberReminders;
 
-      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(configKey) + '&select=value', { cache: false });
+      var rows = await client.get(
+        'bb_config?key=eq.' + encodeURIComponent(configKey) + '&select=value',
+        { cache: false }
+      );
       if (storageKey !== getMemberStorageKey()) return [];
       if (rows && rows.length && rows[0].value) {
-        var remote = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+        var remote = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
         if (Array.isArray(remote)) {
           var existingMap = new Map();
           loadMemberEvents();
-          remote.concat(_memberReminders).forEach(function(r) {
+          remote.concat(_memberReminders).forEach(function (r) {
             if (r && r.id && !existingMap.get(r.id)?.deleted) existingMap.set(r.id, r);
           });
           _memberReminders = Array.from(existingMap.values());
@@ -340,10 +1248,16 @@
 
   function addPersonalEvent(dateStr, title, time, notes, tag) {
     if (!dateStr || !title) return null;
-    var sanitizedTitle = ((typeof sanitizeText === 'function') ? sanitizeText(title, 80) : title).trim();
+    var sanitizedTitle = (
+      typeof sanitizeText === 'function' ? sanitizeText(title, 80) : title
+    ).trim();
     if (!sanitizedTitle || !isCalendarDateKey(dateStr)) return null;
-    var sanitizedNotes = ((typeof sanitizeText === 'function') ? sanitizeText(notes || '', 200) : (notes || '')).trim();
-    var sanitizedTag   = ((typeof sanitizeText === 'function') ? sanitizeText(tag || 'Personal', 30) : (tag || 'Personal')).trim();
+    var sanitizedNotes = (
+      typeof sanitizeText === 'function' ? sanitizeText(notes || '', 200) : notes || ''
+    ).trim();
+    var sanitizedTag = (
+      typeof sanitizeText === 'function' ? sanitizeText(tag || 'Personal', 30) : tag || 'Personal'
+    ).trim();
 
     var newReminder = {
       id: 'rem-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
@@ -363,8 +1277,15 @@
 
   function deletePersonalEvent(reminderId) {
     var list = loadMemberEvents();
-    if (!list.some(function(r) { return r && r.id === reminderId && !r.deleted; })) return false;
-    var updated = list.map(function(r) { return r && r.id === reminderId ? { id: r.id, deleted: true } : r; });
+    if (
+      !list.some(function (r) {
+        return r && r.id === reminderId && !r.deleted;
+      })
+    )
+      return false;
+    var updated = list.map(function (r) {
+      return r && r.id === reminderId ? { id: r.id, deleted: true } : r;
+    });
     saveMemberEvents(updated);
     return true;
   }
@@ -372,11 +1293,15 @@
   // ── Helper Queries ─────────────────────────────────────────────────────────
 
   function getCompanyEventsForDate(dateStr) {
-    return _calendarEvents.filter(function(ev) { return ev && ev.date === dateStr; });
+    return _calendarEvents.filter(function (ev) {
+      return ev && ev.date === dateStr;
+    });
   }
 
   function getMemberEventsForDate(dateStr) {
-    return loadMemberEvents().filter(function(r) { return r && !r.deleted && r.date === dateStr; });
+    return loadMemberEvents().filter(function (r) {
+      return r && !r.deleted && r.date === dateStr;
+    });
   }
 
   function getNextUpcomingParade(fromDateStr) {
@@ -384,7 +1309,11 @@
     var sorted = getSortedCompanyEvents();
 
     for (var i = 0; i < sorted.length; i++) {
-      if (sorted[i].date >= refDate && sorted[i].type !== 'noparade' && sorted[i].type !== 'holiday') {
+      if (
+        sorted[i].date >= refDate &&
+        sorted[i].type !== 'noparade' &&
+        sorted[i].type !== 'holiday'
+      ) {
         return sorted[i];
       }
     }
@@ -396,9 +1325,13 @@
   }
 
   function getSortedCompanyEvents() {
-    return _calendarEvents.filter(function(event) { return event && isCalendarDateKey(event.date); }).sort(function(a, b) {
-      return a.date.localeCompare(b.date);
-    });
+    return _calendarEvents
+      .filter(function (event) {
+        return event && isCalendarDateKey(event.date);
+      })
+      .sort(function (a, b) {
+        return a.date.localeCompare(b.date);
+      });
   }
 
   function getClosestUpcomingEventIndex(eventsList, fromDateStr) {
@@ -416,19 +1349,43 @@
   function getUpcomingEventsList(fromDateStr, count) {
     var maxCount = count == null ? 4 : Math.max(0, count);
     var refDate = isCalendarDateKey(fromDateStr) ? fromDateStr : formatDateKey(new Date());
-    return getSortedCompanyEvents().filter(function(event) { return event.date >= refDate; }).slice(0, maxCount);
+    return getSortedCompanyEvents()
+      .filter(function (event) {
+        return event.date >= refDate;
+      })
+      .slice(0, maxCount);
   }
 
   // ── Calendar Month Mathematics ─────────────────────────────────────────────
 
   var MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
   ];
 
   var MONTH_SHORT_NAMES = [
-    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+    'JAN',
+    'FEB',
+    'MAR',
+    'APR',
+    'MAY',
+    'JUN',
+    'JUL',
+    'AUG',
+    'SEP',
+    'OCT',
+    'NOV',
+    'DEC'
   ];
 
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -451,15 +1408,19 @@
     var leadingDays = first.getDay();
     var end = new Date(first);
     end.setMonth(monthIndex + 1, 0);
-    return Array.from({ length: leadingDays + end.getDate() > 35 ? 42 : 35 }, function(_, index) {
+    return Array.from({ length: leadingDays + end.getDate() > 35 ? 42 : 35 }, function (_, index) {
       var day = new Date(first);
       day.setDate(index - leadingDays + 1);
-      return { dayNumber: day.getDate(), dateKey: formatDateKey(day), isCurrentMonth: day.getMonth() === monthIndex };
+      return {
+        dayNumber: day.getDate(),
+        dateKey: formatDateKey(day),
+        isCurrentMonth: day.getMonth() === monthIndex
+      };
     });
   }
 
   function getWeekDays(dateObj) {
-    var d = (dateObj instanceof Date) ? new Date(dateObj) : new Date();
+    var d = dateObj instanceof Date ? new Date(dateObj) : new Date();
     d.setHours(0, 0, 0, 0);
     var dayOfWeek = d.getDay(); // 0 is Sunday
     var sunday = new Date(d);
@@ -495,19 +1456,55 @@
 
   // ── Standard Default Parade Rundown ────────────────────────────────────────
   var DEFAULT_PARADE_RUNDOWN = [
-    { time: '9:30 AM – 11:30 AM', title: 'Band', desc: 'Sectional & full band rehearsal (Brass, Woodwinds, Percussion)', icon: 'band' },
-    { time: '1:30 PM – 2:15 PM', title: 'Lunch', desc: 'Members rest & lunch break', icon: 'lunch' },
-    { time: '2:15 PM – 2:30 PM', title: 'Fall-in', desc: 'Company roll call & uniform inspection', icon: 'fallin' },
+    {
+      time: '9:30 AM – 11:30 AM',
+      title: 'Band',
+      desc: 'Sectional & full band rehearsal (Brass, Woodwinds, Percussion)',
+      icon: 'band'
+    },
+    {
+      time: '1:30 PM – 2:15 PM',
+      title: 'Lunch',
+      desc: 'Members rest & lunch break',
+      icon: 'lunch'
+    },
+    {
+      time: '2:15 PM – 2:30 PM',
+      title: 'Fall-in',
+      desc: 'Company roll call & uniform inspection',
+      icon: 'fallin'
+    },
     { time: '2:30 PM – 3:00 PM', title: 'Worship', desc: 'Praise & Worship', icon: 'worship' },
-    { time: '3:00 PM – 4:00 PM', title: 'Christian Education', desc: 'Biblical teachings & discussions', icon: 'ce' },
-    { time: '4:00 PM – 5:00 PM', title: 'Badge Class', desc: 'Proficiency badge classes and lessons', icon: 'badge' },
-    { time: '5:00 PM – 5:45 PM', title: 'Drill', desc: 'Drill movements, marching & commanding', icon: 'drill' },
-    { time: '5:45 PM', title: 'Dismissal', desc: 'Announcements, vespers & dismissal', icon: 'dismissal' }
+    {
+      time: '3:00 PM – 4:00 PM',
+      title: 'Christian Education',
+      desc: 'Biblical teachings & discussions',
+      icon: 'ce'
+    },
+    {
+      time: '4:00 PM – 5:00 PM',
+      title: 'Badge Class',
+      desc: 'Proficiency badge classes and lessons',
+      icon: 'badge'
+    },
+    {
+      time: '5:00 PM – 5:45 PM',
+      title: 'Drill',
+      desc: 'Drill movements, marching & commanding',
+      icon: 'drill'
+    },
+    {
+      time: '5:45 PM',
+      title: 'Dismissal',
+      desc: 'Announcements, vespers & dismissal',
+      icon: 'dismissal'
+    }
   ];
 
   function getEventRundown(event) {
     if (Array.isArray(event.schedule) && event.schedule.length) return event.schedule;
-    var cancelled = typeof event.title === 'string' && event.title.toLowerCase().includes('no parade');
+    var cancelled =
+      typeof event.title === 'string' && event.title.toLowerCase().includes('no parade');
     return event.type === 'parade' && !cancelled ? DEFAULT_PARADE_RUNDOWN : [];
   }
 
@@ -517,7 +1514,7 @@
     var hour = Number(match[1]);
     var period = (match[3] || '').toUpperCase();
     if (period ? hour < 1 || hour > 12 : hour > 23) return null;
-    if (period) hour = hour % 12 + (period === 'PM' ? 12 : 0);
+    if (period) hour = (hour % 12) + (period === 'PM' ? 12 : 0);
     return hour * 60 + Number(match[2] || 0);
   }
 
@@ -527,7 +1524,9 @@
 
   function formatScheduleClock(minutes) {
     var hour = Math.floor(minutes / 60);
-    return (hour % 12 || 12) + ':' + String(minutes % 60).padStart(2, '0') + (hour < 12 ? ' AM' : ' PM');
+    return (
+      (hour % 12 || 12) + ':' + String(minutes % 60).padStart(2, '0') + (hour < 12 ? ' AM' : ' PM')
+    );
   }
 
   function getEventScheduleTimes(event, rundown) {
@@ -535,7 +1534,7 @@
     var eventTimes = splitScheduleTime(fallback);
     var start = Infinity;
     var end = parseScheduleClock(eventTimes[1]) ?? -Infinity;
-    rundown.forEach(function(step) {
+    rundown.forEach(function (step) {
       var times = splitScheduleTime(step && step.time);
       var stepStart = parseScheduleClock(times[0]);
       if (stepStart === null) return;
@@ -546,7 +1545,10 @@
       return { start: eventTimes[0] || '', range: fallback };
     }
     var startLabel = formatScheduleClock(start);
-    return { start: startLabel, range: end > start ? startLabel + ' – ' + formatScheduleClock(end) : startLabel };
+    return {
+      start: startLabel,
+      range: end > start ? startLabel + ' – ' + formatScheduleClock(end) : startLabel
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -634,9 +1636,9 @@
       return;
     }
     if (_calendarViewMode === 'week') {
-      _calendarDate.setDate(_calendarDate.getDate() + (offset * 7));
+      _calendarDate.setDate(_calendarDate.getDate() + offset * 7);
       _currentMonth = _calendarDate.getMonth();
-      _currentYear  = _calendarDate.getFullYear();
+      _currentYear = _calendarDate.getFullYear();
     } else if (_calendarViewMode === 'year') {
       _calendarDate.setFullYear(_calendarDate.getFullYear() + offset, _calendarDate.getMonth(), 1);
       _currentYear = _calendarDate.getFullYear();
@@ -644,15 +1646,15 @@
       // Month, events
       _calendarDate.setMonth(_calendarDate.getMonth() + offset, 1);
       _currentMonth = _calendarDate.getMonth();
-      _currentYear  = _calendarDate.getFullYear();
+      _currentYear = _calendarDate.getFullYear();
     }
     renderCalendarTab();
   }
 
   function calJumpToday() {
-    _calendarDate    = new Date();
-    _currentMonth    = _calendarDate.getMonth();
-    _currentYear     = _calendarDate.getFullYear();
+    _calendarDate = new Date();
+    _currentMonth = _calendarDate.getMonth();
+    _currentYear = _calendarDate.getFullYear();
     _selectedDateStr = formatDateKey(_calendarDate);
     _upcomingEventIndex = null;
     renderCalendarTab();
@@ -672,7 +1674,32 @@
     var container = document.getElementById('tasks-no-dept');
     if (!container) return;
 
-    if (requestedMode && ['upcoming', 'week', 'month', 'year', 'events'].indexOf(requestedMode) !== -1) {
+    if (_calendarFetchFailed && _calendarLoadError) {
+      var errMsg =
+        (_calendarLoadError && _calendarLoadError.message) || 'Failed to load company calendar.';
+      var safeMsg = typeof escapeHtml === 'function' ? escapeHtml(errMsg) : errMsg;
+      container.innerHTML =
+        '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+        safeMsg +
+        '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+      var retryBtn = container.querySelector('.btn-retry');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          _calendarLoadError = null;
+          _calendarFetchFailed = false;
+          loadCalendarEvents(true).then(function () {
+            renderCalendarTab(requestedMode);
+          });
+        });
+      }
+      return;
+    }
+
+    if (
+      requestedMode &&
+      ['upcoming', 'week', 'month', 'year', 'events'].indexOf(requestedMode) !== -1
+    ) {
       _calendarViewMode = requestedMode;
     }
 
@@ -685,9 +1712,19 @@
       var startMon = MONTH_SHORT_NAMES[wStart.getMonth()];
       var endMon = MONTH_SHORT_NAMES[wEnd.getMonth()];
       if (startMon === endMon) {
-        dateTitle = wStart.getDate() + ' – ' + wEnd.getDate() + ' ' + startMon + ' ' + wEnd.getFullYear();
+        dateTitle =
+          wStart.getDate() + ' – ' + wEnd.getDate() + ' ' + startMon + ' ' + wEnd.getFullYear();
       } else {
-        dateTitle = wStart.getDate() + ' ' + startMon + ' – ' + wEnd.getDate() + ' ' + endMon + ' ' + wEnd.getFullYear();
+        dateTitle =
+          wStart.getDate() +
+          ' ' +
+          startMon +
+          ' – ' +
+          wEnd.getDate() +
+          ' ' +
+          endMon +
+          ' ' +
+          wEnd.getFullYear();
       }
     } else if (_calendarViewMode === 'year') {
       dateTitle = String(_currentYear);
@@ -695,11 +1732,19 @@
       dateTitle = MONTH_NAMES[_currentMonth] + ' ' + _currentYear + ' – Forward';
     } else if (_calendarViewMode === 'upcoming') {
       var allSorted = getSortedCompanyEvents();
-      var uIdx = (_upcomingEventIndex !== null && _upcomingEventIndex !== undefined) ? _upcomingEventIndex : getClosestUpcomingEventIndex(allSorted);
+      var uIdx =
+        _upcomingEventIndex !== null && _upcomingEventIndex !== undefined
+          ? _upcomingEventIndex
+          : getClosestUpcomingEventIndex(allSorted);
       var curEv = allSorted[uIdx];
       if (curEv) {
         var upDate = new Date(curEv.date + 'T00:00:00');
-        dateTitle = upDate.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        dateTitle = upDate.toLocaleDateString('en-MY', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        });
       } else {
         dateTitle = MONTH_NAMES[_currentMonth] + ' ' + _currentYear;
       }
@@ -708,44 +1753,63 @@
       dateTitle = MONTH_NAMES[_currentMonth] + ' ' + _currentYear;
     }
 
-    var html = ''
-      + '<div class="cal-hub-container">'
-        // ── Top Header Toolbar ──
-        + '<div class="cal-hub-header">'
-          + '<div class="cal-hub-title-block">'
-            + '<div style="display:flex;align-items:center;gap:10px;">'
-              + '<span class="cal-hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>'
-              + '<div>'
-                + '<div class="cal-hub-title">Company Calendar</div>'
-                + '<div class="cal-hub-sub">Saturdays &bull; Trinity Methodist Church PJ (TMCPJ)</div>'
-              + '</div>'
-            + '</div>'
-          + '</div>'
-
-          // ── View Switcher Segmented Control ──
-          + '<div class="cal-view-switcher" role="tablist">'
-            + '<button type="button" class="cal-view-tab ' + (_calendarViewMode === 'upcoming' ? 'active' : '') + '" onclick="switchCalendarView(\'upcoming\')" role="tab" aria-selected="' + (_calendarViewMode === 'upcoming') + '">Upcoming</button>'
-            + '<button type="button" class="cal-view-tab ' + (_calendarViewMode === 'week' ? 'active' : '') + '" onclick="switchCalendarView(\'week\')" role="tab" aria-selected="' + (_calendarViewMode === 'week') + '">Week</button>'
-            + '<button type="button" class="cal-view-tab ' + (_calendarViewMode === 'month' ? 'active' : '') + '" onclick="switchCalendarView(\'month\')" role="tab" aria-selected="' + (_calendarViewMode === 'month') + '">Month</button>'
-            + '<button type="button" class="cal-view-tab ' + (_calendarViewMode === 'year' ? 'active' : '') + '" onclick="switchCalendarView(\'year\')" role="tab" aria-selected="' + (_calendarViewMode === 'year') + '">Year</button>'
-            + '<button type="button" class="cal-view-tab ' + (_calendarViewMode === 'events' ? 'active' : '') + '" onclick="switchCalendarView(\'events\')" role="tab" aria-selected="' + (_calendarViewMode === 'events') + '">Events</button>'
-          + '</div>'
-        + '</div>'
-
-        // ── Date Navigation & Action Subbar ──
-        + '<div class="cal-nav-toolbar">'
-          + '<div class="cal-nav-controls">'
-            + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calJumpToday()" style="font-weight:600;padding:5px 12px;flex-shrink:0;">Today</button>'
-            + '<button type="button" class="cal-nav-arrow" onclick="calNavigate(-1)" title="Previous" style="flex-shrink:0;">&lsaquo;</button>'
-            + '<button type="button" class="cal-nav-arrow" onclick="calNavigate(1)" title="Next" style="flex-shrink:0;">&rsaquo;</button>'
-            + '<div class="cal-current-range-heading">' + escapeHtml(dateTitle) + '</div>'
-          + '</div>'
-
-          + '<div style="display:flex;align-items:center;gap:8px;"></div>'
-        + '</div>'
-
-        // ── Active View Body Container ──
-        + '<div class="cal-view-body">';
+    var html =
+      '' +
+      '<div class="cal-hub-container">' +
+      // ── Top Header Toolbar ──
+      '<div class="cal-hub-header">' +
+      '<div class="cal-hub-title-block">' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+      '<span class="cal-hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>' +
+      '<div>' +
+      '<div class="cal-hub-title">Company Calendar</div>' +
+      '<div class="cal-hub-sub">Saturdays &bull; Trinity Methodist Church PJ (TMCPJ)</div>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      // ── View Switcher Segmented Control ──
+      '<div class="cal-view-switcher" role="tablist">' +
+      '<button type="button" class="cal-view-tab ' +
+      (_calendarViewMode === 'upcoming' ? 'active' : '') +
+      '" onclick="switchCalendarView(\'upcoming\')" role="tab" aria-selected="' +
+      (_calendarViewMode === 'upcoming') +
+      '">Upcoming</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_calendarViewMode === 'week' ? 'active' : '') +
+      '" onclick="switchCalendarView(\'week\')" role="tab" aria-selected="' +
+      (_calendarViewMode === 'week') +
+      '">Week</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_calendarViewMode === 'month' ? 'active' : '') +
+      '" onclick="switchCalendarView(\'month\')" role="tab" aria-selected="' +
+      (_calendarViewMode === 'month') +
+      '">Month</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_calendarViewMode === 'year' ? 'active' : '') +
+      '" onclick="switchCalendarView(\'year\')" role="tab" aria-selected="' +
+      (_calendarViewMode === 'year') +
+      '">Year</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_calendarViewMode === 'events' ? 'active' : '') +
+      '" onclick="switchCalendarView(\'events\')" role="tab" aria-selected="' +
+      (_calendarViewMode === 'events') +
+      '">Events</button>' +
+      '</div>' +
+      '</div>' +
+      // ── Date Navigation & Action Subbar ──
+      '<div class="cal-nav-toolbar">' +
+      '<div class="cal-nav-controls">' +
+      '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calJumpToday()" style="font-weight:600;padding:5px 12px;flex-shrink:0;">Today</button>' +
+      '<button type="button" class="cal-nav-arrow" onclick="calNavigate(-1)" title="Previous" style="flex-shrink:0;">&lsaquo;</button>' +
+      '<button type="button" class="cal-nav-arrow" onclick="calNavigate(1)" title="Next" style="flex-shrink:0;">&rsaquo;</button>' +
+      '<div class="cal-current-range-heading">' +
+      escapeHtml(dateTitle) +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;"></div>' +
+      '</div>' +
+      // ── Active View Body Container ──
+      '<div class="cal-view-body">';
 
     if (_calendarViewMode === 'week') {
       html += renderWeekView();
@@ -800,76 +1864,145 @@
     else if (diffDays === 1) countdownLabel = 'Tomorrow';
     else if (diffDays === -1) countdownLabel = 'Yesterday';
     else if (diffDays > 1) countdownLabel = 'In ' + diffDays + ' days (' + upcoming.date + ')';
-    else if (diffDays < -1) countdownLabel = Math.abs(diffDays) + ' days ago (' + upcoming.date + ')';
+    else if (diffDays < -1)
+      countdownLabel = Math.abs(diffDays) + ' days ago (' + upcoming.date + ')';
     else countdownLabel = upcoming.date;
 
-    var fullDateFormatted = evDateObj.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    var fullDateFormatted = evDateObj.toLocaleDateString('en-MY', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
 
-    var kitMeta  = KIT_BADGES[upcoming.kit] || { label: upcoming.kit, bg: 'var(--surface-tint)', color: 'var(--text-secondary)' };
-    var typeMeta = TYPE_BADGES[upcoming.type] || { label: 'Event', bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
+    var kitMeta = KIT_BADGES[upcoming.kit] || {
+      label: upcoming.kit,
+      bg: 'var(--surface-tint)',
+      color: 'var(--text-secondary)'
+    };
+    var typeMeta = TYPE_BADGES[upcoming.type] || {
+      label: 'Event',
+      bg: 'rgba(234,179,8,0.15)',
+      color: 'var(--accent)'
+    };
     var activeRundown = getEventRundown(upcoming);
     var scheduleTime = getEventScheduleTimes(upcoming, activeRundown).range;
 
     var cardActionAttr = isAdminView
-      ? (' style="cursor:pointer;" onclick="openAdminEventModal(\'' + upcoming.date + '\', \'' + calendarEventId(upcoming.id) + '\')" title="Click to edit schedule"')
+      ? ' style="cursor:pointer;" onclick="openAdminEventModal(\'' +
+        upcoming.date +
+        "', '" +
+        calendarEventId(upcoming.id) +
+        '\')" title="Click to edit schedule"'
       : '';
 
-    var html = ''
-      + '<div class="cal-upcoming-hero"' + cardActionAttr + '>'
-        + '<div class="cal-hero-top-badge">'
-          + '<span class="cal-pill-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';border:1px solid ' + (typeMeta.border || 'transparent') + ';font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;">' + escapeHtml(typeMeta.label) + '</span>'
-          + '<span class="cal-countdown-badge">' + escapeHtml(countdownLabel) + '</span>'
-        + '</div>'
-
-        + '<div class="cal-hero-title-wrap">'
-          + '<div class="cal-hero-date">' + escapeHtml(fullDateFormatted) + '</div>'
-          + '<div class="cal-hero-event-name">' + escapeHtml(upcoming.title) + '</div>'
-        + '</div>'
-
-        + '<div class="cal-hero-meta-strip">'
-          + (scheduleTime ? '<div class="cal-hero-meta-item">' + CAL_ICONS.clock + ' <strong>' + escapeHtml(scheduleTime) + '</strong></div>' : '')
-          + '<div class="cal-hero-meta-item">' + CAL_ICONS.pin + ' <strong>' + escapeHtml(upcoming.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</strong></div>'
-          + (upcoming.kit && upcoming.kit !== 'None' ? ('<div class="cal-hero-meta-item">' + CAL_ICONS.shirt + ' Uniform of the Day: <strong style="color:var(--accent);">' + escapeHtml(kitMeta.label) + '</strong></div>') : '')
-        + '</div>';
+    var html =
+      '' +
+      '<div class="cal-upcoming-hero"' +
+      cardActionAttr +
+      '>' +
+      '<div class="cal-hero-top-badge">' +
+      '<span class="cal-pill-badge" style="background:' +
+      typeMeta.bg +
+      ';color:' +
+      typeMeta.color +
+      ';border:1px solid ' +
+      (typeMeta.border || 'transparent') +
+      ';font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;">' +
+      escapeHtml(typeMeta.label) +
+      '</span>' +
+      '<span class="cal-countdown-badge">' +
+      escapeHtml(countdownLabel) +
+      '</span>' +
+      '</div>' +
+      '<div class="cal-hero-title-wrap">' +
+      '<div class="cal-hero-date">' +
+      escapeHtml(fullDateFormatted) +
+      '</div>' +
+      '<div class="cal-hero-event-name">' +
+      escapeHtml(upcoming.title) +
+      '</div>' +
+      '</div>' +
+      '<div class="cal-hero-meta-strip">' +
+      (scheduleTime
+        ? '<div class="cal-hero-meta-item">' +
+          CAL_ICONS.clock +
+          ' <strong>' +
+          escapeHtml(scheduleTime) +
+          '</strong></div>'
+        : '') +
+      '<div class="cal-hero-meta-item">' +
+      CAL_ICONS.pin +
+      ' <strong>' +
+      escapeHtml(upcoming.location || 'Trinity Methodist Church PJ (TMCPJ)') +
+      '</strong></div>' +
+      (upcoming.kit && upcoming.kit !== 'None'
+        ? '<div class="cal-hero-meta-item">' +
+          CAL_ICONS.shirt +
+          ' Uniform of the Day: <strong style="color:var(--accent);">' +
+          escapeHtml(kitMeta.label) +
+          '</strong></div>'
+        : '') +
+      '</div>';
 
     // Rundown Table / Timeline
-    html += ''
-      + '<div class="cal-hero-section-title">Parade Rundown &amp; Activity Schedule ' + (isAdminView ? '<span style="font-size:12px;color:var(--accent);font-weight:600;">(Click any row to edit)</span>' : '') + '</div>'
-      + '<div class="schedule-table">';
+    html +=
+      '' +
+      '<div class="cal-hero-section-title">Parade Rundown &amp; Activity Schedule ' +
+      (isAdminView
+        ? '<span style="font-size:12px;color:var(--accent);font-weight:600;">(Click any row to edit)</span>'
+        : '') +
+      '</div>' +
+      '<div class="schedule-table">';
 
-    var isNoParadeEvent = upcoming && (upcoming.type === 'noparade' || (upcoming.title && upcoming.title.toLowerCase().includes('no parade')));
+    var isNoParadeEvent =
+      upcoming &&
+      (upcoming.type === 'noparade' ||
+        (upcoming.title && upcoming.title.toLowerCase().includes('no parade')));
     if (isNoParadeEvent && !activeRundown.length) {
-      html += ''
-        + '<div class="cal-noparade-banner" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;box-sizing:border-box;">'
-          + '<div style="width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,0.12);color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-            + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-          + '</div>'
-          + '<div>'
-            + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px;">No Regular Parade Scheduled</div>'
-            + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">There is no standard company parade or uniform inspection for this date.</div>'
-          + '</div>'
-        + '</div>';
+      html +=
+        '' +
+        '<div class="cal-noparade-banner" style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;box-sizing:border-box;">' +
+        '<div style="width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,0.12);color:#ef4444;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '</div>' +
+        '<div>' +
+        '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.3px;">No Regular Parade Scheduled</div>' +
+        '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">There is no standard company parade or uniform inspection for this date.</div>' +
+        '</div>' +
+        '</div>';
     } else {
-      activeRundown.forEach(function(step) {
+      activeRundown.forEach(function (step) {
         if (!step) return;
         var rowClick = isAdminView
-          ? (' onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + calendarEventId(upcoming.id) + '\')" style="cursor:pointer;"')
+          ? ' onclick="event.stopPropagation();openAdminEventModal(\'' +
+            upcoming.date +
+            "', '" +
+            calendarEventId(upcoming.id) +
+            '\')" style="cursor:pointer;"'
           : '';
-        html += ''
-          + '<div class="cal-rundown-item"' + rowClick + '>'
-            + '<div class="cal-rundown-info">'
-              + '<div class="cal-rundown-icon">'
-                + '<svg class="ui-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
-              + '</div>'
-              + '<div style="min-width:0;flex:1;">'
-                + '<div class="cal-rundown-title">' + escapeHtml(step.title) + '</div>'
-                + (step.desc || step.notes ? ('<div class="cal-rundown-desc">' + escapeHtml(step.desc || step.notes) + '</div>') : '')
-              + '</div>'
-            + '</div>'
-            + '<div class="cal-rundown-time">'
-              + escapeHtml(step.time)
-            + '</div>'
-          + '</div>';
+        html +=
+          '' +
+          '<div class="cal-rundown-item"' +
+          rowClick +
+          '>' +
+          '<div class="cal-rundown-info">' +
+          '<div class="cal-rundown-icon">' +
+          '<svg class="ui-icon" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+          '</div>' +
+          '<div style="min-width:0;flex:1;">' +
+          '<div class="cal-rundown-title">' +
+          escapeHtml(step.title) +
+          '</div>' +
+          (step.desc || step.notes
+            ? '<div class="cal-rundown-desc">' + escapeHtml(step.desc || step.notes) + '</div>'
+            : '') +
+          '</div>' +
+          '</div>' +
+          '<div class="cal-rundown-time">' +
+          escapeHtml(step.time) +
+          '</div>' +
+          '</div>';
       });
     }
 
@@ -877,50 +2010,67 @@
 
     // Senior and Junior Syllabi
     if (upcoming.srDetails || upcoming.jrDetails) {
-      html += '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 240px), 1fr));gap:12px;margin-bottom:16px;box-sizing:border-box;">';
+      html +=
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 240px), 1fr));gap:12px;margin-bottom:16px;box-sizing:border-box;">';
       if (upcoming.srDetails) {
-        html += '<div class="cal-detail-subbox" style="margin-bottom:0;min-width:0;box-sizing:border-box;word-break:break-word;"><div class="cal-subbox-title">' + CAL_ICONS.senior + ' Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;word-break:break-word;">' + escapeHtml(upcoming.srDetails) + '</div></div>';
+        html +=
+          '<div class="cal-detail-subbox" style="margin-bottom:0;min-width:0;box-sizing:border-box;word-break:break-word;"><div class="cal-subbox-title">' +
+          CAL_ICONS.senior +
+          ' Senior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;word-break:break-word;">' +
+          escapeHtml(upcoming.srDetails) +
+          '</div></div>';
       }
       if (upcoming.jrDetails) {
-        html += '<div class="cal-detail-subbox" style="margin-bottom:0;min-width:0;box-sizing:border-box;word-break:break-word;"><div class="cal-subbox-title">' + CAL_ICONS.junior + ' Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;word-break:break-word;">' + escapeHtml(upcoming.jrDetails) + '</div></div>';
+        html +=
+          '<div class="cal-detail-subbox" style="margin-bottom:0;min-width:0;box-sizing:border-box;word-break:break-word;"><div class="cal-subbox-title">' +
+          CAL_ICONS.junior +
+          ' Junior Section Program &amp; Badges</div><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-top:4px;word-break:break-word;">' +
+          escapeHtml(upcoming.jrDetails) +
+          '</div></div>';
       }
       html += '</div>';
     }
 
     // Remark (only shown if remark exists; UOD text removed per request)
     if (upcoming.notes && upcoming.notes.trim()) {
-      html += '<div class="cal-remark-box" style="margin-bottom:16px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;box-sizing:border-box;word-break:break-word;">'
-        + '<svg class="ui-icon" style="flex-shrink:0;color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
-        + '<span><strong>Remark:</strong> ' + escapeHtml(upcoming.notes.trim()) + '</span>'
-        + '</div>';
+      html +=
+        '<div class="cal-remark-box" style="margin-bottom:16px;padding:12px 14px;background:rgba(200,150,30,0.08);border:1px solid rgba(200,150,30,0.25);border-radius:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--text-secondary);line-height:1.5;box-sizing:border-box;word-break:break-word;">' +
+        '<svg class="ui-icon" style="flex-shrink:0;color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+        '<span><strong>Remark:</strong> ' +
+        escapeHtml(upcoming.notes.trim()) +
+        '</span>' +
+        '</div>';
     }
 
-      // Actions
-      + '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">'
-        + (isAdminView ? (
-          '<button type="button" class="portal-btn portal-btn-primary" onclick="event.stopPropagation();openAdminEventModal(\'' + upcoming.date + '\', \'' + calendarEventId(upcoming.id) + '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">'
-            + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>'
-            + 'Edit Event &amp; Schedule Rundown'
-          + '</button>'
-        ) : (
-          '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' + upcoming.date + '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">'
-            + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
-            + 'View Full Day Schedule'
-          + '</button>'
-        ))
-      + '</div>';
-
+    // Actions
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;">' +
+      (isAdminView
+        ? '<button type="button" class="portal-btn portal-btn-primary" onclick="event.stopPropagation();openAdminEventModal(\'' +
+          upcoming.date +
+          "', '" +
+          calendarEventId(upcoming.id) +
+          '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">' +
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>' +
+          'Edit Event &amp; Schedule Rundown' +
+          '</button>'
+        : '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' +
+          upcoming.date +
+          '\')" style="font-size:13px;padding:8px 18px;display:inline-flex;align-items:center;gap:8px;">' +
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>' +
+          'View Full Day Schedule' +
+          '</button>') +
+      '</div>';
 
     html += '</div>'; // end cal-upcoming-hero
     return html;
   }
 
-   // ── 2. WEEK VIEW (Image 3 Google Calendar Style - Reflects all views) ─────────
+  // ── 2. WEEK VIEW (Image 3 Google Calendar Style - Reflects all views) ─────────
   function renderWeekView(isAdminView) {
     var weekDays = getWeekDays(_calendarDate);
     var now = new Date();
     var nowTimeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    var nowHour = now.getHours() + (now.getMinutes() / 60);
+    var nowHour = now.getHours() + now.getMinutes() / 60;
 
     var clickFn = isAdminView ? 'openAdminEventModal' : 'openCalendarDayModal';
 
@@ -929,23 +2079,37 @@
     // Week Header Row
     html += '<div class="cal-week-header-row">';
     html += '<div class="cal-week-tz-cell">GMT+8</div>';
-    weekDays.forEach(function(day) {
-      html += ''
-        + '<div class="cal-week-day-header ' + (day.isToday ? 'cal-today-col' : '') + '" onclick="' + clickFn + '(\'' + day.dateKey + '\')">'
-          + '<div class="cal-week-day-name">' + day.dayName + '</div>'
-          + '<div class="cal-week-day-circle ' + (day.isToday ? 'active' : '') + '">' + day.dayNumber + '</div>'
-        + '</div>';
+    weekDays.forEach(function (day) {
+      html +=
+        '' +
+        '<div class="cal-week-day-header ' +
+        (day.isToday ? 'cal-today-col' : '') +
+        '" onclick="' +
+        clickFn +
+        "('" +
+        day.dateKey +
+        '\')">' +
+        '<div class="cal-week-day-name">' +
+        day.dayName +
+        '</div>' +
+        '<div class="cal-week-day-circle ' +
+        (day.isToday ? 'active' : '') +
+        '">' +
+        day.dayNumber +
+        '</div>' +
+        '</div>';
     });
     html += '</div>'; // end cal-week-header-row
 
     // All Day Row (Displays public holidays, camps, no parade, and company event pills)
     html += '<div class="cal-week-allday-row">';
     html += '<div class="cal-week-allday-label">All day</div>';
-    weekDays.forEach(function(day) {
+    weekDays.forEach(function (day) {
       var dayEvents = getCompanyEventsForDate(day.dateKey);
-      html += '<div class="cal-week-allday-cell" onclick="' + clickFn + '(\'' + day.dateKey + '\')">';
+      html +=
+        '<div class="cal-week-allday-cell" onclick="' + clickFn + "('" + day.dateKey + '\')">';
       if (dayEvents.length > 0) {
-        dayEvents.forEach(function(ev) {
+        dayEvents.forEach(function (ev) {
           var isHol = ev.type === 'holiday';
           var isNoParade = ev.type === 'noparade';
           var isCamp = ev.type === 'camp';
@@ -956,9 +2120,17 @@
           else if (isNoParade) barStyle = 'background:#dc2626;color:#ffffff;';
           else if (isCamp) barStyle = 'background:#2563eb;color:#ffffff;';
           else if (isCeremonial) barStyle = 'background:#7c3aed;color:#ffffff;';
-          else if (ev.type === 'parade') barStyle = 'background:var(--accent);color:#000000;font-weight:700;';
+          else if (ev.type === 'parade')
+            barStyle = 'background:var(--accent);color:#000000;font-weight:700;';
 
-          html += '<div class="cal-week-allday-pill" style="' + barStyle + '" title="' + escapeHtml(ev.title + (ev.kit && ev.kit !== 'None' ? ' (' + ev.kit + ')' : '')) + '">' + escapeHtml(ev.title) + '</div>';
+          html +=
+            '<div class="cal-week-allday-pill" style="' +
+            barStyle +
+            '" title="' +
+            escapeHtml(ev.title + (ev.kit && ev.kit !== 'None' ? ' (' + ev.kit + ')' : '')) +
+            '">' +
+            escapeHtml(ev.title) +
+            '</div>';
         });
       }
       html += '</div>';
@@ -970,29 +2142,38 @@
     html += '<div class="cal-week-time-grid" style="position:relative;">';
 
     // Live Red Current Time Indicator
-    var currentDayIndex = weekDays.findIndex(function(d) { return d.isToday; });
+    var currentDayIndex = weekDays.findIndex(function (d) {
+      return d.isToday;
+    });
     if (currentDayIndex !== -1 && nowHour >= 8 && nowHour <= 21) {
       var topPercent = ((nowHour - 8) / (21 - 8 + 1)) * 100;
-      html += '<div class="cal-week-now-indicator" style="top:' + topPercent.toFixed(2) + '%;left:calc(var(--cal-time-col-w, 38px) + (100% - var(--cal-time-col-w, 38px)) * ' + (currentDayIndex / 7).toFixed(4) + ');width:calc((100% - var(--cal-time-col-w, 38px)) / 7);" title="Current Time: ' + nowTimeStr + '"><div class="cal-now-dot"></div><div class="cal-now-line"></div></div>';
+      html +=
+        '<div class="cal-week-now-indicator" style="top:' +
+        topPercent.toFixed(2) +
+        '%;left:calc(var(--cal-time-col-w, 38px) + (100% - var(--cal-time-col-w, 38px)) * ' +
+        (currentDayIndex / 7).toFixed(4) +
+        ');width:calc((100% - var(--cal-time-col-w, 38px)) / 7);" title="Current Time: ' +
+        nowTimeStr +
+        '"><div class="cal-now-dot"></div><div class="cal-now-line"></div></div>';
     }
 
-    hours.forEach(function(h) {
+    hours.forEach(function (h) {
       var ampm = h >= 12 ? 'PM' : 'AM';
-      var displayH = h > 12 ? (h - 12) : h;
+      var displayH = h > 12 ? h - 12 : h;
       var timeLabel = displayH + ' ' + ampm;
 
       html += '<div class="cal-week-hour-row">';
       html += '<div class="cal-week-time-label">' + timeLabel + '</div>';
 
-      weekDays.forEach(function(day) {
+      weekDays.forEach(function (day) {
         var dayEvents = getCompanyEventsForDate(day.dateKey);
         var eventsAtHour = [];
 
-        dayEvents.forEach(function(ev) {
+        dayEvents.forEach(function (ev) {
           if (ev.type !== 'holiday' && ev.type !== 'noparade') {
             // 1. Check if event has a custom schedule array
             if (ev.schedule && Array.isArray(ev.schedule) && ev.schedule.length > 0) {
-              ev.schedule.forEach(function(step) {
+              ev.schedule.forEach(function (step) {
                 if (!step) return;
                 var sH = parseEventStartHour(step.time);
                 if (sH === h) {
@@ -1000,7 +2181,14 @@
                     title: step.title,
                     time: step.time,
                     desc: step.desc || step.notes || ev.kit,
-                    color: (ev.type === 'ceremonial' ? '#a855f7' : (String(step.title || '').toLowerCase().includes('band') ? '#3b82f6' : '#f59e0b')),
+                    color:
+                      ev.type === 'ceremonial'
+                        ? '#a855f7'
+                        : String(step.title || '')
+                              .toLowerCase()
+                              .includes('band')
+                          ? '#3b82f6'
+                          : '#f59e0b',
                     ev: ev
                   });
                 }
@@ -1020,8 +2208,13 @@
                 eventsAtHour.push({
                   title: ev.title,
                   time: ev.time,
-                  desc: ev.kit && ev.kit !== 'None' ? ('Uniform: ' + ev.kit) : (ev.location || ''),
-                  color: (ev.type === 'camp' ? '#2563eb' : (ev.type === 'ceremonial' ? '#9333ea' : '#f59e0b')),
+                  desc: ev.kit && ev.kit !== 'None' ? 'Uniform: ' + ev.kit : ev.location || '',
+                  color:
+                    ev.type === 'camp'
+                      ? '#2563eb'
+                      : ev.type === 'ceremonial'
+                        ? '#9333ea'
+                        : '#f59e0b',
                   ev: ev
                 });
               } else if (h === 14 && ev.type === 'parade' && startH === null) {
@@ -1037,14 +2230,28 @@
           }
         });
 
-        html += '<div class="cal-week-hour-cell" onclick="' + clickFn + '(\'' + day.dateKey + '\')">';
-        eventsAtHour.forEach(function(item) {
-          html += ''
-            + '<div class="cal-week-event-card" style="border-left:3px solid ' + item.color + ';" onclick="event.stopPropagation();' + clickFn + '(\'' + day.dateKey + '\', \'' + (item.ev ? calendarEventId(item.ev.id) : '') + '\')">'
-              + '<div class="cal-we-title">' + escapeHtml(item.title) + '</div>'
-              + '<div class="cal-we-time">' + escapeHtml(item.time) + '</div>'
-              + (item.desc ? ('<div class="cal-we-desc">' + escapeHtml(item.desc) + '</div>') : '')
-            + '</div>';
+        html +=
+          '<div class="cal-week-hour-cell" onclick="' + clickFn + "('" + day.dateKey + '\')">';
+        eventsAtHour.forEach(function (item) {
+          html +=
+            '' +
+            '<div class="cal-week-event-card" style="border-left:3px solid ' +
+            item.color +
+            ';" onclick="event.stopPropagation();' +
+            clickFn +
+            "('" +
+            day.dateKey +
+            "', '" +
+            (item.ev ? calendarEventId(item.ev.id) : '') +
+            '\')">' +
+            '<div class="cal-we-title">' +
+            escapeHtml(item.title) +
+            '</div>' +
+            '<div class="cal-we-time">' +
+            escapeHtml(item.time) +
+            '</div>' +
+            (item.desc ? '<div class="cal-we-desc">' + escapeHtml(item.desc) + '</div>' : '') +
+            '</div>';
         });
         html += '</div>';
       });
@@ -1067,24 +2274,36 @@
     // Weekday Header
     var todayDayOfWeek = new Date().getDay();
     html += '<div class="cal-month-head-row">';
-    DAY_SHORT_NAMES.forEach(function(d, idx) {
-      var isDayToday = (idx === todayDayOfWeek);
-      html += '<div class="cal-month-head-cell' + (isDayToday ? ' cal-month-head-today' : '') + '">' + d + '</div>';
+    DAY_SHORT_NAMES.forEach(function (d, idx) {
+      var isDayToday = idx === todayDayOfWeek;
+      html +=
+        '<div class="cal-month-head-cell' +
+        (isDayToday ? ' cal-month-head-today' : '') +
+        '">' +
+        d +
+        '</div>';
     });
     html += '</div>';
 
     // Days Grid
     html += '<div class="cal-month-grid">';
-    matrix.forEach(function(cell) {
+    matrix.forEach(function (cell) {
       var isToday = cell.dateKey === todayStr;
       var compEvents = getCompanyEventsForDate(cell.dateKey);
-      var memEvents  = getMemberEventsForDate(cell.dateKey);
+      var memEvents = getMemberEventsForDate(cell.dateKey);
 
       var cellClass = 'cal-month-day-cell';
       if (!cell.isCurrentMonth) cellClass += ' cal-month-cell-overflow';
       if (isToday) cellClass += ' cal-month-cell-today';
 
-      html += '<button type="button" class="' + cellClass + '" aria-label="' + cell.dateKey + '" onclick="openCalendarDayModal(\'' + cell.dateKey + '\')">';
+      html +=
+        '<button type="button" class="' +
+        cellClass +
+        '" aria-label="' +
+        cell.dateKey +
+        '" onclick="openCalendarDayModal(\'' +
+        cell.dateKey +
+        '\')">';
 
       // Top number bar
       html += '<span class="cal-m-cell-top">';
@@ -1100,7 +2319,7 @@
       var maxShow = 3;
       var shownCount = 0;
 
-      compEvents.forEach(function(ev) {
+      compEvents.forEach(function (ev) {
         if (shownCount >= maxShow) return;
         shownCount++;
         var isHoliday = ev.type === 'holiday';
@@ -1114,13 +2333,27 @@
         else if (isCamp) pillCls = 'cal-m-pill-cyan';
         else if (isCeremonial) pillCls = 'cal-m-pill-purple';
 
-        html += '<span class="cal-m-pill ' + pillCls + '" title="' + escapeHtml(ev.title) + '">' + escapeHtml(ev.title) + '</span>';
+        html +=
+          '<span class="cal-m-pill ' +
+          pillCls +
+          '" title="' +
+          escapeHtml(ev.title) +
+          '">' +
+          escapeHtml(ev.title) +
+          '</span>';
       });
 
-      memEvents.forEach(function(rem) {
+      memEvents.forEach(function (rem) {
         if (shownCount >= maxShow) return;
         shownCount++;
-        html += '<span class="cal-m-pill cal-m-pill-personal" title="Personal: ' + escapeHtml(rem.title) + '">' + CAL_ICONS.reminder + ' ' + escapeHtml(rem.title) + '</span>';
+        html +=
+          '<span class="cal-m-pill cal-m-pill-personal" title="Personal: ' +
+          escapeHtml(rem.title) +
+          '">' +
+          CAL_ICONS.reminder +
+          ' ' +
+          escapeHtml(rem.title) +
+          '</span>';
       });
 
       var totalEvents = compEvents.length + memEvents.length;
@@ -1144,17 +2377,22 @@
 
     for (var m = 0; m < 12; m++) {
       var matrix = getMonthMatrix(isAdminView ? _adminYear : _currentYear, m);
-      html += ''
-        + '<div class="cal-year-month-box">'
-          + '<button type="button" class="cal-year-month-name" onclick="openCalendarMonth(' + m + ',' + !!isAdminView + ')">'
-            + MONTH_NAMES[m]
-          + '</button>'
-          + '<div class="cal-year-weekdays">'
-            + '<span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>'
-          + '</div>'
-          + '<div class="cal-year-days-grid">';
+      html +=
+        '' +
+        '<div class="cal-year-month-box">' +
+        '<button type="button" class="cal-year-month-name" onclick="openCalendarMonth(' +
+        m +
+        ',' +
+        !!isAdminView +
+        ')">' +
+        MONTH_NAMES[m] +
+        '</button>' +
+        '<div class="cal-year-weekdays">' +
+        '<span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>' +
+        '</div>' +
+        '<div class="cal-year-days-grid">';
 
-      matrix.forEach(function(c) {
+      matrix.forEach(function (c) {
         if (!c.isCurrentMonth) {
           html += '<span class="cal-year-day-empty"></span>';
           return;
@@ -1174,11 +2412,22 @@
           dotHtml = '<span class="cal-y-dot" style="background:' + dotColor + ';"></span>';
         }
 
-        html += ''
-          + '<button type="button" class="cal-year-day-cell ' + (isToday ? 'cal-y-today' : '') + '" aria-label="' + c.dateKey + '" onclick="' + (isAdminView ? 'openAdminEventModal' : 'openCalendarDayModal') + '(\'' + c.dateKey + '\')">'
-            + '<span class="cal-y-num">' + c.dayNumber + '</span>'
-            + dotHtml
-          + '</button>';
+        html +=
+          '' +
+          '<button type="button" class="cal-year-day-cell ' +
+          (isToday ? 'cal-y-today' : '') +
+          '" aria-label="' +
+          c.dateKey +
+          '" onclick="' +
+          (isAdminView ? 'openAdminEventModal' : 'openCalendarDayModal') +
+          "('" +
+          c.dateKey +
+          '\')">' +
+          '<span class="cal-y-num">' +
+          c.dayNumber +
+          '</span>' +
+          dotHtml +
+          '</button>';
       });
 
       html += '</div></div>'; // end cal-year-month-box
@@ -1203,50 +2452,87 @@
   // ── 5. EVENTS / SCHEDULE VIEW (Image 6 Google Calendar Style) ──────────────
   function renderEventsView() {
     var todayStr = formatDateKey(new Date());
-    var sorted = _calendarEvents.slice().sort(function(a, b) {
+    var sorted = _calendarEvents.slice().sort(function (a, b) {
       return a.date.localeCompare(b.date);
     });
 
     // Start filtering from beginning of active viewing month
     var filterStart = _currentYear + '-' + String(_currentMonth + 1).padStart(2, '0') + '-01';
-    var activeList = sorted.filter(function(e) { return e.date >= filterStart; });
+    var activeList = sorted.filter(function (e) {
+      return e.date >= filterStart;
+    });
     if (!activeList.length) activeList = sorted.slice(-15);
 
     var html = '<div class="cal-agenda-container">';
     var renderedDates = {};
 
-    activeList.forEach(function(ev) {
+    activeList.forEach(function (ev) {
       var isToday = ev.date === todayStr;
       var evDateObj = new Date(ev.date + 'T00:00:00');
       var dayNum = evDateObj.getDate();
       var monthShort = MONTH_SHORT_NAMES[evDateObj.getMonth()];
       var dayNameShort = DAY_SHORT_NAMES[evDateObj.getDay()];
 
-      var typeMeta = TYPE_BADGES[ev.type] || { label: 'Event', color: '#eab308', dot: '#eab308', bg: 'rgba(234,179,8,0.15)' };
-      var kitMeta  = KIT_BADGES[ev.kit] || { label: ev.kit, color: 'var(--text-secondary)', bg: 'var(--surface-tint)' };
+      var typeMeta = TYPE_BADGES[ev.type] || {
+        label: 'Event',
+        color: '#eab308',
+        dot: '#eab308',
+        bg: 'rgba(234,179,8,0.15)'
+      };
+      var kitMeta = KIT_BADGES[ev.kit] || {
+        label: ev.kit,
+        color: 'var(--text-secondary)',
+        bg: 'var(--surface-tint)'
+      };
 
       var isFirstForDate = !renderedDates[ev.date];
       renderedDates[ev.date] = true;
 
-      html += ''
-        + '<div class="cal-agenda-row ' + (isToday ? 'cal-agenda-today' : '') + '" onclick="openCalendarDayModal(\'' + ev.date + '\')">'
-          + '<div class="cal-agenda-date-col">'
-            + (isFirstForDate ? (
-                '<div class="cal-agenda-date-circle ' + (isToday ? 'active' : '') + '">' + dayNum + '</div>'
-                + '<div class="cal-agenda-date-sub">' + monthShort + ', ' + dayNameShort + '</div>'
-              ) : '<div style="width:36px;"></div>')
-          + '</div>'
-
-          + '<div class="cal-agenda-content-col">'
-            + (isToday && isFirstForDate ? '<div class="cal-agenda-now-line"></div>' : '')
-            + '<div class="cal-agenda-item-body">'
-              + '<span class="cal-agenda-dot" style="background:' + typeMeta.dot + ';"></span>'
-              + '<div class="cal-agenda-time-text">' + escapeHtml(ev.time || 'All day') + '</div>'
-              + '<div class="cal-agenda-title-text">' + escapeHtml(ev.title) + '</div>'
-              + (ev.kit && ev.kit !== 'None' ? ('<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';margin-left:auto;">' + escapeHtml(kitMeta.label) + '</span>') : '')
-            + '</div>'
-          + '</div>'
-        + '</div>';
+      html +=
+        '' +
+        '<div class="cal-agenda-row ' +
+        (isToday ? 'cal-agenda-today' : '') +
+        '" onclick="openCalendarDayModal(\'' +
+        ev.date +
+        '\')">' +
+        '<div class="cal-agenda-date-col">' +
+        (isFirstForDate
+          ? '<div class="cal-agenda-date-circle ' +
+            (isToday ? 'active' : '') +
+            '">' +
+            dayNum +
+            '</div>' +
+            '<div class="cal-agenda-date-sub">' +
+            monthShort +
+            ', ' +
+            dayNameShort +
+            '</div>'
+          : '<div style="width:36px;"></div>') +
+        '</div>' +
+        '<div class="cal-agenda-content-col">' +
+        (isToday && isFirstForDate ? '<div class="cal-agenda-now-line"></div>' : '') +
+        '<div class="cal-agenda-item-body">' +
+        '<span class="cal-agenda-dot" style="background:' +
+        typeMeta.dot +
+        ';"></span>' +
+        '<div class="cal-agenda-time-text">' +
+        escapeHtml(ev.time || 'All day') +
+        '</div>' +
+        '<div class="cal-agenda-title-text">' +
+        escapeHtml(ev.title) +
+        '</div>' +
+        (ev.kit && ev.kit !== 'None'
+          ? '<span class="cal-pill-badge" style="background:' +
+            kitMeta.bg +
+            ';color:' +
+            kitMeta.color +
+            ';margin-left:auto;">' +
+            escapeHtml(kitMeta.label) +
+            '</span>'
+          : '') +
+        '</div>' +
+        '</div>' +
+        '</div>';
     });
 
     html += '</div>'; // end cal-agenda-container
@@ -1269,22 +2555,35 @@
     var ev = compEvents.length > 0 ? compEvents[0] : null;
 
     var dateObj = new Date(targetDate + 'T00:00:00');
-    var fullDateStr = dateObj.toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    var fullDateStr = dateObj.toLocaleDateString('en-MY', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
 
-    var kitMeta = (ev && KIT_BADGES[ev.kit]) ? KIT_BADGES[ev.kit] : (ev && ev.kit && ev.kit !== 'None' ? { label: ev.kit, color: 'var(--accent)', bg: 'var(--accent-soft)' } : null);
-    var typeMeta = (ev && TYPE_BADGES[ev.type]) ? TYPE_BADGES[ev.type] : null;
+    var kitMeta =
+      ev && KIT_BADGES[ev.kit]
+        ? KIT_BADGES[ev.kit]
+        : ev && ev.kit && ev.kit !== 'None'
+          ? { label: ev.kit, color: 'var(--accent)', bg: 'var(--accent-soft)' }
+          : null;
+    var typeMeta = ev && TYPE_BADGES[ev.type] ? TYPE_BADGES[ev.type] : null;
 
     // Step-Day Navigation Header Title
     var titleEl = document.getElementById('cdm-date-title');
     if (titleEl) {
-      titleEl.innerHTML = ''
-        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;">'
-          + '<div style="display:flex;align-items:center;gap:6px;">'
-            + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calStepDay(-1)" title="Previous Day" style="padding:2px 8px;font-size:14px;border-radius:6px;">&lsaquo;</button>'
-            + '<span>' + escapeHtml(fullDateStr) + '</span>'
-            + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calStepDay(1)" title="Next Day" style="padding:2px 8px;font-size:14px;border-radius:6px;">&rsaquo;</button>'
-          + '</div>'
-        + '</div>';
+      titleEl.innerHTML =
+        '' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;">' +
+        '<div style="display:flex;align-items:center;gap:6px;">' +
+        '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calStepDay(-1)" title="Previous Day" style="padding:2px 8px;font-size:14px;border-radius:6px;">&lsaquo;</button>' +
+        '<span>' +
+        escapeHtml(fullDateStr) +
+        '</span>' +
+        '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="calStepDay(1)" title="Next Day" style="padding:2px 8px;font-size:14px;border-radius:6px;">&rsaquo;</button>' +
+        '</div>' +
+        '</div>';
     }
 
     // Header Badges & Admin Trigger
@@ -1292,10 +2591,26 @@
     if (headerBadges) {
       var badgesHtml = '';
       if (typeMeta) {
-        badgesHtml += '<span class="cal-pill-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';border:1px solid ' + typeMeta.border + ';">' + escapeHtml(typeMeta.label) + '</span> ';
+        badgesHtml +=
+          '<span class="cal-pill-badge" style="background:' +
+          typeMeta.bg +
+          ';color:' +
+          typeMeta.color +
+          ';border:1px solid ' +
+          typeMeta.border +
+          ';">' +
+          escapeHtml(typeMeta.label) +
+          '</span> ';
       }
       if (kitMeta && ev && ev.kit !== 'None') {
-        badgesHtml += '<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span> ';
+        badgesHtml +=
+          '<span class="cal-pill-badge" style="background:' +
+          kitMeta.bg +
+          ';color:' +
+          kitMeta.color +
+          ';">' +
+          escapeHtml(kitMeta.label) +
+          '</span> ';
       }
 
       headerBadges.innerHTML = badgesHtml;
@@ -1313,31 +2628,54 @@
       if (ev && ev.type !== 'noparade') {
         var activeDayRundown = getEventRundown(ev);
         var dayScheduleTime = getEventScheduleTimes(ev, activeDayRundown).range;
-        vHtml += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;">'
-          + (dayScheduleTime ? '<span style="color:var(--accent);font-weight:600;">' + CAL_ICONS.clock + ' ' + escapeHtml(dayScheduleTime) + '</span>' : '')
-          + '<span>' + CAL_ICONS.pin + ' ' + escapeHtml(ev.location || 'Trinity Methodist Church PJ (TMCPJ)') + '</span>'
-        + '</div>';
+        vHtml +=
+          '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;">' +
+          (dayScheduleTime
+            ? '<span style="color:var(--accent);font-weight:600;">' +
+              CAL_ICONS.clock +
+              ' ' +
+              escapeHtml(dayScheduleTime) +
+              '</span>'
+            : '') +
+          '<span>' +
+          CAL_ICONS.pin +
+          ' ' +
+          escapeHtml(ev.location || 'Trinity Methodist Church PJ (TMCPJ)') +
+          '</span>' +
+          '</div>';
 
         // Parade Detailed Rundown
         if (activeDayRundown.length) {
-          vHtml += ''
-            + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-top:10px;">'
-              + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Schedule Rundown &bull; Saturday Timeline</div>'
-              + '<div style="display:flex;flex-direction:column;gap:6px;">';
-          activeDayRundown.forEach(function(r) {
+          vHtml +=
+            '' +
+            '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-top:10px;">' +
+            '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Schedule Rundown &bull; Saturday Timeline</div>' +
+            '<div style="display:flex;flex-direction:column;gap:6px;">';
+          activeDayRundown.forEach(function (r) {
             if (!r) return;
-            vHtml += ''
-              + '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;font-size:12px;">'
-                + '<div><strong>' + escapeHtml(r.title) + '</strong> &bull; <span style="color:var(--text-secondary);">' + escapeHtml(r.desc) + '</span></div>'
-                + '<span style="color:var(--accent);font-weight:700;font-family:var(--font-headline);white-space:nowrap;margin-left:8px;">' + escapeHtml(r.time) + '</span>'
-              + '</div>';
+            vHtml +=
+              '' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:6px;font-size:12px;">' +
+              '<div><strong>' +
+              escapeHtml(r.title) +
+              '</strong> &bull; <span style="color:var(--text-secondary);">' +
+              escapeHtml(r.desc) +
+              '</span></div>' +
+              '<span style="color:var(--accent);font-weight:700;font-family:var(--font-headline);white-space:nowrap;margin-left:8px;">' +
+              escapeHtml(r.time) +
+              '</span>' +
+              '</div>';
           });
           vHtml += '</div></div>';
         }
       } else if (ev && ev.type === 'noparade') {
-        vHtml = '<span style="color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:6px;">' + CAL_ICONS.alert + ' No Company Parade Scheduled for this date</span>';
+        vHtml =
+          '<span style="color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:6px;">' +
+          CAL_ICONS.alert +
+          ' No Company Parade Scheduled for this date</span>';
       } else {
-        vHtml = '<span style="color:var(--text-muted);">No official brigade event scheduled. Enjoy your weekend!</span>';
+        vHtml =
+          '<span style="color:var(--text-muted);">No official brigade event scheduled. Enjoy your weekend!</span>';
       }
       venueEl.innerHTML = vHtml;
     }
@@ -1346,13 +2684,16 @@
     var srBox = document.getElementById('cdm-sr-schedule');
     if (srBox) {
       if (ev && ev.srDetails) {
-        srBox.innerHTML = ''
-          + '<div class="cal-detail-subbox">'
-            + '<div class="cal-subbox-title">' + CAL_ICONS.senior + ' Senior Section Program &amp; Badges</div>'
-            + '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">'
-              + escapeHtml(ev.srDetails)
-            + '</div>'
-          + '</div>';
+        srBox.innerHTML =
+          '' +
+          '<div class="cal-detail-subbox">' +
+          '<div class="cal-subbox-title">' +
+          CAL_ICONS.senior +
+          ' Senior Section Program &amp; Badges</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">' +
+          escapeHtml(ev.srDetails) +
+          '</div>' +
+          '</div>';
         srBox.style.display = 'block';
       } else {
         srBox.style.display = 'none';
@@ -1363,13 +2704,16 @@
     var jrBox = document.getElementById('cdm-jr-schedule');
     if (jrBox) {
       if (ev && ev.jrDetails) {
-        jrBox.innerHTML = ''
-          + '<div class="cal-detail-subbox">'
-            + '<div class="cal-subbox-title">' + CAL_ICONS.junior + ' Junior Section Program &amp; Badges</div>'
-            + '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">'
-              + escapeHtml(ev.jrDetails)
-            + '</div>'
-          + '</div>';
+        jrBox.innerHTML =
+          '' +
+          '<div class="cal-detail-subbox">' +
+          '<div class="cal-subbox-title">' +
+          CAL_ICONS.junior +
+          ' Junior Section Program &amp; Badges</div>' +
+          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:4px;">' +
+          escapeHtml(ev.jrDetails) +
+          '</div>' +
+          '</div>';
         jrBox.style.display = 'block';
       } else {
         jrBox.style.display = 'none';
@@ -1380,13 +2724,16 @@
     var notesBox = document.getElementById('cdm-notes-box');
     if (notesBox) {
       if (ev && ev.notes) {
-        notesBox.innerHTML = ''
-          + '<div class="cal-detail-subbox" style="border-left:3px solid var(--accent);background:rgba(234,179,8,0.08);">'
-            + '<div class="cal-subbox-title" style="color:var(--accent);">' + CAL_ICONS.announcement + ' Important Remarks &amp; Briefings</div>'
-            + '<div style="font-size:12px;color:var(--text-primary);line-height:1.5;margin-top:4px;">'
-              + escapeHtml(ev.notes)
-            + '</div>'
-          + '</div>';
+        notesBox.innerHTML =
+          '' +
+          '<div class="cal-detail-subbox" style="border-left:3px solid var(--accent);background:rgba(234,179,8,0.08);">' +
+          '<div class="cal-subbox-title" style="color:var(--accent);">' +
+          CAL_ICONS.announcement +
+          ' Important Remarks &amp; Briefings</div>' +
+          '<div style="font-size:12px;color:var(--text-primary);line-height:1.5;margin-top:4px;">' +
+          escapeHtml(ev.notes) +
+          '</div>' +
+          '</div>';
         notesBox.style.display = 'block';
       } else {
         notesBox.style.display = 'none';
@@ -1421,22 +2768,37 @@
 
     var memEvents = getMemberEventsForDate(dateStr);
     if (!memEvents.length) {
-      container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;font-style:italic;padding:8px 0;">No personal notes or reminders added for this day.</div>';
+      container.innerHTML =
+        '<div style="color:var(--text-muted);font-size:12px;font-style:italic;padding:8px 0;">No personal notes or reminders added for this day.</div>';
       return;
     }
 
     var html = '';
-    memEvents.forEach(function(rem) {
-      html += '<div class="cal-member-rem-item">'
-        + '<div style="flex:1;">'
-          + '<div style="font-size:13px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;">'
-            + '<span style="color:#38bdf8;">●</span> ' + escapeHtml(rem.title)
-            + (rem.time ? (' <span style="font-size:11px;color:var(--text-muted);">(' + escapeHtml(rem.time) + ')</span>') : '')
-          + '</div>'
-          + (rem.notes ? ('<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;padding-left:14px;">' + escapeHtml(rem.notes) + '</div>') : '')
-        + '</div>'
-        + '<button type="button" class="portal-btn-sm portal-btn-danger" onclick="deleteModalReminder(\'' + calendarEventId(rem.id) + '\', \'' + dateStr + '\')" style="padding:3px 8px;font-size:11px;" title="Remove reminder">&times;</button>'
-      + '</div>';
+    memEvents.forEach(function (rem) {
+      html +=
+        '<div class="cal-member-rem-item">' +
+        '<div style="flex:1;">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+        '<span style="color:#38bdf8;">●</span> ' +
+        escapeHtml(rem.title) +
+        (rem.time
+          ? ' <span style="font-size:11px;color:var(--text-muted);">(' +
+            escapeHtml(rem.time) +
+            ')</span>'
+          : '') +
+        '</div>' +
+        (rem.notes
+          ? '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;padding-left:14px;">' +
+            escapeHtml(rem.notes) +
+            '</div>'
+          : '') +
+        '</div>' +
+        '<button type="button" class="portal-btn-sm portal-btn-danger" onclick="deleteModalReminder(\'' +
+        calendarEventId(rem.id) +
+        "', '" +
+        dateStr +
+        '\')" style="padding:3px 8px;font-size:11px;" title="Remove reminder">&times;</button>' +
+        '</div>';
     });
 
     container.innerHTML = html;
@@ -1445,14 +2807,22 @@
   function handleAddModalReminder() {
     var titleEl = document.getElementById('cdm-rem-input');
     var notesEl = document.getElementById('cdm-rem-notes');
-    var timeEl  = document.getElementById('cdm-rem-time');
+    var timeEl = document.getElementById('cdm-rem-time');
 
     if (!titleEl || !titleEl.value.trim()) {
       if (typeof showToast === 'function') showToast('Please enter a reminder title.');
       return;
     }
 
-    if (!addPersonalEvent(_selectedDateStr, titleEl.value, timeEl ? timeEl.value : '', notesEl ? notesEl.value : '')) return;
+    if (
+      !addPersonalEvent(
+        _selectedDateStr,
+        titleEl.value,
+        timeEl ? timeEl.value : '',
+        notesEl ? notesEl.value : ''
+      )
+    )
+      return;
     titleEl.value = '';
     if (notesEl) notesEl.value = '';
     if (timeEl) timeEl.value = '';
@@ -1475,9 +2845,8 @@
   // ═══════════════════════════════════════════════════════════════════════════
 
   var _adminMonth = new Date().getMonth();
-  var _adminYear  = new Date().getFullYear();
+  var _adminYear = new Date().getFullYear();
 
-  
   var _adminCalendarViewMode = 'month';
 
   function adminSwitchCalendarView(viewMode) {
@@ -1513,16 +2882,16 @@
       return;
     }
     if (_adminCalendarViewMode === 'week') {
-      _calendarDate.setDate(_calendarDate.getDate() + (offset * 7));
+      _calendarDate.setDate(_calendarDate.getDate() + offset * 7);
       _adminMonth = _calendarDate.getMonth();
-      _adminYear  = _calendarDate.getFullYear();
+      _adminYear = _calendarDate.getFullYear();
     } else if (_adminCalendarViewMode === 'year') {
       _calendarDate.setFullYear(_calendarDate.getFullYear() + offset, _calendarDate.getMonth(), 1);
       _adminYear = _calendarDate.getFullYear();
     } else {
       _calendarDate.setMonth(_calendarDate.getMonth() + offset, 1);
       _adminMonth = _calendarDate.getMonth();
-      _adminYear  = _calendarDate.getFullYear();
+      _adminYear = _calendarDate.getFullYear();
     }
     renderAdminCalendarGrid();
   }
@@ -1530,7 +2899,7 @@
   function adminCalJumpToday() {
     _calendarDate = new Date();
     _adminMonth = _calendarDate.getMonth();
-    _adminYear  = _calendarDate.getFullYear();
+    _adminYear = _calendarDate.getFullYear();
     _adminUpcomingEventIndex = null;
     renderAdminCalendarGrid();
   }
@@ -1538,31 +2907,41 @@
   function resetAdminCalendarDate() {
     _calendarDate = new Date();
     _adminMonth = _calendarDate.getMonth();
-    _adminYear  = _calendarDate.getFullYear();
+    _adminYear = _calendarDate.getFullYear();
     _adminUpcomingEventIndex = null;
   }
 
   // ── SPREADSHEET TABLE SCHEDULE EDITOR ──────────────────────────────────────
   function createAdminScheduleRowHtml(item) {
     item = item || {};
-    return ''
-      + '<tr class="adm-sched-row" style="border-bottom:1px solid var(--border-card);">'
-        + '<td style="padding:6px 8px;">'
-          + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml(item.time || '') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:var(--font-body);font-variant-numeric:tabular-nums;" />'
-        + '</td>'
-        + '<td style="padding:6px 8px;">'
-          + '<input type="text" class="form-input adm-row-title" value="' + escapeHtml(item.title || '') + '" placeholder="e.g. Fall-In" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />'
-        + '</td>'
-        + '<td style="padding:6px 8px;">'
-          + '<input type="text" class="form-input adm-row-desc" value="' + escapeHtml(item.desc || '') + '" placeholder="e.g. Roll call & inspection" style="padding:5px 8px;font-size:12px;height:auto;" />'
-        + '</td>'
-        + '<td style="padding:6px 8px;">'
-          + '<input type="text" class="form-input adm-row-notes" value="' + escapeHtml(item.notes || '') + '" placeholder="e.g. Day Dress" style="padding:5px 8px;font-size:12px;height:auto;" />'
-        + '</td>'
-        + '<td style="padding:6px 6px;text-align:center;">'
-          + '<button type="button" class="portal-btn-sm" onclick="this.closest(\'tr\').remove()" style="padding:3px 7px;font-size:13px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:6px;cursor:pointer;" title="Remove Row">&times;</button>'
-        + '</td>'
-      + '</tr>';
+    return (
+      '' +
+      '<tr class="adm-sched-row" style="border-bottom:1px solid var(--border-card);">' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-time" value="' +
+      escapeHtml(item.time || '') +
+      '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:var(--font-body);font-variant-numeric:tabular-nums;" />' +
+      '</td>' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-title" value="' +
+      escapeHtml(item.title || '') +
+      '" placeholder="e.g. Fall-In" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />' +
+      '</td>' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-desc" value="' +
+      escapeHtml(item.desc || '') +
+      '" placeholder="e.g. Roll call & inspection" style="padding:5px 8px;font-size:12px;height:auto;" />' +
+      '</td>' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-notes" value="' +
+      escapeHtml(item.notes || '') +
+      '" placeholder="e.g. Day Dress" style="padding:5px 8px;font-size:12px;height:auto;" />' +
+      '</td>' +
+      '<td style="padding:6px 6px;text-align:center;">' +
+      '<button type="button" class="portal-btn-sm" onclick="this.closest(\'tr\').remove()" style="padding:3px 7px;font-size:13px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:6px;cursor:pointer;" title="Remove Row">&times;</button>' +
+      '</td>' +
+      '</tr>'
+    );
   }
 
   function addAdminScheduleRow(item) {
@@ -1572,22 +2951,31 @@
     var tr = document.createElement('tr');
     tr.className = 'adm-sched-row';
     tr.style.borderBottom = '1px solid var(--border-card)';
-    tr.innerHTML = ''
-      + '<td style="padding:6px 8px;">'
-        + '<input type="text" class="form-input adm-row-time" value="' + escapeHtml((item && item.time) || '2:15 PM') + '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:var(--font-body);font-variant-numeric:tabular-nums;" />'
-      + '</td>'
-      + '<td style="padding:6px 8px;">'
-        + '<input type="text" class="form-input adm-row-title" value="' + escapeHtml((item && item.title) || '') + '" placeholder="e.g. Activity Name" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />'
-      + '</td>'
-      + '<td style="padding:6px 8px;">'
-        + '<input type="text" class="form-input adm-row-desc" value="' + escapeHtml((item && item.desc) || '') + '" placeholder="e.g. Activity description" style="padding:5px 8px;font-size:12px;height:auto;" />'
-      + '</td>'
-      + '<td style="padding:6px 8px;">'
-        + '<input type="text" class="form-input adm-row-notes" value="' + escapeHtml((item && item.notes) || '') + '" placeholder="e.g. Notes / Kit" style="padding:5px 8px;font-size:12px;height:auto;" />'
-      + '</td>'
-      + '<td style="padding:6px 6px;text-align:center;">'
-        + '<button type="button" class="portal-btn-sm" onclick="this.closest(\'tr\').remove()" style="padding:3px 7px;font-size:13px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:6px;cursor:pointer;" title="Remove Row">&times;</button>'
-      + '</td>';
+    tr.innerHTML =
+      '' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-time" value="' +
+      escapeHtml((item && item.time) || '2:15 PM') +
+      '" placeholder="e.g. 2:15 PM – 2:30 PM" style="padding:5px 8px;font-size:12px;height:auto;font-family:var(--font-body);font-variant-numeric:tabular-nums;" />' +
+      '</td>' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-title" value="' +
+      escapeHtml((item && item.title) || '') +
+      '" placeholder="e.g. Activity Name" style="padding:5px 8px;font-size:12px;height:auto;font-weight:600;" />' +
+      '</td>' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-desc" value="' +
+      escapeHtml((item && item.desc) || '') +
+      '" placeholder="e.g. Activity description" style="padding:5px 8px;font-size:12px;height:auto;" />' +
+      '</td>' +
+      '<td style="padding:6px 8px;">' +
+      '<input type="text" class="form-input adm-row-notes" value="' +
+      escapeHtml((item && item.notes) || '') +
+      '" placeholder="e.g. Notes / Kit" style="padding:5px 8px;font-size:12px;height:auto;" />' +
+      '</td>' +
+      '<td style="padding:6px 6px;text-align:center;">' +
+      '<button type="button" class="portal-btn-sm" onclick="this.closest(\'tr\').remove()" style="padding:3px 7px;font-size:13px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);border-radius:6px;cursor:pointer;" title="Remove Row">&times;</button>' +
+      '</td>';
     tbody.appendChild(tr);
   }
 
@@ -1596,7 +2984,7 @@
     var tbody = document.getElementById('adm-schedule-tbody');
     if (!tbody) return;
     var rowsHtml = '';
-    DEFAULT_PARADE_RUNDOWN.forEach(function(step) {
+    DEFAULT_PARADE_RUNDOWN.forEach(function (step) {
       rowsHtml += createAdminScheduleRowHtml(step);
     });
     tbody.innerHTML = rowsHtml;
@@ -1625,46 +3013,58 @@
     var initialRows = [];
     if (ev && Array.isArray(ev.schedule) && ev.schedule.length > 0) {
       initialRows = ev.schedule;
-    } else if (ev && ev.type !== 'noparade' && (ev.type === 'parade' || (ev.title && ev.title.toLowerCase().includes('parade')))) {
+    } else if (
+      ev &&
+      ev.type !== 'noparade' &&
+      (ev.type === 'parade' || (ev.title && ev.title.toLowerCase().includes('parade')))
+    ) {
       initialRows = DEFAULT_PARADE_RUNDOWN;
     } else if (ev) {
-      initialRows = [{ time: ev.time || '2:15 PM – 6:00 PM', title: ev.title || 'Event Activity', desc: ev.notes || '', notes: ev.kit || '' }];
+      initialRows = [
+        {
+          time: ev.time || '2:15 PM – 6:00 PM',
+          title: ev.title || 'Event Activity',
+          desc: ev.notes || '',
+          notes: ev.kit || ''
+        }
+      ];
     } else {
       initialRows = DEFAULT_PARADE_RUNDOWN;
     }
 
     var rowsHtml = '';
-    initialRows.forEach(function(r) {
+    initialRows.forEach(function (r) {
       rowsHtml += createAdminScheduleRowHtml(r);
     });
 
-    container.innerHTML = ''
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">'
-        + '<div>'
-          + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--accent);">Parade Rundown &amp; Activity Schedule (Table Editor)</div>'
-          + '<div style="font-size:11px;color:var(--text-secondary);">Direct spreadsheet editor: update timings, activity names, descriptions, or add new rows.</div>'
-        + '</div>'
-        + '<div style="display:flex;gap:6px;">'
-          + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="addAdminScheduleRow()" style="font-size:11px;padding:4px 10px;font-weight:600;">+ Add Row</button>'
-          + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="resetAdminScheduleDefault()" style="font-size:11px;padding:4px 8px;" title="Reset to standard Saturday rundown">Standard Rundown</button>'
-        + '</div>'
-      + '</div>'
-      + '<div style="overflow-x:auto;border:1px solid var(--border-card);border-radius:10px;background:var(--bg-card-subtle);max-height:260px;overflow-y:auto;">'
-        + '<table class="adm-schedule-spreadsheet" style="width:100%;border-collapse:collapse;font-size:12px;">'
-          + '<thead>'
-            + '<tr style="background:var(--bg-card);border-bottom:1px solid var(--border-card);color:var(--text-secondary);text-align:left;position:sticky;top:0;z-index:2;">'
-              + '<th style="padding:8px 10px;width:140px;">Timing</th>'
-              + '<th style="padding:8px 10px;width:150px;">Activity Name</th>'
-              + '<th style="padding:8px 10px;">Description</th>'
-              + '<th style="padding:8px 10px;width:120px;">Kit / Notes</th>'
-              + '<th style="padding:8px 6px;width:36px;text-align:center;"></th>'
-            + '</tr>'
-          + '</thead>'
-          + '<tbody id="adm-schedule-tbody">'
-            + rowsHtml
-          + '</tbody>'
-        + '</table>'
-      + '</div>';
+    container.innerHTML =
+      '' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
+      '<div>' +
+      '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--accent);">Parade Rundown &amp; Activity Schedule (Table Editor)</div>' +
+      '<div style="font-size:11px;color:var(--text-secondary);">Direct spreadsheet editor: update timings, activity names, descriptions, or add new rows.</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;">' +
+      '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="addAdminScheduleRow()" style="font-size:11px;padding:4px 10px;font-weight:600;">+ Add Row</button>' +
+      '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="resetAdminScheduleDefault()" style="font-size:11px;padding:4px 8px;" title="Reset to standard Saturday rundown">Standard Rundown</button>' +
+      '</div>' +
+      '</div>' +
+      '<div style="overflow-x:auto;border:1px solid var(--border-card);border-radius:10px;background:var(--bg-card-subtle);max-height:260px;overflow-y:auto;">' +
+      '<table class="adm-schedule-spreadsheet" style="width:100%;border-collapse:collapse;font-size:12px;">' +
+      '<thead>' +
+      '<tr style="background:var(--bg-card);border-bottom:1px solid var(--border-card);color:var(--text-secondary);text-align:left;position:sticky;top:0;z-index:2;">' +
+      '<th style="padding:8px 10px;width:140px;">Timing</th>' +
+      '<th style="padding:8px 10px;width:150px;">Activity Name</th>' +
+      '<th style="padding:8px 10px;">Description</th>' +
+      '<th style="padding:8px 10px;width:120px;">Kit / Notes</th>' +
+      '<th style="padding:8px 6px;width:36px;text-align:center;"></th>' +
+      '</tr>' +
+      '</thead>' +
+      '<tbody id="adm-schedule-tbody">' +
+      rowsHtml +
+      '</tbody>' +
+      '</table>' +
+      '</div>';
   }
 
   // ── FULL 5-VIEW COMPANY CALENDAR HUB IN ADMIN CONSOLE ──────────────────────
@@ -1680,9 +3080,19 @@
       var startMon = MONTH_SHORT_NAMES[wStart.getMonth()];
       var endMon = MONTH_SHORT_NAMES[wEnd.getMonth()];
       if (startMon === endMon) {
-        dateTitle = wStart.getDate() + ' – ' + wEnd.getDate() + ' ' + startMon + ' ' + wEnd.getFullYear();
+        dateTitle =
+          wStart.getDate() + ' – ' + wEnd.getDate() + ' ' + startMon + ' ' + wEnd.getFullYear();
       } else {
-        dateTitle = wStart.getDate() + ' ' + startMon + ' – ' + wEnd.getDate() + ' ' + endMon + ' ' + wEnd.getFullYear();
+        dateTitle =
+          wStart.getDate() +
+          ' ' +
+          startMon +
+          ' – ' +
+          wEnd.getDate() +
+          ' ' +
+          endMon +
+          ' ' +
+          wEnd.getFullYear();
       }
     } else if (_adminCalendarViewMode === 'year') {
       dateTitle = String(_adminYear);
@@ -1690,11 +3100,19 @@
       dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear + ' – Forward';
     } else if (_adminCalendarViewMode === 'upcoming') {
       var allSortedAdmin = getSortedCompanyEvents();
-      var auIdx = (_adminUpcomingEventIndex !== null && _adminUpcomingEventIndex !== undefined) ? _adminUpcomingEventIndex : getClosestUpcomingEventIndex(allSortedAdmin);
+      var auIdx =
+        _adminUpcomingEventIndex !== null && _adminUpcomingEventIndex !== undefined
+          ? _adminUpcomingEventIndex
+          : getClosestUpcomingEventIndex(allSortedAdmin);
       var aCurEv = allSortedAdmin[auIdx];
       if (aCurEv) {
         var aUpDate = new Date(aCurEv.date + 'T00:00:00');
-        dateTitle = aUpDate.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        dateTitle = aUpDate.toLocaleDateString('en-MY', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        });
       } else {
         dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear;
       }
@@ -1702,46 +3120,56 @@
       dateTitle = MONTH_NAMES[_adminMonth] + ' ' + _adminYear;
     }
 
-    var html = ''
-      + '<div class="cal-hub-container" style="width:100% !important;max-width:100% !important;">'
-        // Header Toolbar
-        + '<div class="cal-hub-header">'
-          + '<div class="cal-hub-title-block">'
-            + '<div style="display:flex;align-items:center;gap:10px;">'
-              + '<span class="cal-hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>'
-              + '<div>'
-                + '<div class="cal-hub-title">Company Calendar &amp; Schedule Editor</div>'
-                + '<div class="cal-hub-sub">Click any date, event, or activity row to edit timings and schedules</div>'
-              + '</div>'
-            + '</div>'
-          + '</div>'
-
-          // View Switcher Tabs
-          + '<div class="cal-view-switcher" role="tablist">'
-            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'upcoming' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'upcoming\')">Upcoming</button>'
-            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'week' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'week\')">Week</button>'
-            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'month' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'month\')">Month</button>'
-            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'year' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'year\')">Year</button>'
-            + '<button type="button" class="cal-view-tab ' + (_adminCalendarViewMode === 'events' ? 'active' : '') + '" onclick="adminSwitchCalendarView(\'events\')">Events</button>'
-          + '</div>'
-        + '</div>'
-
-        // Date Navigation Toolbar
-        + '<div class="cal-nav-toolbar">'
-          + '<div class="cal-nav-controls">'
-            + '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="adminCalJumpToday()" style="font-weight:600;padding:5px 12px;">Today</button>'
-            + '<button type="button" class="cal-nav-arrow" onclick="adminCalNavigate(-1)" title="Previous">&lsaquo;</button>'
-            + '<button type="button" class="cal-nav-arrow" onclick="adminCalNavigate(1)" title="Next">&rsaquo;</button>'
-            + '<div class="cal-current-range-heading">' + escapeHtml(dateTitle) + '</div>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<button type="button" class="portal-btn portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Event</button>'
-            + '<button type="button" class="portal-btn portal-btn-secondary" onclick="handleAdminResetToDefaultMaster()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;" title="Reset to authentic 2026 Google Doc Schedule"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Reset Master</button>'
-          + '</div>'
-        + '</div>'
-
-        // Body
-        + '<div class="cal-view-body">';
+    var html =
+      '' +
+      '<div class="cal-hub-container" style="width:100% !important;max-width:100% !important;">' +
+      // Header Toolbar
+      '<div class="cal-hub-header">' +
+      '<div class="cal-hub-title-block">' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+      '<span class="cal-hub-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>' +
+      '<div>' +
+      '<div class="cal-hub-title">Company Calendar &amp; Schedule Editor</div>' +
+      '<div class="cal-hub-sub">Click any date, event, or activity row to edit timings and schedules</div>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      // View Switcher Tabs
+      '<div class="cal-view-switcher" role="tablist">' +
+      '<button type="button" class="cal-view-tab ' +
+      (_adminCalendarViewMode === 'upcoming' ? 'active' : '') +
+      '" onclick="adminSwitchCalendarView(\'upcoming\')">Upcoming</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_adminCalendarViewMode === 'week' ? 'active' : '') +
+      '" onclick="adminSwitchCalendarView(\'week\')">Week</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_adminCalendarViewMode === 'month' ? 'active' : '') +
+      '" onclick="adminSwitchCalendarView(\'month\')">Month</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_adminCalendarViewMode === 'year' ? 'active' : '') +
+      '" onclick="adminSwitchCalendarView(\'year\')">Year</button>' +
+      '<button type="button" class="cal-view-tab ' +
+      (_adminCalendarViewMode === 'events' ? 'active' : '') +
+      '" onclick="adminSwitchCalendarView(\'events\')">Events</button>' +
+      '</div>' +
+      '</div>' +
+      // Date Navigation Toolbar
+      '<div class="cal-nav-toolbar">' +
+      '<div class="cal-nav-controls">' +
+      '<button type="button" class="portal-btn-sm portal-btn-secondary" onclick="adminCalJumpToday()" style="font-weight:600;padding:5px 12px;">Today</button>' +
+      '<button type="button" class="cal-nav-arrow" onclick="adminCalNavigate(-1)" title="Previous">&lsaquo;</button>' +
+      '<button type="button" class="cal-nav-arrow" onclick="adminCalNavigate(1)" title="Next">&rsaquo;</button>' +
+      '<div class="cal-current-range-heading">' +
+      escapeHtml(dateTitle) +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<button type="button" class="portal-btn portal-btn-primary" onclick="openAdminEventModal()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 14px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Event</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="handleAdminResetToDefaultMaster()" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;" title="Reset to authentic 2026 Google Doc Schedule"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Reset Master</button>' +
+      '</div>' +
+      '</div>' +
+      // Body
+      '<div class="cal-view-body">';
 
     if (_adminCalendarViewMode === 'week') {
       html += renderWeekView(true);
@@ -1749,14 +3177,15 @@
       var matrix = getMonthMatrix(_adminYear, _adminMonth);
       var todayStr = formatDateKey(new Date());
 
-      html += ''
-        + '<div class="adm-cal-table-wrap">'
-          + '<div class="adm-cal-grid-header">'
-            + '<div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>'
-          + '</div>'
-          + '<div class="adm-cal-grid-body">';
+      html +=
+        '' +
+        '<div class="adm-cal-table-wrap">' +
+        '<div class="adm-cal-grid-header">' +
+        '<div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>' +
+        '</div>' +
+        '<div class="adm-cal-grid-body">';
 
-      matrix.forEach(function(cell) {
+      matrix.forEach(function (cell) {
         var compEvents = getCompanyEventsForDate(cell.dateKey);
         var isToday = cell.dateKey === todayStr;
 
@@ -1765,22 +3194,53 @@
         if (isToday) cellClass += ' adm-cell-today';
         if (compEvents.length > 0) cellClass += ' adm-cell-has-event';
 
-        html += '<div class="' + cellClass + '" onclick="openAdminEventModal(\'' + cell.dateKey + '\')">'
-          + '<div class="adm-cell-top">'
-            + '<span class="adm-cell-num">' + cell.dayNumber + '</span>'
-            + '<button type="button" class="adm-cell-add-btn" onclick="event.stopPropagation();openAdminEventModal(\'' + cell.dateKey + '\')" title="Add/Edit Parade">+</button>'
-          + '</div>';
+        html +=
+          '<div class="' +
+          cellClass +
+          '" onclick="openAdminEventModal(\'' +
+          cell.dateKey +
+          '\')">' +
+          '<div class="adm-cell-top">' +
+          '<span class="adm-cell-num">' +
+          cell.dayNumber +
+          '</span>' +
+          '<button type="button" class="adm-cell-add-btn" onclick="event.stopPropagation();openAdminEventModal(\'' +
+          cell.dateKey +
+          '\')" title="Add/Edit Parade">+</button>' +
+          '</div>';
 
-        compEvents.forEach(function(ev) {
-          var kitMeta = KIT_BADGES[ev.kit] || { label: ev.kit, bg: 'var(--surface-tint-hover)', color: 'var(--text-primary)' };
-          var typeMeta = TYPE_BADGES[ev.type] || { bg: 'rgba(234,179,8,0.15)', color: 'var(--accent)' };
+        compEvents.forEach(function (ev) {
+          var kitMeta = KIT_BADGES[ev.kit] || {
+            label: ev.kit,
+            bg: 'var(--surface-tint-hover)',
+            color: 'var(--text-primary)'
+          };
+          var typeMeta = TYPE_BADGES[ev.type] || {
+            bg: 'rgba(234,179,8,0.15)',
+            color: 'var(--accent)'
+          };
 
-          html += '<div class="adm-cell-event-pill" style="border-left:3px solid ' + typeMeta.color + ';" onclick="event.stopPropagation();openAdminEventModal(\'' + cell.dateKey + '\', \'' + calendarEventId(ev.id) + '\')">'
-            + '<div class="adm-pill-title">' + escapeHtml(ev.title) + '</div>'
-            + '<div class="adm-pill-meta">'
-              + '<span class="adm-pill-kit" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span>'
-            + '</div>'
-          + '</div>';
+          html +=
+            '<div class="adm-cell-event-pill" style="border-left:3px solid ' +
+            typeMeta.color +
+            ';" onclick="event.stopPropagation();openAdminEventModal(\'' +
+            cell.dateKey +
+            "', '" +
+            calendarEventId(ev.id) +
+            '\')">' +
+            '<div class="adm-pill-title">' +
+            escapeHtml(ev.title) +
+            '</div>' +
+            '<div class="adm-pill-meta">' +
+            '<span class="adm-pill-kit" style="background:' +
+            kitMeta.bg +
+            ';color:' +
+            kitMeta.color +
+            ';">' +
+            escapeHtml(kitMeta.label) +
+            '</span>' +
+            '</div>' +
+            '</div>';
         });
 
         html += '</div>';
@@ -1800,7 +3260,6 @@
     container.innerHTML = html;
   }
 
-
   function adminNavigateMonth(offset) {
     _adminMonth += offset;
     if (_adminMonth > 11) {
@@ -1819,24 +3278,30 @@
 
     var ev = null;
     if (eventId) {
-      ev = _calendarEvents.find(function(x) { return x.id === eventId; });
+      ev = _calendarEvents.find(function (x) {
+        return x.id === eventId;
+      });
     } else if (dateStr) {
       var matching = getCompanyEventsForDate(dateStr);
       if (matching.length > 0) ev = matching[0];
     }
 
-    var targetDate = ev ? ev.date : (dateStr || _selectedDateStr);
+    var targetDate = ev ? ev.date : dateStr || _selectedDateStr;
 
-    document.getElementById('adm-ev-id').value       = ev ? ev.id : '';
-    document.getElementById('adm-ev-date').value     = targetDate;
-    document.getElementById('adm-ev-title').value    = ev ? ev.title : 'Regular Parade';
-    document.getElementById('adm-ev-type').value     = ev ? (ev.type || 'parade') : 'parade';
-    document.getElementById('adm-ev-kit').value      = ev ? (ev.kit || 'PT Kit') : 'PT Kit';
-    document.getElementById('adm-ev-time').value     = ev ? (ev.time || '2:15 PM – 6:00 PM') : '2:15 PM – 6:00 PM';
-    document.getElementById('adm-ev-loc').value      = ev ? (ev.location || 'Trinity Methodist Church PJ') : 'Trinity Methodist Church PJ';
-    document.getElementById('adm-ev-sr').value       = ev ? (ev.srDetails || '') : '';
-    document.getElementById('adm-ev-jr').value       = ev ? (ev.jrDetails || '') : '';
-    document.getElementById('adm-ev-notes').value    = ev ? (ev.notes || '') : '';
+    document.getElementById('adm-ev-id').value = ev ? ev.id : '';
+    document.getElementById('adm-ev-date').value = targetDate;
+    document.getElementById('adm-ev-title').value = ev ? ev.title : 'Regular Parade';
+    document.getElementById('adm-ev-type').value = ev ? ev.type || 'parade' : 'parade';
+    document.getElementById('adm-ev-kit').value = ev ? ev.kit || 'PT Kit' : 'PT Kit';
+    document.getElementById('adm-ev-time').value = ev
+      ? ev.time || '2:15 PM – 6:00 PM'
+      : '2:15 PM – 6:00 PM';
+    document.getElementById('adm-ev-loc').value = ev
+      ? ev.location || 'Trinity Methodist Church PJ'
+      : 'Trinity Methodist Church PJ';
+    document.getElementById('adm-ev-sr').value = ev ? ev.srDetails || '' : '';
+    document.getElementById('adm-ev-jr').value = ev ? ev.jrDetails || '' : '';
+    document.getElementById('adm-ev-notes').value = ev ? ev.notes || '' : '';
 
     var delBtn = document.getElementById('adm-ev-delete-btn');
     if (delBtn) delBtn.style.display = ev ? 'inline-block' : 'none';
@@ -1854,15 +3319,15 @@
   }
 
   async function handleAdminSaveEvent() {
-    var id       = document.getElementById('adm-ev-id').value;
-    var dateVal  = document.getElementById('adm-ev-date').value;
+    var id = document.getElementById('adm-ev-id').value;
+    var dateVal = document.getElementById('adm-ev-date').value;
     var titleVal = document.getElementById('adm-ev-title').value;
-    var typeVal  = document.getElementById('adm-ev-type').value;
-    var kitVal   = document.getElementById('adm-ev-kit').value;
-    var timeVal  = document.getElementById('adm-ev-time').value;
-    var locVal   = document.getElementById('adm-ev-loc').value;
-    var srVal    = document.getElementById('adm-ev-sr').value;
-    var jrVal    = document.getElementById('adm-ev-jr').value;
+    var typeVal = document.getElementById('adm-ev-type').value;
+    var kitVal = document.getElementById('adm-ev-kit').value;
+    var timeVal = document.getElementById('adm-ev-time').value;
+    var locVal = document.getElementById('adm-ev-loc').value;
+    var srVal = document.getElementById('adm-ev-sr').value;
+    var jrVal = document.getElementById('adm-ev-jr').value;
     var notesVal = document.getElementById('adm-ev-notes').value;
 
     if (!isCalendarDateKey(dateVal) || !titleVal.trim()) {
@@ -1870,16 +3335,18 @@
       return;
     }
 
-    var cleanTitle = (typeof sanitizeText === 'function') ? sanitizeText(titleVal, 100) : titleVal.trim();
-    var cleanSr    = (typeof sanitizeText === 'function') ? sanitizeText(srVal, 500) : srVal.trim();
-    var cleanJr    = (typeof sanitizeText === 'function') ? sanitizeText(jrVal, 500) : jrVal.trim();
-    var cleanNotes = (typeof sanitizeText === 'function') ? sanitizeText(notesVal, 500) : notesVal.trim();
+    var cleanTitle =
+      typeof sanitizeText === 'function' ? sanitizeText(titleVal, 100) : titleVal.trim();
+    var cleanSr = typeof sanitizeText === 'function' ? sanitizeText(srVal, 500) : srVal.trim();
+    var cleanJr = typeof sanitizeText === 'function' ? sanitizeText(jrVal, 500) : jrVal.trim();
+    var cleanNotes =
+      typeof sanitizeText === 'function' ? sanitizeText(notesVal, 500) : notesVal.trim();
 
     var scheduleRows = [];
     var tbody = document.getElementById('adm-schedule-tbody');
     if (tbody) {
       var trs = tbody.querySelectorAll('.adm-sched-row');
-      trs.forEach(function(tr) {
+      trs.forEach(function (tr) {
         var tInp = tr.querySelector('.adm-row-time');
         var titInp = tr.querySelector('.adm-row-title');
         var dInp = tr.querySelector('.adm-row-desc');
@@ -1888,15 +3355,15 @@
           scheduleRows.push({
             time: (tInp ? tInp.value.trim() : '') || '2:15 PM – 6:00 PM',
             title: titInp.value.trim(),
-            desc: (dInp ? dInp.value.trim() : ''),
-            notes: (nInp ? nInp.value.trim() : '')
+            desc: dInp ? dInp.value.trim() : '',
+            notes: nInp ? nInp.value.trim() : ''
           });
         }
       });
     }
 
     var eventObj = {
-      id: id || ('cal-' + dateVal + '-' + Math.random().toString(36).substr(2, 4)),
+      id: id || 'cal-' + dateVal + '-' + Math.random().toString(36).substr(2, 4),
       date: dateVal,
       title: cleanTitle,
       type: typeVal,
@@ -1911,7 +3378,9 @@
     };
 
     var updatedList = _calendarEvents.slice();
-    var idx = updatedList.findIndex(function(x) { return x.id === eventObj.id || (x.date === eventObj.date && x.type === eventObj.type); });
+    var idx = updatedList.findIndex(function (x) {
+      return x.id === eventObj.id || (x.date === eventObj.date && x.type === eventObj.type);
+    });
     if (idx >= 0) {
       updatedList[idx] = eventObj;
     } else {
@@ -1924,7 +3393,13 @@
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Calendar event saved & published!'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('calendar', 'update');
+      if (typeof showToast === 'function') showToast('Calendar event saved & published!');
+      if (
+        typeof window !== 'undefined' &&
+        window.PortalRealtime &&
+        typeof window.PortalRealtime.broadcast === 'function'
+      )
+        window.PortalRealtime.broadcast('calendar', 'update');
     } else {
       if (typeof showToast === 'function') showToast('Failed to save to database. Please retry.');
     }
@@ -1934,28 +3409,44 @@
     var id = document.getElementById('adm-ev-id').value;
     if (!id) return;
 
-    var confirmed = (typeof showConfirmModal === 'function')
-      ? await showConfirmModal('Are you sure you want to remove this parade event from the company calendar?', 'Delete Parade Event')
-      : true;
+    var confirmed =
+      typeof showConfirmModal === 'function'
+        ? await showConfirmModal(
+            'Are you sure you want to remove this parade event from the company calendar?',
+            'Delete Parade Event'
+          )
+        : true;
     if (!confirmed) {
       return;
     }
 
-    var updatedList = _calendarEvents.filter(function(x) { return x.id !== id; });
+    var updatedList = _calendarEvents.filter(function (x) {
+      return x.id !== id;
+    });
     var success = await saveCalendarEvents(updatedList);
     if (success) {
       closeAdminEventModal();
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Event removed from company calendar.'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('calendar', 'delete');
+      if (typeof showToast === 'function') showToast('Event removed from company calendar.');
+      if (
+        typeof window !== 'undefined' &&
+        window.PortalRealtime &&
+        typeof window.PortalRealtime.broadcast === 'function'
+      )
+        window.PortalRealtime.broadcast('calendar', 'delete');
     }
   }
 
   async function handleAdminResetToDefaultMaster() {
-    var confirmed = (typeof showConfirmModal === 'function')
-      ? await showConfirmModal("This will restore the authentic 2026 1st PJ Boys' Brigade master parade schedule from the official Google Doc. Any custom manual changes will be refreshed. Continue?", 'Restore Master Schedule')
-      : true;
+    var confirmed =
+      typeof showConfirmModal === 'function'
+        ? await showConfirmModal(
+            "This will restore the authentic 2026 1st PJ Boys' Brigade master parade schedule from the official Google Doc. Any custom manual changes will be refreshed. Continue?",
+            'Restore Master Schedule'
+          )
+        : true;
     if (!confirmed) {
       return;
     }
@@ -1966,7 +3457,14 @@
       renderAdminCalendarGrid();
       renderCalendarTab();
       renderCalendarWidget();
-      if (typeof showToast === 'function') showToast('Restored official 2026 company master calendar!'); if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('calendar', 'restore');
+      if (typeof showToast === 'function')
+        showToast('Restored official 2026 company master calendar!');
+      if (
+        typeof window !== 'undefined' &&
+        window.PortalRealtime &&
+        typeof window.PortalRealtime.broadcast === 'function'
+      )
+        window.PortalRealtime.broadcast('calendar', 'restore');
     }
   }
 
@@ -1990,29 +3488,84 @@
     var kit = event.kit === 'None' ? '' : event.kit;
 
     card.innerHTML =
-      '<div class="home-next-parade-header">'
-        + '<div>'
-          + '<div class="home-next-parade-label"><span aria-hidden="true">' + CAL_ICONS.calendar + '</span>Next parade</div>'
-          + '<h2>' + escapeHtml(event.title || 'Company parade') + '</h2>'
-        + '</div>'
-        + '<time class="home-next-parade-date" datetime="' + event.date + '">'
-          + '<strong>' + date.getDate() + '</strong> ' + weekday + ' ' + MONTH_SHORT_NAMES[date.getMonth()]
-        + '</time>'
-      + '</div>'
-      + '<div class="home-next-parade-meta">'
-        + (startTime ? '<span><span aria-hidden="true">' + CAL_ICONS.clock + '</span><strong>' + escapeHtml(startTime) + '</strong></span>' : '')
-        + (kit ? '<span><span aria-hidden="true">' + CAL_ICONS.shirt + '</span><strong>' + escapeHtml(kit) + '</strong></span>' : '')
-        + (event.location ? '<span><span aria-hidden="true">' + CAL_ICONS.pin + '</span>' + escapeHtml(event.location) + '</span>' : '')
-      + '</div>'
-      + '<div class="home-next-parade-actions">'
-        + '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' + event.date + '\')">View parade</button>'
-        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="openCalendarDayModal(\'' + event.date + '\', true)">Add reminder</button>'
-      + '</div>';
+      '<div class="home-next-parade-header">' +
+      '<div>' +
+      '<div class="home-next-parade-label"><span aria-hidden="true">' +
+      CAL_ICONS.calendar +
+      '</span>Next parade</div>' +
+      '<h2>' +
+      escapeHtml(event.title || 'Company parade') +
+      '</h2>' +
+      '</div>' +
+      '<time class="home-next-parade-date" datetime="' +
+      event.date +
+      '">' +
+      '<strong>' +
+      date.getDate() +
+      '</strong> ' +
+      weekday +
+      ' ' +
+      MONTH_SHORT_NAMES[date.getMonth()] +
+      '</time>' +
+      '</div>' +
+      '<div class="home-next-parade-meta">' +
+      (startTime
+        ? '<span><span aria-hidden="true">' +
+          CAL_ICONS.clock +
+          '</span><strong>' +
+          escapeHtml(startTime) +
+          '</strong></span>'
+        : '') +
+      (kit
+        ? '<span><span aria-hidden="true">' +
+          CAL_ICONS.shirt +
+          '</span><strong>' +
+          escapeHtml(kit) +
+          '</strong></span>'
+        : '') +
+      (event.location
+        ? '<span><span aria-hidden="true">' +
+          CAL_ICONS.pin +
+          '</span>' +
+          escapeHtml(event.location) +
+          '</span>'
+        : '') +
+      '</div>' +
+      '<div class="home-next-parade-actions">' +
+      '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' +
+      event.date +
+      '\')">View parade</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="openCalendarDayModal(\'' +
+      event.date +
+      '\', true)">Add reminder</button>' +
+      '</div>';
   }
 
   function renderCalendarWidget(containerId) {
     var container = document.getElementById(containerId || 'company-calendar-widget');
     if (!container) return;
+
+    if (_calendarFetchFailed && _calendarLoadError) {
+      var errMsg =
+        (_calendarLoadError && _calendarLoadError.message) || 'Failed to load company calendar.';
+      var safeMsg = typeof escapeHtml === 'function' ? escapeHtml(errMsg) : errMsg;
+      container.innerHTML =
+        '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+        safeMsg +
+        '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+      var retryBtn = container.querySelector('.btn-retry');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          _calendarLoadError = null;
+          _calendarFetchFailed = false;
+          loadCalendarEvents(true).then(function () {
+            renderCalendarWidget(containerId);
+          });
+        });
+      }
+      return;
+    }
 
     loadMemberEvents();
 
@@ -2021,7 +3574,7 @@
     var matrix = getMonthMatrix(_currentYear, _currentMonth);
 
     var selectedCompanyEvents = getCompanyEventsForDate(_selectedDateStr);
-    var selectedMemberEvents  = getMemberEventsForDate(_selectedDateStr);
+    var selectedMemberEvents = getMemberEventsForDate(_selectedDateStr);
     var primaryEvent = selectedCompanyEvents.length > 0 ? selectedCompanyEvents[0] : null;
 
     var nextParade = getNextUpcomingParade(todayStr);
@@ -2030,44 +3583,55 @@
 
     var countdownText = '';
     if (nextParade) {
-      var diffDays = Math.ceil((new Date(nextParade.date + 'T00:00:00') - new Date()) / (1000 * 60 * 60 * 24));
+      var diffDays = Math.ceil(
+        (new Date(nextParade.date + 'T00:00:00') - new Date()) / (1000 * 60 * 60 * 24)
+      );
       if (diffDays === 0) countdownText = 'Parade Today!';
       else if (diffDays === 1) countdownText = 'Parade Tomorrow';
       else if (diffDays > 1) countdownText = diffDays + ' days to parade';
       else countdownText = 'Upcoming Schedule';
     }
 
-    var html = ''
-      + '<div class="cal-widget-header">'
-        + '<div class="cal-widget-title-wrap">'
-          + '<div class="cal-widget-month-title">' + MONTH_NAMES[_currentMonth] + ' ' + _currentYear + '</div>'
-          + '<div class="cal-widget-countdown">' + (escapeHtml(countdownText)) + '</div>'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:6px;">'
-          + '<button type="button" class="cal-nav-btn" onclick="calNavigateMonth(-1)" title="Previous Month">&lsaquo;</button>'
-          + '<button type="button" class="cal-nav-btn" onclick="calNavigateMonth(1)" title="Next Month">&rsaquo;</button>'
-          + '<div class="cal-month-badge">'
-            + '<span class="cal-badge-day">' + todayDay + '</span>'
-            + '<span class="cal-badge-mon">' + badgeMonth + '</span>'
-          + '</div>'
-        + '</div>'
-      + '</div>'
+    var html =
+      '' +
+      '<div class="cal-widget-header">' +
+      '<div class="cal-widget-title-wrap">' +
+      '<div class="cal-widget-month-title">' +
+      MONTH_NAMES[_currentMonth] +
+      ' ' +
+      _currentYear +
+      '</div>' +
+      '<div class="cal-widget-countdown">' +
+      escapeHtml(countdownText) +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<button type="button" class="cal-nav-btn" onclick="calNavigateMonth(-1)" title="Previous Month">&lsaquo;</button>' +
+      '<button type="button" class="cal-nav-btn" onclick="calNavigateMonth(1)" title="Next Month">&rsaquo;</button>' +
+      '<div class="cal-month-badge">' +
+      '<span class="cal-badge-day">' +
+      todayDay +
+      '</span>' +
+      '<span class="cal-badge-mon">' +
+      badgeMonth +
+      '</span>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="cal-widget-date-scroller">' +
+      '<div class="cal-weekdays-row">' +
+      '<span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>' +
+      '</div>' +
+      '<div class="cal-days-grid">';
 
-      + '<div class="cal-widget-date-scroller">'
-      + '<div class="cal-weekdays-row">'
-        + '<span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>'
-      + '</div>'
-
-      + '<div class="cal-days-grid">';
-
-    matrix.forEach(function(cell) {
-      var isToday    = cell.dateKey === todayStr;
+    matrix.forEach(function (cell) {
+      var isToday = cell.dateKey === todayStr;
       var isSelected = cell.dateKey === _selectedDateStr;
       var compEvents = getCompanyEventsForDate(cell.dateKey);
-      var memEvents  = getMemberEventsForDate(cell.dateKey);
+      var memEvents = getMemberEventsForDate(cell.dateKey);
 
       var hasCompEvent = compEvents.length > 0;
-      var hasMemEvent  = memEvents.length > 0;
+      var hasMemEvent = memEvents.length > 0;
 
       var dayClass = 'cal-day-cell';
       if (!cell.isCurrentMonth) dayClass += ' cal-day-overflow';
@@ -2083,67 +3647,131 @@
         else if (ev.type === 'camp') dotColor = '#06b6d4';
         else if (ev.type === 'ceremonial') dotColor = '#a855f7';
         else if (ev.type === 'holiday') dotColor = '#16a34a';
-        dotsHtml += '<span class="cal-event-dot" style="background:' + dotColor + ';" title="' + escapeHtml(ev.title) + '"></span>';
+        dotsHtml +=
+          '<span class="cal-event-dot" style="background:' +
+          dotColor +
+          ';" title="' +
+          escapeHtml(ev.title) +
+          '"></span>';
       }
       if (hasMemEvent) {
-        dotsHtml += '<span class="cal-event-dot cal-dot-personal" style="background:#38bdf8;" title="Personal Reminder"></span>';
+        dotsHtml +=
+          '<span class="cal-event-dot cal-dot-personal" style="background:#38bdf8;" title="Personal Reminder"></span>';
       }
       dotsHtml += '</span>';
 
-      html += '<button type="button" class="' + dayClass + '" aria-label="' + cell.dateKey + '" aria-pressed="' + isSelected + '" onclick="calSelectDate(\'' + cell.dateKey + '\')">'
-        + '<span class="cal-day-num">' + cell.dayNumber + '</span>'
-        + dotsHtml
-        + '</button>';
+      html +=
+        '<button type="button" class="' +
+        dayClass +
+        '" aria-label="' +
+        cell.dateKey +
+        '" aria-pressed="' +
+        isSelected +
+        '" onclick="calSelectDate(\'' +
+        cell.dateKey +
+        '\')">' +
+        '<span class="cal-day-num">' +
+        cell.dayNumber +
+        '</span>' +
+        dotsHtml +
+        '</button>';
     });
 
     html += '</div></div>'; // end cal-days-grid and its scroller
 
-    var kitMeta = (primaryEvent && KIT_BADGES[primaryEvent.kit]) ? KIT_BADGES[primaryEvent.kit] : (primaryEvent && primaryEvent.kit && primaryEvent.kit !== 'None' ? { label: primaryEvent.kit, color: 'var(--accent)', bg: 'var(--accent-soft)' } : null);
-    var typeMeta = (primaryEvent && TYPE_BADGES[primaryEvent.type]) ? TYPE_BADGES[primaryEvent.type] : null;
+    var kitMeta =
+      primaryEvent && KIT_BADGES[primaryEvent.kit]
+        ? KIT_BADGES[primaryEvent.kit]
+        : primaryEvent && primaryEvent.kit && primaryEvent.kit !== 'None'
+          ? { label: primaryEvent.kit, color: 'var(--accent)', bg: 'var(--accent-soft)' }
+          : null;
+    var typeMeta =
+      primaryEvent && TYPE_BADGES[primaryEvent.type] ? TYPE_BADGES[primaryEvent.type] : null;
 
     var previewDateObj = new Date(_selectedDateStr + 'T00:00:00');
-    var dateLabel = previewDateObj.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
+    var dateLabel = previewDateObj.toLocaleDateString('en-MY', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short'
+    });
 
-    html += '<div class="cal-preview-card">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'
-        + '<div>'
-          + '<div class="cal-preview-heading">' + escapeHtml(dateLabel) + '</div>'
-          + '<div class="cal-preview-title">'
-            + (primaryEvent ? escapeHtml(primaryEvent.title) : 'No Official Parade Scheduled')
-          + '</div>'
-        + '</div>'
-        + '<div style="display:flex;gap:4px;flex-shrink:0;">'
-          + (typeMeta ? ('<span class="cal-pill-badge" style="background:' + typeMeta.bg + ';color:' + typeMeta.color + ';">' + escapeHtml(typeMeta.label) + '</span>') : '')
-          + (kitMeta ? ('<span class="cal-pill-badge" style="background:' + kitMeta.bg + ';color:' + kitMeta.color + ';">' + escapeHtml(kitMeta.label) + '</span>') : '')
-        + '</div>'
-      + '</div>';
+    html +=
+      '<div class="cal-preview-card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">' +
+      '<div>' +
+      '<div class="cal-preview-heading">' +
+      escapeHtml(dateLabel) +
+      '</div>' +
+      '<div class="cal-preview-title">' +
+      (primaryEvent ? escapeHtml(primaryEvent.title) : 'No Official Parade Scheduled') +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:4px;flex-shrink:0;">' +
+      (typeMeta
+        ? '<span class="cal-pill-badge" style="background:' +
+          typeMeta.bg +
+          ';color:' +
+          typeMeta.color +
+          ';">' +
+          escapeHtml(typeMeta.label) +
+          '</span>'
+        : '') +
+      (kitMeta
+        ? '<span class="cal-pill-badge" style="background:' +
+          kitMeta.bg +
+          ';color:' +
+          kitMeta.color +
+          ';">' +
+          escapeHtml(kitMeta.label) +
+          '</span>'
+        : '') +
+      '</div>' +
+      '</div>';
 
     if (primaryEvent && (primaryEvent.srDetails || primaryEvent.jrDetails)) {
-      html += '<div class="cal-preview-desc">'
-        + (primaryEvent.srDetails ? ('<div style="margin-bottom:2px;"><strong>Senior:</strong> ' + escapeHtml(primaryEvent.srDetails) + '</div>') : '')
-        + (primaryEvent.jrDetails ? ('<div><strong>Junior:</strong> ' + escapeHtml(primaryEvent.jrDetails) + '</div>') : '')
-      + '</div>';
+      html +=
+        '<div class="cal-preview-desc">' +
+        (primaryEvent.srDetails
+          ? '<div style="margin-bottom:2px;"><strong>Senior:</strong> ' +
+            escapeHtml(primaryEvent.srDetails) +
+            '</div>'
+          : '') +
+        (primaryEvent.jrDetails
+          ? '<div><strong>Junior:</strong> ' + escapeHtml(primaryEvent.jrDetails) + '</div>'
+          : '') +
+        '</div>';
     } else if (selectedMemberEvents.length > 0) {
-      html += '<div class="cal-preview-desc" style="color:#38bdf8;">'
-        + '<span>' + CAL_ICONS.reminder + ' You have ' + selectedMemberEvents.length + ' personal reminder(s) on this date</span>'
-      + '</div>';
+      html +=
+        '<div class="cal-preview-desc" style="color:#38bdf8;">' +
+        '<span>' +
+        CAL_ICONS.reminder +
+        ' You have ' +
+        selectedMemberEvents.length +
+        ' personal reminder(s) on this date</span>' +
+        '</div>';
     } else {
-      html += '<div class="cal-preview-desc" style="color:var(--text-muted);">'
-        + 'Click below to view full details or add personal notes for this day.'
-      + '</div>';
+      html +=
+        '<div class="cal-preview-desc" style="color:var(--text-muted);">' +
+        'Click below to view full details or add personal notes for this day.' +
+        '</div>';
     }
 
-    html += '<div class="cal-preview-actions">'
-      + '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' + _selectedDateStr + '\')" style="flex:1;font-size:12px;padding:7px 12px;display:flex;align-items:center;justify-content:center;gap:6px;">'
-        + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>'
-        + 'View Details'
-      + '</button>'
-      + '<button type="button" class="portal-btn portal-btn-secondary" onclick="openCalendarDayModal(\'' + _selectedDateStr + '\', true)" style="font-size:12px;padding:7px 12px;display:flex;align-items:center;justify-content:center;gap:6px;" title="Add personal reminder">'
-        + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-        + 'Add Reminder'
-      + '</button>'
-    + '</div>'
-    + '</div>';
+    html +=
+      '<div class="cal-preview-actions">' +
+      '<button type="button" class="portal-btn portal-btn-primary" onclick="openCalendarDayModal(\'' +
+      _selectedDateStr +
+      '\')" style="flex:1;font-size:12px;padding:7px 12px;display:flex;align-items:center;justify-content:center;gap:6px;">' +
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>' +
+      'View Details' +
+      '</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="openCalendarDayModal(\'' +
+      _selectedDateStr +
+      '\', true)" style="font-size:12px;padding:7px 12px;display:flex;align-items:center;justify-content:center;gap:6px;" title="Add personal reminder">' +
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>' +
+      'Add Reminder' +
+      '</button>' +
+      '</div>' +
+      '</div>';
 
     container.innerHTML = html;
   }
@@ -2183,7 +3811,7 @@
     renderCalendarTab('upcoming');
     await loadCalendarEvents();
     loadMemberEvents();
-    fetchRemoteMemberEvents().catch(function() {});
+    fetchRemoteMemberEvents().catch(function () {});
     allEvents = getSortedCompanyEvents();
     _upcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
     renderCalendarWidget();
@@ -2192,54 +3820,64 @@
 
   // Attach to window
   if (typeof window !== 'undefined') {
-    window.loadCalendarEvents           = loadCalendarEvents;
-    window.saveCalendarEvents           = saveCalendarEvents;
-    window.loadMemberEvents             = loadMemberEvents;
-    window.saveMemberEvents             = saveMemberEvents;
-    window.fetchRemoteMemberEvents      = fetchRemoteMemberEvents;
-    window.addPersonalEvent             = addPersonalEvent;
-    window.deletePersonalEvent          = deletePersonalEvent;
-    window.renderCalendarWidget         = renderCalendarWidget;
-    window.renderCalendarTab            = renderCalendarTab;
-    window.resetCalendarToUpcoming      = resetCalendarToUpcoming;
-    window.getCalendarViewMode          = function() { return _calendarViewMode; };
-    window.getUpcomingEventIndex        = function() { return _upcomingEventIndex; };
-    window.switchCalendarView           = switchCalendarView;
-    window.calNavigate                  = calNavigate;
-    window.openCalendarMonth            = openCalendarMonth;
-    window.calJumpToday                 = calJumpToday;
-    window.calJumpToEventIndex          = calJumpToEventIndex;
-    window.getUpcomingEventsList        = getUpcomingEventsList;
-    window.calStepDay                   = calStepDay;
-    window.calNavigateMonth             = calNavigateMonth;
-    window.calSelectDate                = calSelectDate;
-    window.openCalendarDayModal         = openCalendarDayModal;
-    window.closeCalendarDayModal        = closeCalendarDayModal;
-    window.handleAddModalReminder       = handleAddModalReminder;
-    window.deleteModalReminder          = deleteModalReminder;
-    window.renderAdminCalendarGrid      = renderAdminCalendarGrid;
-  window.closeEventEditModal          = closeAdminEventModal;
-  window.addAdminScheduleRow          = addAdminScheduleRow;
-  window.resetAdminScheduleDefault    = resetAdminScheduleDefault;
-  window.adminSwitchCalendarView      = adminSwitchCalendarView;
-  window.adminCalNavigate             = adminCalNavigate;
-  window.adminCalJumpToday            = adminCalJumpToday;
-  window.resetAdminCalendarDate       = resetAdminCalendarDate;
-  window.getAdminYear                 = function() { return _adminYear; };
-  window.getAdminMonth                = function() { return _adminMonth; };
-  window.adminCalJumpToEventIndex     = adminCalJumpToEventIndex;
-    window.adminNavigateMonth           = adminNavigateMonth;
-    window.openAdminEventModal          = openAdminEventModal;
-    window.closeAdminEventModal         = closeAdminEventModal;
-    window.handleAdminSaveEvent         = handleAdminSaveEvent;
-    window.handleAdminDeleteEvent       = handleAdminDeleteEvent;
+    window.loadCalendarEvents = loadCalendarEvents;
+    window.saveCalendarEvents = saveCalendarEvents;
+    window.loadMemberEvents = loadMemberEvents;
+    window.saveMemberEvents = saveMemberEvents;
+    window.fetchRemoteMemberEvents = fetchRemoteMemberEvents;
+    window.addPersonalEvent = addPersonalEvent;
+    window.deletePersonalEvent = deletePersonalEvent;
+    window.renderCalendarWidget = renderCalendarWidget;
+    window.renderCalendarTab = renderCalendarTab;
+    window.resetCalendarToUpcoming = resetCalendarToUpcoming;
+    window.getCalendarViewMode = function () {
+      return _calendarViewMode;
+    };
+    window.getUpcomingEventIndex = function () {
+      return _upcomingEventIndex;
+    };
+    window.switchCalendarView = switchCalendarView;
+    window.calNavigate = calNavigate;
+    window.openCalendarMonth = openCalendarMonth;
+    window.calJumpToday = calJumpToday;
+    window.calJumpToEventIndex = calJumpToEventIndex;
+    window.getUpcomingEventsList = getUpcomingEventsList;
+    window.calStepDay = calStepDay;
+    window.calNavigateMonth = calNavigateMonth;
+    window.calSelectDate = calSelectDate;
+    window.openCalendarDayModal = openCalendarDayModal;
+    window.closeCalendarDayModal = closeCalendarDayModal;
+    window.handleAddModalReminder = handleAddModalReminder;
+    window.deleteModalReminder = deleteModalReminder;
+    window.renderAdminCalendarGrid = renderAdminCalendarGrid;
+    window.closeEventEditModal = closeAdminEventModal;
+    window.addAdminScheduleRow = addAdminScheduleRow;
+    window.resetAdminScheduleDefault = resetAdminScheduleDefault;
+    window.adminSwitchCalendarView = adminSwitchCalendarView;
+    window.adminCalNavigate = adminCalNavigate;
+    window.adminCalJumpToday = adminCalJumpToday;
+    window.resetAdminCalendarDate = resetAdminCalendarDate;
+    window.getAdminYear = function () {
+      return _adminYear;
+    };
+    window.getAdminMonth = function () {
+      return _adminMonth;
+    };
+    window.adminCalJumpToEventIndex = adminCalJumpToEventIndex;
+    window.adminNavigateMonth = adminNavigateMonth;
+    window.openAdminEventModal = openAdminEventModal;
+    window.closeAdminEventModal = closeAdminEventModal;
+    window.handleAdminSaveEvent = handleAdminSaveEvent;
+    window.handleAdminDeleteEvent = handleAdminDeleteEvent;
     window.handleAdminResetToDefaultMaster = handleAdminResetToDefaultMaster;
-    window.initCalendarModule           = initCalendarModule;
+    window.initCalendarModule = initCalendarModule;
   }
 
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() { initCalendarModule(); });
+      document.addEventListener('DOMContentLoaded', function () {
+        initCalendarModule();
+      });
     } else {
       initCalendarModule();
     }
@@ -2266,8 +3904,12 @@
       renderCalendarWidget: renderCalendarWidget,
       renderCalendarTab: renderCalendarTab,
       resetCalendarToUpcoming: resetCalendarToUpcoming,
-      getCalendarViewMode: function() { return _calendarViewMode; },
-      getUpcomingEventIndex: function() { return _upcomingEventIndex; },
+      getCalendarViewMode: function () {
+        return _calendarViewMode;
+      },
+      getUpcomingEventIndex: function () {
+        return _upcomingEventIndex;
+      },
       switchCalendarView: switchCalendarView,
       openCalendarDayModal: openCalendarDayModal,
       closeCalendarDayModal: closeCalendarDayModal,
@@ -2278,8 +3920,12 @@
       adminCalJumpToEventIndex: adminCalJumpToEventIndex,
       resetAdminCalendarDate: resetAdminCalendarDate,
       renderAdminCalendarGrid: renderAdminCalendarGrid,
-      getAdminYear: function() { return _adminYear; },
-      getAdminMonth: function() { return _adminMonth; },
+      getAdminYear: function () {
+        return _adminYear;
+      },
+      getAdminMonth: function () {
+        return _adminMonth;
+      },
       getSortedCompanyEvents: getSortedCompanyEvents,
       getClosestUpcomingEventIndex: getClosestUpcomingEventIndex,
       openAdminEventModal: openAdminEventModal,
@@ -2295,5 +3941,4 @@
   if (typeof window !== 'undefined') {
     window.DEFAULT_PARADE_RUNDOWN = DEFAULT_PARADE_RUNDOWN;
   }
-
 })(typeof window !== 'undefined' ? window : global);

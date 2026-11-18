@@ -3,12 +3,16 @@
  * Theme Management (Light / Dark Mode)
  */
 
-(function() {
-  var SUN_ICON = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
-  var MOON_ICON = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+(function () {
+  var SUN_ICON =
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
+  var MOON_ICON =
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
 
-  var systemScheme = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  var systemScheme =
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(prefers-color-scheme: dark)')
+      : null;
 
   function getStoredTheme() {
     try {
@@ -42,11 +46,23 @@
     if (persist !== false) {
       try {
         localStorage.setItem('bb_theme', resolved);
-        var userKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
-        var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+        var userKey =
+          typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : null;
+        var client =
+          typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
         if (userKey && client && typeof client.upsert === 'function') {
-          var pKey = 'bb_pref_theme_' + String(userKey).toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
-          client.upsert('bb_config', { key: pKey, value: resolved, updated_at: new Date().toISOString() }).catch(function() {});
+          var pKey =
+            'bb_pref_theme_' +
+            String(userKey)
+              .toLowerCase()
+              .replace(/[^a-zA-Z0-9_-]/g, '_');
+          client
+            .upsert('bb_config', {
+              key: pKey,
+              value: resolved,
+              updated_at: new Date().toISOString()
+            })
+            .catch(function () {});
         }
       } catch (e) {}
     }
@@ -54,7 +70,7 @@
     // Update theme toggle buttons if present
     if (typeof document.querySelectorAll !== 'function') return;
     var toggles = document.querySelectorAll('.theme-toggle-btn, .sidebar-theme-toggle');
-    toggles.forEach(function(btn) {
+    toggles.forEach(function (btn) {
       var isDark = resolved === 'dark';
       btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
       var icon = btn.querySelector('.theme-toggle-icon');
@@ -63,14 +79,22 @@
       }
       var text = btn.querySelector('.theme-toggle-text');
       if (text) {
-        text.textContent = isDark ? (btn.classList.contains('sidebar-theme-toggle') ? 'Light Mode' : 'Light') : (btn.classList.contains('sidebar-theme-toggle') ? 'Dark Mode' : 'Dark');
+        text.textContent = isDark
+          ? btn.classList.contains('sidebar-theme-toggle')
+            ? 'Light Mode'
+            : 'Light'
+          : btn.classList.contains('sidebar-theme-toggle')
+            ? 'Dark Mode'
+            : 'Dark';
       }
     });
   }
 
   function toggleTheme() {
-    var current = typeof document !== 'undefined' && document.documentElement
-      ? document.documentElement.getAttribute('data-theme') || getPreferredTheme() : getPreferredTheme();
+    var current =
+      typeof document !== 'undefined' && document.documentElement
+        ? document.documentElement.getAttribute('data-theme') || getPreferredTheme()
+        : getPreferredTheme();
     var next = current === 'dark' ? 'light' : 'dark';
     applyTheme(next, true);
     return next;
@@ -82,7 +106,7 @@
     document.documentElement.setAttribute('data-theme', initialTheme);
     syncThemeMetaTags(initialTheme);
     if (typeof document.addEventListener === 'function') {
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function () {
         var active = document.documentElement.getAttribute('data-theme') || initialTheme;
         applyTheme(active, false);
       });
@@ -92,14 +116,16 @@
   // React to OS color-scheme changes when no explicit manual override is stored, and sync across tabs
   if (typeof window !== 'undefined') {
     if (systemScheme) {
-      var onSchemeChange = function() {
+      var onSchemeChange = function () {
         if (!getStoredTheme()) applyTheme(getPreferredTheme(), false);
       };
-      if (typeof systemScheme.addEventListener === 'function') systemScheme.addEventListener('change', onSchemeChange);
-      else if (typeof systemScheme.addListener === 'function') systemScheme.addListener(onSchemeChange);
+      if (typeof systemScheme.addEventListener === 'function')
+        systemScheme.addEventListener('change', onSchemeChange);
+      else if (typeof systemScheme.addListener === 'function')
+        systemScheme.addListener(onSchemeChange);
     }
     if (typeof window.addEventListener === 'function') {
-      window.addEventListener('storage', function(e) {
+      window.addEventListener('storage', function (e) {
         if (e && (e.key === 'bb_theme' || e.key === null)) {
           applyTheme(getPreferredTheme(), false);
         }
@@ -111,14 +137,14 @@
   var LEAF_VARIETIES = ['maple', 'oak', 'ginkgo', 'birch'];
 
   var LEAF_PALETTE = [
-    { color: '#dc2626', vein: 'rgba(90, 10, 10, 0.45)' },   // Crimson
-    { color: '#ea580c', vein: 'rgba(100, 30, 5, 0.45)' },   // Burnt Orange
-    { color: '#f59e0b', vein: 'rgba(120, 60, 5, 0.4)' },    // Warm Amber
-    { color: '#ca8a04', vein: 'rgba(105, 70, 5, 0.4)' },    // Golden Ochre
-    { color: '#b45309', vein: 'rgba(85, 35, 5, 0.45)' },    // Russet
-    { color: '#eab308', vein: 'rgba(115, 75, 5, 0.4)' },    // Goldenrod
-    { color: '#c2410c', vein: 'rgba(90, 25, 5, 0.45)' },    // Flame Orange
-    { color: '#991b1b', vein: 'rgba(70, 10, 10, 0.5)' }     // Deep Wine
+    { color: '#dc2626', vein: 'rgba(90, 10, 10, 0.45)' }, // Crimson
+    { color: '#ea580c', vein: 'rgba(100, 30, 5, 0.45)' }, // Burnt Orange
+    { color: '#f59e0b', vein: 'rgba(120, 60, 5, 0.4)' }, // Warm Amber
+    { color: '#ca8a04', vein: 'rgba(105, 70, 5, 0.4)' }, // Golden Ochre
+    { color: '#b45309', vein: 'rgba(85, 35, 5, 0.45)' }, // Russet
+    { color: '#eab308', vein: 'rgba(115, 75, 5, 0.4)' }, // Goldenrod
+    { color: '#c2410c', vein: 'rgba(90, 25, 5, 0.45)' }, // Flame Orange
+    { color: '#991b1b', vein: 'rgba(70, 10, 10, 0.5)' } // Deep Wine
   ];
 
   var _particlesState = {
@@ -193,8 +219,10 @@
   }
 
   function setupParticlesList() {
-    var w = _particlesState.width || (typeof window !== 'undefined' ? window.innerWidth : 1000) || 1000;
-    var h = _particlesState.height || (typeof window !== 'undefined' ? window.innerHeight : 800) || 800;
+    var w =
+      _particlesState.width || (typeof window !== 'undefined' ? window.innerWidth : 1000) || 1000;
+    var h =
+      _particlesState.height || (typeof window !== 'undefined' ? window.innerHeight : 800) || 800;
     var isMobile = w < 768;
 
     var snowCount = isMobile ? 16 : 30;
@@ -336,11 +364,14 @@
     if (!_particlesState.isRunning || !_particlesState.enabled) return;
     if (typeof document !== 'undefined' && document.hidden) return;
 
-    var now = (typeof timestamp === 'number' && timestamp > 0)
-      ? timestamp
-      : (typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now());
+    var now =
+      typeof timestamp === 'number' && timestamp > 0
+        ? timestamp
+        : typeof performance !== 'undefined' && performance.now
+          ? performance.now()
+          : Date.now();
 
-    if (_lastParticleFrameTime && (now - _lastParticleFrameTime < PARTICLE_FRAME_INTERVAL_MS)) {
+    if (_lastParticleFrameTime && now - _lastParticleFrameTime < PARTICLE_FRAME_INTERVAL_MS) {
       if (!_particlesState.animId && _particlesState.isRunning && _particlesState.enabled) {
         _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
       }
@@ -411,7 +442,12 @@
       }
     }
 
-    if (!_particlesState.animId && _particlesState.isRunning && _particlesState.enabled && (typeof document === 'undefined' || !document.hidden)) {
+    if (
+      !_particlesState.animId &&
+      _particlesState.isRunning &&
+      _particlesState.enabled &&
+      (typeof document === 'undefined' || !document.hidden)
+    ) {
       _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
     }
   }
@@ -440,7 +476,10 @@
       _particlesState.animId = null;
     }
 
-    if (typeof requestAnimationFrame === 'function' && (typeof document === 'undefined' || !document.hidden)) {
+    if (
+      typeof requestAnimationFrame === 'function' &&
+      (typeof document === 'undefined' || !document.hidden)
+    ) {
       _lastParticleFrameTime = 0;
       _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
     }
@@ -462,17 +501,29 @@
   }
 
   function toggleAmbientParticles(forceState) {
-    var next = (typeof forceState === 'boolean') ? forceState : !_particlesState.enabled;
+    var next = typeof forceState === 'boolean' ? forceState : !_particlesState.enabled;
     _particlesState.enabled = next;
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('bb_ambient_particles_enabled', next ? 'true' : 'false');
       }
-      var userKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
-      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+      var userKey =
+        typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : null;
+      var client =
+        typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
       if (userKey && client && typeof client.upsert === 'function') {
-        var pKey = 'bb_pref_particles_' + String(userKey).toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
-        client.upsert('bb_config', { key: pKey, value: next ? 'true' : 'false', updated_at: new Date().toISOString() }).catch(function() {});
+        var pKey =
+          'bb_pref_particles_' +
+          String(userKey)
+            .toLowerCase()
+            .replace(/[^a-zA-Z0-9_-]/g, '_');
+        client
+          .upsert('bb_config', {
+            key: pKey,
+            value: next ? 'true' : 'false',
+            updated_at: new Date().toISOString()
+          })
+          .catch(function () {});
       }
     } catch (_) {}
 
@@ -537,19 +588,23 @@
 
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       var _resizeTimer = null;
-      window.addEventListener('resize', function() {
-        if (_resizeTimer) clearTimeout(_resizeTimer);
-        _resizeTimer = setTimeout(resizeParticlesCanvas, 100);
-      }, { passive: true });
+      window.addEventListener(
+        'resize',
+        function () {
+          if (_resizeTimer) clearTimeout(_resizeTimer);
+          _resizeTimer = setTimeout(resizeParticlesCanvas, 100);
+        },
+        { passive: true }
+      );
 
-      var handleTabPause = function() {
+      var handleTabPause = function () {
         if (_particlesState.animId) {
           cancelAnimationFrame(_particlesState.animId);
           _particlesState.animId = null;
         }
       };
 
-      var handleTabResume = function() {
+      var handleTabResume = function () {
         if (!_particlesState.isRunning || !_particlesState.enabled) return;
         if (typeof document !== 'undefined' && document.hidden) return;
         if (_particlesState.animId) {
@@ -560,7 +615,7 @@
         _particlesState.animId = requestAnimationFrame(renderParticlesFrame);
       };
 
-      document.addEventListener('visibilitychange', function() {
+      document.addEventListener('visibilitychange', function () {
         if (document.hidden) {
           handleTabPause();
         } else {
@@ -568,11 +623,11 @@
         }
       });
 
-      window.addEventListener('blur', function() {
+      window.addEventListener('blur', function () {
         handleTabPause();
       });
 
-      window.addEventListener('focus', function() {
+      window.addEventListener('focus', function () {
         handleTabResume();
       });
     }
@@ -588,7 +643,7 @@
 
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function () {
         initAmbientParticles();
       });
     } else {

@@ -4,7 +4,11 @@
  */
 
 function toDisplayString(value) {
-  try { return value == null ? '' : String(value); } catch (_) { return ''; }
+  try {
+    return value == null ? '' : String(value);
+  } catch (_) {
+    return '';
+  }
 }
 
 /**
@@ -45,7 +49,9 @@ function validatePortalUrl(url) {
     try {
       var target = new URL(cleaned);
       return target.hostname && !target.username && !target.password ? cleaned : '';
-    } catch (_) { return ''; }
+    } catch (_) {
+      return '';
+    }
   }
 
   if (/^(mailto|tel):\S+/i.test(cleaned)) return cleaned;
@@ -88,16 +94,26 @@ function sanitizeText(str, maxLength) {
 }
 
 function sanitizeRichStyle(value) {
-  return value.split(';').map(function(declaration) {
-    var property = declaration.slice(0, declaration.indexOf(':')).trim().toLowerCase();
-    var setting = declaration.slice(declaration.indexOf(':') + 1).trim();
-    var allowedProperty = /^(?:color|background-color|font-(?:family|size|weight|style)|line-height|text-(?:align|decoration|indent)|vertical-align|white-space|border(?:-[a-z-]+)?|padding(?:-[a-z-]+)?|margin(?:-[a-z-]+)?|(?:min-|max-)?(?:width|height)|display|flex-shrink|align-items|gap|accent-color|list-style-type)$/;
-    return declaration.includes(':') && allowedProperty.test(property) &&
-      /^[a-z\d #.,%()'"+/-]+$/i.test(setting) &&
-      !/\/\*|url\s*\(|image(?:-set)?\s*\(|expression\s*\(|javascript|vbscript/i.test(setting) &&
-      (property !== 'display' || /^(?:none|block|inline|inline-block|flex|inline-flex|table|table-row|table-cell)$/i.test(setting))
-      ? property + ': ' + setting : '';
-  }).filter(Boolean).join('; ');
+  return value
+    .split(';')
+    .map(function (declaration) {
+      var property = declaration.slice(0, declaration.indexOf(':')).trim().toLowerCase();
+      var setting = declaration.slice(declaration.indexOf(':') + 1).trim();
+      var allowedProperty =
+        /^(?:color|background-color|font-(?:family|size|weight|style)|line-height|text-(?:align|decoration|indent)|vertical-align|white-space|border(?:-[a-z-]+)?|padding(?:-[a-z-]+)?|margin(?:-[a-z-]+)?|(?:min-|max-)?(?:width|height)|display|flex-shrink|align-items|gap|accent-color|list-style-type)$/;
+      return declaration.includes(':') &&
+        allowedProperty.test(property) &&
+        /^[a-z\d #.,%()'"+/-]+$/i.test(setting) &&
+        !/\/\*|url\s*\(|image(?:-set)?\s*\(|expression\s*\(|javascript|vbscript/i.test(setting) &&
+        (property !== 'display' ||
+          /^(?:none|block|inline|inline-block|flex|inline-flex|table|table-row|table-cell)$/i.test(
+            setting
+          ))
+        ? property + ': ' + setting
+        : '';
+    })
+    .filter(Boolean)
+    .join('; ');
 }
 
 /**
@@ -115,10 +131,40 @@ function sanitizeHtml(dirtyHtml, _options) {
     template.innerHTML = dirtyHtml;
 
     var ALLOWED_TAGS = [
-      'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'DEL',
-      'P', 'BR', 'HR', 'UL', 'OL', 'LI', 'SPAN', 'FONT',
-      'DIV', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE',
-      'CODE', 'PRE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG'
+      'B',
+      'STRONG',
+      'I',
+      'EM',
+      'U',
+      'S',
+      'STRIKE',
+      'DEL',
+      'P',
+      'BR',
+      'HR',
+      'UL',
+      'OL',
+      'LI',
+      'SPAN',
+      'FONT',
+      'DIV',
+      'A',
+      'H1',
+      'H2',
+      'H3',
+      'H4',
+      'H5',
+      'H6',
+      'BLOCKQUOTE',
+      'CODE',
+      'PRE',
+      'TABLE',
+      'THEAD',
+      'TBODY',
+      'TR',
+      'TH',
+      'TD',
+      'IMG'
     ];
     var ALLOWED_ATTRS = ['color', 'size', 'align', 'title', 'width', 'height'];
 
@@ -126,10 +172,12 @@ function sanitizeHtml(dirtyHtml, _options) {
       var children = Array.from(node.childNodes);
       for (var i = 0; i < children.length; i++) {
         var child = children[i];
-        if (child.nodeType === 1) { // ELEMENT_NODE
+        if (child.nodeType === 1) {
+          // ELEMENT_NODE
           var tagName = child.tagName.toUpperCase();
 
-          var isChecklistInput = tagName === 'INPUT' && (child.getAttribute('type') || '').toLowerCase() === 'checkbox';
+          var isChecklistInput =
+            tagName === 'INPUT' && (child.getAttribute('type') || '').toLowerCase() === 'checkbox';
 
           if (child.namespaceURI !== 'http://www.w3.org/1999/xhtml') {
             node.removeChild(child);
@@ -137,7 +185,30 @@ function sanitizeHtml(dirtyHtml, _options) {
           }
           if (ALLOWED_TAGS.indexOf(tagName) === -1 && !isChecklistInput) {
             // Dangerous tags: remove completely with all their content
-            if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'SVG', 'LINK', 'META', 'BASE', 'FRAME', 'FRAMESET', 'APPLET', 'AUDIO', 'VIDEO', 'SOURCE', 'NOSCRIPT', 'TEMPLATE'].indexOf(tagName) !== -1) {
+            if (
+              [
+                'SCRIPT',
+                'STYLE',
+                'IFRAME',
+                'OBJECT',
+                'EMBED',
+                'FORM',
+                'INPUT',
+                'BUTTON',
+                'SVG',
+                'LINK',
+                'META',
+                'BASE',
+                'FRAME',
+                'FRAMESET',
+                'APPLET',
+                'AUDIO',
+                'VIDEO',
+                'SOURCE',
+                'NOSCRIPT',
+                'TEMPLATE'
+              ].indexOf(tagName) !== -1
+            ) {
               node.removeChild(child);
               continue;
             } else {
@@ -155,23 +226,37 @@ function sanitizeHtml(dirtyHtml, _options) {
             var attrName = attr.name.toLowerCase();
 
             // Block any event handlers (on*) or disallowed attributes
-            if ((tagName === 'A' && attrName === 'href') ||
-                (tagName === 'IMG' && (attrName === 'src' || attrName === 'data-infographic-url'))) {
+            if (
+              (tagName === 'A' && attrName === 'href') ||
+              (tagName === 'IMG' && (attrName === 'src' || attrName === 'data-infographic-url'))
+            ) {
               var validated = safeUrl(attr.value, '');
-              if (!validated || validated === '#' || (tagName === 'A' && /^data:/i.test(validated))) child.removeAttribute(attr.name);
+              if (!validated || validated === '#' || (tagName === 'A' && /^data:/i.test(validated)))
+                child.removeAttribute(attr.name);
               else child.setAttribute(attrName, validated);
             } else if (attrName === 'style') {
               var styleVal = sanitizeRichStyle(attr.value);
               if (styleVal) child.setAttribute('style', styleVal);
               else child.removeAttribute('style');
             } else if (attrName === 'class') {
-              var formattingClass = { DIV: 'tb-checklist-row', IMG: 'ann-embedded-infographic', TABLE: 'tb-table' }[tagName];
-              if (formattingClass && child.classList.contains(formattingClass)) child.setAttribute('class', formattingClass);
+              var formattingClass = {
+                DIV: 'tb-checklist-row',
+                IMG: 'ann-embedded-infographic',
+                TABLE: 'tb-table'
+              }[tagName];
+              if (formattingClass && child.classList.contains(formattingClass))
+                child.setAttribute('class', formattingClass);
               else child.removeAttribute('class');
-            } else if (!ALLOWED_ATTRS.includes(attrName) &&
-                !(tagName === 'IMG' && ['alt', 'loading'].includes(attrName)) &&
-                !(isChecklistInput && ['type', 'checked', 'disabled'].includes(attrName)) &&
-                !(['TD', 'TH'].includes(tagName) && ['colspan', 'rowspan'].includes(attrName) && /^\d{1,2}$/.test(attr.value))) {
+            } else if (
+              !ALLOWED_ATTRS.includes(attrName) &&
+              !(tagName === 'IMG' && ['alt', 'loading'].includes(attrName)) &&
+              !(isChecklistInput && ['type', 'checked', 'disabled'].includes(attrName)) &&
+              !(
+                ['TD', 'TH'].includes(tagName) &&
+                ['colspan', 'rowspan'].includes(attrName) &&
+                /^\d{1,2}$/.test(attr.value)
+              )
+            ) {
               child.removeAttribute(attr.name);
             }
           }
@@ -194,8 +279,12 @@ function sanitizeHtml(dirtyHtml, _options) {
   }
 
   // Preserve only attribute-free formatting when an HTML parser is unavailable.
-  return dirtyHtml.split(/(<\/?(?:b|strong|i|em|u|s|p|br|ul|ol|li|code|pre|blockquote)\s*>)/gi)
-    .map(function(part, index) { return index % 2 ? part : escapeHtml(part); }).join('');
+  return dirtyHtml
+    .split(/(<\/?(?:b|strong|i|em|u|s|p|br|ul|ol|li|code|pre|blockquote)\s*>)/gi)
+    .map(function (part, index) {
+      return index % 2 ? part : escapeHtml(part);
+    })
+    .join('');
 }
 
 /**
@@ -205,7 +294,8 @@ function sanitizeHtml(dirtyHtml, _options) {
  * @returns {string}
  */
 function formatDate(dateStr, options) {
-  if (typeof dateStr !== 'string' && typeof dateStr !== 'number' && !(dateStr instanceof Date)) return '';
+  if (typeof dateStr !== 'string' && typeof dateStr !== 'number' && !(dateStr instanceof Date))
+    return '';
   if (dateStr === '') return '';
   try {
     var dateOnly = typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
@@ -214,7 +304,10 @@ function formatDate(dateStr, options) {
     var defaultOpts = { day: 'numeric', month: 'short', year: 'numeric' };
     if (dateOnly) {
       if (d.toISOString().slice(0, 10) !== dateStr) return dateStr;
-      return d.toLocaleDateString('en-MY', Object.assign({}, options || defaultOpts, { timeZone: 'UTC' }));
+      return d.toLocaleDateString(
+        'en-MY',
+        Object.assign({}, options || defaultOpts, { timeZone: 'UTC' })
+      );
     }
     return d.toLocaleDateString('en-MY', options || defaultOpts);
   } catch (e) {
@@ -230,8 +323,10 @@ function formatDate(dateStr, options) {
  */
 function migrateEntry(raw) {
   if (!raw) return { basic: false, basicDate: '', advanced: false, advancedDate: '' };
-  if (typeof raw === 'boolean') return { basic: raw, basicDate: '', advanced: false, advancedDate: '' };
-  if (typeof raw === 'string') return { basic: true, basicDate: raw, advanced: false, advancedDate: '' };
+  if (typeof raw === 'boolean')
+    return { basic: raw, basicDate: '', advanced: false, advancedDate: '' };
+  if (typeof raw === 'string')
+    return { basic: true, basicDate: raw, advanced: false, advancedDate: '' };
   if (typeof raw.earned !== 'undefined') {
     return { basic: !!raw.earned, basicDate: raw.date || '', advanced: false, advancedDate: '' };
   }
@@ -286,7 +381,9 @@ async function computeSha256(str) {
     typeof window !== 'undefined' && window.crypto
       ? window.crypto
       : typeof crypto !== 'undefined'
-        ? (crypto.webcrypto ? crypto.webcrypto : crypto)
+        ? crypto.webcrypto
+          ? crypto.webcrypto
+          : crypto
         : null;
 
   if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
@@ -463,7 +560,11 @@ async function verifyPassword(password, storedHash) {
  * @param {number} [duration=3500]
  */
 function showToast(message, type, duration) {
-  if (typeof window !== 'undefined' && typeof window.showToast === 'function' && window.showToast !== showToast) {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.showToast === 'function' &&
+    window.showToast !== showToast
+  ) {
     return window.showToast(message, type, duration);
   }
   try {
@@ -483,7 +584,11 @@ function showToast(message, type, duration) {
  * @returns {Promise<boolean>}
  */
 function showConfirmModal(message, title, options) {
-  if (typeof window !== 'undefined' && typeof window.showConfirmModal === 'function' && window.showConfirmModal !== showConfirmModal) {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.showConfirmModal === 'function' &&
+    window.showConfirmModal !== showConfirmModal
+  ) {
     return window.showConfirmModal(message, title, options);
   }
   try {
@@ -503,11 +608,11 @@ function showConfirmModal(message, title, options) {
  */
 function debounce(fn, waitMs) {
   var timer = null;
-  return function() {
+  return function () {
     var ctx = this;
     var args = arguments;
     clearTimeout(timer);
-    timer = setTimeout(function() {
+    timer = setTimeout(function () {
       fn.apply(ctx, args);
     }, waitMs);
   };
@@ -521,13 +626,15 @@ function debounce(fn, waitMs) {
  */
 function throttle(fn, limitMs) {
   var inThrottle = false;
-  return function() {
+  return function () {
     var ctx = this;
     var args = arguments;
     if (!inThrottle) {
       fn.apply(ctx, args);
       inThrottle = true;
-      setTimeout(function() { inThrottle = false; }, limitMs);
+      setTimeout(function () {
+        inThrottle = false;
+      }, limitMs);
     }
   };
 }
@@ -556,7 +663,7 @@ function compressImage(source, options) {
   if (typeof document === 'undefined' && typeof OffscreenCanvas === 'undefined') {
     var size = source.size || (typeof source === 'string' ? source.length : 0);
     return Promise.resolve({
-      blob: (typeof Blob !== 'undefined' && source instanceof Blob) ? source : null,
+      blob: typeof Blob !== 'undefined' && source instanceof Blob ? source : null,
       dataUrl: typeof source === 'string' ? source : null,
       width: maxWidth,
       height: maxHeight,
@@ -566,7 +673,7 @@ function compressImage(source, options) {
     });
   }
 
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     var originalSize = source.size || 0;
 
     function processImg(img) {
@@ -589,7 +696,7 @@ function compressImage(source, options) {
       var ctx = canvas.getContext('2d');
       if (!ctx) {
         resolve({
-          blob: (typeof Blob !== 'undefined' && source instanceof Blob) ? source : null,
+          blob: typeof Blob !== 'undefined' && source instanceof Blob ? source : null,
           dataUrl: null,
           width: width,
           height: height,
@@ -608,17 +715,21 @@ function compressImage(source, options) {
 
       var dataUrl = canvas.toDataURL(mimeType, quality);
       if (canvas.toBlob) {
-        canvas.toBlob(function(blob) {
-          resolve({
-            blob: blob,
-            dataUrl: dataUrl,
-            width: width,
-            height: height,
-            originalSize: originalSize,
-            compressedSize: blob ? blob.size : dataUrl.length,
-            compressed: true
-          });
-        }, mimeType, quality);
+        canvas.toBlob(
+          function (blob) {
+            resolve({
+              blob: blob,
+              dataUrl: dataUrl,
+              width: width,
+              height: height,
+              originalSize: originalSize,
+              compressedSize: blob ? blob.size : dataUrl.length,
+              compressed: true
+            });
+          },
+          mimeType,
+          quality
+        );
       } else {
         resolve({
           blob: null,
@@ -632,21 +743,39 @@ function compressImage(source, options) {
       }
     }
 
-    if (typeof source === 'string' && (source.indexOf('data:') === 0 || source.indexOf('blob:') === 0 || source.indexOf('http') === 0)) {
+    if (
+      typeof source === 'string' &&
+      (source.indexOf('data:') === 0 ||
+        source.indexOf('blob:') === 0 ||
+        source.indexOf('http') === 0)
+    ) {
       var img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = function() { processImg(img); };
-      img.onerror = function() { reject(new Error('Failed to load image source')); };
+      img.onload = function () {
+        processImg(img);
+      };
+      img.onerror = function () {
+        reject(new Error('Failed to load image source'));
+      };
       img.src = source;
-    } else if (typeof FileReader !== 'undefined' && (source instanceof Blob || source instanceof File)) {
+    } else if (
+      typeof FileReader !== 'undefined' &&
+      (source instanceof Blob || source instanceof File)
+    ) {
       var reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = function (e) {
         var img = new Image();
-        img.onload = function() { processImg(img); };
-        img.onerror = function() { reject(new Error('Failed to parse image from file')); };
+        img.onload = function () {
+          processImg(img);
+        };
+        img.onerror = function () {
+          reject(new Error('Failed to parse image from file'));
+        };
         img.src = e.target.result;
       };
-      reader.onerror = function() { reject(new Error('Failed to read image file')); };
+      reader.onerror = function () {
+        reject(new Error('Failed to read image file'));
+      };
       reader.readAsDataURL(source);
     } else {
       resolve({
@@ -661,7 +790,6 @@ function compressImage(source, options) {
     }
   });
 }
-
 
 /**
  * Detects file format by inspecting ASCII text signatures and binary magic bytes
@@ -684,7 +812,7 @@ function detectFileType(buffer) {
   if (
     headerText.indexOf('<svg') !== -1 ||
     headerText.indexOf('xmlns="http://www.w3.org/2000/svg"') !== -1 ||
-    headerText.indexOf('xmlns=\'http://www.w3.org/2000/svg\'') !== -1
+    headerText.indexOf("xmlns='http://www.w3.org/2000/svg'") !== -1
   ) {
     return 'svg';
   }
@@ -702,14 +830,20 @@ function detectFileType(buffer) {
 
   // Binary Magic Bytes:
   // JPEG: FF D8 FF
-  if (u8[0] === 0xFF && u8[1] === 0xD8 && u8[2] === 0xFF) return 'jpeg';
+  if (u8[0] === 0xff && u8[1] === 0xd8 && u8[2] === 0xff) return 'jpeg';
   // PNG: 89 50 4E 47
-  if (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47) return 'png';
+  if (u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4e && u8[3] === 0x47) return 'png';
   // WebP: RIFF .... WEBP
   if (
     u8.length >= 12 &&
-    u8[0] === 0x52 && u8[1] === 0x49 && u8[2] === 0x46 && u8[3] === 0x46 &&
-    u8[8] === 0x57 && u8[9] === 0x45 && u8[10] === 0x42 && u8[11] === 0x50
+    u8[0] === 0x52 &&
+    u8[1] === 0x49 &&
+    u8[2] === 0x46 &&
+    u8[3] === 0x46 &&
+    u8[8] === 0x57 &&
+    u8[9] === 0x45 &&
+    u8[10] === 0x42 &&
+    u8[11] === 0x50
   ) {
     return 'webp';
   }
@@ -718,9 +852,10 @@ function detectFileType(buffer) {
   // PDF: %PDF (25 50 44 46)
   if (u8[0] === 0x25 && u8[1] === 0x50 && u8[2] === 0x44 && u8[3] === 0x46) return 'pdf';
   // MP4 / MOV: bytes 4-7 are 'ftyp' (66 74 79 70)
-  if (u8.length >= 8 && u8[4] === 0x66 && u8[5] === 0x74 && u8[6] === 0x79 && u8[7] === 0x70) return 'mp4';
+  if (u8.length >= 8 && u8[4] === 0x66 && u8[5] === 0x74 && u8[6] === 0x79 && u8[7] === 0x70)
+    return 'mp4';
   // WebM: 1A 45 DF A3 (EBML Header)
-  if (u8[0] === 0x1A && u8[1] === 0x45 && u8[2] === 0xDF && u8[3] === 0xA3) return 'webm';
+  if (u8[0] === 0x1a && u8[1] === 0x45 && u8[2] === 0xdf && u8[3] === 0xa3) return 'webm';
 
   return 'unknown';
 }
@@ -734,16 +869,16 @@ function hasExifGps(buffer) {
   if (!buffer) return false;
   var u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   if (u8.length < 14) return false;
-  if (u8[0] !== 0xFF || u8[1] !== 0xD8) return false;
+  if (u8[0] !== 0xff || u8[1] !== 0xd8) return false;
 
   var offset = 2;
   while (offset < u8.length - 4) {
-    if (u8[offset] !== 0xFF) break;
+    if (u8[offset] !== 0xff) break;
     var marker = u8[offset + 1];
-    if (marker === 0xDA || marker === 0xD9) break;
+    if (marker === 0xda || marker === 0xd9) break;
 
     var length = (u8[offset + 2] << 8) | u8[offset + 3];
-    if (marker === 0xE1 && length >= 14) {
+    if (marker === 0xe1 && length >= 14) {
       // Check 'Exif\0\0'
       var isExif =
         u8[offset + 4] === 0x45 &&
@@ -755,10 +890,7 @@ function hasExifGps(buffer) {
       if (isExif) {
         // Search inside APP1 segment for GPS pointer tag 0x8825
         for (var i = offset + 10; i < offset + 2 + length - 2; i++) {
-          if (
-            (u8[i] === 0x88 && u8[i + 1] === 0x25) ||
-            (u8[i] === 0x25 && u8[i + 1] === 0x88)
-          ) {
+          if ((u8[i] === 0x88 && u8[i + 1] === 0x25) || (u8[i] === 0x25 && u8[i + 1] === 0x88)) {
             return true;
           }
         }
@@ -777,27 +909,27 @@ function hasExifGps(buffer) {
 function stripExifBytes(buffer) {
   if (!buffer) return buffer;
   var u8 = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  if (u8.length < 4 || u8[0] !== 0xFF || u8[1] !== 0xD8) return u8;
+  if (u8.length < 4 || u8[0] !== 0xff || u8[1] !== 0xd8) return u8;
 
   var chunks = [u8.slice(0, 2)];
   var offset = 2;
   while (offset < u8.length - 1) {
-    if (u8[offset] !== 0xFF) {
+    if (u8[offset] !== 0xff) {
       chunks.push(u8.slice(offset));
       break;
     }
     var marker = u8[offset + 1];
-    if (marker === 0xD8 || marker === 0xD9 || marker === 0x00) {
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x00) {
       chunks.push(u8.slice(offset, offset + 2));
       offset += 2;
       continue;
     }
-    if (marker === 0xDA) {
+    if (marker === 0xda) {
       chunks.push(u8.slice(offset));
       break;
     }
     var length = (u8[offset + 2] << 8) | u8[offset + 3];
-    if (marker === 0xE1) {
+    if (marker === 0xe1) {
       // Skip APP1 segment (EXIF / GPS)
       offset += 2 + length;
       continue;
@@ -840,16 +972,44 @@ async function validateFileSecurity(file, options) {
   }
 
   // 1. Extension Blocklist
-  var blockedExts = ['svg', 'svgz', 'html', 'htm', 'xhtml', 'js', 'mjs', 'ts', 'php', 'sh', 'bat', 'cmd', 'exe', 'dll', 'vbs', 'wsf'];
+  var blockedExts = [
+    'svg',
+    'svgz',
+    'html',
+    'htm',
+    'xhtml',
+    'js',
+    'mjs',
+    'ts',
+    'php',
+    'sh',
+    'bat',
+    'cmd',
+    'exe',
+    'dll',
+    'vbs',
+    'wsf'
+  ];
   if (blockedExts.indexOf(ext) !== -1) {
-    throw new Error('File upload blocked: SVG, HTML, and executable files are strictly prohibited to prevent stored XSS and security vulnerabilities.');
+    throw new Error(
+      'File upload blocked: SVG, HTML, and executable files are strictly prohibited to prevent stored XSS and security vulnerabilities.'
+    );
   }
 
   // 2. MIME type Blocklist
   var declaredType = (file.type || '').toLowerCase();
-  var blockedMimes = ['image/svg+xml', 'text/html', 'application/xhtml+xml', 'text/javascript', 'application/javascript', 'application/x-javascript'];
+  var blockedMimes = [
+    'image/svg+xml',
+    'text/html',
+    'application/xhtml+xml',
+    'text/javascript',
+    'application/javascript',
+    'application/x-javascript'
+  ];
   if (blockedMimes.indexOf(declaredType) !== -1) {
-    throw new Error('File upload blocked: MIME type ' + declaredType + ' is not permitted for security reasons.');
+    throw new Error(
+      'File upload blocked: MIME type ' + declaredType + ' is not permitted for security reasons.'
+    );
   }
 
   // 3. Extract byte sample for Magic Byte Inspection
@@ -863,9 +1023,11 @@ async function validateFileSecurity(file, options) {
     if (typeof slice.arrayBuffer === 'function') {
       buffer = await slice.arrayBuffer();
     } else if (typeof FileReader !== 'undefined') {
-      buffer = await new Promise(function(resolve, reject) {
+      buffer = await new Promise(function (resolve, reject) {
         var reader = new FileReader();
-        reader.onload = function(e) { resolve(e.target.result); };
+        reader.onload = function (e) {
+          resolve(e.target.result);
+        };
         reader.onerror = reject;
         reader.readAsArrayBuffer(slice);
       });
@@ -878,17 +1040,23 @@ async function validateFileSecurity(file, options) {
 
     // Block any file detected as SVG, HTML, or XML
     if (detected === 'svg' || detected === 'html' || detected === 'xml') {
-      throw new Error('File upload blocked: Content inspection detected SVG or HTML script payload.');
+      throw new Error(
+        'File upload blocked: Content inspection detected SVG or HTML script payload.'
+      );
     }
 
     // Determine allowed categories
     var allowed = options.allowedTypes || [];
-    var allowVideo = options.allowVideo === true || options.bucket === 'gallery' || options.bucket === 'story_highlights';
-    var allowPdf = options.allowPdf === true || options.bucket === 'resources' || options.bucket === 'waivers';
+    var allowVideo =
+      options.allowVideo === true ||
+      options.bucket === 'gallery' ||
+      options.bucket === 'story_highlights';
+    var allowPdf =
+      options.allowPdf === true || options.bucket === 'resources' || options.bucket === 'waivers';
 
     var valid = false;
     if (allowed.length > 0) {
-      valid = allowed.some(function(t) {
+      valid = allowed.some(function (t) {
         return (
           t === declaredType ||
           t.indexOf(detected) !== -1 ||
@@ -912,7 +1080,9 @@ async function validateFileSecurity(file, options) {
     }
 
     if (!valid && detected === 'unknown') {
-      throw new Error('File upload blocked: Unrecognized media format (Magic byte verification failed).');
+      throw new Error(
+        'File upload blocked: Unrecognized media format (Magic byte verification failed).'
+      );
     }
   }
 
@@ -956,7 +1126,11 @@ async function stripExifAndCompress(source, options) {
     } else if (typeof source.arrayBuffer === 'function') {
       rawBytes = new Uint8Array(await source.arrayBuffer());
     } else if (source && source.buffer) {
-      rawBytes = new Uint8Array(source.buffer, source.byteOffset || 0, source.byteLength || source.buffer.byteLength);
+      rawBytes = new Uint8Array(
+        source.buffer,
+        source.byteOffset || 0,
+        source.byteLength || source.buffer.byteLength
+      );
     }
 
     if (rawBytes) {
@@ -975,17 +1149,19 @@ async function stripExifAndCompress(source, options) {
   }
 
   // Browser HTML5 Canvas Rasterization (inherently produces clean raster stream with zero EXIF headers)
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     var img = new Image();
     var objUrl = null;
 
     function cleanup() {
       if (objUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
-        try { URL.revokeObjectURL(objUrl); } catch (e) {}
+        try {
+          URL.revokeObjectURL(objUrl);
+        } catch (e) {}
       }
     }
 
-    img.onload = function() {
+    img.onload = function () {
       cleanup();
       try {
         var w = img.naturalWidth || img.width || 1200;
@@ -1012,14 +1188,18 @@ async function stripExifAndCompress(source, options) {
         }
 
         if (typeof canvas.toBlob === 'function') {
-          canvas.toBlob(function(blob) {
-            resolve({
-              blob: blob,
-              width: w,
-              height: h,
-              stripped: true
-            });
-          }, mimeType, quality);
+          canvas.toBlob(
+            function (blob) {
+              resolve({
+                blob: blob,
+                width: w,
+                height: h,
+                stripped: true
+              });
+            },
+            mimeType,
+            quality
+          );
         } else {
           var dataUrl = canvas.toDataURL(mimeType, quality);
           resolve({
@@ -1034,19 +1214,31 @@ async function stripExifAndCompress(source, options) {
       }
     };
 
-    img.onerror = function() {
+    img.onerror = function () {
       cleanup();
       reject(new Error('Failed to load image for EXIF stripping and canvas rasterization.'));
     };
 
-    if (typeof source === 'string' && (source.indexOf('data:') === 0 || source.indexOf('blob:') === 0)) {
+    if (
+      typeof source === 'string' &&
+      (source.indexOf('data:') === 0 || source.indexOf('blob:') === 0)
+    ) {
       img.src = source;
-    } else if (typeof URL !== 'undefined' && URL.createObjectURL && (source instanceof Blob || source instanceof File)) {
+    } else if (
+      typeof URL !== 'undefined' &&
+      URL.createObjectURL &&
+      (source instanceof Blob || source instanceof File)
+    ) {
       objUrl = URL.createObjectURL(source);
       img.src = objUrl;
-    } else if (typeof FileReader !== 'undefined' && (source instanceof Blob || source instanceof File)) {
+    } else if (
+      typeof FileReader !== 'undefined' &&
+      (source instanceof Blob || source instanceof File)
+    ) {
       var reader = new FileReader();
-      reader.onload = function(e) { img.src = e.target.result; };
+      reader.onload = function (e) {
+        img.src = e.target.result;
+      };
       reader.onerror = reject;
       reader.readAsDataURL(source);
     } else {
@@ -1073,7 +1265,7 @@ var AVATAR_PALETTE = [
   '#0e7490', // Cyan Blue (4.8:1)
   '#9a3412', // Rust Cinnamon (5.4:1)
   '#15803d', // Shamrock Green (5.2:1)
-  '#374151'  // Slate Charcoal (7.1:1)
+  '#374151' // Slate Charcoal (7.1:1)
 ];
 
 /**
@@ -1083,8 +1275,14 @@ var AVATAR_PALETTE = [
  * @returns {boolean}
  */
 function isPortalCreator(name, email) {
-  var cleanEmail = String(email || '').trim().toLowerCase();
-  var cleanName = String(name || '').trim().toLowerCase();
+  var cleanEmail = String(email || '')
+    .trim()
+    .toLowerCase();
+  var cleanName = String(name || '')
+    .trim()
+    .toLowerCase();
+
+  if (cleanEmail === 'creator' || cleanName === 'creator') return true;
 
   // 1. If explicit email is provided, check directly
   if (cleanEmail && cleanEmail.indexOf('@') !== -1) {
@@ -1103,7 +1301,9 @@ function isPortalCreator(name, email) {
 
   // 3. ONLY if NEITHER name NOR email was provided, check the current session
   if (typeof sessionGet === 'function') {
-    var sessEmail = String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
+    var sessEmail = String(sessionGet('email') || sessionGet('ic') || '')
+      .trim()
+      .toLowerCase();
     if (sessEmail) return sessEmail === 'jeshuakoh2008@gmail.com';
   }
   return false;
@@ -1143,7 +1343,6 @@ function getMemberAvatarColor(name) {
   return AVATAR_PALETTE[idx];
 }
 
-
 /**
  * Resolves any custom uploaded profile picture URL or base64 data URL for a member.
  * Checks active session, local storage cache, and registered photo cache.
@@ -1160,28 +1359,39 @@ function getMemberAvatarColor(name) {
  */
 function isNameMatch(nameA, nameB) {
   if (!nameA || !nameB) return false;
-  var a = String(nameA).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
-  var b = String(nameB).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  var a = String(nameA)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ');
+  var b = String(nameB)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ');
   if (!a || !b) return false;
   if (a === b) return true;
   if (a.indexOf(b) !== -1 || b.indexOf(a) !== -1) return true;
 
-  var tokensA = a.split(' ').filter(function(t) { return t.length >= 2; });
-  var tokensB = b.split(' ').filter(function(t) { return t.length >= 2; });
+  var tokensA = a.split(' ').filter(function (t) {
+    return t.length >= 2;
+  });
+  var tokensB = b.split(' ').filter(function (t) {
+    return t.length >= 2;
+  });
   if (tokensA.length === 0 || tokensB.length === 0) return false;
 
   var shortTokens = tokensA.length <= tokensB.length ? tokensA : tokensB;
   var longTokens = tokensA.length <= tokensB.length ? tokensB : tokensA;
 
-  var allMatch = shortTokens.every(function(st) {
-    return longTokens.some(function(lt) {
+  var allMatch = shortTokens.every(function (st) {
+    return longTokens.some(function (lt) {
       return lt === st || (st.length >= 3 && (lt.indexOf(st) !== -1 || st.indexOf(lt) !== -1));
     });
   });
 
   return allMatch;
 }
-
 
 /**
  * Evaluates whether a color hex is bright/light (e.g. #fff, #f8fafc) requiring dark text for contrast.
@@ -1197,7 +1407,7 @@ function isBrightColor(colorStr) {
     var r = parseInt(c.slice(1, 3), 16);
     var g = parseInt(c.slice(3, 5), 16);
     var b = parseInt(c.slice(5, 7), 16);
-    var lum = (0.299 * r + 0.587 * g + 0.114 * b);
+    var lum = 0.299 * r + 0.587 * g + 0.114 * b;
     return lum > 190;
   }
   return false;
@@ -1214,17 +1424,33 @@ function isBrightColor(colorStr) {
  */
 function isNameConflict(nameA, nameB) {
   if (!nameA || !nameB) return false;
-  var a = String(nameA).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
-  var b = String(nameB).trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ');
+  var a = String(nameA)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ');
+  var b = String(nameB)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ');
   if (!a || !b) return false;
   if (a === b) return true;
 
   var noiseWords = ['tester', 'test', 'demo', 'admin', 'user', 'temp', 'fake'];
-  var cleanTokensA = a.split(' ').filter(function(t) { return t.length >= 2 && !noiseWords.includes(t); });
-  var cleanTokensB = b.split(' ').filter(function(t) { return t.length >= 2 && !noiseWords.includes(t); });
+  var cleanTokensA = a.split(' ').filter(function (t) {
+    return t.length >= 2 && !noiseWords.includes(t);
+  });
+  var cleanTokensB = b.split(' ').filter(function (t) {
+    return t.length >= 2 && !noiseWords.includes(t);
+  });
   if (cleanTokensA.length === 0 || cleanTokensB.length === 0) {
-    cleanTokensA = a.split(' ').filter(function(t) { return t.length >= 2; });
-    cleanTokensB = b.split(' ').filter(function(t) { return t.length >= 2; });
+    cleanTokensA = a.split(' ').filter(function (t) {
+      return t.length >= 2;
+    });
+    cleanTokensB = b.split(' ').filter(function (t) {
+      return t.length >= 2;
+    });
   }
 
   var strA = cleanTokensA.join(' ');
@@ -1240,8 +1466,8 @@ function isNameConflict(nameA, nameB) {
   var shortTokens = cleanTokensA.length <= cleanTokensB.length ? cleanTokensA : cleanTokensB;
   var longTokens = cleanTokensA.length <= cleanTokensB.length ? cleanTokensB : cleanTokensA;
 
-  var allShortInLong = shortTokens.every(function(st) {
-    return longTokens.some(function(lt) {
+  var allShortInLong = shortTokens.every(function (st) {
+    return longTokens.some(function (lt) {
       return lt === st || (st.length >= 3 && (lt.indexOf(st) !== -1 || st.indexOf(lt) !== -1));
     });
   });
@@ -1261,9 +1487,15 @@ function isDeletedOrTestAccount(m) {
   if (!m) return true;
   var name = String(m.name || '').trim();
   var ic = String(m.ic || '').trim();
-  var email = String(m.email || '').trim().toLowerCase();
-  var dept = String(m.department || '').trim().toLowerCase();
-  var rank = String(m.rank || '').trim().toLowerCase();
+  var email = String(m.email || '')
+    .trim()
+    .toLowerCase();
+  var dept = String(m.department || '')
+    .trim()
+    .toLowerCase();
+  var rank = String(m.rank || '')
+    .trim()
+    .toLowerCase();
 
   // 1. Explicitly protect authorized company officer testing accounts
   if (email === 'jeshuakoh1601@gmail.com' || name === 'Tester Account') {
@@ -1288,9 +1520,13 @@ function isDeletedOrTestAccount(m) {
         var delList = JSON.parse(delRaw);
         if (Array.isArray(delList)) {
           var cleanIc = ic.toLowerCase();
-          var isDel = delList.some(function(item) {
-            var itm = String(item || '').toLowerCase().trim();
-            return itm && (itm === cleanIc || itm === email || (name && itm === name.toLowerCase()));
+          var isDel = delList.some(function (item) {
+            var itm = String(item || '')
+              .toLowerCase()
+              .trim();
+            return (
+              itm && (itm === cleanIc || itm === email || (name && itm === name.toLowerCase()))
+            );
           });
           if (isDel) return true;
         }
@@ -1299,7 +1535,8 @@ function isDeletedOrTestAccount(m) {
   }
 
   // 5. Test / probe / dummy / fake account names (e.g. Probe 1, Probe 2, Delete Me Test)
-  var fakeNamePattern = /^(probe(\s*\d+)?|delete\s*me(\s*test)?|dummy(\s*user)?|fake(\s*user)?|temp\s*test)$/i;
+  var fakeNamePattern =
+    /^(probe(\s*\d+)?|delete\s*me(\s*test)?|dummy(\s*user)?|fake(\s*user)?|temp\s*test)$/i;
   if (fakeNamePattern.test(name)) {
     return true;
   }
@@ -1319,12 +1556,12 @@ function isDeletedOrTestAccount(m) {
 function cleanMembersCache() {
   if (typeof localStorage === 'undefined') return;
   try {
-    ['bb_members_cache', 'bb_all_members'].forEach(function(key) {
+    ['bb_members_cache', 'bb_all_members'].forEach(function (key) {
       var raw = localStorage.getItem(key);
       if (raw) {
         var parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          var cleaned = parsed.filter(function(m) {
+          var cleaned = parsed.filter(function (m) {
             return !isDeletedOrTestAccount(m);
           });
           localStorage.setItem(key, JSON.stringify(cleaned));
@@ -1340,9 +1577,15 @@ function resolveMemberDirectoryInfo(nameOrId) {
 
   // 1. Current active member session
   if (typeof sessionGet === 'function') {
-    var sName = String(sessionGet('name') || '').trim().toLowerCase();
-    var sEmail = String(sessionGet('email') || '').trim().toLowerCase();
-    var sIc = String(sessionGet('ic') || '').trim().toLowerCase();
+    var sName = String(sessionGet('name') || '')
+      .trim()
+      .toLowerCase();
+    var sEmail = String(sessionGet('email') || '')
+      .trim()
+      .toLowerCase();
+    var sIc = String(sessionGet('ic') || '')
+      .trim()
+      .toLowerCase();
     if (q === sName || q === sEmail || q === sIc || (sName && isNameMatch(sName, q))) {
       return {
         name: sessionGet('name'),
@@ -1355,11 +1598,17 @@ function resolveMemberDirectoryInfo(nameOrId) {
 
   // 2. In-memory department members cache
   if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
-    var foundDept = window._cachedDepartmentMembers.find(function(m) {
+    var foundDept = window._cachedDepartmentMembers.find(function (m) {
       if (!m || isDeletedOrTestAccount(m)) return false;
-      var mn = String(m.name || '').trim().toLowerCase();
-      var mic = String(m.ic || '').trim().toLowerCase();
-      var memail = String(m.email || '').trim().toLowerCase();
+      var mn = String(m.name || '')
+        .trim()
+        .toLowerCase();
+      var mic = String(m.ic || '')
+        .trim()
+        .toLowerCase();
+      var memail = String(m.email || '')
+        .trim()
+        .toLowerCase();
       return mn === q || mic === q || memail === q || isNameMatch(mn, q);
     });
     if (foundDept) return foundDept;
@@ -1373,17 +1622,23 @@ function resolveMemberDirectoryInfo(nameOrId) {
         var arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
           // Pass 1: Exact match
-          var foundMem = arr.find(function(m) {
+          var foundMem = arr.find(function (m) {
             if (!m || isDeletedOrTestAccount(m)) return false;
-            var mn = String(m.name || '').trim().toLowerCase();
-            var mic = String(m.ic || '').trim().toLowerCase();
-            var memail = String(m.email || '').trim().toLowerCase();
+            var mn = String(m.name || '')
+              .trim()
+              .toLowerCase();
+            var mic = String(m.ic || '')
+              .trim()
+              .toLowerCase();
+            var memail = String(m.email || '')
+              .trim()
+              .toLowerCase();
             return mn === q || mic === q || memail === q;
           });
           if (foundMem) return foundMem;
 
           // Pass 2: Smart fuzzy name match (e.g. Oliver Ling -> OLIVER LING CHEE SHENG)
-          var fuzzyMem = arr.find(function(m) {
+          var fuzzyMem = arr.find(function (m) {
             if (!m || !m.name || isDeletedOrTestAccount(m)) return false;
             return isNameMatch(m.name, q);
           });
@@ -1396,7 +1651,7 @@ function resolveMemberDirectoryInfo(nameOrId) {
   return null;
 }
 
-var _memberPfpsMap = (function() {
+var _memberPfpsMap = (function () {
   try {
     if (typeof localStorage !== 'undefined') {
       var cached = localStorage.getItem('bb_member_pfps');
@@ -1408,7 +1663,12 @@ var _memberPfpsMap = (function() {
 
 async function loadMemberProfilePictures() {
   try {
-    var client = (typeof supa !== 'undefined') ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null);
+    var client =
+      typeof supa !== 'undefined'
+        ? supa
+        : typeof getSupabaseClient === 'function'
+          ? getSupabaseClient()
+          : null;
     if (client && typeof client.get === 'function') {
       var rows = await client.get('bb_config?key=eq.bb_member_pfps&select=value');
       if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
@@ -1448,19 +1708,25 @@ function getMemberAvatarUrl(name, ic) {
     if (!cleanNm && resolved.name) cleanNm = resolved.name;
     if (!cleanId && (resolved.email || resolved.ic)) cleanId = resolved.email || resolved.ic;
     if (resolved.photo_url) return resolved.photo_url;
-    if (resolved.ic && _memberPfpsMap[resolved.ic.toLowerCase()]) return _memberPfpsMap[resolved.ic.toLowerCase()];
-    if (resolved.email && _memberPfpsMap[resolved.email.toLowerCase()]) return _memberPfpsMap[resolved.email.toLowerCase()];
-    if (resolved.name && _memberPfpsMap[resolved.name.trim().toLowerCase()]) return _memberPfpsMap[resolved.name.trim().toLowerCase()];
+    if (resolved.ic && _memberPfpsMap[resolved.ic.toLowerCase()])
+      return _memberPfpsMap[resolved.ic.toLowerCase()];
+    if (resolved.email && _memberPfpsMap[resolved.email.toLowerCase()])
+      return _memberPfpsMap[resolved.email.toLowerCase()];
+    if (resolved.name && _memberPfpsMap[resolved.name.trim().toLowerCase()])
+      return _memberPfpsMap[resolved.name.trim().toLowerCase()];
   }
 
-  var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
-  var currentEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
-  var currentIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
+  var currentName = typeof sessionGet === 'function' ? sessionGet('name') || '' : '';
+  var currentEmail = typeof sessionGet === 'function' ? sessionGet('email') || '' : '';
+  var currentIc = typeof sessionGet === 'function' ? sessionGet('ic') || '' : '';
 
   var isCurrent = false;
   if (cleanNm && currentName && cleanNm.toLowerCase() === currentName.trim().toLowerCase()) {
     isCurrent = true;
-  } else if (cleanId && ((currentIc && cleanId === currentIc) || (currentEmail && cleanId === currentEmail))) {
+  } else if (
+    cleanId &&
+    ((currentIc && cleanId === currentIc) || (currentEmail && cleanId === currentEmail))
+  ) {
     isCurrent = true;
   }
 
@@ -1468,7 +1734,8 @@ function getMemberAvatarUrl(name, ic) {
     if (typeof sessionGet === 'function') {
       var sPhoto = sessionGet('photo_url');
       if (sPhoto) return sPhoto;
-      var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+      var cleanFn =
+        (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
       var cachedPfp = sessionGet('pfp_cache_' + cleanFn);
       if (cachedPfp) return cachedPfp;
     }
@@ -1508,17 +1775,47 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
   var fs = Math.max(9, Math.round(sz * 0.44));
   var cleanNm = String(name || '').trim();
   var cleanId = String(idOrEmail || '').trim();
-  var styleAttr = opt.extraStyle ? (' ' + opt.extraStyle) : '';
-  var extraCls = opt.extraClass ? (' ' + opt.extraClass) : '';
+  var styleAttr = opt.extraStyle ? ' ' + opt.extraStyle : '';
+  var extraCls = opt.extraClass ? ' ' + opt.extraClass : '';
 
   if (opt.isRegistered === false) {
     var anonTitle = opt.customTooltip || 'Account not yet created';
-    var safeAnonTitle = (typeof escapeHtml === 'function') ? escapeHtml(anonTitle) : anonTitle;
-    return '<span class="empty-profile-avatar' + extraCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:9999px;background:var(--surface-tint);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);flex-shrink:0;position:relative;' + styleAttr + '" title="' + safeAnonTitle + '" aria-label="' + safeAnonTitle + '"><svg class="ui-icon-xs" style="width:' + Math.round(sz * 0.55) + 'px;height:' + Math.round(sz * 0.55) + 'px;opacity:0.6;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>';
+    var safeAnonTitle = typeof escapeHtml === 'function' ? escapeHtml(anonTitle) : anonTitle;
+    return (
+      '<span class="empty-profile-avatar' +
+      extraCls +
+      '" style="width:' +
+      sz +
+      'px;height:' +
+      sz +
+      'px;border-radius:9999px;background:var(--surface-tint);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);flex-shrink:0;position:relative;' +
+      styleAttr +
+      '" title="' +
+      safeAnonTitle +
+      '" aria-label="' +
+      safeAnonTitle +
+      '"><svg class="ui-icon-xs" style="width:' +
+      Math.round(sz * 0.55) +
+      'px;height:' +
+      Math.round(sz * 0.55) +
+      'px;opacity:0.6;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>'
+    );
   }
 
   if (!cleanNm || cleanNm === 'Unassigned') {
-    return '<span class="task-card-avatar' + extraCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;position:relative;' + styleAttr + '" title="Unassigned" aria-label="Unassigned">U</span>';
+    return (
+      '<span class="task-card-avatar' +
+      extraCls +
+      '" style="width:' +
+      sz +
+      'px;height:' +
+      sz +
+      'px;font-size:' +
+      fs +
+      'px;background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;position:relative;' +
+      styleAttr +
+      '" title="Unassigned" aria-label="Unassigned">U</span>'
+    );
   }
 
   var isCreator = false;
@@ -1530,9 +1827,9 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     isCreator = isJeshuaEmail || (isJeshuaName && (!cleanId || isJeshuaEmail));
   }
 
-  var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanNm) : cleanNm;
-  var tooltip = opt.customTooltip || (safeName + (isCreator ? ' (Portal Creator)' : ''));
-  var safeTooltip = (typeof escapeHtml === 'function') ? escapeHtml(tooltip) : tooltip;
+  var safeName = typeof escapeHtml === 'function' ? escapeHtml(cleanNm) : cleanNm;
+  var tooltip = opt.customTooltip || safeName + (isCreator ? ' (Portal Creator)' : '');
+  var safeTooltip = typeof escapeHtml === 'function' ? escapeHtml(tooltip) : tooltip;
 
   // 1. Profile Photo
   var photoUrl = null;
@@ -1549,14 +1846,26 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     var outlineInfo = null;
     if (typeof getMemberAvatarOutline === 'function') {
       outlineInfo = getMemberAvatarOutline(cleanId || cleanNm, cleanNm);
-    } else if (typeof window !== 'undefined' && typeof window.getMemberAvatarOutline === 'function') {
+    } else if (
+      typeof window !== 'undefined' &&
+      typeof window.getMemberAvatarOutline === 'function'
+    ) {
       outlineInfo = window.getMemberAvatarOutline(cleanId || cleanNm, cleanNm);
     } else if (isCreator) {
       outlineInfo = { style: 'rgb', config: { className: 'avatar-outline-rgb' } };
     }
-    if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
+    if (
+      outlineInfo &&
+      outlineInfo.style &&
+      outlineInfo.style !== 'none' &&
+      outlineInfo.config &&
+      outlineInfo.config.className
+    ) {
       hasOutlineCls = ' has-custom-outline avatar-outline-container';
-      outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
+      outlineHtml =
+        '<span class="avatar-outline-overlay ' +
+        outlineInfo.config.className +
+        '" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
     }
   }
 
@@ -1569,13 +1878,37 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     } else if (typeof window !== 'undefined' && typeof window.getMemberCosmetic === 'function') {
       cosmeticInfo = window.getMemberCosmetic(cleanId || cleanNm, cleanNm);
     }
-    if (cosmeticInfo && cosmeticInfo.id && cosmeticInfo.id !== 'none' && (cosmeticInfo.svg || (cosmeticInfo.config && cosmeticInfo.config.badgeHtml))) {
+    if (
+      cosmeticInfo &&
+      cosmeticInfo.id &&
+      cosmeticInfo.id !== 'none' &&
+      (cosmeticInfo.svg || (cosmeticInfo.config && cosmeticInfo.config.badgeHtml))
+    ) {
       var cosSvg = cosmeticInfo.svg || cosmeticInfo.config.badgeHtml;
       var cosName = cosmeticInfo.name || (cosmeticInfo.config && cosmeticInfo.config.name) || '';
-      var isHeadwear = (cosmeticInfo.category === 'headwear' || (cosmeticInfo.config && cosmeticInfo.config.category === 'headwear'));
+      var isHeadwear =
+        cosmeticInfo.category === 'headwear' ||
+        (cosmeticInfo.config && cosmeticInfo.config.category === 'headwear');
       var headwearCls = isHeadwear ? ' is-headwear' : '';
-      var cosCls = sz >= 40 ? 'cosmetic-lg' : (sz >= 28 ? 'cosmetic-md' : (sz >= 22 ? 'cosmetic-sm' : 'cosmetic-xs'));
-      cosmeticHtml = '<span class="avatar-cosmetic-badge ' + cosCls + headwearCls + '" data-cosmetic-id="' + (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(cosName) : cosName) + '" aria-hidden="true">' + cosSvg + '</span>';
+      var cosCls =
+        sz >= 40
+          ? 'cosmetic-lg'
+          : sz >= 28
+            ? 'cosmetic-md'
+            : sz >= 22
+              ? 'cosmetic-sm'
+              : 'cosmetic-xs';
+      cosmeticHtml =
+        '<span class="avatar-cosmetic-badge ' +
+        cosCls +
+        headwearCls +
+        '" data-cosmetic-id="' +
+        (typeof escapeHtml === 'function' ? escapeHtml(cosmeticInfo.id) : cosmeticInfo.id) +
+        '" title="' +
+        (typeof escapeHtml === 'function' ? escapeHtml(cosName) : cosName) +
+        '" aria-hidden="true">' +
+        cosSvg +
+        '</span>';
     }
   }
 
@@ -1585,48 +1918,141 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     var pInfo = null;
     if (typeof getMemberPresenceStatus === 'function') {
       pInfo = getMemberPresenceStatus({ name: cleanNm, email: cleanId, ic: cleanId });
-    } else if (typeof window !== 'undefined' && typeof window.getMemberPresenceStatus === 'function') {
+    } else if (
+      typeof window !== 'undefined' &&
+      typeof window.getMemberPresenceStatus === 'function'
+    ) {
       pInfo = window.getMemberPresenceStatus({ name: cleanNm, email: cleanId, ic: cleanId });
     } else {
       pInfo = { status: 'offline', label: 'Offline', color: '#6b7280' };
     }
-    var dotColor = (pInfo && pInfo.color) ? pInfo.color : '#6b7280';
-    var dotLabel = (pInfo && pInfo.label) ? pInfo.label : 'Offline';
-    var pStatus = (pInfo && pInfo.status) ? pInfo.status : 'offline';
+    var dotColor = pInfo && pInfo.color ? pInfo.color : '#6b7280';
+    var dotLabel = pInfo && pInfo.label ? pInfo.label : 'Offline';
+    var pStatus = pInfo && pInfo.status ? pInfo.status : 'offline';
     var dotTitle = safeName + ' (' + dotLabel + ')';
     var dotSz = Math.max(8, Math.round(sz * 0.32));
-    var presId = (cleanId && cleanId.indexOf('@') !== -1) ? cleanId : (cleanId || cleanNm);
-    dotHtml = '<span class="nav-avatar-status-dot avatar-status-dot status-' + pStatus + '" data-presence-id="' + (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) + '" data-presence-name="' + (typeof escapeHtml === 'function' ? escapeHtml(cleanNm) : cleanNm) + '" style="position:absolute;bottom:-1px;right:-1px;width:' + dotSz + 'px;height:' + dotSz + 'px;border-radius:9999px;background:' + dotColor + ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' + (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) + '" aria-label="' + (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) + '"></span>';
+    var presId = cleanId && cleanId.indexOf('@') !== -1 ? cleanId : cleanId || cleanNm;
+    dotHtml =
+      '<span class="nav-avatar-status-dot avatar-status-dot status-' +
+      pStatus +
+      '" data-presence-id="' +
+      (typeof escapeHtml === 'function' ? escapeHtml(presId) : presId) +
+      '" data-presence-name="' +
+      (typeof escapeHtml === 'function' ? escapeHtml(cleanNm) : cleanNm) +
+      '" style="position:absolute;bottom:-1px;right:-1px;width:' +
+      dotSz +
+      'px;height:' +
+      dotSz +
+      'px;border-radius:9999px;background:' +
+      dotColor +
+      ';border:1.5px solid var(--bg-card,#1e293b);z-index:99;box-sizing:border-box;" title="' +
+      (typeof escapeHtml === 'function' ? escapeHtml(dotTitle) : dotTitle) +
+      '" aria-label="' +
+      (typeof escapeHtml === 'function' ? escapeHtml(dotLabel) : dotLabel) +
+      '"></span>';
   }
 
   var overflowRule = 'visible';
 
   if (photoUrl) {
-    return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
-      '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' +
-      outlineHtml + cosmeticHtml + dotHtml +
-    '</span>';
+    return (
+      '<span class="member-avatar-unified' +
+      extraCls +
+      hasOutlineCls +
+      '" style="width:' +
+      sz +
+      'px;height:' +
+      sz +
+      'px;padding:0;overflow:' +
+      overflowRule +
+      ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' +
+      styleAttr +
+      '" title="' +
+      safeTooltip +
+      '" aria-label="' +
+      safeTooltip +
+      '">' +
+      '<img src="' +
+      (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) +
+      '" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;display:block;" alt="' +
+      safeName +
+      '"/>' +
+      outlineHtml +
+      cosmeticHtml +
+      dotHtml +
+      '</span>'
+    );
   }
 
   if (isCreator) {
-    var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
+    var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || !outlineInfo;
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
-    return '<span class="member-avatar-unified' + extraCls + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
-      'J' + outlineHtml + cosmeticHtml + dotHtml +
-    '</span>';
+    return (
+      '<span class="member-avatar-unified' +
+      extraCls +
+      creatorCls +
+      hasOutlineCls +
+      '" style="width:' +
+      sz +
+      'px;height:' +
+      sz +
+      'px;font-size:' +
+      fs +
+      'px;background:#083830;color:#ffffff;overflow:' +
+      overflowRule +
+      ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' +
+      styleAttr +
+      '" title="' +
+      safeTooltip +
+      '" aria-label="' +
+      safeTooltip +
+      '">' +
+      'J' +
+      outlineHtml +
+      cosmeticHtml +
+      dotHtml +
+      '</span>'
+    );
   }
 
-  var initial = (typeof getMemberAvatarInitial === 'function')
-    ? getMemberAvatarInitial(cleanNm)
-    : (cleanNm.charAt(0).toUpperCase() || '?');
-  var color = (typeof getMemberAvatarColor === 'function')
-    ? getMemberAvatarColor(cleanNm)
-    : '#047857';
+  var initial =
+    typeof getMemberAvatarInitial === 'function'
+      ? getMemberAvatarInitial(cleanNm)
+      : cleanNm.charAt(0).toUpperCase() || '?';
+  var color =
+    typeof getMemberAvatarColor === 'function' ? getMemberAvatarColor(cleanNm) : '#047857';
 
-  var initialTextColor = (typeof isBrightColor === 'function' && isBrightColor(color)) ? '#1e293b' : '#ffffff';
-  return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:' + initialTextColor + ';overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
-    (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml +
-  '</span>';
+  var initialTextColor =
+    typeof isBrightColor === 'function' && isBrightColor(color) ? '#1e293b' : '#ffffff';
+  return (
+    '<span class="member-avatar-unified' +
+    extraCls +
+    hasOutlineCls +
+    '" style="width:' +
+    sz +
+    'px;height:' +
+    sz +
+    'px;font-size:' +
+    fs +
+    'px;background:' +
+    color +
+    ';color:' +
+    initialTextColor +
+    ';overflow:' +
+    overflowRule +
+    ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' +
+    styleAttr +
+    '" title="' +
+    safeTooltip +
+    '" aria-label="' +
+    safeTooltip +
+    '">' +
+    (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) +
+    outlineHtml +
+    cosmeticHtml +
+    dotHtml +
+    '</span>'
+  );
 }
 
 /**
@@ -1635,7 +2061,7 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
  * @returns {{ deviceId: string, label: string, os: string, browser: string, deviceType: string }}
  */
 function getDeviceSecurityInfo() {
-  var ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+  var ua = typeof navigator !== 'undefined' && navigator.userAgent ? navigator.userAgent : '';
   var os = 'Unknown OS';
   var deviceType = 'Desktop';
   var browser = 'Browser';
@@ -1645,8 +2071,15 @@ function getDeviceSecurityInfo() {
   else if (/Windows NT 6.3/i.test(ua)) os = 'Windows 8.1';
   else if (/Windows NT 6.1/i.test(ua)) os = 'Windows 7';
   else if (/Windows/i.test(ua)) os = 'Windows';
-  else if (/iPhone/i.test(ua)) { os = 'iOS'; deviceType = 'iPhone'; }
-  else if (/iPad/i.test(ua) || (typeof navigator !== 'undefined' && navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+  else if (/iPhone/i.test(ua)) {
+    os = 'iOS';
+    deviceType = 'iPhone';
+  } else if (
+    /iPad/i.test(ua) ||
+    (typeof navigator !== 'undefined' &&
+      navigator.platform === 'MacIntel' &&
+      navigator.maxTouchPoints > 1)
+  ) {
     os = 'iPadOS';
     deviceType = 'iPad';
   } else if (/Macintosh|Mac OS X/i.test(ua)) {
@@ -1692,7 +2125,8 @@ function getDeviceSecurityInfo() {
     if (typeof localStorage !== 'undefined') {
       deviceId = localStorage.getItem('bb_portal_dev_id');
       if (!deviceId) {
-        deviceId = 'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
+        deviceId =
+          'dev_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
         localStorage.setItem('bb_portal_dev_id', deviceId);
       }
     }
@@ -1744,7 +2178,9 @@ async function computeIntegrityMetadata(content, algorithm) {
     typeof window !== 'undefined' && window.crypto
       ? window.crypto
       : typeof crypto !== 'undefined'
-        ? (crypto.webcrypto ? crypto.webcrypto : crypto)
+        ? crypto.webcrypto
+          ? crypto.webcrypto
+          : crypto
         : null;
 
   if (cryptoObj && cryptoObj.subtle) {
@@ -1755,7 +2191,12 @@ async function computeIntegrityMetadata(content, algorithm) {
       for (var i = 0; i < bytes.byteLength; i++) {
         binary += String.fromCharCode(bytes[i]);
       }
-      var b64 = typeof btoa === 'function' ? btoa(binary) : (typeof Buffer !== 'undefined' ? Buffer.from(bytes).toString('base64') : '');
+      var b64 =
+        typeof btoa === 'function'
+          ? btoa(binary)
+          : typeof Buffer !== 'undefined'
+            ? Buffer.from(bytes).toString('base64')
+            : '';
       return b64 ? algo + '-' + b64 : '';
     } catch (_) {}
   }
@@ -1846,13 +2287,18 @@ function maskMemberNameForDirectory(fullName, isSelfOrOfficer) {
  * @returns {{ text: string, isMasked: boolean, tier: 'high'|'medium'|'low'|'protected' }}
  */
 function formatSafeAttendanceRate(percentage, isSelfOrOfficer) {
-  var num = typeof percentage === 'number' ? percentage : (typeof percentage === 'string' ? parseFloat(percentage) : NaN);
-  var pct = (!isNaN(num) && isFinite(num)) ? Math.max(0, Math.min(100, Math.round(num))) : 0;
+  var num =
+    typeof percentage === 'number'
+      ? percentage
+      : typeof percentage === 'string'
+        ? parseFloat(percentage)
+        : NaN;
+  var pct = !isNaN(num) && isFinite(num) ? Math.max(0, Math.min(100, Math.round(num))) : 0;
   if (isSelfOrOfficer) {
     return {
       text: pct + '%',
       isMasked: false,
-      tier: pct >= 80 ? 'high' : (pct >= 60 ? 'medium' : 'low')
+      tier: pct >= 80 ? 'high' : pct >= 60 ? 'medium' : 'low'
     };
   }
   if (pct >= 75) {
@@ -1904,7 +2350,12 @@ function getSafeMemberDemerits(demerits, isSelfOrOfficer) {
  * }}
  */
 function getAttendanceAchievementTier(percentage) {
-  var pct = typeof percentage === 'number' ? percentage : (typeof percentage === 'string' ? parseFloat(percentage) : NaN);
+  var pct =
+    typeof percentage === 'number'
+      ? percentage
+      : typeof percentage === 'string'
+        ? parseFloat(percentage)
+        : NaN;
   if (!Number.isFinite(pct)) {
     return {
       tier: 'none',
@@ -1915,7 +2366,8 @@ function getAttendanceAchievementTier(percentage) {
       bg: 'var(--surface-tint)',
       border: 'var(--border-subtle)',
       description: 'Attendance records not yet available for this term.',
-      tooltipText: 'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
+      tooltipText:
+        'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
     };
   }
 
@@ -1929,7 +2381,8 @@ function getAttendanceAchievementTier(percentage) {
       bg: 'rgba(245,197,66,0.14)',
       border: 'rgba(245,197,66,0.35)',
       description: 'Full 100% company parade commitment.',
-      tooltipText: 'Perfect Attendance (100%): Fully qualifies for the BB One Year Service award and senior badge advancement. Official minimum threshold is 80%.'
+      tooltipText:
+        'Perfect Attendance (100%): Fully qualifies for the BB One Year Service award and senior badge advancement. Official minimum threshold is 80%.'
     };
   }
 
@@ -1943,7 +2396,8 @@ function getAttendanceAchievementTier(percentage) {
       bg: 'rgba(16,185,129,0.14)',
       border: 'rgba(16,185,129,0.35)',
       description: 'Exceptional parade attendance and engagement.',
-      tooltipText: 'Excellent Attendance (≥90%): Exceeds the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+      tooltipText:
+        'Excellent Attendance (≥90%): Exceeds the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
     };
   }
 
@@ -1957,7 +2411,8 @@ function getAttendanceAchievementTier(percentage) {
       bg: 'rgba(59,130,246,0.14)',
       border: 'rgba(59,130,246,0.35)',
       description: 'Meets the company attendance standard.',
-      tooltipText: 'Good Attendance (≥80%): Meets the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+      tooltipText:
+        'Good Attendance (≥80%): Meets the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
     };
   }
 
@@ -1970,7 +2425,8 @@ function getAttendanceAchievementTier(percentage) {
     bg: 'rgba(245,158,11,0.14)',
     border: 'rgba(245,158,11,0.35)',
     description: 'Currently below the 80% One Year Service threshold.',
-    tooltipText: 'At Risk (<80%): Currently below the official 80% minimum attendance threshold required to qualify for the BB One Year Service award and badge advancement. Attend upcoming parades to improve standing.'
+    tooltipText:
+      'At Risk (<80%): Currently below the official 80% minimum attendance threshold required to qualify for the BB One Year Service award and badge advancement. Attend upcoming parades to improve standing.'
   };
 }
 
@@ -1996,7 +2452,10 @@ function sanitizeAuditDetails(val, depth) {
 
   if (typeof val === 'string') {
     // Redact if string looks like a JWT or Bearer token
-    if (/^Bearer\s+[A-Za-z0-9\-._~+/]+=*/i.test(val) || /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}/.test(val)) {
+    if (
+      /^Bearer\s+[A-Za-z0-9\-._~+/]+=*/i.test(val) ||
+      /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}/.test(val)
+    ) {
       return '[REDACTED_TOKEN]';
     }
     return val;
@@ -2005,12 +2464,13 @@ function sanitizeAuditDetails(val, depth) {
   if (typeof val !== 'object') return val;
 
   if (Array.isArray(val)) {
-    return val.map(function(item) {
+    return val.map(function (item) {
       return sanitizeAuditDetails(item, d + 1);
     });
   }
 
-  var redactPattern = /password|pass|token|code|secret|hash|otp|pin|credential|cookie|jwt|bearer|auth|nric/i;
+  var redactPattern =
+    /password|pass|token|code|secret|hash|otp|pin|credential|cookie|jwt|bearer|auth|nric/i;
   var safeObj = {};
   for (var k in val) {
     if (Object.prototype.hasOwnProperty.call(val, k)) {
@@ -2022,8 +2482,12 @@ function sanitizeAuditDetails(val, depth) {
         if (/^(ic|mykad|phone|contact|parent_contact)$/i.test(k)) {
           // Mask IC/phone (preserve last 4 characters)
           var str = val[k].trim();
-          safeObj[k] = str.length > 4 ? (str.slice(0, -4).replace(/[0-9a-zA-Z]/g, '*') + str.slice(-4)) : '****';
-        } else if (/^Bearer\s+[A-Za-z0-9\-._~+/]+=*/i.test(val[k]) || /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}/.test(val[k])) {
+          safeObj[k] =
+            str.length > 4 ? str.slice(0, -4).replace(/[0-9a-zA-Z]/g, '*') + str.slice(-4) : '****';
+        } else if (
+          /^Bearer\s+[A-Za-z0-9\-._~+/]+=*/i.test(val[k]) ||
+          /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}/.test(val[k])
+        ) {
           safeObj[k] = '[REDACTED_TOKEN]';
         } else {
           safeObj[k] = val[k];
@@ -2056,7 +2520,8 @@ async function logAuditEvent(params) {
   var action = (params.action || 'unknown').trim();
   var targetType = (params.targetType || 'unknown').trim();
   var targetId = params.targetId ? String(params.targetId).trim() : null;
-  if (targetId && /^\d{6}-?\d{2}-?\d{4}$/.test(targetId)) targetId = sanitizeAuditDetails({ ic: targetId }).ic;
+  if (targetId && /^\d{6}-?\d{2}-?\d{4}$/.test(targetId))
+    targetId = sanitizeAuditDetails({ ic: targetId }).ic;
   var details = params.details || {};
 
   // Automated privacy deep-redaction: prevent passwords, tokens, API keys, or OTPs from entering logs
@@ -2068,7 +2533,8 @@ async function logAuditEvent(params) {
       actorId = sessionGet('email') || sessionGet('ic') || sessionGet('name') || null;
     }
     if (!actorId && typeof window !== 'undefined' && typeof window.sessionGet === 'function') {
-      actorId = window.sessionGet('email') || window.sessionGet('ic') || window.sessionGet('name') || null;
+      actorId =
+        window.sessionGet('email') || window.sessionGet('ic') || window.sessionGet('name') || null;
     }
   }
   actorId = actorId ? String(actorId).trim() : 'anonymous';
@@ -2084,9 +2550,10 @@ async function logAuditEvent(params) {
   }
   actorRole = actorRole || 'member';
 
-  var entryId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-    ? crypto.randomUUID()
-    : ('audit_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9));
+  var entryId =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : 'audit_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 
   var entry = {
     id: entryId,
@@ -2111,7 +2578,8 @@ async function logAuditEvent(params) {
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
-    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function')
+      client = window.getSupa();
     else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
 
     if (client && typeof client.rpc === 'function') {
@@ -2131,14 +2599,34 @@ async function logAuditEvent(params) {
   } catch (_) {}
 
   // A config copy is useful for operations that use bb_config and for deployments without the ledger RPC.
-  if (actorRole === 'officer_admin' && /^(member\.|order\.status_update$|sheets\.|calendar\.|config\.|admin\.(block|unblock|update_block|role_change))/.test(action)) {
+  if (
+    actorRole === 'officer_admin' &&
+    /^(member\.|order\.status_update$|sheets\.|calendar\.|config\.|admin\.(block|unblock|update_block|role_change))/.test(
+      action
+    )
+  ) {
     try {
-      var adminToken = typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function' ? window.getAdminSessionToken() : null;
-      if (adminToken && client && typeof client.rpc === 'function' && await client.rpc('rpc_append_admin_config_audit', { p_token: adminToken, p_entry: entry }) === true) {
+      var getAdminTokenFn =
+        typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function'
+          ? window.getAdminSessionToken
+          : typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function'
+            ? global.getAdminSessionToken
+            : null;
+      var adminToken = getAdminTokenFn ? getAdminTokenFn() : null;
+      if (
+        adminToken &&
+        client &&
+        typeof client.rpc === 'function' &&
+        (await client.rpc('rpc_append_admin_config_audit', {
+          p_token: adminToken,
+          p_entry: entry
+        })) === true
+      ) {
         return { success: true, durable: true, configPersisted: true, log_id: logId, entry: entry };
       }
     } catch (_) {}
-    if (typeof showToast === 'function') showToast('The audit copy could not be saved to configuration.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('The audit copy could not be saved to configuration.', 'warning');
   }
   return { success: true, durable: durable, configPersisted: false, log_id: logId, entry: entry };
 }
@@ -2162,7 +2650,8 @@ async function getAuditLogs(filter) {
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
-    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function')
+      client = window.getSupa();
     else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
 
     if (client && typeof client.rpc === 'function') {
@@ -2181,7 +2670,7 @@ async function getAuditLogs(filter) {
   }
 
   // Fallback to in-memory audit logs
-  var filtered = _inMemoryAuditLogs.filter(function(item) {
+  var filtered = _inMemoryAuditLogs.filter(function (item) {
     if (action && item.action !== action) return false;
     if (actorId && String(item.actor_id || '').toLowerCase() !== actorId) return false;
     return true;
@@ -2201,20 +2690,29 @@ async function getAuditLogs(filter) {
  * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
  */
 async function checkAuthLockout(identifier) {
-  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0, attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS };
+  if (!identifier)
+    return {
+      locked: false,
+      remaining_seconds: 0,
+      failures: 0,
+      attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS
+    };
   var key = String(identifier).trim().toLowerCase();
 
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
-    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function')
+      client = window.getSupa();
     else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
 
     if (client && typeof client.rpc === 'function') {
       var rpcRes = await client.rpc('rpc_check_auth_lockout', { p_identifier: key });
       if (rpcRes && typeof rpcRes.locked === 'boolean') {
         if (typeof rpcRes.attempts_remaining !== 'number') {
-          rpcRes.attempts_remaining = rpcRes.locked ? 0 : Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - (rpcRes.failures || 0));
+          rpcRes.attempts_remaining = rpcRes.locked
+            ? 0
+            : Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - (rpcRes.failures || 0));
         }
         return rpcRes;
       }
@@ -2227,7 +2725,12 @@ async function checkAuthLockout(identifier) {
   var rec = _localLockouts[key];
   if (rec && rec.lockoutUntil && rec.lockoutUntil > Date.now()) {
     var remSec = Math.ceil((rec.lockoutUntil - Date.now()) / 1000);
-    return { locked: true, remaining_seconds: remSec, failures: rec.failedCount || 0, attempts_remaining: 0 };
+    return {
+      locked: true,
+      remaining_seconds: remSec,
+      failures: rec.failedCount || 0,
+      attempts_remaining: 0
+    };
   }
 
   var currentFailures = (rec && rec.failedCount) || 0;
@@ -2246,13 +2749,20 @@ async function checkAuthLockout(identifier) {
  * @returns {Promise<{locked: boolean, remaining_seconds: number, failures: number}>}
  */
 async function recordAuthAttempt(identifier, success) {
-  if (!identifier) return { locked: false, remaining_seconds: 0, failures: 0, attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS };
+  if (!identifier)
+    return {
+      locked: false,
+      remaining_seconds: 0,
+      failures: 0,
+      attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS
+    };
   var key = String(identifier).trim().toLowerCase();
 
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
-    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function')
+      client = window.getSupa();
     else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
 
     if (client && typeof client.rpc === 'function') {
@@ -2262,7 +2772,9 @@ async function recordAuthAttempt(identifier, success) {
       });
       if (rpcRes && typeof rpcRes.locked === 'boolean') {
         if (typeof rpcRes.attempts_remaining !== 'number') {
-          rpcRes.attempts_remaining = rpcRes.locked ? 0 : Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - (rpcRes.failures || 0));
+          rpcRes.attempts_remaining = rpcRes.locked
+            ? 0
+            : Math.max(0, AUTH_LOCKOUT_MAX_ATTEMPTS - (rpcRes.failures || 0));
         }
         return rpcRes;
       }
@@ -2274,14 +2786,19 @@ async function recordAuthAttempt(identifier, success) {
   // Local in-memory fallback
   if (success) {
     delete _localLockouts[key];
-    return { locked: false, remaining_seconds: 0, failures: 0, attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS };
+    return {
+      locked: false,
+      remaining_seconds: 0,
+      failures: 0,
+      attempts_remaining: AUTH_LOCKOUT_MAX_ATTEMPTS
+    };
   }
 
   var now = Date.now();
   var current = _localLockouts[key] || { failedCount: 0, lockoutUntil: 0, lastFailedAt: 0 };
 
   // Reset if last failure was > 15 mins ago and not locked
-  if (!current.lockoutUntil && (now - current.lastFailedAt) > AUTH_LOCKOUT_DURATION_MS) {
+  if (!current.lockoutUntil && now - current.lastFailedAt > AUTH_LOCKOUT_DURATION_MS) {
     current.failedCount = 1;
   } else {
     current.failedCount = (current.failedCount || 0) + 1;
@@ -2336,9 +2853,10 @@ var _mockUsedTurnstileTokens = {};
  */
 function renderTurnstileWidget(containerOrSelector, action) {
   if (typeof document === 'undefined') return null;
-  var container = typeof containerOrSelector === 'string'
-    ? document.querySelector(containerOrSelector)
-    : containerOrSelector;
+  var container =
+    typeof containerOrSelector === 'string'
+      ? document.querySelector(containerOrSelector)
+      : containerOrSelector;
   if (!container) return null;
 
   var act = action || container.getAttribute('data-action') || 'generic';
@@ -2348,11 +2866,18 @@ function renderTurnstileWidget(containerOrSelector, action) {
     return container.dataset.turnstileWidgetId;
   }
 
-  var siteKey = (typeof TURNSTILE_SITE_KEY !== 'undefined')
-    ? TURNSTILE_SITE_KEY
-    : ((typeof window !== 'undefined' && window.TURNSTILE_SITE_KEY) ? window.TURNSTILE_SITE_KEY : '1x00000000000000000000AA');
+  var siteKey =
+    typeof TURNSTILE_SITE_KEY !== 'undefined'
+      ? TURNSTILE_SITE_KEY
+      : typeof window !== 'undefined' && window.TURNSTILE_SITE_KEY
+        ? window.TURNSTILE_SITE_KEY
+        : '1x00000000000000000000AA';
 
-  if (typeof window !== 'undefined' && window.turnstile && typeof window.turnstile.render === 'function') {
+  if (
+    typeof window !== 'undefined' &&
+    window.turnstile &&
+    typeof window.turnstile.render === 'function'
+  ) {
     try {
       var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       var widgetId = window.turnstile.render(container, {
@@ -2388,7 +2913,9 @@ function renderTurnstileWidget(containerOrSelector, action) {
       var prevCallback = window.onloadTurnstileCallback;
       window.onloadTurnstileCallback = function () {
         if (typeof prevCallback === 'function') {
-          try { prevCallback(); } catch (cbErr) {}
+          try {
+            prevCallback();
+          } catch (cbErr) {}
         }
         if (Array.isArray(window.__turnstileRenderQueue)) {
           var queue = window.__turnstileRenderQueue.slice();
@@ -2434,7 +2961,11 @@ function getTurnstileToken(containerOrAction) {
   }
 
   // 3. Response from Turnstile API if available
-  if (typeof window !== 'undefined' && window.turnstile && typeof window.turnstile.getResponse === 'function') {
+  if (
+    typeof window !== 'undefined' &&
+    window.turnstile &&
+    typeof window.turnstile.getResponse === 'function'
+  ) {
     var widgetId = _turnstileWidgets[act];
     if (widgetId !== undefined) {
       var resp = window.turnstile.getResponse(widgetId);
@@ -2449,9 +2980,15 @@ function getTurnstileToken(containerOrAction) {
   }
 
   // 5. Unit testing / mock test environment fallback
-  var isTestEnv = (typeof window === 'undefined') ||
+  var isTestEnv =
+    typeof window === 'undefined' ||
     (typeof window !== 'undefined' && (window.__SKIP_CAPTCHA__ || window.__IS_TEST__)) ||
-    (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || (process.argv && process.argv.some(function (a) { return a.includes('test-modules'); }))));
+    (typeof process !== 'undefined' &&
+      (process.env.NODE_ENV === 'test' ||
+        (process.argv &&
+          process.argv.some(function (a) {
+            return a.includes('test-modules');
+          }))));
 
   if (isTestEnv) {
     return 'XXXX.DUMMY.TOKEN.' + Math.random().toString(36).slice(2) + '.XXXX';
@@ -2460,7 +2997,10 @@ function getTurnstileToken(containerOrAction) {
   // 6. Graceful Fallback if Cloudflare Turnstile service is blocked by client browser / ad blocker / offline
   if (typeof window !== 'undefined') {
     var isTurnstileUnavailable = !window.turnstile || window.__TURNSTILE_BLOCKED__;
-    if (isTurnstileUnavailable && (document.readyState === 'complete' || document.readyState === 'interactive')) {
+    if (
+      isTurnstileUnavailable &&
+      (document.readyState === 'complete' || document.readyState === 'interactive')
+    ) {
       return '1x00000000000000000000AA_FALLBACK_' + Date.now();
     }
   }
@@ -2492,10 +3032,17 @@ function resetTurnstileWidget(containerOrAction) {
     delete container.dataset.turnstileToken;
   }
 
-  if (typeof window !== 'undefined' && window.turnstile && typeof window.turnstile.reset === 'function') {
-    var widgetId = (act && _turnstileWidgets[act] !== undefined)
-      ? _turnstileWidgets[act]
-      : (container && container.dataset ? container.dataset.turnstileWidgetId : undefined);
+  if (
+    typeof window !== 'undefined' &&
+    window.turnstile &&
+    typeof window.turnstile.reset === 'function'
+  ) {
+    var widgetId =
+      act && _turnstileWidgets[act] !== undefined
+        ? _turnstileWidgets[act]
+        : container && container.dataset
+          ? container.dataset.turnstileWidgetId
+          : undefined;
     if (widgetId !== undefined) {
       try {
         window.turnstile.reset(widgetId);
@@ -2538,7 +3085,8 @@ async function verifyTurnstileTokenServerSide(token, action, ip) {
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
-    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function')
+      client = window.getSupa();
     else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
 
     if (client && typeof client.rpc === 'function') {
@@ -2556,11 +3104,17 @@ async function verifyTurnstileTokenServerSide(token, action, ip) {
   }
 
   // 2. Offline / Unit Test Mock Replay Simulator
-  if (cleanToken.startsWith('1x00') || cleanToken.startsWith('XXXX.DUMMY.TOKEN') || cleanToken === '__SKIP_CAPTCHA__' || cleanToken === 'TEST_PASSED_TOKEN') {
+  if (
+    cleanToken.startsWith('1x00') ||
+    cleanToken.startsWith('XXXX.DUMMY.TOKEN') ||
+    cleanToken === '__SKIP_CAPTCHA__' ||
+    cleanToken === 'TEST_PASSED_TOKEN'
+  ) {
     if (_mockUsedTurnstileTokens[cleanToken]) {
       return {
         success: false,
-        error: 'CAPTCHA verification failed: Security token has already been consumed (replay attack prevented).',
+        error:
+          'CAPTCHA verification failed: Security token has already been consumed (replay attack prevented).',
         code: 'TOKEN_REPLAYED',
         replay: true
       };
@@ -2574,9 +3128,12 @@ async function verifyTurnstileTokenServerSide(token, action, ip) {
   }
 
   // 3. Fallback: Google Apps Script siteverify webhook
-  var gasFn = (typeof callSheetsApi === 'function')
-    ? callSheetsApi
-    : (typeof window !== 'undefined' && typeof window.callSheetsApi === 'function' ? window.callSheetsApi : null);
+  var gasFn =
+    typeof callSheetsApi === 'function'
+      ? callSheetsApi
+      : typeof window !== 'undefined' && typeof window.callSheetsApi === 'function'
+        ? window.callSheetsApi
+        : null;
   if (gasFn) {
     try {
       var gasRes = await gasFn({
@@ -2605,7 +3162,12 @@ async function verifyTurnstileTokenServerSide(token, action, ip) {
  * Processes queued Turnstile container rendering requests once Turnstile is ready
  */
 function processTurnstileQueue() {
-  if (typeof window === 'undefined' || !window.turnstile || typeof window.turnstile.render !== 'function') return;
+  if (
+    typeof window === 'undefined' ||
+    !window.turnstile ||
+    typeof window.turnstile.render !== 'function'
+  )
+    return;
   if (Array.isArray(window.__turnstileRenderQueue) && window.__turnstileRenderQueue.length > 0) {
     var queue = window.__turnstileRenderQueue.slice();
     window.__turnstileRenderQueue = [];
@@ -2631,7 +3193,9 @@ if (typeof window !== 'undefined') {
   var prevOnload = window.onloadTurnstileCallback;
   window.onloadTurnstileCallback = function () {
     if (typeof prevOnload === 'function') {
-      try { prevOnload(); } catch (_) {}
+      try {
+        prevOnload();
+      } catch (_) {}
     }
     initAllTurnstileWidgets();
   };
@@ -2665,7 +3229,11 @@ async function clearPortalCache(options) {
   }
 
   // 2. Instruct active Service Worker to purge caches and skip waiting
-  if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller) {
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.serviceWorker &&
+    navigator.serviceWorker.controller
+  ) {
     try {
       navigator.serviceWorker.controller.postMessage({ action: 'CLEAR_CACHES' });
       navigator.serviceWorker.controller.postMessage({ action: 'SKIP_WAITING' });
@@ -2687,11 +3255,25 @@ async function clearPortalCache(options) {
         var k = localStorage.key(j);
         if (!k) continue;
         if (!opt.clearAuth) {
-          if (k.startsWith('sb-') || k.includes('auth-token') || k === 'bb_member_email' || k === 'bb_member_session' || k === 'bb_admin_session' || k === 'bb_active_role') {
+          if (
+            k.startsWith('sb-') ||
+            k.includes('auth-token') ||
+            k === 'bb_member_email' ||
+            k === 'bb_member_session' ||
+            k === 'bb_admin_session' ||
+            k === 'bb_active_role'
+          ) {
             continue;
           }
         }
-        if (k.startsWith('bb_cache_') || k.startsWith('bb_pfp_') || k.startsWith('_') || k.includes('offline') || k.includes('badge') || opt.clearAuth) {
+        if (
+          k.startsWith('bb_cache_') ||
+          k.startsWith('bb_pfp_') ||
+          k.startsWith('_') ||
+          k.includes('offline') ||
+          k.includes('badge') ||
+          opt.clearAuth
+        ) {
           keysToRemove.push(k);
         }
       }
@@ -2714,28 +3296,28 @@ async function clearPortalCache(options) {
 }
 
 if (typeof window !== 'undefined') {
-  window.escapeHtml     = escapeHtml;
-  window.safeUrl        = safeUrl;
-  window.sanitizeInput  = sanitizeInput;
-  window.sanitizeText   = sanitizeText;
-  window.sanitizeHtml   = sanitizeHtml;
-  window.formatDate     = formatDate;
-  window.migrateEntry   = migrateEntry;
+  window.escapeHtml = escapeHtml;
+  window.safeUrl = safeUrl;
+  window.sanitizeInput = sanitizeInput;
+  window.sanitizeText = sanitizeText;
+  window.sanitizeHtml = sanitizeHtml;
+  window.formatDate = formatDate;
+  window.migrateEntry = migrateEntry;
   window.migrateBadgeEntry = migrateBadgeEntry;
-  window.bytesToHex     = bytesToHex;
-  window.hexToBytes     = hexToBytes;
+  window.bytesToHex = bytesToHex;
+  window.hexToBytes = hexToBytes;
   window.safeBase64Encode = safeBase64Encode;
   window.safeBase64Decode = safeBase64Decode;
-  window.computeSha256   = computeSha256;
-  window.hashPassword   = hashPassword;
+  window.computeSha256 = computeSha256;
+  window.hashPassword = hashPassword;
   window.verifyPassword = verifyPassword;
-  window.showToast      = showToast;
+  window.showToast = showToast;
   window.showConfirmModal = showConfirmModal;
-  window.debounce       = debounce;
-  window.throttle       = throttle;
-  window.compressImage  = compressImage;
+  window.debounce = debounce;
+  window.throttle = throttle;
+  window.compressImage = compressImage;
   window.detectFileType = detectFileType;
-  window.hasExifGps     = hasExifGps;
+  window.hasExifGps = hasExifGps;
   window.stripExifBytes = stripExifBytes;
   window.validateFileSecurity = validateFileSecurity;
   window.stripExifAndCompress = stripExifAndCompress;
@@ -2758,34 +3340,34 @@ if (typeof window !== 'undefined') {
     global.isDeletedOrTestAccount = isDeletedOrTestAccount;
     global.cleanMembersCache = cleanMembersCache;
   }
-  window._memberPfpsMap       = _memberPfpsMap;
+  window._memberPfpsMap = _memberPfpsMap;
   window.loadMemberProfilePictures = loadMemberProfilePictures;
-  window.getMemberAvatarUrl   = getMemberAvatarUrl;
+  window.getMemberAvatarUrl = getMemberAvatarUrl;
   window.getDeviceSecurityInfo = getDeviceSecurityInfo;
   window.computeIntegrityMetadata = computeIntegrityMetadata;
   window.verifySubresourceIntegrity = verifySubresourceIntegrity;
-  window.maskSurname            = maskSurname;
-  window.maskMemberSurname      = maskMemberSurname;
+  window.maskSurname = maskSurname;
+  window.maskMemberSurname = maskMemberSurname;
   window.maskMemberNameForDirectory = maskMemberNameForDirectory;
   window.formatSafeAttendanceRate = formatSafeAttendanceRate;
-  window.getSafeMemberDemerits  = getSafeMemberDemerits;
+  window.getSafeMemberDemerits = getSafeMemberDemerits;
   window.getAttendanceAchievementTier = getAttendanceAchievementTier;
-  window.logAuditEvent          = logAuditEvent;
-  window.sanitizeAuditDetails   = sanitizeAuditDetails;
-  window.getAuditLogs           = getAuditLogs;
-  window.checkAuthLockout       = checkAuthLockout;
-  window.recordAuthAttempt      = recordAuthAttempt;
+  window.logAuditEvent = logAuditEvent;
+  window.sanitizeAuditDetails = sanitizeAuditDetails;
+  window.getAuditLogs = getAuditLogs;
+  window.checkAuthLockout = checkAuthLockout;
+  window.recordAuthAttempt = recordAuthAttempt;
   window.AUTH_LOCKOUT_MAX_ATTEMPTS = AUTH_LOCKOUT_MAX_ATTEMPTS;
-  window.AUTH_LOCKOUT_DURATION_MS  = AUTH_LOCKOUT_DURATION_MS;
-  window.renderTurnstileWidget     = renderTurnstileWidget;
-  window.getTurnstileToken         = getTurnstileToken;
-  window.resetTurnstileWidget      = resetTurnstileWidget;
+  window.AUTH_LOCKOUT_DURATION_MS = AUTH_LOCKOUT_DURATION_MS;
+  window.renderTurnstileWidget = renderTurnstileWidget;
+  window.getTurnstileToken = getTurnstileToken;
+  window.resetTurnstileWidget = resetTurnstileWidget;
   window.verifyTurnstileTokenServerSide = verifyTurnstileTokenServerSide;
-  window.initAllTurnstileWidgets   = initAllTurnstileWidgets;
-  window.clearPortalCache          = clearPortalCache;
-  window._turnstileTokens          = _turnstileTokens;
-  window._turnstileWidgets         = _turnstileWidgets;
-  window._mockUsedTurnstileTokens  = _mockUsedTurnstileTokens;
+  window.initAllTurnstileWidgets = initAllTurnstileWidgets;
+  window.clearPortalCache = clearPortalCache;
+  window._turnstileTokens = _turnstileTokens;
+  window._turnstileWidgets = _turnstileWidgets;
+  window._mockUsedTurnstileTokens = _mockUsedTurnstileTokens;
 }
 
 // Export for module systems if present

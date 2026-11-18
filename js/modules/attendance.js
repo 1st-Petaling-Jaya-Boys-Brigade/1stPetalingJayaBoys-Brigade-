@@ -15,78 +15,90 @@ var _masterAttendanceCacheTime = 0;
 var _masterAttendanceRequest = null;
 
 // ── Confidential Attendance Achievement Tiers Helper ────────────────
-var _getTierFn = (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function')
-  ? window.getAttendanceAchievementTier
-  : function(percentage) {
-      if (typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function' &&
-          window.getAttendanceAchievementTier !== _getTierFn) {
-        return window.getAttendanceAchievementTier(percentage);
-      }
-      var pct = (percentage !== null && percentage !== undefined && percentage !== '') ? parseFloat(percentage) : NaN;
-      if (!Number.isFinite(pct)) {
+var _getTierFn =
+  typeof window !== 'undefined' && typeof window.getAttendanceAchievementTier === 'function'
+    ? window.getAttendanceAchievementTier
+    : function (percentage) {
+        if (
+          typeof window !== 'undefined' &&
+          typeof window.getAttendanceAchievementTier === 'function' &&
+          window.getAttendanceAchievementTier !== _getTierFn
+        ) {
+          return window.getAttendanceAchievementTier(percentage);
+        }
+        var pct =
+          percentage !== null && percentage !== undefined && percentage !== ''
+            ? parseFloat(percentage)
+            : NaN;
+        if (!Number.isFinite(pct)) {
+          return {
+            tier: 'none',
+            label: 'No Data',
+            badgeLabel: 'No Data',
+            qualifiesForOneYearService: false,
+            color: 'var(--text-muted)',
+            bg: 'var(--surface-tint)',
+            border: 'var(--border-subtle)',
+            description: 'Attendance records not yet available for this term.',
+            tooltipText:
+              'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
+          };
+        }
+        if (pct >= 100) {
+          return {
+            tier: 'perfect',
+            label: 'Perfect',
+            badgeLabel: '100% (Perfect)',
+            qualifiesForOneYearService: true,
+            color: 'var(--brand-gold, #f5c542)',
+            bg: 'rgba(245,197,66,0.14)',
+            border: 'rgba(245,197,66,0.35)',
+            description: 'Full 100% company parade commitment.',
+            tooltipText:
+              'Perfect Attendance (100%): Fully qualifies for the BB One Year Service award and senior badge advancement. Official minimum threshold is 80%.'
+          };
+        }
+        if (pct >= 90) {
+          return {
+            tier: 'excellent',
+            label: 'Excellent',
+            badgeLabel: '≥90% (Excellent)',
+            qualifiesForOneYearService: true,
+            color: 'var(--green, #10b981)',
+            bg: 'rgba(16,185,129,0.14)',
+            border: 'rgba(16,185,129,0.35)',
+            description: 'Exceptional parade attendance and engagement.',
+            tooltipText:
+              'Excellent Attendance (≥90%): Exceeds the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+          };
+        }
+        if (pct >= 80) {
+          return {
+            tier: 'good',
+            label: 'Good',
+            badgeLabel: '≥80% (Good)',
+            qualifiesForOneYearService: true,
+            color: 'var(--blue, #3b82f6)',
+            bg: 'rgba(59,130,246,0.14)',
+            border: 'rgba(59,130,246,0.35)',
+            description: 'Meets the company attendance standard.',
+            tooltipText:
+              'Good Attendance (≥80%): Meets the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
+          };
+        }
         return {
-          tier: 'none',
-          label: 'No Data',
-          badgeLabel: 'No Data',
+          tier: 'at_risk',
+          label: 'At Risk',
+          badgeLabel: '<80% (At Risk)',
           qualifiesForOneYearService: false,
-          color: 'var(--text-muted)',
-          bg: 'var(--surface-tint)',
-          border: 'var(--border-subtle)',
-          description: 'Attendance records not yet available for this term.',
-          tooltipText: 'Official BB Rule: Minimum 80% attendance is required to qualify for the BB One Year Service award and badge advancement.'
+          color: 'var(--orange, #f59e0b)',
+          bg: 'rgba(245,158,11,0.14)',
+          border: 'rgba(245,158,11,0.35)',
+          description: 'Currently below the 80% One Year Service threshold.',
+          tooltipText:
+            'At Risk (<80%): Currently below the official 80% minimum attendance threshold required to qualify for the BB One Year Service award and badge advancement. Attend upcoming parades to improve standing.'
         };
-      }
-      if (pct >= 100) {
-        return {
-          tier: 'perfect',
-          label: 'Perfect',
-          badgeLabel: '100% (Perfect)',
-          qualifiesForOneYearService: true,
-          color: 'var(--brand-gold, #f5c542)',
-          bg: 'rgba(245,197,66,0.14)',
-          border: 'rgba(245,197,66,0.35)',
-          description: 'Full 100% company parade commitment.',
-          tooltipText: 'Perfect Attendance (100%): Fully qualifies for the BB One Year Service award and senior badge advancement. Official minimum threshold is 80%.'
-        };
-      }
-      if (pct >= 90) {
-        return {
-          tier: 'excellent',
-          label: 'Excellent',
-          badgeLabel: '≥90% (Excellent)',
-          qualifiesForOneYearService: true,
-          color: 'var(--green, #10b981)',
-          bg: 'rgba(16,185,129,0.14)',
-          border: 'rgba(16,185,129,0.35)',
-          description: 'Exceptional parade attendance and engagement.',
-          tooltipText: 'Excellent Attendance (≥90%): Exceeds the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
-        };
-      }
-      if (pct >= 80) {
-        return {
-          tier: 'good',
-          label: 'Good',
-          badgeLabel: '≥80% (Good)',
-          qualifiesForOneYearService: true,
-          color: 'var(--blue, #3b82f6)',
-          bg: 'rgba(59,130,246,0.14)',
-          border: 'rgba(59,130,246,0.35)',
-          description: 'Meets the company attendance standard.',
-          tooltipText: 'Good Attendance (≥80%): Meets the official 80% minimum threshold required to qualify for the BB One Year Service award and badge advancement.'
-        };
-      }
-      return {
-        tier: 'at_risk',
-        label: 'At Risk',
-        badgeLabel: '<80% (At Risk)',
-        qualifiesForOneYearService: false,
-        color: 'var(--orange, #f59e0b)',
-        bg: 'rgba(245,158,11,0.14)',
-        border: 'rgba(245,158,11,0.35)',
-        description: 'Currently below the 80% One Year Service threshold.',
-        tooltipText: 'At Risk (<80%): Currently below the official 80% minimum attendance threshold required to qualify for the BB One Year Service award and badge advancement. Attend upcoming parades to improve standing.'
       };
-    };
 
 /**
  * Resolves the visual status icon HTML and theme color for an attendance tier
@@ -149,7 +161,6 @@ function getTierStatusVisual(tier) {
   };
 }
 
-
 // ── Data Ingestion & Caching ────────────────────────────────────────────────
 
 /**
@@ -159,18 +170,28 @@ function getTierStatusVisual(tier) {
  */
 function normalizeMemberName(name) {
   if (!name) return '';
-  return String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
 }
 
 var DEFAULT_MAX_SQUAD_POINTS = 161;
 
 function getCompetingSquadStandings(data) {
-  var squads = Object.values((data && data.squads) || {}).filter(function(squad) {
-    return squad && typeof squad.name === 'string' && Number.isFinite(squad.points) &&
-      /^(alpha|papa|zulu)\s*[0-9]+$/i.test(squad.name.trim());
-  }).sort(function(a, b) { return b.points - a.points; });
+  var squads = Object.values((data && data.squads) || {})
+    .filter(function (squad) {
+      return (
+        squad &&
+        typeof squad.name === 'string' &&
+        Number.isFinite(squad.points) &&
+        /^(alpha|papa|zulu)\s*[0-9]+$/i.test(squad.name.trim())
+      );
+    })
+    .sort(function (a, b) {
+      return b.points - a.points;
+    });
   var rank = 1;
-  return squads.map(function(squad, index) {
+  return squads.map(function (squad, index) {
     if (index > 0 && squad.points < squads[index - 1].points) rank = index + 1;
     return { ...squad, displayRank: rank };
   });
@@ -183,10 +204,33 @@ function getCompetingSquadStandings(data) {
  */
 function getPlatoonStyle(sqName) {
   var upper = String(sqName || '').toUpperCase();
-  if (upper.indexOf('ALPHA') !== -1) return { plt: 'Alpha', color: 'var(--brand-gold, #f5c542)', bg: 'rgba(245,197,66,0.1)', border: 'rgba(245,197,66,0.3)' };
-  if (upper.indexOf('PAPA')  !== -1) return { plt: 'Papa',  color: 'var(--blue, #3b82f6)',       bg: 'rgba(59,130,246,0.1)',  border: 'rgba(59,130,246,0.3)' };
-  if (upper.indexOf('ZULU')  !== -1) return { plt: 'Zulu',  color: 'var(--green, #10b981)',      bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.3)' };
-  return { plt: 'Squad', color: 'var(--accent)', bg: 'rgba(200,150,30,0.1)', border: 'rgba(200,150,30,0.3)' };
+  if (upper.indexOf('ALPHA') !== -1)
+    return {
+      plt: 'Alpha',
+      color: 'var(--brand-gold, #f5c542)',
+      bg: 'rgba(245,197,66,0.1)',
+      border: 'rgba(245,197,66,0.3)'
+    };
+  if (upper.indexOf('PAPA') !== -1)
+    return {
+      plt: 'Papa',
+      color: 'var(--blue, #3b82f6)',
+      bg: 'rgba(59,130,246,0.1)',
+      border: 'rgba(59,130,246,0.3)'
+    };
+  if (upper.indexOf('ZULU') !== -1)
+    return {
+      plt: 'Zulu',
+      color: 'var(--green, #10b981)',
+      bg: 'rgba(16,185,129,0.1)',
+      border: 'rgba(16,185,129,0.3)'
+    };
+  return {
+    plt: 'Squad',
+    color: 'var(--accent)',
+    bg: 'rgba(200,150,30,0.1)',
+    border: 'rgba(200,150,30,0.3)'
+  };
 }
 
 /**
@@ -196,7 +240,11 @@ function getPlatoonStyle(sqName) {
  */
 async function getMasterAttendanceData(forceRefresh) {
   var now = Date.now();
-  if (!forceRefresh && _masterAttendanceCache && (now - _masterAttendanceCacheTime < MASTER_ATTENDANCE_CACHE_TTL)) {
+  if (
+    !forceRefresh &&
+    _masterAttendanceCache &&
+    now - _masterAttendanceCacheTime < MASTER_ATTENDANCE_CACHE_TTL
+  ) {
     return _masterAttendanceCache;
   }
 
@@ -205,22 +253,37 @@ async function getMasterAttendanceData(forceRefresh) {
   var sanitizer = typeof window !== 'undefined' ? window.sanitizeMasterAttendancePayload : null;
   var fallback = _masterAttendanceCache;
   try {
-    var cachedStr = typeof localStorage !== 'undefined' ? localStorage.getItem('bb_master_att_cache') : null;
-    if (!cachedStr && typeof sessionStorage !== 'undefined') cachedStr = sessionStorage.getItem('bb_master_att_cache');
+    var cachedStr =
+      typeof localStorage !== 'undefined' ? localStorage.getItem('bb_master_att_cache') : null;
+    if (!cachedStr && typeof sessionStorage !== 'undefined')
+      cachedStr = sessionStorage.getItem('bb_master_att_cache');
     if (cachedStr && sanitizer) fallback = sanitizer(JSON.parse(cachedStr));
   } catch (_) {}
-  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
+  var client =
+    typeof getSupaClient === 'function'
+      ? getSupaClient()
+      : typeof window !== 'undefined' && window.getSupaClient
+        ? window.getSupaClient()
+        : typeof supa !== 'undefined'
+          ? supa
+          : typeof window !== 'undefined'
+            ? window.supa
+            : null;
   if (!client) return fallback;
-  _masterAttendanceRequest = (async function() {
+  _masterAttendanceRequest = (async function () {
     try {
-      var rows = await client.get('bb_config?key=eq.' + MASTER_ATTENDANCE_KEY + '&select=value', { cache: !forceRefresh });
+      var rows = await client.get('bb_config?key=eq.' + MASTER_ATTENDANCE_KEY + '&select=value', {
+        cache: !forceRefresh
+      });
       if (rows && rows.length && rows[0].value) {
         var value = rows[0].value;
         var parsed = typeof value === 'string' ? JSON.parse(value) : value;
         if (sanitizer) parsed = sanitizer(parsed);
         if (parsed) return cacheMasterAttendance(parsed);
       }
-    } catch (_) {}
+    } catch (err) {
+      if (!fallback) throw err;
+    }
     return fallback;
   })();
   try {
@@ -233,7 +296,8 @@ async function getMasterAttendanceData(forceRefresh) {
 function cacheMasterAttendance(data, fromStorage) {
   var prevTime = Date.parse(_masterAttendanceCache && _masterAttendanceCache.lastSynced);
   var nextTime = Date.parse(data.lastSynced);
-  if (Number.isFinite(prevTime) && (!Number.isFinite(nextTime) || nextTime < prevTime)) return _masterAttendanceCache;
+  if (Number.isFinite(prevTime) && (!Number.isFinite(nextTime) || nextTime < prevTime))
+    return _masterAttendanceCache;
   _masterAttendanceCache = data;
   _masterAttendanceCacheTime = Date.now();
   var snapshot = JSON.stringify(data);
@@ -243,7 +307,11 @@ function cacheMasterAttendance(data, fromStorage) {
     }
   } catch (_) {}
   try {
-    if (!fromStorage && typeof localStorage !== 'undefined' && localStorage.getItem('bb_master_att_cache') !== snapshot) {
+    if (
+      !fromStorage &&
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('bb_master_att_cache') !== snapshot
+    ) {
       localStorage.setItem('bb_master_att_cache', snapshot);
     }
   } catch (_) {}
@@ -271,7 +339,12 @@ async function getMemberAttendanceRecord(memberName) {
   var norm = normalizeMemberName(memberName);
   if (!norm) return null;
   if (norm === 'jeshuakoh') {
-    var sessEmail = (typeof sessionGet === 'function') ? String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase() : '';
+    var sessEmail =
+      typeof sessionGet === 'function'
+        ? String(sessionGet('email') || sessionGet('ic') || '')
+            .trim()
+            .toLowerCase()
+        : '';
     if (sessEmail !== 'jeshuakoh2008@gmail.com') {
       return null;
     }
@@ -286,20 +359,32 @@ async function getMemberAttendanceRecord(memberName) {
 
   // Filter out noise/test words so dummy or spoof accounts never bind to real member records
   var noiseWords = ['tester', 'test', 'demo', 'admin', 'fake', 'dummy'];
-  var normTokens = String(memberName).toLowerCase().split(/[^a-z0-9]+/);
-  var hasNoise = normTokens.some(function(t) { return noiseWords.includes(t); });
+  var normTokens = String(memberName)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/);
+  var hasNoise = normTokens.some(function (t) {
+    return noiseWords.includes(t);
+  });
   if (hasNoise) {
     return null;
   }
 
   // Secondary intelligent match using token-subset matching
   var keys = Object.keys(data.members);
-  var matchFn = (typeof isNameMatch === 'function')
-    ? isNameMatch
-    : (typeof window !== 'undefined' && typeof window.isNameMatch === 'function' ? window.isNameMatch : null);
+  var matchFn =
+    typeof isNameMatch === 'function'
+      ? isNameMatch
+      : typeof window !== 'undefined' && typeof window.isNameMatch === 'function'
+        ? window.isNameMatch
+        : null;
 
-  var matches = keys.filter(function(k) {
-    return k !== 'jeshuakoh' && matchFn && data.members[k].name && matchFn(memberName, data.members[k].name);
+  var matches = keys.filter(function (k) {
+    return (
+      k !== 'jeshuakoh' &&
+      matchFn &&
+      data.members[k].name &&
+      matchFn(memberName, data.members[k].name)
+    );
   });
   return matches.length === 1 ? data.members[matches[0]] : null;
 }
@@ -314,20 +399,35 @@ async function getMemberAttendanceRecord(memberName) {
 async function loadMemberAttendanceStats(memberName) {
   var container = document.getElementById('member-attendance-card');
   if (!container) return;
-  var activeMember = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : null;
+  var activeMember =
+    typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
 
-  var currentSection = (typeof sessionGet === 'function') ? (sessionGet('section') || sessionGet('att_section')) : '';
-  var currentRank = (typeof sessionGet === 'function') ? sessionGet('rank') : '';
+  var currentSection =
+    typeof sessionGet === 'function' ? sessionGet('section') || sessionGet('att_section') : '';
+  var currentRank = typeof sessionGet === 'function' ? sessionGet('rank') : '';
   var isOfficer = false;
   if (currentSection && String(currentSection).toLowerCase() === 'officer') isOfficer = true;
-  if (currentRank && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor'].includes(currentRank)) isOfficer = true;
+  if (
+    currentRank &&
+    [
+      'Officer',
+      'Lieutenant',
+      'Captain',
+      'Honarary Captain',
+      'Honorary Captain',
+      'Chaplain',
+      'Warrant Officer',
+      'Instructor'
+    ].includes(currentRank)
+  )
+    isOfficer = true;
 
   if (isOfficer) {
-    container.innerHTML = 
+    container.innerHTML =
       '<div class="att-empty-state" style="text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;">' +
-        '<div style="font-size:32px;margin-bottom:8px;">🎖️</div>' +
-        '<div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Officer Record</div>' +
-        '<div style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto;">Officers serve in supervisory appointments and do not compete on Company Squad Leaderboards or receive squad attendance points.</div>' +
+      '<div style="font-size:32px;margin-bottom:8px;">🎖️</div>' +
+      '<div style="font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Officer Record</div>' +
+      '<div style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto;">Officers serve in supervisory appointments and do not compete on Company Squad Leaderboards or receive squad attendance points.</div>' +
       '</div>';
     return;
   }
@@ -338,33 +438,58 @@ async function loadMemberAttendanceStats(memberName) {
   }
 
   // Show skeleton loading state (Pattern B)
-  container.innerHTML = 
+  container.innerHTML =
     '<div class="skeleton-shimmer" style="height:210px;border-radius:12px;padding:20px;box-sizing:border-box;" aria-hidden="true">' +
-      '<div style="display:flex;justify-content:space-between;margin-bottom:16px;">' +
-        '<div class="skeleton-shimmer skeleton-line medium" style="height:16px;margin:0;"></div>' +
-        '<div class="skeleton-shimmer skeleton-pill" style="width:60px;height:24px;"></div>' +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">' +
-        '<div class="skeleton-shimmer" style="height:65px;border-radius:8px;"></div>' +
-        '<div class="skeleton-shimmer" style="height:65px;border-radius:8px;"></div>' +
-      '</div>' +
-      '<div class="skeleton-shimmer skeleton-line full" style="height:14px;margin:0;"></div>' +
+    '<div style="display:flex;justify-content:space-between;margin-bottom:16px;">' +
+    '<div class="skeleton-shimmer skeleton-line medium" style="height:16px;margin:0;"></div>' +
+    '<div class="skeleton-shimmer skeleton-pill" style="width:60px;height:24px;"></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">' +
+    '<div class="skeleton-shimmer" style="height:65px;border-radius:8px;"></div>' +
+    '<div class="skeleton-shimmer" style="height:65px;border-radius:8px;"></div>' +
+    '</div>' +
+    '<div class="skeleton-shimmer skeleton-line full" style="height:14px;margin:0;"></div>' +
     '</div>';
 
-  var data = await getMasterAttendanceData();
-  var record = await getMemberAttendanceRecord(name);
-  if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email')) !== activeMember) return;
-  var platoons = (data && data.platoons) ? data.platoons : {};
-  var squads   = (data && data.squads) ? data.squads : {};
+  try {
+    var data = await getMasterAttendanceData();
+    var record = await getMemberAttendanceRecord(name);
+    if (
+      typeof sessionGet === 'function' &&
+      (sessionGet('ic') || sessionGet('email')) !== activeMember
+    )
+      return;
+    var platoons = data && data.platoons ? data.platoons : {};
+    var squads = data && data.squads ? data.squads : {};
 
-  if (!record) {
-    // Clean Empty State when not yet synced or member not found
-    container.innerHTML = renderEmptyAttendanceState(name, data ? data.lastSynced : null);
-    return;
+    if (!record) {
+      // Clean Empty State when not yet synced or member not found
+      container.innerHTML = renderEmptyAttendanceState(name, data ? data.lastSynced : null);
+      return;
+    }
+
+    // Member found — Render full breakdown
+    container.innerHTML = renderAttendanceBreakdownHTML(
+      record,
+      platoons,
+      squads,
+      data ? data.lastSynced : null
+    );
+  } catch (err) {
+    var errMsg = (err && err.message) || 'Failed to load attendance.';
+    var safeMsg = typeof escapeHtml === 'function' ? escapeHtml(errMsg) : errMsg;
+    container.innerHTML =
+      '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+      safeMsg +
+      '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+    var retryBtn = container.querySelector('.btn-retry');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        loadMemberAttendanceStats(memberName);
+      });
+    }
   }
-
-  // Member found — Render full breakdown
-  container.innerHTML = renderAttendanceBreakdownHTML(record, platoons, squads, data ? data.lastSynced : null);
 }
 
 /**
@@ -372,17 +497,18 @@ async function loadMemberAttendanceStats(memberName) {
  */
 function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
   var parade = rec.paradeAttendance || { percentage: 0, presentCount: 0, totalParades: 0 };
-  var band   = rec.bandAttendance   || { percentage: 0, presentCount: 0, totalSessions: 0 };
-  var points = rec.points           || { uniform: 0, uniformAvg: 0, paradeAtt: 0, bandAtt: 0, total: 0 };
+  var band = rec.bandAttendance || { percentage: 0, presentCount: 0, totalSessions: 0 };
+  var points = rec.points || { uniform: 0, uniformAvg: 0, paradeAtt: 0, bandAtt: 0, total: 0 };
   var pltName = rec.platoon || 'Alpha';
-  var isHotel = (pltName.toLowerCase().indexOf('hotel') !== -1);
-  var pltInfo = (platoons && platoons[pltName]) ? platoons[pltName] : null;
+  var isHotel = pltName.toLowerCase().indexOf('hotel') !== -1;
+  var pltInfo = platoons && platoons[pltName] ? platoons[pltName] : null;
 
   // Determine if member is a Band Member
-  var isBandMember = rec.isBandMember || 
-                     (rec.bandSection && rec.bandSection.length > 0) || 
-                     (band.percentage > 0) || 
-                     (points.bandAtt > 0);
+  var isBandMember =
+    rec.isBandMember ||
+    (rec.bandSection && rec.bandSection.length > 0) ||
+    band.percentage > 0 ||
+    points.bandAtt > 0;
 
   // Match squad standing
   var sqName = rec.squad || '';
@@ -391,7 +517,7 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
     sqInfo = squads[sqName] || squads[sqName.toUpperCase()];
     if (!sqInfo) {
       var normSq = sqName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      Object.keys(squads).forEach(function(k) {
+      Object.keys(squads).forEach(function (k) {
         if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === normSq) sqInfo = squads[k];
       });
     }
@@ -405,205 +531,244 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
   if (lastSynced) {
     try {
       var d = new Date(lastSynced);
-      syncTimeStr = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
-    } catch(e) {}
+      syncTimeStr = d.toLocaleDateString('en-MY', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (e) {}
   }
-
 
   // Uniform avg string removed per design request to show only uniform points
 
   // Platoon / Squad Standing Card HTML
   var standingCardHtml = '';
   if (isHotel) {
-    standingCardHtml = 
+    standingCardHtml =
       '<div style="background:var(--bg-card-subtle);border:1.5px solid rgba(245,158,11,0.5);border-radius:12px;padding:14px 16px;margin-bottom:6px;box-shadow:0 0 12px rgba(245,158,11,0.06);">' +
-        '<div>' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap;">' +
-            '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:7px;">' +
-              '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-              'HQ NCOs (Hotel)' +
-            '</div>' +
-            '<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.4);color:var(--accent, #f59e0b);padding:4px 10px;border-radius:20px;font-family:var(--font-headline);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;flex-shrink:0;">' +
-              '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
-              'Non-Competing' +
-            '</span>' +
-          '</div>' +
-          '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;">' +
-            'Total individual performance: <strong>' + points.total + ' pts</strong>. Hotel Platoon (HQ NCOs) is non-competing on the company squad leaderboard.' +
-          '</div>' +
-        '</div>' +
+      '<div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap;">' +
+      '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:7px;">' +
+      '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+      'HQ NCOs (Hotel)' +
+      '</div>' +
+      '<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.4);color:var(--accent, #f59e0b);padding:4px 10px;border-radius:20px;font-family:var(--font-headline);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;flex-shrink:0;">' +
+      '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' +
+      'Non-Competing' +
+      '</span>' +
+      '</div>' +
+      '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5;">' +
+      'Total individual performance: <strong>' +
+      points.total +
+      ' pts</strong>. Hotel Platoon (HQ NCOs) is non-competing on the company squad leaderboard.' +
+      '</div>' +
+      '</div>' +
       '</div>';
   } else {
-    var titleText = sqInfo ? ('Squad ' + escapeAttHtml(sqInfo.name) + ' Standing') : (escapeAttHtml(pltName) + ' Platoon Standing');
-    var rankText  = sqInfo ? ('Rank #' + escapeAttHtml(sqInfo.rank) + ' (' + escapeAttHtml(sqInfo.points) + ' Points)') : (pltInfo ? ('Rank #' + escapeAttHtml(pltInfo.rank) + ' (' + escapeAttHtml(pltInfo.averagePoints || pltInfo.totalPoints || 0) + ' Points)') : '');
-    
-    standingCardHtml = 
+    var titleText = sqInfo
+      ? 'Squad ' + escapeAttHtml(sqInfo.name) + ' Standing'
+      : escapeAttHtml(pltName) + ' Platoon Standing';
+    var rankText = sqInfo
+      ? 'Rank #' + escapeAttHtml(sqInfo.rank) + ' (' + escapeAttHtml(sqInfo.points) + ' Points)'
+      : pltInfo
+        ? 'Rank #' +
+          escapeAttHtml(pltInfo.rank) +
+          ' (' +
+          escapeAttHtml(pltInfo.averagePoints || pltInfo.totalPoints || 0) +
+          ' Points)'
+        : '';
+
+    standingCardHtml =
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:6px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-          '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
-            '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
-            titleText +
-          '</div>' +
-          '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--accent);">' +
-            rankText +
-          '</div>' +
-        '</div>' +
-        '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
-          'Your contribution: <strong>' + escapeAttHtml(points.total) + ' pts</strong> towards ' + (sqInfo ? ('Squad ' + escapeAttHtml(sqInfo.name)) : (escapeAttHtml(pltName) + ' Platoon')) + ' in the Senior Section Leaderboard.' +
-        '</div>' +
-        (pltInfo && pltInfo.averagePoints ? (
-          '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
-            '<span style="color:var(--text-secondary);">' + escapeAttHtml(pltName) + ' Platoon Average:</span>' +
-            '<span style="font-family:var(--font-headline);font-weight:700;color:var(--accent);">' + pltInfo.averagePoints + ' Points</span>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+      '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">' +
+      '<svg class="ui-icon-sm" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
+      titleText +
+      '</div>' +
+      '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--accent);">' +
+      rankText +
+      '</div>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
+      'Your contribution: <strong>' +
+      escapeAttHtml(points.total) +
+      ' pts</strong> towards ' +
+      (sqInfo ? 'Squad ' + escapeAttHtml(sqInfo.name) : escapeAttHtml(pltName) + ' Platoon') +
+      ' in the Senior Section Leaderboard.' +
+      '</div>' +
+      (pltInfo && pltInfo.averagePoints
+        ? '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;font-size:11px;">' +
+          '<span style="color:var(--text-secondary);">' +
+          escapeAttHtml(pltName) +
+          ' Platoon Average:</span>' +
+          '<span style="font-family:var(--font-headline);font-weight:700;color:var(--accent);">' +
+          pltInfo.averagePoints +
+          ' Points</span>' +
           '</div>'
-        ) : '') +
+        : '') +
       '</div>';
   }
 
   var pVisual = getTierStatusVisual(pTier);
-  var bVisual = isBandMember ? getTierStatusVisual(bTier) : getTierStatusVisual({ tier: 'non_band' });
+  var bVisual = isBandMember
+    ? getTierStatusVisual(bTier)
+    : getTierStatusVisual({ tier: 'non_band' });
 
   return (
     '<!-- Header -->' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">' +
-      '<div>' +
-        '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
-          '<svg class="ui-icon" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
-          'Attendance &amp; Points' +
-        '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">Master Sheet Sync &middot; ' + escapeAttHtml(syncTimeStr) + '</div>' +
-      '</div>' +
-      '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:5px 12px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">' +
-        '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
-        'Refresh' +
-      '</button>' +
+    '<div>' +
+    '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
+    '<svg class="ui-icon" style="color:var(--accent);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+    'Attendance &amp; Points' +
     '</div>' +
-
+    '<div style="font-size:11px;color:var(--text-muted);letter-spacing:0.5px;">Master Sheet Sync &middot; ' +
+    escapeAttHtml(syncTimeStr) +
+    '</div>' +
+    '</div>' +
+    '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:5px 12px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:5px;">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
+    'Refresh' +
+    '</button>' +
+    '</div>' +
     '<!-- 1. Hero Attendance Rate Cards -->' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;margin-bottom:14px;">' +
-      '<!-- Parade Attendance -->' +
-      '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-          '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Parade Attendance</span>' +
-          '<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' + escapeAttHtml(pTier.tooltipText) + '" aria-label="Attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
-          '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
-            pVisual.iconHtml +
-            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:' + pVisual.color + ';letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
-              escapeAttHtml(pTier.label) +
-            '</div>' +
-          '</div>' +
-          '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
-            '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;word-break:normal;">' +
-              escapeAttHtml(pTier.description) +
-            '</div>' +
-            '<div style="font-size:11px;font-weight:600;color:' + (pTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') + ';cursor:help;white-space:nowrap;" title="' + escapeAttHtml(pTier.tooltipText) + '">' +
-              'One Year Service ' + (pTier.qualifiesForOneYearService ? '&check;' : '&bull;') +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      '<!-- Band Attendance -->' +
-      '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-          '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Band Attendance</span>' +
-          (isBandMember ? ('<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' + escapeAttHtml(bTier.tooltipText) + '" aria-label="Band attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>') : '') +
-        '</div>' +
-        (isBandMember ? (
-          '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
-            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
-              bVisual.iconHtml +
-              '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:' + bVisual.color + ';letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
-                escapeAttHtml(bTier.label) +
-              '</div>' +
-            '</div>' +
-            '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
-              '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;word-break:normal;">' +
-                escapeAttHtml(bTier.description) +
-              '</div>' +
-              '<div style="font-size:11px;font-weight:600;color:' + (bTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') + ';cursor:help;white-space:nowrap;" title="' + escapeAttHtml(bTier.tooltipText) + '">' +
-                'One Year Service ' + (bTier.qualifiesForOneYearService ? '&check;' : '&bull;') +
-              '</div>' +
-            '</div>' +
-          '</div>'
-        ) : (
-          '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
-            '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
-              bVisual.iconHtml +
-              '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--text-muted);letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
-                'Non-Band' +
-              '</div>' +
-            '</div>' +
-            '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
-              '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.45;word-break:normal;">' +
-                'Not enrolled in Company Band.' +
-              '</div>' +
-              '<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">' +
-                'Band attendance N/A' +
-              '</div>' +
-            '</div>' +
-          '</div>'
-        )) +
-      '</div>' +
+    '<!-- Parade Attendance -->' +
+    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+    '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Parade Attendance</span>' +
+    '<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' +
+    escapeAttHtml(pTier.tooltipText) +
+    '" aria-label="Attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>' +
     '</div>' +
-
+    '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
+    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
+    pVisual.iconHtml +
+    '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:' +
+    pVisual.color +
+    ';letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
+    escapeAttHtml(pTier.label) +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
+    '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;word-break:normal;">' +
+    escapeAttHtml(pTier.description) +
+    '</div>' +
+    '<div style="font-size:11px;font-weight:600;color:' +
+    (pTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') +
+    ';cursor:help;white-space:nowrap;" title="' +
+    escapeAttHtml(pTier.tooltipText) +
+    '">' +
+    'One Year Service ' +
+    (pTier.qualifiesForOneYearService ? '&check;' : '&bull;') +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<!-- Band Attendance -->' +
+    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+    '<span style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;">Band Attendance</span>' +
+    (isBandMember
+      ? '<span style="display:inline-flex;align-items:center;justify-content:center;color:#ffffff;cursor:help;" title="' +
+        escapeAttHtml(bTier.tooltipText) +
+        '" aria-label="Band attendance requirements info"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>'
+      : '') +
+    '</div>' +
+    (isBandMember
+      ? '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
+        bVisual.iconHtml +
+        '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:' +
+        bVisual.color +
+        ';letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
+        escapeAttHtml(bTier.label) +
+        '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
+        '<div style="font-size:11.5px;color:var(--text-secondary);line-height:1.45;word-break:normal;">' +
+        escapeAttHtml(bTier.description) +
+        '</div>' +
+        '<div style="font-size:11px;font-weight:600;color:' +
+        (bTier.qualifiesForOneYearService ? 'var(--green, #10b981)' : 'var(--text-muted)') +
+        ';cursor:help;white-space:nowrap;" title="' +
+        escapeAttHtml(bTier.tooltipText) +
+        '">' +
+        'One Year Service ' +
+        (bTier.qualifiesForOneYearService ? '&check;' : '&bull;') +
+        '</div>' +
+        '</div>' +
+        '</div>'
+      : '<div style="display:flex;align-items:center;gap:clamp(10px, 3vw, 18px);">' +
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:clamp(80px, 24vw, 105px);flex-shrink:0;">' +
+        bVisual.iconHtml +
+        '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--text-muted);letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">' +
+        'Non-Band' +
+        '</div>' +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1;min-width:0;">' +
+        '<div style="font-size:11.5px;color:var(--text-muted);line-height:1.45;word-break:normal;">' +
+        'Not enrolled in Company Band.' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">' +
+        'Band attendance N/A' +
+        '</div>' +
+        '</div>' +
+        '</div>') +
+    '</div>' +
+    '</div>' +
     '<!-- 2. Performance Points Breakdown Grid -->' +
     '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;">' +
-      '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">Points Breakdown</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;align-items:stretch;">' +
-        '<!-- Left: Total Points Glowing Gold Card -->' +
-        '<div style="background:linear-gradient(135deg, rgba(245,197,66,0.14), rgba(245,197,66,0.04));border:1.5px solid rgba(245,197,66,0.5);border-radius:12px;box-shadow:0 0 16px rgba(245,197,66,0.18), inset 0 0 12px rgba(245,197,66,0.06);padding:18px 20px;display:flex;align-items:center;justify-content:center;min-height:78px;">' +
-          '<div style="font-family:var(--font-headline);font-size:22px;font-weight:800;color:var(--brand-gold, #f5c542);letter-spacing:0.5px;text-align:center;">' +
-            points.total + ' Total Points' +
-          '</div>' +
-        '</div>' +
-
-        '<!-- Right: 3 Column Metrics with Dividers -->' +
-        '<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:0;align-items:stretch;">' +
-          '<!-- Uniform Points -->' +
-          '<div style="padding:6px 6px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
-            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
-              '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Uniform Points</span>' +
-              '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(59,130,246,0.18);color:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Uniform Points">' +
-                '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
-              '</div>' +
-            '</div>' +
-            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--blue, #3b82f6);line-height:1.1;">' +
-              points.uniform +
-            '</div>' +
-          '</div>' +
-
-          '<!-- Parade Points -->' +
-          '<div style="padding:6px 6px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
-            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
-              '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Parade Points</span>' +
-              '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(16,185,129,0.18);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Parade Points">' +
-                '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
-              '</div>' +
-            '</div>' +
-            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--green, #10b981);line-height:1.1;">' +
-              points.paradeAtt +
-            '</div>' +
-          '</div>' +
-
-          '<!-- Band Points -->' +
-          '<div style="padding:6px 6px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
-            '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
-              '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Band Points</span>' +
-              '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(245,197,66,0.18);color:#f5c542;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Band Points">' +
-                '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
-              '</div>' +
-            '</div>' +
-            '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--accent, #f5c542);line-height:1.1;">' +
-              points.bandAtt +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
+    '<div style="font-family:var(--font-headline);font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;">Points Breakdown</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;align-items:stretch;">' +
+    '<!-- Left: Total Points Glowing Gold Card -->' +
+    '<div style="background:linear-gradient(135deg, rgba(245,197,66,0.14), rgba(245,197,66,0.04));border:1.5px solid rgba(245,197,66,0.5);border-radius:12px;box-shadow:0 0 16px rgba(245,197,66,0.18), inset 0 0 12px rgba(245,197,66,0.06);padding:18px 20px;display:flex;align-items:center;justify-content:center;min-height:78px;">' +
+    '<div style="font-family:var(--font-headline);font-size:22px;font-weight:800;color:var(--brand-gold, #f5c542);letter-spacing:0.5px;text-align:center;">' +
+    points.total +
+    ' Total Points' +
     '</div>' +
-
+    '</div>' +
+    '<!-- Right: 3 Column Metrics with Dividers -->' +
+    '<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:0;align-items:stretch;">' +
+    '<!-- Uniform Points -->' +
+    '<div style="padding:6px 6px;display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
+    '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Uniform Points</span>' +
+    '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(59,130,246,0.18);color:#3b82f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Uniform Points">' +
+    '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+    '</div>' +
+    '</div>' +
+    '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--blue, #3b82f6);line-height:1.1;">' +
+    points.uniform +
+    '</div>' +
+    '</div>' +
+    '<!-- Parade Points -->' +
+    '<div style="padding:6px 6px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
+    '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Parade Points</span>' +
+    '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(16,185,129,0.18);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Parade Points">' +
+    '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>' +
+    '</div>' +
+    '</div>' +
+    '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--green, #10b981);line-height:1.1;">' +
+    points.paradeAtt +
+    '</div>' +
+    '</div>' +
+    '<!-- Band Points -->' +
+    '<div style="padding:6px 6px;border-left:1px solid var(--border-subtle);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0;">' +
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px;min-height:28px;">' +
+    '<span style="font-size:9.5px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.2px;line-height:1.2;min-width:0;flex:1;word-break:break-word;">Band Points</span>' +
+    '<div style="width:20px;height:20px;min-width:20px;border-radius:5px;background:rgba(245,197,66,0.18);color:#f5c542;display:flex;align-items:center;justify-content:center;flex-shrink:0;" title="Band Points">' +
+    '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>' +
+    '</div>' +
+    '</div>' +
+    '<div style="font-family:var(--font-headline);font-size:24px;font-weight:800;color:var(--accent, #f5c542);line-height:1.1;">' +
+    points.bandAtt +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
     '<!-- 3. Platoon / Squad Standing -->' +
     standingCardHtml
   );
@@ -613,25 +778,31 @@ function renderAttendanceBreakdownHTML(rec, platoons, squads, lastSynced) {
  * Clean Empty State when member data has not yet synced from the Google Sheet
  */
 function renderEmptyAttendanceState(name, lastSynced) {
-  var syncText = lastSynced ? 'Last sheet sync: ' + new Date(lastSynced).toLocaleDateString() : 'Sheet sync pending';
+  var syncText = lastSynced
+    ? 'Last sheet sync: ' + new Date(lastSynced).toLocaleDateString()
+    : 'Sheet sync pending';
   return (
     '<div style="padding:22px 18px;text-align:center;">' +
-      '<div style="margin:0 auto 12px;width:50px;height:50px;border-radius:50%;background:rgba(217,163,35,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid rgba(217,163,35,0.3);">' +
-        '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-      '</div>' +
-      '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">' +
-        'Not Registered in Master Attendance Sheet' +
-      '</div>' +
-      '<div style="font-size:12.5px;color:var(--text-secondary);max-width:420px;margin:0 auto 14px;line-height:1.6;">' +
-        'Welcome, <strong>' + escapeAttHtml(name || 'Member') + '</strong>. Your portal account is active, but your member name is not registered in the Company Master Attendance Sheet. Your parade attendance and squad points will sync automatically once an officer adds your name to your platoon roster in the Master Sheet.' +
-      '</div>' +
-      '<div style="display:inline-flex;gap:8px;align-items:center;">' +
-        '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:7px 16px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
-          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
-          'Check Sheet Again' +
-        '</button>' +
-      '</div>' +
-      '<div style="font-size:10px;color:var(--text-muted);margin-top:10px;">' + syncText + '</div>' +
+    '<div style="margin:0 auto 12px;width:50px;height:50px;border-radius:50%;background:rgba(217,163,35,0.12);display:flex;align-items:center;justify-content:center;color:var(--accent);border:1px solid rgba(217,163,35,0.3);">' +
+    '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+    '</div>' +
+    '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">' +
+    'Not Registered in Master Attendance Sheet' +
+    '</div>' +
+    '<div style="font-size:12.5px;color:var(--text-secondary);max-width:420px;margin:0 auto 14px;line-height:1.6;">' +
+    'Welcome, <strong>' +
+    escapeAttHtml(name || 'Member') +
+    '</strong>. Your portal account is active, but your member name is not registered in the Company Master Attendance Sheet. Your parade attendance and squad points will sync automatically once an officer adds your name to your platoon roster in the Master Sheet.' +
+    '</div>' +
+    '<div style="display:inline-flex;gap:8px;align-items:center;">' +
+    '<button onclick="refreshMemberAttendanceStats()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:7px 16px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
+    'Check Sheet Again' +
+    '</button>' +
+    '</div>' +
+    '<div style="font-size:10px;color:var(--text-muted);margin-top:10px;">' +
+    syncText +
+    '</div>' +
     '</div>'
   );
 }
@@ -654,181 +825,245 @@ async function renderAdminMasterSheetPanel() {
   var container = document.getElementById('adm-master-sheet-panel');
   if (!container) return;
 
-  var data = await getMasterAttendanceData(true);
+  var data = null;
+  try {
+    data = await getMasterAttendanceData(true);
+  } catch (_) {
+    data = _masterAttendanceCache || null;
+  }
 
-  var memberCount = data && data.totalMembers ? data.totalMembers : (data && data.members ? Object.keys(data.members).length : 0);
-  var syncDate = data && data.lastSynced ? new Date(data.lastSynced).toLocaleString() : 'Never synced';
+  var memberCount =
+    data && data.totalMembers
+      ? data.totalMembers
+      : data && data.members
+        ? Object.keys(data.members).length
+        : 0;
+  var syncDate =
+    data && data.lastSynced ? new Date(data.lastSynced).toLocaleString() : 'Never synced';
   var sheetName = data && data.sheetTitle ? data.sheetTitle : 'Google Master Sheet';
 
   var squadList = getCompetingSquadStandings(data);
 
-
   // Calculate platoon averages (excluding Hotel)
   var pltSums = {};
-  squadList.forEach(function(sq) {
+  squadList.forEach(function (sq) {
     var p = getPlatoonStyle(sq.name).plt;
     if (!pltSums[p]) pltSums[p] = { sum: 0, count: 0 };
-    pltSums[p].sum += (sq.points || 0);
+    pltSums[p].sum += sq.points || 0;
     pltSums[p].count += 1;
   });
 
-  var pltAverages = Object.keys(pltSums).map(function(p) {
-    return { name: p, avg: Math.round(pltSums[p].sum / (pltSums[p].count || 1)) };
-  }).sort(function(a, b) { return b.avg - a.avg; });
+  var pltAverages = Object.keys(pltSums)
+    .map(function (p) {
+      return { name: p, avg: Math.round(pltSums[p].sum / (pltSums[p].count || 1)) };
+    })
+    .sort(function (a, b) {
+      return b.avg - a.avg;
+    });
 
   var cfg = { sheetId: '', scriptUrl: '', syncToken: '' };
-  var loadConfigFn = (typeof window !== 'undefined' && typeof window.loadMasterSheetConfig === 'function')
-    ? window.loadMasterSheetConfig
-    : ((typeof global !== 'undefined' && typeof global.loadMasterSheetConfig === 'function') ? global.loadMasterSheetConfig : null);
+  var loadConfigFn =
+    typeof window !== 'undefined' && typeof window.loadMasterSheetConfig === 'function'
+      ? window.loadMasterSheetConfig
+      : typeof global !== 'undefined' && typeof global.loadMasterSheetConfig === 'function'
+        ? global.loadMasterSheetConfig
+        : null;
   if (loadConfigFn) {
-    try { cfg = await loadConfigFn(); } catch (eCfg) {}
+    try {
+      cfg = await loadConfigFn();
+    } catch (eCfg) {}
   }
 
-  var supaUrl = (typeof SUPA_URL !== 'undefined') ? SUPA_URL : (typeof window.SUPA_URL !== 'undefined' ? window.SUPA_URL : 'YOUR_SUPABASE_PROJECT_URL');
-  var supaKey = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window.SUPA_KEY !== 'undefined' ? window.SUPA_KEY : 'YOUR_SUPABASE_ANON_KEY');
-  var getTemplateFn = (typeof window !== 'undefined' && typeof window.getGoogleAppsScriptTemplate === 'function') ? window.getGoogleAppsScriptTemplate : null;
-  var scriptCode = getTemplateFn 
-    ? getTemplateFn(supaUrl, supaKey, cfg.syncToken) 
+  var supaUrl =
+    typeof SUPA_URL !== 'undefined'
+      ? SUPA_URL
+      : typeof window.SUPA_URL !== 'undefined'
+        ? window.SUPA_URL
+        : 'YOUR_SUPABASE_PROJECT_URL';
+  var supaKey =
+    typeof SUPA_KEY !== 'undefined'
+      ? SUPA_KEY
+      : typeof window.SUPA_KEY !== 'undefined'
+        ? window.SUPA_KEY
+        : 'YOUR_SUPABASE_ANON_KEY';
+  var getTemplateFn =
+    typeof window !== 'undefined' && typeof window.getGoogleAppsScriptTemplate === 'function'
+      ? window.getGoogleAppsScriptTemplate
+      : null;
+  var scriptCode = getTemplateFn
+    ? getTemplateFn(supaUrl, supaKey, cfg.syncToken)
     : '// Copy from js/api/sheets.js';
 
   container.innerHTML =
     '<!-- Sync Status Card -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow-card);">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
-        '<div style="display:flex;align-items:center;gap:10px;">' +
-          '<div style="width:38px;height:38px;border-radius:50%;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:var(--green);display:flex;align-items:center;justify-content:center;">' +
-            '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>' +
-          '</div>' +
-          '<div>' +
-            '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeAttHtml(sheetName) + '</div>' +
-            '<div style="font-size:11px;color:var(--text-muted);">Last Synced: ' + escapeAttHtml(syncDate) + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<button onclick="triggerMasterSheetFetch()" id="btn-adm-sync-sheet" style="background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
-          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
-          'Sync Now' +
-        '</button>' +
-      '</div>' +
-
-      '<!-- Squad Standings Summary -->' +
-      '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">' +
-        'Squad Leader Board (' + memberCount + ' Synced Members)' +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:8px;margin-bottom:10px;">' +
-        (squadList.length ? '' : '<p>No squad standings have been synced.</p>') +
-        squadList.map(function(sq) {
-          var st = getPlatoonStyle(sq.name);
-          return (
-            '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;">' +
-              '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                '<span style="font-size:12px;font-weight:700;color:var(--text-primary);">' + escapeAttHtml(sq.name) + '</span>' +
-                '<span style="font-size:10px;font-weight:700;color:var(--accent);">#' + (sq.displayRank || sq.rank || '-') + '</span>' +
-              '</div>' +
-              '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' +
-                (sq.points || 0) + ' Points' +
-              '</div>' +
-              '<div style="font-size:10px;color:var(--text-muted);">' + escapeAttHtml(st.plt) + ' Platoon</div>' +
-            '</div>'
-          );
-        }).join('') +
-      '</div>' +
-
-      '<!-- Platoon Averages Summary -->' +
-      '<div style="display:flex;gap:12px;align-items:center;background:var(--bg-card-subtle);border:1px solid var(--border-card);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--text-secondary);margin-bottom:2px;flex-wrap:wrap;">' +
-        '<strong style="color:var(--text-primary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Platoon Averages:</strong>' +
-        pltAverages.map(function(pa) {
-          var st = getPlatoonStyle(pa.name);
-          return '<span>' + escapeAttHtml(pa.name) + ': <strong style="color:' + st.color + ';">' + pa.avg + ' pts</strong></span>';
-        }).join('<span style="color:var(--text-muted);">&bull;</span>') +
-      '</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<div style="width:38px;height:38px;border-radius:50%;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:var(--green);display:flex;align-items:center;justify-content:center;">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>' +
     '</div>' +
-
+    '<div>' +
+    '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">' +
+    escapeAttHtml(sheetName) +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--text-muted);">Last Synced: ' +
+    escapeAttHtml(syncDate) +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<button onclick="triggerMasterSheetFetch()" id="btn-adm-sync-sheet" style="background:var(--accent);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-family:var(--font-headline);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>' +
+    'Sync Now' +
+    '</button>' +
+    '</div>' +
+    '<!-- Squad Standings Summary -->' +
+    '<div style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">' +
+    'Squad Leader Board (' +
+    memberCount +
+    ' Synced Members)' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));gap:8px;margin-bottom:10px;">' +
+    (squadList.length ? '' : '<p>No squad standings have been synced.</p>') +
+    squadList
+      .map(function (sq) {
+        var st = getPlatoonStyle(sq.name);
+        return (
+          '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<span style="font-size:12px;font-weight:700;color:var(--text-primary);">' +
+          escapeAttHtml(sq.name) +
+          '</span>' +
+          '<span style="font-size:10px;font-weight:700;color:var(--accent);">#' +
+          (sq.displayRank || sq.rank || '-') +
+          '</span>' +
+          '</div>' +
+          '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' +
+          st.color +
+          ';margin-top:2px;">' +
+          (sq.points || 0) +
+          ' Points' +
+          '</div>' +
+          '<div style="font-size:10px;color:var(--text-muted);">' +
+          escapeAttHtml(st.plt) +
+          ' Platoon</div>' +
+          '</div>'
+        );
+      })
+      .join('') +
+    '</div>' +
+    '<!-- Platoon Averages Summary -->' +
+    '<div style="display:flex;gap:12px;align-items:center;background:var(--bg-card-subtle);border:1px solid var(--border-card);padding:8px 12px;border-radius:6px;font-size:11px;color:var(--text-secondary);margin-bottom:2px;flex-wrap:wrap;">' +
+    '<strong style="color:var(--text-primary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;">Platoon Averages:</strong>' +
+    pltAverages
+      .map(function (pa) {
+        var st = getPlatoonStyle(pa.name);
+        return (
+          '<span>' +
+          escapeAttHtml(pa.name) +
+          ': <strong style="color:' +
+          st.color +
+          ';">' +
+          pa.avg +
+          ' pts</strong></span>'
+        );
+      })
+      .join('<span style="color:var(--text-muted);">&bull;</span>') +
+    '</div>' +
+    '</div>' +
     '<!-- Master Sheet Security & Endpoint Hardening -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow-card);">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
-        '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
-          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-          'Endpoint Security &amp; Master Sheet Hardening' +
-        '</div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-          '<span style="font-size:10px;background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
-            '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>' +
-            'Zero-PII Whitelist' +
-          '</span>' +
-          '<span style="font-size:10px;background:rgba(197,155,39,0.12);color:var(--accent);border:1px solid rgba(197,155,39,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
-            '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;"></span>' +
-            'Token Auth Enforced' +
-          '</span>' +
-          '<span style="font-size:10px;background:rgba(59,130,246,0.12);color:var(--blue);border:1px solid rgba(59,130,246,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
-            '<span style="width:6px;height:6px;border-radius:50%;background:var(--blue);display:inline-block;"></span>' +
-            'Restricted Sharing' +
-          '</span>' +
-        '</div>' +
-      '</div>' +
-      '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">' +
-        'To protect member privacy (PDPA / COPPA), the portal integration strips all sensitive PII (parent phone numbers, home addresses, IC numbers) and authenticates all sync requests with a shared-secret proxy token.' +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
-        '<div>' +
-          '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-script-url-input">Google Apps Script Web App URL</label>' +
-          '<input type="text" id="master-script-url-input" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" value="' + escapeAttHtml(cfg.scriptUrl || '') + '" style="font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" />' +
-        '</div>' +
-        '<div>' +
-          '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-sheet-id-input">Google Master Sheet ID (Optional)</label>' +
-          '<input type="text" id="master-sheet-id-input" class="form-input" placeholder="e.g. 1a2B3c4D5e6F7g..." value="' + escapeAttHtml(cfg.sheetId || '') + '" style="font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" />' +
-        '</div>' +
-      '</div>' +
-      '<div style="margin-bottom:14px;">' +
-        '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-sync-token-input">Shared-Secret Proxy Sync Token (Protects against unauthorized scraping)</label>' +
-        '<div style="display:flex;gap:8px;align-items:center;">' +
-          '<input type="text" id="master-sync-token-input" class="form-input" placeholder="bb_sec_..." value="' + escapeAttHtml(cfg.syncToken || '') + '" style="font-size:12px;padding:7px 10px;flex:1;font-family:var(--font-body);font-variant-numeric:tabular-nums;box-sizing:border-box;" />' +
-          '<button type="button" onclick="generateNewMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Generate Token</button>' +
-          '<button type="button" onclick="copyMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Copy Token</button>' +
-        '</div>' +
-      '</div>' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding-top:10px;border-top:1px solid var(--border-card);">' +
-        '<div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">' +
-          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-          'Ensure the Master Google Sheet is set to <strong>Restricted</strong> sharing (never "Anyone with link").' +
-        '</div>' +
-        '<button type="button" id="btn-save-master-config" onclick="handleSaveMasterConfig()" class="portal-btn portal-btn-primary" style="padding:7px 18px;font-size:12px;font-family:var(--font-headline);font-weight:700;">Save Configuration</button>' +
-      '</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
+    '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+    'Endpoint Security &amp; Master Sheet Hardening' +
+    '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+    '<span style="font-size:10px;background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+    '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>' +
+    'Zero-PII Whitelist' +
+    '</span>' +
+    '<span style="font-size:10px;background:rgba(197,155,39,0.12);color:var(--accent);border:1px solid rgba(197,155,39,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+    '<span style="width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block;"></span>' +
+    'Token Auth Enforced' +
+    '</span>' +
+    '<span style="font-size:10px;background:rgba(59,130,246,0.12);color:var(--blue);border:1px solid rgba(59,130,246,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+    '<span style="width:6px;height:6px;border-radius:50%;background:var(--blue);display:inline-block;"></span>' +
+    'Restricted Sharing' +
+    '</span>' +
+    '</div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">' +
+    'To protect member privacy (PDPA / COPPA), the portal integration strips all sensitive PII (parent phone numbers, home addresses, IC numbers) and authenticates all sync requests with a shared-secret proxy token.' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
+    '<div>' +
+    '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-script-url-input">Google Apps Script Web App URL</label>' +
+    '<input type="text" id="master-script-url-input" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" value="' +
+    escapeAttHtml(cfg.scriptUrl || '') +
+    '" style="font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" />' +
+    '</div>' +
+    '<div>' +
+    '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-sheet-id-input">Google Master Sheet ID (Optional)</label>' +
+    '<input type="text" id="master-sheet-id-input" class="form-input" placeholder="e.g. 1a2B3c4D5e6F7g..." value="' +
+    escapeAttHtml(cfg.sheetId || '') +
+    '" style="font-size:12px;padding:7px 10px;width:100%;box-sizing:border-box;" />' +
+    '</div>' +
+    '</div>' +
+    '<div style="margin-bottom:14px;">' +
+    '<label style="display:block;font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;" for="master-sync-token-input">Shared-Secret Proxy Sync Token (Protects against unauthorized scraping)</label>' +
+    '<div style="display:flex;gap:8px;align-items:center;">' +
+    '<input type="text" id="master-sync-token-input" class="form-input" placeholder="bb_sec_..." value="' +
+    escapeAttHtml(cfg.syncToken || '') +
+    '" style="font-size:12px;padding:7px 10px;flex:1;font-family:var(--font-body);font-variant-numeric:tabular-nums;box-sizing:border-box;" />' +
+    '<button type="button" onclick="generateNewMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Generate Token</button>' +
+    '<button type="button" onclick="copyMasterSyncToken()" class="portal-btn portal-btn-secondary" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Copy Token</button>' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding-top:10px;border-top:1px solid var(--border-card);">' +
+    '<div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+    'Ensure the Master Google Sheet is set to <strong>Restricted</strong> sharing (never "Anyone with link").' +
+    '</div>' +
+    '<button type="button" id="btn-save-master-config" onclick="handleSaveMasterConfig()" class="portal-btn portal-btn-primary" style="padding:7px 18px;font-size:12px;font-family:var(--font-headline);font-weight:700;">Save Configuration</button>' +
+    '</div>' +
     '</div>' +
     '<!-- Configuration & Apps Script Instructions -->' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:16px;box-shadow:var(--shadow-card);">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
-        '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
-          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
-          'Google Apps Script Setup &amp; Background Auto-Sync' +
-        '</div>' +
-        '<span style="font-size:10px;background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
-          '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>' +
-          'Auto-Sync Capable' +
-        '</span>' +
-      '</div>' +
-      '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">' +
-        '1. Open your <strong>Master Attendance Google Sheet</strong>.<br>' +
-        '2. Click <strong>Extensions &gt; Apps Script</strong>.<br>' +
-        '3. Replace any existing code with the snippet below and click <strong>Save</strong> (disk icon).<br>' +
-        '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, click <strong>Enable Immediate Auto-Sync (On Edit &amp; Change)</strong> (approve Google authorization when prompted), or set a background trigger.<br>' +
-        '5. The spreadsheet will automatically sync attendance and leaderboard scores to the portal in the background.' +
-      '</div>' +
-
-      '<div style="display:flex;justify-content:flex-end;margin-bottom:6px;">' +
-        '<button onclick="copyAppsScriptSnippet()" id="btn-copy-gas" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
-          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
-          'Copy Code' +
-        '</button>' +
-      '</div>' +
-
-      '<pre id="gas-snippet-pre" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:12px;font-size:11px;color:#66bb6a;font-family:var(--font-body);font-variant-numeric:tabular-nums;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:0;">' +
-        escapeAttHtml(scriptCode) +
-      '</pre>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">' +
+    '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+    'Google Apps Script Setup &amp; Background Auto-Sync' +
+    '</div>' +
+    '<span style="font-size:10px;background:rgba(16,185,129,0.12);color:var(--green);border:1px solid rgba(16,185,129,0.3);padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+    '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;"></span>' +
+    'Auto-Sync Capable' +
+    '</span>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px;">' +
+    '1. Open your <strong>Master Attendance Google Sheet</strong>.<br>' +
+    '2. Click <strong>Extensions &gt; Apps Script</strong>.<br>' +
+    '3. Replace any existing code with the snippet below and click <strong>Save</strong> (disk icon).<br>' +
+    '4. Reload your Google Sheet. Under the new <strong>BB Portal</strong> menu, click <strong>Enable Immediate Auto-Sync (On Edit &amp; Change)</strong> (approve Google authorization when prompted), or set a background trigger.<br>' +
+    '5. The spreadsheet will automatically sync attendance and leaderboard scores to the portal in the background.' +
+    '</div>' +
+    '<div style="display:flex;justify-content:flex-end;margin-bottom:6px;">' +
+    '<button onclick="copyAppsScriptSnippet()" id="btn-copy-gas" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--accent);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+    'Copy Code' +
+    '</button>' +
+    '</div>' +
+    '<pre id="gas-snippet-pre" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:12px;font-size:11px;color:#66bb6a;font-family:var(--font-body);font-variant-numeric:tabular-nums;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;margin:0;">' +
+    escapeAttHtml(scriptCode) +
+    '</pre>' +
     '</div>';
 }
 
 function escapeAttHtml(str) {
-  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function' && window.escapeHtml !== escapeAttHtml) {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.escapeHtml === 'function' &&
+    window.escapeHtml !== escapeAttHtml
+  ) {
     return window.escapeHtml(str);
   }
   if (!str) return '';
@@ -871,23 +1106,30 @@ async function copyAppsScriptSnippet() {
   var btn = document.getElementById('btn-copy-gas');
   if (success) {
     if (btn) {
-      btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied';
-      setTimeout(function() {
-        btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Code';
+      btn.innerHTML =
+        '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied';
+      setTimeout(function () {
+        btn.innerHTML =
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Code';
       }, 2500);
     }
   } else {
-    if (typeof showToast === 'function') showToast('Please select and copy the code manually from the box below.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please select and copy the code manually from the box below.', 'warning');
   }
 }
 
 function generateNewMasterSyncToken() {
-  var genFn = (typeof window !== 'undefined' && typeof window.generateSecureSyncToken === 'function') ? window.generateSecureSyncToken : null;
+  var genFn =
+    typeof window !== 'undefined' && typeof window.generateSecureSyncToken === 'function'
+      ? window.generateSecureSyncToken
+      : null;
   if (genFn) {
     var newToken = genFn();
     var inp = document.getElementById('master-sync-token-input');
     if (inp) inp.value = newToken;
-    if (typeof showToast === 'function') showToast('New secure sync token generated. Click Save Configuration to persist.', 'info');
+    if (typeof showToast === 'function')
+      showToast('New secure sync token generated. Click Save Configuration to persist.', 'info');
   }
 }
 
@@ -909,24 +1151,38 @@ async function copyMasterSyncToken() {
     } catch (e2) {}
   }
   if (typeof showToast === 'function') {
-    showToast(success ? 'Sync token copied to clipboard!' : 'Sync token could not be copied.', success ? 'success' : 'error');
+    showToast(
+      success ? 'Sync token copied to clipboard!' : 'Sync token could not be copied.',
+      success ? 'success' : 'error'
+    );
   }
 }
 
 async function handleSaveMasterConfig() {
-  if (typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) return;
+  if (
+    typeof window.authorizeAdminMutation === 'function' &&
+    !(await window.authorizeAdminMutation('attendance'))
+  )
+    return;
   var sid = ((document.getElementById('master-sheet-id-input') || {}).value || '').trim();
   var url = ((document.getElementById('master-script-url-input') || {}).value || '').trim();
   var tok = ((document.getElementById('master-sync-token-input') || {}).value || '').trim();
 
-  var saveFn = (typeof window !== 'undefined' && typeof window.saveMasterSheetConfig === 'function') ? window.saveMasterSheetConfig : null;
+  var saveFn =
+    typeof window !== 'undefined' && typeof window.saveMasterSheetConfig === 'function'
+      ? window.saveMasterSheetConfig
+      : null;
   var btn = document.getElementById('btn-save-master-config');
   if (!saveFn || (btn && btn.disabled)) return;
   try {
-    await withSmartButtonLock(btn, async function() {
-      await saveFn({ sheetId: sid, scriptUrl: url, syncToken: tok, autoSync: true });
-      await renderAdminMasterSheetPanel();
-    }, { loadingText: 'Saving...' });
+    await withSmartButtonLock(
+      btn,
+      async function () {
+        await saveFn({ sheetId: sid, scriptUrl: url, syncToken: tok, autoSync: true });
+        await renderAdminMasterSheetPanel();
+      },
+      { loadingText: 'Saving...' }
+    );
   } catch (err) {
     if (typeof showToast === 'function') showToast(err.message, 'error');
   }
@@ -946,16 +1202,28 @@ async function triggerMasterSheetFetch() {
   }
 
   try {
-    if (typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) return;
+    if (
+      typeof window.authorizeAdminMutation === 'function' &&
+      !(await window.authorizeAdminMutation('attendance'))
+    )
+      return;
     if (typeof window.fetchMasterAttendanceFromGAS !== 'function') {
       throw new Error('Master Sheet sync is unavailable.');
     }
     var data;
-    if (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') {
-      data = await navigator.locks.request('bb_master_attendance_import', { ifAvailable: true }, function(lock) {
-        if (!lock) throw new Error('Master Sheet sync is already running in another tab.');
-        return window.fetchMasterAttendanceFromGAS();
-      });
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.locks &&
+      typeof navigator.locks.request === 'function'
+    ) {
+      data = await navigator.locks.request(
+        'bb_master_attendance_import',
+        { ifAvailable: true },
+        function (lock) {
+          if (!lock) throw new Error('Master Sheet sync is already running in another tab.');
+          return window.fetchMasterAttendanceFromGAS();
+        }
+      );
     } else {
       data = await window.fetchMasterAttendanceFromGAS();
     }
@@ -985,7 +1253,8 @@ async function triggerMasterSheetFetch() {
       setButtonLoading(btn, false);
     } else if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Sync Now';
+      btn.innerHTML =
+        '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Sync Now';
     }
   }
 }
@@ -1004,9 +1273,7 @@ function toggleSquadRoster(rosterId) {
   el.style.display = isExpanded ? 'none' : 'block';
   var btn = document.querySelector('[data-roster-btn="' + rosterId + '"]');
   if (btn) {
-    btn.innerHTML = isExpanded 
-      ? 'View Squad Members &darr;' 
-      : 'Hide Squad Members &uarr;';
+    btn.innerHTML = isExpanded ? 'View Squad Members &darr;' : 'Hide Squad Members &uarr;';
     btn.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
   }
 }
@@ -1020,10 +1287,11 @@ function toggleSquadRoster(rosterId) {
 async function renderCompanyLeaderboard() {
   var c = document.getElementById('company-platoon-leaderboard');
   if (!c) return;
-  var viewerId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : null;
+  var viewerId = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
 
   var data = await getMasterAttendanceData();
-  if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email')) !== viewerId) return;
+  if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email')) !== viewerId)
+    return;
   var squadList = getCompetingSquadStandings(data);
   if (!squadList.length) {
     c.innerHTML = '<p role="status">No squad standings have been synced.</p>';
@@ -1039,16 +1307,27 @@ async function renderCompanyLeaderboard() {
   // Build lookup of members who have registered an account (live Supabase fetch + local cache fallback)
   var registeredMembersList = [];
   try {
-    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+    var client =
+      typeof supa !== 'undefined'
+        ? supa
+        : typeof getSupabaseClient === 'function'
+          ? getSupabaseClient()
+          : null;
     if (client && typeof client.get === 'function') {
-      var dbMems = await client.get('bb_members?select=ic,email,name,rank,squad,section,att_section,department&order=name.asc');
+      var dbMems = await client.get(
+        'bb_members?select=ic,email,name,rank,squad,section,att_section,department&order=name.asc'
+      );
       if (Array.isArray(dbMems) && dbMems.length > 0) {
-        var cleanMems = dbMems.filter(function(m) {
-          return typeof isDeletedOrTestAccount === 'function' ? !isDeletedOrTestAccount(m) : (m && m.department !== 'deleted' && m.rank !== 'Deleted');
+        var cleanMems = dbMems.filter(function (m) {
+          return typeof isDeletedOrTestAccount === 'function'
+            ? !isDeletedOrTestAccount(m)
+            : m && m.department !== 'deleted' && m.rank !== 'Deleted';
         });
         registeredMembersList = cleanMems;
         if (typeof localStorage !== 'undefined') {
-          try { localStorage.setItem('bb_members_cache', JSON.stringify(cleanMems)); } catch (_) {}
+          try {
+            localStorage.setItem('bb_members_cache', JSON.stringify(cleanMems));
+          } catch (_) {}
         }
       }
     }
@@ -1058,12 +1337,15 @@ async function renderCompanyLeaderboard() {
 
   if (registeredMembersList.length === 0 && typeof localStorage !== 'undefined') {
     try {
-      var rawMems = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+      var rawMems =
+        localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
       if (rawMems) {
         var parsedCache = JSON.parse(rawMems);
         if (Array.isArray(parsedCache)) {
-          registeredMembersList = parsedCache.filter(function(m) {
-            return typeof isDeletedOrTestAccount === 'function' ? !isDeletedOrTestAccount(m) : (m && m.department !== 'deleted' && m.rank !== 'Deleted');
+          registeredMembersList = parsedCache.filter(function (m) {
+            return typeof isDeletedOrTestAccount === 'function'
+              ? !isDeletedOrTestAccount(m)
+              : m && m.department !== 'deleted' && m.rank !== 'Deleted';
           });
         }
       }
@@ -1071,15 +1353,21 @@ async function renderCompanyLeaderboard() {
   }
 
   if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
-    window._cachedDepartmentMembers.forEach(function(dm) {
-      if (dm && (typeof isDeletedOrTestAccount === 'function' ? !isDeletedOrTestAccount(dm) : true) && !registeredMembersList.some(function(rm) { return (rm.ic && rm.ic === dm.ic) || (rm.email && rm.email === dm.email); })) {
+    window._cachedDepartmentMembers.forEach(function (dm) {
+      if (
+        dm &&
+        (typeof isDeletedOrTestAccount === 'function' ? !isDeletedOrTestAccount(dm) : true) &&
+        !registeredMembersList.some(function (rm) {
+          return (rm.ic && rm.ic === dm.ic) || (rm.email && rm.email === dm.email);
+        })
+      ) {
         registeredMembersList.push(dm);
       }
     });
   }
 
   var registeredMembersMap = {};
-  registeredMembersList.forEach(function(rm) {
+  registeredMembersList.forEach(function (rm) {
     if (rm && rm.name) registeredMembersMap[rm.name.trim().toLowerCase()] = rm;
     if (rm && rm.ic) registeredMembersMap[String(rm.ic).trim().toLowerCase()] = rm;
     if (rm && rm.email) registeredMembersMap[String(rm.email).trim().toLowerCase()] = rm;
@@ -1087,19 +1375,26 @@ async function renderCompanyLeaderboard() {
 
   function findRegisteredMemberMatch(searchName, searchIc) {
     if (!searchName && !searchIc) return null;
-    var sName = String(searchName || '').trim().toLowerCase();
-    var sIc = String(searchIc || '').trim().toLowerCase();
+    var sName = String(searchName || '')
+      .trim()
+      .toLowerCase();
+    var sIc = String(searchIc || '')
+      .trim()
+      .toLowerCase();
 
     // 1. Exact lookup
     if (sIc && registeredMembersMap[sIc]) return registeredMembersMap[sIc];
     if (sName && registeredMembersMap[sName]) return registeredMembersMap[sName];
 
     // 2. Intelligent name match (e.g. Oliver Ling -> OLIVER LING CHEE SHENG)
-    var matchFn = (typeof isNameMatch === 'function')
-      ? isNameMatch
-      : (typeof window !== 'undefined' && typeof window.isNameMatch === 'function'
+    var matchFn =
+      typeof isNameMatch === 'function'
+        ? isNameMatch
+        : typeof window !== 'undefined' && typeof window.isNameMatch === 'function'
           ? window.isNameMatch
-          : (typeof global !== 'undefined' && typeof global.isNameMatch === 'function' ? global.isNameMatch : null));
+          : typeof global !== 'undefined' && typeof global.isNameMatch === 'function'
+            ? global.isNameMatch
+            : null;
 
     if (sName && matchFn) {
       for (var k = 0; k < registeredMembersList.length; k++) {
@@ -1112,23 +1407,22 @@ async function renderCompanyLeaderboard() {
     return null;
   }
 
-
   var maxPts = squadList.length > 0 ? squadList[0].points : DEFAULT_MAX_SQUAD_POINTS;
   if (!maxPts || maxPts <= 0) maxPts = DEFAULT_MAX_SQUAD_POINTS;
 
-
-    // Group synced members by squad
+  // Group synced members by squad
   var squadMembersMap = {};
   if (data && data.members && typeof data.members === 'object') {
-    Object.keys(data.members).forEach(function(k) {
+    Object.keys(data.members).forEach(function (k) {
       var m = data.members[k];
       if (!m || !m.name) return;
-      var sqKey = String(m.squad || '').toUpperCase().trim();
+      var sqKey = String(m.squad || '')
+        .toUpperCase()
+        .trim();
       if (!squadMembersMap[sqKey]) squadMembersMap[sqKey] = [];
       squadMembersMap[sqKey].push(m);
     });
   }
-
 
   var html = '';
 
@@ -1139,79 +1433,117 @@ async function renderCompanyLeaderboard() {
 
   function renderSquadPodiumPillar(sq, stepNum) {
     if (!sq) {
-      return '<div class="podium-column">' +
+      return (
+        '<div class="podium-column">' +
         '<div class="podium-header">' +
-          '<div class="podium-name" style="color:var(--text-muted);">-</div>' +
-          '<div class="podium-avatar-wrap"><div class="podium-avatar" style="width:48px;height:48px;background:var(--surface-tint);color:var(--text-muted);border:2px solid var(--border-subtle);">?</div></div>' +
+        '<div class="podium-name" style="color:var(--text-muted);">-</div>' +
+        '<div class="podium-avatar-wrap"><div class="podium-avatar" style="width:48px;height:48px;background:var(--surface-tint);color:var(--text-muted);border:2px solid var(--border-subtle);">?</div></div>' +
         '</div>' +
-        '<div class="podium-step podium-step-' + stepNum + '">' +
-          '<div class="podium-step-num">#' + stepNum + '</div>' +
-          '<div class="podium-step-val">-</div>' +
+        '<div class="podium-step podium-step-' +
+        stepNum +
+        '">' +
+        '<div class="podium-step-num">#' +
+        stepNum +
         '</div>' +
-      '</div>';
+        '<div class="podium-step-val">-</div>' +
+        '</div>' +
+        '</div>'
+      );
     }
 
     var st = getPlatoonStyle(sq.name);
     var safeSquadName = escapeAttHtml(sq.name);
-    var rankBadgeStyle = (sq.displayRank === 1)
-      ? 'background:var(--brand-gold,#f5c542);color:#000;'
-      : (sq.displayRank === 2 ? 'background:#cbd5e1;color:#000;' : 'background:#ea580c;color:#fff;');
+    var rankBadgeStyle =
+      sq.displayRank === 1
+        ? 'background:var(--brand-gold,#f5c542);color:#000;'
+        : sq.displayRank === 2
+          ? 'background:#cbd5e1;color:#000;'
+          : 'background:#ea580c;color:#fff;';
 
     var squadLetter = safeSquadName.charAt(0).toUpperCase();
 
-    return '<div class="podium-column">' +
+    return (
+      '<div class="podium-column">' +
       '<div class="podium-header">' +
-        // 1. SQUAD NAME ON TOP OF EMBLEM
-        '<div class="podium-name" title="' + safeSquadName + '">' + safeSquadName + '</div>' +
-        // 2. EMBLEM / BADGE UNDER SQUAD NAME
-        '<div class="podium-avatar-wrap">' +
-          '<div class="podium-avatar plt-' + st.plt.toLowerCase() + '" style="width:48px;height:48px;background:' + st.bg + ';border:2px solid ' + st.border + ';color:' + st.color + ';font-size:18px;font-family:var(--font-headline);font-weight:800;">' +
-            squadLetter +
-          '</div>' +
-          '<span class="podium-rank-badge" style="' + rankBadgeStyle + '">#' + sq.displayRank + '</span>' +
-        '</div>' +
+      // 1. SQUAD NAME ON TOP OF EMBLEM
+      '<div class="podium-name" title="' +
+      safeSquadName +
+      '">' +
+      safeSquadName +
+      '</div>' +
+      // 2. EMBLEM / BADGE UNDER SQUAD NAME
+      '<div class="podium-avatar-wrap">' +
+      '<div class="podium-avatar plt-' +
+      st.plt.toLowerCase() +
+      '" style="width:48px;height:48px;background:' +
+      st.bg +
+      ';border:2px solid ' +
+      st.border +
+      ';color:' +
+      st.color +
+      ';font-size:18px;font-family:var(--font-headline);font-weight:800;">' +
+      squadLetter +
+      '</div>' +
+      '<span class="podium-rank-badge" style="' +
+      rankBadgeStyle +
+      '">#' +
+      sq.displayRank +
+      '</span>' +
+      '</div>' +
       '</div>' +
       // 3. PODIUM PILLAR STEP
-      '<div class="podium-step podium-step-' + stepNum + '">' +
-        '<div class="podium-step-num">#' + sq.displayRank + '</div>' +
-        '<div class="podium-step-val">' + (sq.points || 0) + ' pts</div>' +
-        '<div class="podium-step-sub">' + st.plt + ' Platoon</div>' +
+      '<div class="podium-step podium-step-' +
+      stepNum +
+      '">' +
+      '<div class="podium-step-num">#' +
+      sq.displayRank +
       '</div>' +
-    '</div>';
+      '<div class="podium-step-val">' +
+      (sq.points || 0) +
+      ' pts</div>' +
+      '<div class="podium-step-sub">' +
+      st.plt +
+      ' Platoon</div>' +
+      '</div>' +
+      '</div>'
+    );
   }
 
   html +=
     '<div class="card squad-podium-card" style="margin-bottom:20px;width:100%;box-sizing:border-box;">' +
-      '<div style="text-align:center;margin-bottom:12px;">' +
-        '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Squad Championship Podium</div>' +
-        '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Top 3 Leading Squads in Attendance, Inspection, and Squad Points</div>' +
-      '</div>' +
-      '<div class="leaderboard-podium-wrap">' +
-        renderSquadPodiumPillar(sqTop2, 2) +
-        renderSquadPodiumPillar(sqTop1, 1) +
-        renderSquadPodiumPillar(sqTop3, 3) +
-      '</div>' +
+    '<div style="text-align:center;margin-bottom:12px;">' +
+    '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Squad Championship Podium</div>' +
+    '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Top 3 Leading Squads in Attendance, Inspection, and Squad Points</div>' +
+    '</div>' +
+    '<div class="leaderboard-podium-wrap">' +
+    renderSquadPodiumPillar(sqTop2, 2) +
+    renderSquadPodiumPillar(sqTop1, 1) +
+    renderSquadPodiumPillar(sqTop3, 3) +
+    '</div>' +
     '</div>';
 
   // 2. Render Competing Squad Cards with Safe Member Rosters
-  squadList.forEach(function(sq, sqIdx) {
+  squadList.forEach(function (sq, sqIdx) {
     var st = getPlatoonStyle(sq.name);
     var pct = Math.max(0, Math.min(100, Math.round((sq.points / maxPts) * 100)));
-    var rankPill = sq.displayRank === 1
-      ? 'background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-border);'
-      : (sq.displayRank === 2
-        ? 'background:var(--surface-tint);color:var(--text-primary);border:1px solid var(--border-subtle);'
-        : (sq.displayRank === 3
-          ? 'background:var(--surface-tint);color:var(--orange);border:1px solid var(--border-subtle);'
-          : 'background:transparent;color:var(--text-muted);border:1px solid transparent;'));
+    var rankPill =
+      sq.displayRank === 1
+        ? 'background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-border);'
+        : sq.displayRank === 2
+          ? 'background:var(--surface-tint);color:var(--text-primary);border:1px solid var(--border-subtle);'
+          : sq.displayRank === 3
+            ? 'background:var(--surface-tint);color:var(--orange);border:1px solid var(--border-subtle);'
+            : 'background:transparent;color:var(--text-muted);border:1px solid transparent;';
 
-    var sqUpper = String(sq.name || '').toUpperCase().trim();
+    var sqUpper = String(sq.name || '')
+      .toUpperCase()
+      .trim();
     var members = squadMembersMap[sqUpper] || [];
 
     // Sort members descending by points
-    members.sort(function(a, b) {
-      var pA = (a.points && a.points.total) ? a.points.total : 0;
-      var pB = (b.points && b.points.total) ? b.points.total : 0;
+    members.sort(function (a, b) {
+      var pA = a.points && a.points.total ? a.points.total : 0;
+      var pB = b.points && b.points.total ? b.points.total : 0;
       return pB - pA;
     });
 
@@ -1220,21 +1552,30 @@ async function renderCompanyLeaderboard() {
     // Build Roster HTML
     var rosterHtml = '';
     if (members.length > 0) {
-      rosterHtml = 
-        '<div id="' + rosterId + '" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">' +
-          '<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">' +
-            escapeAttHtml(sq.name).toUpperCase() + ' MEMBERS (' + members.length + ' MEMBERS)' +
-          '</div>' +
-          '<div style="display:grid;gap:6px;">';
+      rosterHtml =
+        '<div id="' +
+        rosterId +
+        '" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">' +
+        '<div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">' +
+        escapeAttHtml(sq.name).toUpperCase() +
+        ' MEMBERS (' +
+        members.length +
+        ' MEMBERS)' +
+        '</div>' +
+        '<div style="display:grid;gap:6px;">';
 
-      members.forEach(function(m) {
-        var isSelf = viewerName && (normalizeMemberName(m.name) === normalizeMemberName(viewerName));
+      members.forEach(function (m) {
+        var isSelf = viewerName && normalizeMemberName(m.name) === normalizeMemberName(viewerName);
         var selfBadge = isSelf
           ? '<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;background:rgba(200,150,30,0.2);color:var(--accent);margin-left:4px;">You</span>'
           : '';
 
         var mPct = null;
-        if (m.paradeAttendance && typeof m.paradeAttendance === 'object' && m.paradeAttendance.percentage !== undefined) {
+        if (
+          m.paradeAttendance &&
+          typeof m.paradeAttendance === 'object' &&
+          m.paradeAttendance.percentage !== undefined
+        ) {
           mPct = m.paradeAttendance.percentage;
         } else if (typeof m.paradeAttendance === 'number') {
           mPct = m.paradeAttendance;
@@ -1244,15 +1585,31 @@ async function renderCompanyLeaderboard() {
         var mTier = _getTierFn(mPct);
 
         var tierHtml =
-          '<span class="att-tier-pill tier-' + mTier.tier.replace('_', '-') + '" title="' + escapeAttHtml(mTier.tooltipText) + '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' + mTier.bg + ';color:' + mTier.color + ';border:1px solid ' + mTier.border + ';cursor:help;" aria-label="Attendance tier: ' + escapeAttHtml(mTier.label) + '">' +
-            escapeAttHtml(mTier.label) +
+          '<span class="att-tier-pill tier-' +
+          mTier.tier.replace('_', '-') +
+          '" title="' +
+          escapeAttHtml(mTier.tooltipText) +
+          '" style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:' +
+          mTier.bg +
+          ';color:' +
+          mTier.color +
+          ';border:1px solid ' +
+          mTier.border +
+          ';cursor:help;" aria-label="Attendance tier: ' +
+          escapeAttHtml(mTier.label) +
+          '">' +
+          escapeAttHtml(mTier.label) +
           '</span>';
-        var dirRec = (typeof resolveMemberDirectoryInfo === 'function') ? resolveMemberDirectoryInfo(m.name || m.ic) : null;
+        var dirRec =
+          typeof resolveMemberDirectoryInfo === 'function'
+            ? resolveMemberDirectoryInfo(m.name || m.ic)
+            : null;
         var regRec = dirRec || findRegisteredMemberMatch(m.name, m.ic);
         var cleanMemName = String(m.name || '').trim();
         var isRegistered = !!(
           isSelf ||
-          (cleanMemName.toLowerCase() === 'jeshua koh' && (typeof isPortalCreator === 'function' ? isPortalCreator(m.name, m.ic) : true)) ||
+          (cleanMemName.toLowerCase() === 'jeshua koh' &&
+            (typeof isPortalCreator === 'function' ? isPortalCreator(m.name, m.ic) : true)) ||
           regRec
         );
 
@@ -1260,98 +1617,150 @@ async function renderCompanyLeaderboard() {
         if (isRegistered) {
           var regId = (regRec && (regRec.ic || regRec.email)) || m.ic || m.email || '';
           var regName = (regRec && regRec.name) || m.name;
-          var univFn = (typeof getUniversalMemberAvatarHtml === 'function')
-            ? getUniversalMemberAvatarHtml
-            : (typeof window !== 'undefined' && typeof window.getUniversalMemberAvatarHtml === 'function' ? window.getUniversalMemberAvatarHtml : null);
+          var univFn =
+            typeof getUniversalMemberAvatarHtml === 'function'
+              ? getUniversalMemberAvatarHtml
+              : typeof window !== 'undefined' &&
+                  typeof window.getUniversalMemberAvatarHtml === 'function'
+                ? window.getUniversalMemberAvatarHtml
+                : null;
           if (univFn) {
             avatarHtml = univFn(regName, regId, 24, { showPresence: true, showCosmetics: true });
           } else if (typeof getAssigneeAvatarHtml === 'function') {
             avatarHtml = getAssigneeAvatarHtml(regName, regId, 24);
           } else {
-            avatarHtml = '<span class="task-card-avatar" style="width:24px;height:24px;border-radius:9999px;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + escapeAttHtml(m.name ? m.name[0] : 'M') + '</span>';
+            avatarHtml =
+              '<span class="task-card-avatar" style="width:24px;height:24px;border-radius:9999px;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' +
+              escapeAttHtml(m.name ? m.name[0] : 'M') +
+              '</span>';
           }
         } else {
-          avatarHtml = '<span class="empty-profile-avatar" style="width:24px;height:24px;border-radius:9999px;background:var(--surface-tint);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);flex-shrink:0;position:relative;" title="Account not yet created" aria-label="Account not registered"><svg class="ui-icon-xs" style="width:13px;height:13px;opacity:0.55;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>';
+          avatarHtml =
+            '<span class="empty-profile-avatar" style="width:24px;height:24px;border-radius:9999px;background:var(--surface-tint);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border-subtle);flex-shrink:0;position:relative;" title="Account not yet created" aria-label="Account not registered"><svg class="ui-icon-xs" style="width:13px;height:13px;opacity:0.55;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>';
         }
 
         rosterHtml +=
           '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;font-size:12px;">' +
-            '<div style="display:flex;align-items:center;gap:8px;">' +
-              avatarHtml +
-              '<span style="font-size:10px;font-weight:700;color:var(--text-muted);width:38px;">' + escapeAttHtml(m.rank || 'Member') + '</span>' +
-              '<span style="font-weight:600;color:var(--text-primary);">' + escapeAttHtml(m.name || 'Member') + selfBadge + '</span>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              tierHtml +
-            '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+          avatarHtml +
+          '<span style="font-size:10px;font-weight:700;color:var(--text-muted);width:38px;">' +
+          escapeAttHtml(m.rank || 'Member') +
+          '</span>' +
+          '<span style="font-weight:600;color:var(--text-primary);">' +
+          escapeAttHtml(m.name || 'Member') +
+          selfBadge +
+          '</span>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+          tierHtml +
+          '</div>' +
           '</div>';
       });
 
       rosterHtml += '</div></div>';
     }
 
-    html += 
+    html +=
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;margin-bottom:10px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-          '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;width:32px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;' + rankPill + '">#' + sq.displayRank + '</div>' +
-            '<div>' +
-              '<div style="display:flex;align-items:center;gap:8px;">' +
-                '<span style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' + escapeAttHtml(sq.name).toUpperCase() + '</span>' +
-                '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:12px;background:' + st.bg + ';color:' + st.color + ';border:1px solid ' + st.border + ';">' + st.plt + '</span>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div style="text-align:right;">' +
-            '<div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:' + st.color + ';">' + (sq.points || 0) + ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Points</span></div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="height:6px;background:var(--surface-track);border-radius:3px;overflow:hidden;margin-bottom:8px;">' +
-          '<div style="height:100%;width:' + pct + '%;background:' + st.color + ';border-radius:3px;"></div>' +
-        '</div>' +
-        (members.length ? '<div style="display:flex;justify-content:flex-end;">' +
-          '<button type="button" data-roster-btn="' + rosterId + '" onclick="toggleSquadRoster(\'' + rosterId + '\')" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:2px 6px;">' +
-            'View Squad Members &darr;' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+      '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;width:32px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:6px;' +
+      rankPill +
+      '">#' +
+      sq.displayRank +
+      '</div>' +
+      '<div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<span style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">' +
+      escapeAttHtml(sq.name).toUpperCase() +
+      '</span>' +
+      '<span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:12px;background:' +
+      st.bg +
+      ';color:' +
+      st.color +
+      ';border:1px solid ' +
+      st.border +
+      ';">' +
+      st.plt +
+      '</span>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div style="text-align:right;">' +
+      '<div style="font-family:var(--font-headline);font-size:20px;font-weight:700;color:' +
+      st.color +
+      ';">' +
+      (sq.points || 0) +
+      ' <span style="font-size:13px;font-weight:600;color:var(--text-secondary);">Points</span></div>' +
+      '</div>' +
+      '</div>' +
+      '<div style="height:6px;background:var(--surface-track);border-radius:3px;overflow:hidden;margin-bottom:8px;">' +
+      '<div style="height:100%;width:' +
+      pct +
+      '%;background:' +
+      st.color +
+      ';border-radius:3px;"></div>' +
+      '</div>' +
+      (members.length
+        ? '<div style="display:flex;justify-content:flex-end;">' +
+          '<button type="button" data-roster-btn="' +
+          rosterId +
+          '" onclick="toggleSquadRoster(\'' +
+          rosterId +
+          '\')" style="background:transparent;border:none;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;padding:2px 6px;">' +
+          'View Squad Members &darr;' +
           '</button>' +
-        '</div>' : '') +
-        rosterHtml +
+          '</div>'
+        : '') +
+      rosterHtml +
       '</div>';
   });
 
   // Calculate platoon averages from competing squads
   var pltSums = {};
-  squadList.forEach(function(sq) {
+  squadList.forEach(function (sq) {
     var p = getPlatoonStyle(sq.name).plt;
     if (!pltSums[p]) pltSums[p] = { sum: 0, count: 0 };
-    pltSums[p].sum += (sq.points || 0);
+    pltSums[p].sum += sq.points || 0;
     pltSums[p].count += 1;
   });
 
-  var pltAverages = Object.keys(pltSums).map(function(p) {
-    var avg = Math.round(pltSums[p].sum / (pltSums[p].count || 1));
-    return { name: p, avg: avg };
-  }).sort(function(a, b) { return b.avg - a.avg; });
+  var pltAverages = Object.keys(pltSums)
+    .map(function (p) {
+      var avg = Math.round(pltSums[p].sum / (pltSums[p].count || 1));
+      return { name: p, avg: avg };
+    })
+    .sort(function (a, b) {
+      return b.avg - a.avg;
+    });
 
   // Platoon Averages Summary Footer
-  html += 
+  html +=
     '<div style="margin-top:16px;padding:12px 14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;">' +
-      '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">' +
-        'Platoon Averages (Total Squad Points &divide; Squads)' +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:8px;">';
+    '<div style="font-family:var(--font-headline);font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">' +
+    'Platoon Averages (Total Squad Points &divide; Squads)' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:8px;">';
 
-  pltAverages.forEach(function(pa) {
+  pltAverages.forEach(function (pa) {
     var st = getPlatoonStyle(pa.name);
-    html += 
+    html +=
       '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:8px 10px;text-align:center;">' +
-        '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);">' + pa.name + ' Platoon</div>' +
-        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' + st.color + ';margin-top:2px;">' + pa.avg + ' Points</div>' +
+      '<div style="font-size:11px;font-weight:600;color:var(--text-secondary);">' +
+      pa.name +
+      ' Platoon</div>' +
+      '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:' +
+      st.color +
+      ';margin-top:2px;">' +
+      pa.avg +
+      ' Points</div>' +
       '</div>';
   });
 
   html += '</div></div>';
 
-  if (typeof sessionGet !== 'function' || (sessionGet('ic') || sessionGet('email')) === viewerId) c.innerHTML = html;
+  if (typeof sessionGet !== 'function' || (sessionGet('ic') || sessionGet('email')) === viewerId)
+    c.innerHTML = html;
 }
 
 /**
@@ -1374,7 +1783,7 @@ async function syncToSheets(records) {
 // ── Global Window Exports ───────────────────────────────────────────────────
 
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('storage', function(event) {
+  window.addEventListener('storage', function (event) {
     if (event.key !== 'bb_master_att_cache' || !event.newValue) return;
     try {
       var data = window.sanitizeMasterAttendancePayload(JSON.parse(event.newValue));
@@ -1383,7 +1792,7 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
   });
 }
 if (typeof window !== 'undefined') {
-  window.onMasterAttendanceChanged = async function() {
+  window.onMasterAttendanceChanged = async function () {
     await getMasterAttendanceData(true);
     refreshVisibleAttendance();
   };
@@ -1392,7 +1801,7 @@ if (typeof window !== 'undefined') {
   window.getMemberAttendanceRecord = getMemberAttendanceRecord;
   window.loadMemberAttendanceStats = loadMemberAttendanceStats;
   window.refreshMemberAttendanceStats = refreshMemberAttendanceStats;
-  window.toggleSquadRoster        = toggleSquadRoster;
+  window.toggleSquadRoster = toggleSquadRoster;
   window.renderCompanyLeaderboard = renderCompanyLeaderboard;
   window.renderAdminMasterSheetPanel = renderAdminMasterSheetPanel;
   window.syncToSheets = syncToSheets;

@@ -16,7 +16,10 @@ console.log('Testing Multi-Tab Concurrency & Network Starvation Protections...\n
 // ── 1. Tab Identity & Self-Echo Dropping ──────────────────────────────────────
 const sessionMod = require('../js/core/session.js');
 const myTabId = sessionMod.getTabId();
-assert.ok(typeof myTabId === 'string' && myTabId.length > 5, 'Current tab must possess a unique ID');
+assert.ok(
+  typeof myTabId === 'string' && myTabId.length > 5,
+  'Current tab must possess a unique ID'
+);
 
 sessionMod.handleSyncMessage({
   action: 'set',
@@ -27,7 +30,11 @@ sessionMod.handleSyncMessage({
   session: { echo_test: 'should_be_ignored' }
 });
 
-assert.strictEqual(sessionMod.sessionGet('echo_test'), null, 'Self-originating messages must be dropped immediately');
+assert.strictEqual(
+  sessionMod.sessionGet('echo_test'),
+  null,
+  'Self-originating messages must be dropped immediately'
+);
 console.log('  ✔ Self-originating message echo suppression verified');
 
 // ── 2. Message Deduplication (Dual Delivery via BroadcastChannel + storage) ──
@@ -40,7 +47,11 @@ sessionMod.handleSyncMessage({
   value: 'first_delivery_win',
   session: { dedup_key: 'first_delivery_win' }
 });
-assert.strictEqual(sessionMod.sessionGet('dedup_key'), 'first_delivery_win', 'First delivery of message is processed');
+assert.strictEqual(
+  sessionMod.sessionGet('dedup_key'),
+  'first_delivery_win',
+  'First delivery of message is processed'
+);
 
 // Simulate secondary delivery of the EXACT same message (via storage event)
 sessionMod.handleSyncMessage({
@@ -51,7 +62,11 @@ sessionMod.handleSyncMessage({
   value: 'second_delivery_ignored',
   session: { dedup_key: 'second_delivery_ignored' }
 });
-assert.strictEqual(sessionMod.sessionGet('dedup_key'), 'first_delivery_win', 'Duplicate delivery of identical msgId is dropped without state corruption');
+assert.strictEqual(
+  sessionMod.sessionGet('dedup_key'),
+  'first_delivery_win',
+  'Duplicate delivery of identical msgId is dropped without state corruption'
+);
 console.log('  ✔ Dual-channel message deduplication (BroadcastChannel + storage) verified');
 
 // ── 3. Cascading Ping-Pong Storm Prevention ──────────────────────────────────
@@ -86,8 +101,14 @@ for (let i = 0; i < 100; i++) {
 
 assert.strictEqual(messagesProcessed, 100, 'All 100 non-duplicate remote messages received');
 // renderDashboard must NOT be invoked 100 times because the user ID did not change!
-assert.strictEqual(dashboardRenders, initialRenders + 1, 'renderDashboard must only run ONCE on initial ID match, preventing 100x cascade');
-console.log('  ✔ Cascading ping-pong loop eliminated: 100 remote syncs triggered exactly 1 dashboard render instead of 100');
+assert.strictEqual(
+  dashboardRenders,
+  initialRenders + 1,
+  'renderDashboard must only run ONCE on initial ID match, preventing 100x cascade'
+);
+console.log(
+  '  ✔ Cascading ping-pong loop eliminated: 100 remote syncs triggered exactly 1 dashboard render instead of 100'
+);
 
 // ── 4. Leader Election Model ─────────────────────────────────────────────────
 assert.strictEqual(typeof sessionMod.isLeaderTab, 'function', 'isLeaderTab function must exist');
@@ -95,10 +116,14 @@ const leaderState = sessionMod.isLeaderTab();
 assert.strictEqual(typeof leaderState, 'boolean', 'isLeaderTab must return boolean');
 
 let leaderChangeNotified = false;
-sessionMod.onLeaderChange((_isLeader) => {
+sessionMod.onLeaderChange(_isLeader => {
   leaderChangeNotified = true;
 });
-assert.strictEqual(leaderChangeNotified, true, 'onLeaderChange callback receives initial leadership state');
+assert.strictEqual(
+  leaderChangeNotified,
+  true,
+  'onLeaderChange callback receives initial leadership state'
+);
 console.log('  ✔ Leader election API contract and event listener verified');
 
 // ── 5. Supabase ThrottledFetch Timeout & Abort Handling ──────────────────────
@@ -120,8 +145,15 @@ const supaApi = require('../js/api/supabase.js');
   // Test single-flight snapshot cache hit
   supaApi.supa.recordConfigSnapshot('bb_test_snapshot', { testKey: 'cachedValue' });
   const hit = await supaApi.supa.safeConfigGet('bb_test_snapshot');
-  assert.strictEqual(hit.testKey, 'cachedValue', 'safeConfigGet returns in-memory snapshot immediately without network roundtrip');
+  assert.strictEqual(
+    hit.testKey,
+    'cachedValue',
+    'safeConfigGet returns in-memory snapshot immediately without network roundtrip'
+  );
 
-  console.log('  ✔ ThrottledFetch AbortSignal queue cleanup and single-flight snapshot caching verified');
+  console.log(
+    '  ✔ ThrottledFetch AbortSignal queue cleanup and single-flight snapshot caching verified'
+  );
   console.log('\n🎉 ALL MULTI-TAB CONCURRENCY STRESS TESTS PASSED 100%!\n');
+  process.exit(0);
 })();

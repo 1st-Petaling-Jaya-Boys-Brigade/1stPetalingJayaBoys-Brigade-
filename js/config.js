@@ -5,24 +5,34 @@
 
 if (typeof window !== 'undefined') {
   // Use a stable HTTPS download endpoint with its own access controls.
-  window.ANDROID_APK_URL = window.__ENV__?.VITE_ANDROID_APK_URL
-    || 'https://github.com/1st-Petaling-Jaya-Boys-Brigade/1stPetalingJayaBoys-Brigade-/releases/download/v1.0.0/app-release.apk';
+  window.ANDROID_APK_URL =
+    window.__ENV__?.VITE_ANDROID_APK_URL ||
+    'https://github.com/1st-Petaling-Jaya-Boys-Brigade/1stPetalingJayaBoys-Brigade-/releases/download/v1.0.0/app-release.apk';
 }
 
-var SUPA_URL = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_URL)
-  || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL))
-  || 'https://mjfclxcklkbgsivvvlfe.supabase.co';
+var SUPA_URL =
+  (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_URL) ||
+  (typeof process !== 'undefined' &&
+    process.env &&
+    (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL)) ||
+  'https://mjfclxcklkbgsivvvlfe.supabase.co';
 
-var SUPA_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_ANON_KEY)
-  || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY))
-  || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
+var SUPA_KEY =
+  (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_ANON_KEY) ||
+  (typeof process !== 'undefined' &&
+    process.env &&
+    (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY)) ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
 
 // Cloudflare Turnstile CAPTCHA
 // 1x00000000000000000000AA: Cloudflare testing sitekey (Always passes)
 // 2x00000000000000000000AB: Cloudflare testing sitekey (Always blocks)
-var TURNSTILE_SITE_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_TURNSTILE_SITE_KEY)
-  || (typeof process !== 'undefined' && process.env && (process.env.VITE_TURNSTILE_SITE_KEY || process.env.TURNSTILE_SITE_KEY))
-  || '1x00000000000000000000AA';
+var TURNSTILE_SITE_KEY =
+  (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_TURNSTILE_SITE_KEY) ||
+  (typeof process !== 'undefined' &&
+    process.env &&
+    (process.env.VITE_TURNSTILE_SITE_KEY || process.env.TURNSTILE_SITE_KEY)) ||
+  '1x00000000000000000000AA';
 
 var MEMBERS_JUNIORS_RANKS = [
   'Pre-Junior',
@@ -32,16 +42,9 @@ var MEMBERS_JUNIORS_RANKS = [
   'Chief Junior Leader'
 ];
 
-var MEMBERS_SENIOR_RANKS = [
-  'Recruit',
-  'Private'
-];
+var MEMBERS_SENIOR_RANKS = ['Recruit', 'Private'];
 
-var NCO_RANKS = [
-  'Lance Corporal',
-  'Corporal',
-  'Sergeant'
-];
+var NCO_RANKS = ['Lance Corporal', 'Corporal', 'Sergeant'];
 
 var OFFICER_RANKS = [
   'Captain',
@@ -52,17 +55,14 @@ var OFFICER_RANKS = [
   'Staff Sergeant'
 ];
 
-var GEMINI_API_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_GEMINI_API_KEY)
-  || (typeof process !== 'undefined' && process.env && (process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY))
-  || '';
+var GEMINI_API_KEY =
+  (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_GEMINI_API_KEY) ||
+  (typeof process !== 'undefined' &&
+    process.env &&
+    (process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY)) ||
+  '';
 
-var DEPARTMENT_KEYS = [
-  'secretariat',
-  'logistics',
-  'media',
-  'hq',
-  'officers'
-];
+var DEPARTMENT_KEYS = ['secretariat', 'logistics', 'media', 'hq', 'officers'];
 
 var FILE_LIMITS = {
   PHOTO_MAX_BYTES: 15 * 1024 * 1024,
@@ -80,7 +80,6 @@ var APP_CONFIG = Object.freeze({
   LIMITS: FILE_LIMITS
 });
 
-
 /**
  * Canonical helper to check if a member rank qualifies as NCO / Leader
  * @param {string} rank
@@ -89,8 +88,18 @@ var APP_CONFIG = Object.freeze({
 function isNcoRank(rank) {
   if (!rank || typeof rank !== 'string') return false;
   var r = rank.trim();
-  var ranks = typeof NCO_RANKS !== 'undefined' ? NCO_RANKS : (typeof window !== 'undefined' && window.NCO_RANKS ? window.NCO_RANKS : []);
-  var offRanks = typeof OFFICER_RANKS !== 'undefined' ? OFFICER_RANKS : (typeof window !== 'undefined' && window.OFFICER_RANKS ? window.OFFICER_RANKS : []);
+  var ranks =
+    typeof NCO_RANKS !== 'undefined'
+      ? NCO_RANKS
+      : typeof window !== 'undefined' && window.NCO_RANKS
+        ? window.NCO_RANKS
+        : [];
+  var offRanks =
+    typeof OFFICER_RANKS !== 'undefined'
+      ? OFFICER_RANKS
+      : typeof window !== 'undefined' && window.OFFICER_RANKS
+        ? window.OFFICER_RANKS
+        : [];
   return ranks.indexOf(r) !== -1 || offRanks.indexOf(r) !== -1;
 }
 

@@ -13,7 +13,7 @@
  *   - TIMEOUT_MS = 15000 (Graceful inline timeout error with Try Again action)
  */
 
-(function(global) {
+(function (global) {
   'use strict';
 
   // 1. Core Timing & Anti-Flicker Constants
@@ -52,60 +52,67 @@
     var html = '';
 
     for (var i = 0; i < n; i++) {
-      if (type === 'announcement') {
+      if (type === 'announcement' || type === 'forum' || type === 'post') {
         html +=
           '<div class="skeleton-announcement-card" aria-hidden="true">' +
-            '<div class="skeleton-card-header">' +
-              '<div class="skeleton-shimmer skeleton-circle" style="width:40px;height:40px;"></div>' +
-              '<div style="flex:1;min-width:0;">' +
-                '<div class="skeleton-shimmer skeleton-line medium" style="height:14px;margin-bottom:6px;"></div>' +
-                '<div class="skeleton-shimmer skeleton-line short" style="height:11px;margin-bottom:0;"></div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="skeleton-card-body">' +
-              '<div class="skeleton-shimmer skeleton-line" style="height:18px;width:75%;margin-bottom:12px;"></div>' +
-              '<div class="skeleton-shimmer skeleton-line full" style="height:13px;margin-bottom:8px;"></div>' +
-              '<div class="skeleton-shimmer skeleton-line long" style="height:13px;margin-bottom:8px;"></div>' +
-              '<div class="skeleton-shimmer skeleton-line medium" style="height:13px;margin-bottom:0;"></div>' +
-            '</div>' +
-            '<div class="skeleton-card-footer">' +
-              '<div class="skeleton-shimmer skeleton-pill" style="width:64px;height:26px;"></div>' +
-              '<div class="skeleton-shimmer skeleton-pill" style="width:58px;height:26px;"></div>' +
-            '</div>' +
+          '<div class="skeleton-card-header">' +
+          '<div class="skeleton-shimmer skeleton-circle" style="width:40px;height:40px;"></div>' +
+          '<div style="flex:1;min-width:0;">' +
+          '<div class="skeleton-shimmer skeleton-line medium" style="height:14px;margin-bottom:6px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line short" style="height:11px;margin-bottom:0;"></div>' +
+          '</div>' +
+          '</div>' +
+          '<div class="skeleton-card-body">' +
+          '<div class="skeleton-shimmer skeleton-line" style="height:18px;width:75%;margin-bottom:12px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line full" style="height:13px;margin-bottom:8px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line long" style="height:13px;margin-bottom:8px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line medium" style="height:13px;margin-bottom:0;"></div>' +
+          '</div>' +
+          '<div class="skeleton-card-footer">' +
+          '<div class="skeleton-shimmer skeleton-pill" style="width:64px;height:26px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-pill" style="width:58px;height:26px;"></div>' +
+          '</div>' +
           '</div>';
       } else if (type === 'order') {
         html +=
           '<div class="skeleton-order-card" aria-hidden="true">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-              '<div class="skeleton-shimmer skeleton-line" style="width:110px;height:16px;margin:0;"></div>' +
-              '<div class="skeleton-shimmer skeleton-pill" style="width:70px;height:22px;"></div>' +
-            '</div>' +
-            '<div class="skeleton-shimmer skeleton-line full" style="height:13px;margin-bottom:8px;"></div>' +
-            '<div class="skeleton-shimmer skeleton-line medium" style="height:13px;margin-bottom:12px;"></div>' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border-subtle);">' +
-              '<div class="skeleton-shimmer skeleton-line short" style="height:13px;margin:0;"></div>' +
-              '<div class="skeleton-shimmer skeleton-line" style="width:80px;height:18px;margin:0;"></div>' +
-            '</div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+          '<div class="skeleton-shimmer skeleton-line" style="width:110px;height:16px;margin:0;"></div>' +
+          '<div class="skeleton-shimmer skeleton-pill" style="width:70px;height:22px;"></div>' +
+          '</div>' +
+          '<div class="skeleton-shimmer skeleton-line full" style="height:13px;margin-bottom:8px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line medium" style="height:13px;margin-bottom:12px;"></div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border-subtle);">' +
+          '<div class="skeleton-shimmer skeleton-line short" style="height:13px;margin:0;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line" style="width:80px;height:18px;margin:0;"></div>' +
+          '</div>' +
           '</div>';
       } else if (type === 'badge') {
         html +=
           '<div class="skeleton-shimmer" style="height:140px;border-radius:var(--radius-md, 12px);padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;" aria-hidden="true">' +
-            '<div class="skeleton-shimmer skeleton-circle" style="width:48px;height:48px;"></div>' +
-            '<div class="skeleton-shimmer skeleton-line medium" style="height:12px;margin:0;"></div>' +
-            '<div class="skeleton-shimmer skeleton-line short" style="height:10px;margin:0;"></div>' +
+          '<div class="skeleton-shimmer skeleton-circle" style="width:48px;height:48px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line medium" style="height:12px;margin:0;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line short" style="height:10px;margin:0;"></div>' +
           '</div>';
-      } else if (type === 'form') {
+      } else if (type === 'form' || type === 'resource') {
         html +=
           '<div class="skeleton-order-card" style="padding:18px;" aria-hidden="true">' +
-            '<div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">' +
-              '<div class="skeleton-shimmer skeleton-circle" style="width:36px;height:36px;"></div>' +
-              '<div style="flex:1;">' +
-                '<div class="skeleton-shimmer skeleton-line medium" style="height:16px;margin-bottom:6px;"></div>' +
-                '<div class="skeleton-shimmer skeleton-line short" style="height:11px;margin:0;"></div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="skeleton-shimmer skeleton-line full" style="height:12px;margin-bottom:6px;"></div>' +
-            '<div class="skeleton-shimmer skeleton-line long" style="height:12px;margin:0;"></div>' +
+          '<div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">' +
+          '<div class="skeleton-shimmer skeleton-circle" style="width:36px;height:36px;"></div>' +
+          '<div style="flex:1;">' +
+          '<div class="skeleton-shimmer skeleton-line medium" style="height:16px;margin-bottom:6px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line short" style="height:11px;margin:0;"></div>' +
+          '</div>' +
+          '</div>' +
+          '<div class="skeleton-shimmer skeleton-line full" style="height:12px;margin-bottom:6px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line long" style="height:12px;margin:0;"></div>' +
+          '</div>';
+      } else {
+        html +=
+          '<div class="skeleton-order-card" aria-hidden="true">' +
+          '<div class="skeleton-shimmer skeleton-line medium" style="height:14px;margin-bottom:8px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line full" style="height:11px;margin-bottom:6px;"></div>' +
+          '<div class="skeleton-shimmer skeleton-line short" style="height:10px;margin:0;"></div>' +
           '</div>';
       }
     }
@@ -127,8 +134,11 @@
     // Table Header
     html += '<div class="skeleton-table-header">';
     for (var c = 0; c < cCount; c++) {
-      var colW = c === 0 ? '30%' : (c === 1 ? '25%' : '20%');
-      html += '<div class="skeleton-shimmer skeleton-line" style="width:' + colW + ';height:14px;margin:0;"></div>';
+      var colW = c === 0 ? '30%' : c === 1 ? '25%' : '20%';
+      html +=
+        '<div class="skeleton-shimmer skeleton-line" style="width:' +
+        colW +
+        ';height:14px;margin:0;"></div>';
     }
     html += '</div>';
 
@@ -136,8 +146,11 @@
     for (var r = 0; r < rCount; r++) {
       html += '<div class="skeleton-table-row">';
       for (var k = 0; k < cCount; k++) {
-        var rowW = k === 0 ? '35%' : (k === 1 ? '20%' : '18%');
-        html += '<div class="skeleton-shimmer skeleton-line" style="width:' + rowW + ';height:13px;margin:0;"></div>';
+        var rowW = k === 0 ? '35%' : k === 1 ? '20%' : '18%';
+        html +=
+          '<div class="skeleton-shimmer skeleton-line" style="width:' +
+          rowW +
+          ';height:13px;margin:0;"></div>';
       }
       html += '</div>';
     }
@@ -156,19 +169,19 @@
     for (var i = 0; i < 3; i++) {
       html +=
         '<div class="skeleton-kanban-column">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-            '<div class="skeleton-shimmer skeleton-line" style="width:80px;height:16px;margin:0;"></div>' +
-            '<div class="skeleton-shimmer skeleton-pill" style="width:28px;height:20px;"></div>' +
-          '</div>' +
-          '<div class="skeleton-order-card" style="margin-bottom:8px;">' +
-            '<div class="skeleton-shimmer skeleton-line medium" style="height:14px;margin-bottom:8px;"></div>' +
-            '<div class="skeleton-shimmer skeleton-line full" style="height:11px;margin-bottom:6px;"></div>' +
-            '<div class="skeleton-shimmer skeleton-line short" style="height:10px;margin:0;"></div>' +
-          '</div>' +
-          '<div class="skeleton-order-card" style="margin:0;">' +
-            '<div class="skeleton-shimmer skeleton-line long" style="height:14px;margin-bottom:8px;"></div>' +
-            '<div class="skeleton-shimmer skeleton-line medium" style="height:11px;margin:0;"></div>' +
-          '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<div class="skeleton-shimmer skeleton-line" style="width:80px;height:16px;margin:0;"></div>' +
+        '<div class="skeleton-shimmer skeleton-pill" style="width:28px;height:20px;"></div>' +
+        '</div>' +
+        '<div class="skeleton-order-card" style="margin-bottom:8px;">' +
+        '<div class="skeleton-shimmer skeleton-line medium" style="height:14px;margin-bottom:8px;"></div>' +
+        '<div class="skeleton-shimmer skeleton-line full" style="height:11px;margin-bottom:6px;"></div>' +
+        '<div class="skeleton-shimmer skeleton-line short" style="height:10px;margin:0;"></div>' +
+        '</div>' +
+        '<div class="skeleton-order-card" style="margin:0;">' +
+        '<div class="skeleton-shimmer skeleton-line long" style="height:14px;margin-bottom:8px;"></div>' +
+        '<div class="skeleton-shimmer skeleton-line medium" style="height:11px;margin:0;"></div>' +
+        '</div>' +
         '</div>';
     }
 
@@ -199,9 +212,12 @@
    */
   function createSmartLoader(options) {
     options = options || {};
-    var container = typeof options.container === 'string'
-      ? (typeof document !== 'undefined' ? document.querySelector(options.container) : null)
-      : options.container;
+    var container =
+      typeof options.container === 'string'
+        ? typeof document !== 'undefined'
+          ? document.querySelector(options.container)
+          : null
+        : options.container;
 
     var showDelayMs = options.showDelayMs ?? SHOW_DELAY_MS;
     var minDisplayMs = options.minDisplayMs ?? MIN_DISPLAY_MS;
@@ -230,9 +246,18 @@
     }
 
     function cleanupTimers() {
-      if (showTimer) { clearTimeout(showTimer); showTimer = null; }
-      if (longWaitTimer) { clearTimeout(longWaitTimer); longWaitTimer = null; }
-      if (timeoutTimer) { clearTimeout(timeoutTimer); timeoutTimer = null; }
+      if (showTimer) {
+        clearTimeout(showTimer);
+        showTimer = null;
+      }
+      if (longWaitTimer) {
+        clearTimeout(longWaitTimer);
+        longWaitTimer = null;
+      }
+      if (timeoutTimer) {
+        clearTimeout(timeoutTimer);
+        timeoutTimer = null;
+      }
     }
 
     function showLoader() {
@@ -243,15 +268,20 @@
       container.setAttribute('aria-busy', 'true');
       container.setAttribute('aria-label', srLabel);
 
-      var skeletonHtml = typeof options.renderSkeleton === 'function'
-        ? options.renderSkeleton()
-        : renderSkeletonCard(3, 'announcement');
+      var skeletonHtml =
+        typeof options.renderSkeleton === 'function'
+          ? options.renderSkeleton()
+          : renderSkeletonCard(3, 'announcement');
 
       container.innerHTML =
         '<div class="smart-loader-wrapper" role="status">' +
-          '<span class="sr-only">' + escapeText(srLabel) + '</span>' +
-          skeletonHtml +
-          '<div id="smart-loader-hint-' + shownAt + '" class="smart-loader-hint-slot"></div>' +
+        '<span class="sr-only">' +
+        escapeText(srLabel) +
+        '</span>' +
+        skeletonHtml +
+        '<div id="smart-loader-hint-' +
+        shownAt +
+        '" class="smart-loader-hint-slot"></div>' +
         '</div>';
       placeholder = container.firstElementChild;
     }
@@ -262,15 +292,15 @@
       if (slot) {
         slot.innerHTML =
           '<div class="loading-long-wait-hint">' +
-            '<span>Taking longer than usual... Please check your connection.</span>' +
-            (typeof retryFn === 'function'
-              ? '<button type="button" class="btn-longwait-retry">Refresh</button>'
-              : '') +
+          '<span>Taking longer than usual... Please check your connection.</span>' +
+          (typeof retryFn === 'function'
+            ? '<button type="button" class="btn-longwait-retry">Refresh</button>'
+            : '') +
           '</div>';
 
         var retryBtn = slot.querySelector('.btn-longwait-retry');
         if (retryBtn && typeof retryFn === 'function') {
-          retryBtn.addEventListener('click', function(e) {
+          retryBtn.addEventListener('click', function (e) {
             e.preventDefault();
             retryFn();
           });
@@ -290,19 +320,19 @@
       var errMsg = (err && err.message) || 'Request timed out after 15 seconds.';
       container.innerHTML =
         '<div class="loading-timeout-state" role="alert">' +
-          '<div style="font-size:32px;margin-bottom:8px;">⚠️</div>' +
-          '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Unable to load data</div>' +
-          '<div style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto 14px;">' +
-            escapeText(errMsg) +
-          '</div>' +
-          (typeof retryFn === 'function'
-            ? '<button type="button" class="retry-btn">Try Again</button>'
-            : '') +
+        '<div style="font-size:32px;margin-bottom:8px;">⚠️</div>' +
+        '<div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Unable to load data</div>' +
+        '<div style="font-size:13px;color:var(--text-muted);max-width:380px;margin:0 auto 14px;">' +
+        escapeText(errMsg) +
+        '</div>' +
+        (typeof retryFn === 'function'
+          ? '<button type="button" class="retry-btn">Try Again</button>'
+          : '') +
         '</div>';
 
       var btn = container.querySelector('.retry-btn');
       if (btn && typeof retryFn === 'function') {
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', function (e) {
           e.preventDefault();
           retryFn();
         });
@@ -316,7 +346,7 @@
        * @param {Function} [retryFn] Optional retry function for long wait and timeout states
        * @returns {Promise<any>}
        */
-      execute: async function(asyncFn, retryFn) {
+      execute: async function (asyncFn, retryFn) {
         if (cancelActive) cancelActive();
         var currentRun = ++run;
         isCancelled = false;
@@ -324,24 +354,32 @@
         shownAt = 0;
         cleanupTimers();
         var abort = new AbortController();
-        var cancelled = new Promise(function(resolve) {
-          cancelActive = function() { resolve(undefined); abort.abort(); };
+        var cancelled = new Promise(function (resolve) {
+          cancelActive = function () {
+            resolve(undefined);
+            abort.abort();
+          };
         });
 
         // 1. SHOW_DELAY_MS timer: only display skeleton if operation takes >= 200ms
-        showTimer = setTimeout(function() {
+        showTimer = setTimeout(function () {
           showLoader();
 
           // 2. LONG_WAIT_THRESHOLD_MS timer (5000ms from start)
-          longWaitTimer = setTimeout(function() {
-            showLongWaitNotice(retryFn);
-          }, Math.max(0, longWaitMs - showDelayMs));
+          longWaitTimer = setTimeout(
+            function () {
+              showLongWaitNotice(retryFn);
+            },
+            Math.max(0, longWaitMs - showDelayMs)
+          );
         }, showDelayMs);
 
         // 3. TIMEOUT_MS timer (15000ms)
-        var timeoutPromise = new Promise(function(_, reject) {
-          timeoutTimer = setTimeout(function() {
-            var timeoutErr = new Error('Request timed out. Please check your network and try again.');
+        var timeoutPromise = new Promise(function (_, reject) {
+          timeoutTimer = setTimeout(function () {
+            var timeoutErr = new Error(
+              'Request timed out. Please check your network and try again.'
+            );
             timeoutErr.isTimeout = true;
             reject(timeoutErr);
             abort.abort();
@@ -349,7 +387,13 @@
         });
 
         try {
-          var result = await Promise.race([Promise.resolve().then(function() { return asyncFn(abort.signal); }), timeoutPromise, cancelled]);
+          var result = await Promise.race([
+            Promise.resolve().then(function () {
+              return asyncFn(abort.signal);
+            }),
+            timeoutPromise,
+            cancelled
+          ]);
           if (currentRun !== run) return result;
           cleanupTimers();
 
@@ -357,7 +401,7 @@
           if (isShown) {
             var elapsed = Date.now() - shownAt;
             if (elapsed < minDisplayMs) {
-              await new Promise(function(resolve) {
+              await new Promise(function (resolve) {
                 setTimeout(resolve, minDisplayMs - elapsed);
               });
             }
@@ -380,7 +424,7 @@
         }
       },
 
-      cancel: function() {
+      cancel: function () {
         isCancelled = true;
         run++;
         if (cancelActive) cancelActive();
@@ -423,7 +467,7 @@
       btn.style.minWidth = state.minWidth;
       btn.style.minHeight = state.minHeight;
       btn.disabled = state.disabled;
-      ['aria-busy', 'aria-disabled'].forEach(function(attribute) {
+      ['aria-busy', 'aria-disabled'].forEach(function (attribute) {
         if (state[attribute] == null) btn.removeAttribute(attribute);
         else btn.setAttribute(attribute, state[attribute]);
       });
@@ -451,10 +495,13 @@
     btn.setAttribute('aria-busy', 'true');
     if (!state.hadLoadingClass) btn.classList.add('btn-loading');
 
-    state.showTimer = setTimeout(function() {
+    state.showTimer = setTimeout(function () {
       if (buttonLoading.get(btn) !== state) return;
       var label = srLabel || loadingText || 'Processing...';
-      var html = '<span class="btn-spinner" aria-hidden="true"></span><span class="sr-only">' + escapeText(label) + '</span>';
+      var html =
+        '<span class="btn-spinner" aria-hidden="true"></span><span class="sr-only">' +
+        escapeText(label) +
+        '</span>';
       state.shownAt = Date.now();
       if (btn.ownerDocument) {
         var indicator = btn.ownerDocument.createElement('span');
@@ -486,7 +533,10 @@
     } finally {
       if (state.shownAt) {
         var remaining = MIN_DISPLAY_MS - (Date.now() - state.shownAt);
-        if (remaining > 0) await new Promise(function(resolve) { setTimeout(resolve, remaining); });
+        if (remaining > 0)
+          await new Promise(function (resolve) {
+            setTimeout(resolve, remaining);
+          });
       }
       if (buttonLoading.get(btn) === state) setButtonLoading(btn, false);
     }
@@ -506,7 +556,7 @@
     _current: 0,
     _transition: null,
 
-    init: function() {
+    init: function () {
       if (typeof document === 'undefined') return;
       if (!this._el) {
         this._el = document.getElementById('top-route-progress');
@@ -523,7 +573,7 @@
       }
     },
 
-    start: function() {
+    start: function () {
       this.init();
       if (!this._el) return;
       if (this._timer) clearInterval(this._timer);
@@ -536,7 +586,7 @@
       this._el.classList.add('active');
 
       var self = this;
-      this._timer = setInterval(function() {
+      this._timer = setInterval(function () {
         if (self._current < 85) {
           self._current += (85 - self._current) * 0.15;
           self._el.style.width = self._current + '%';
@@ -545,7 +595,7 @@
       }, 200);
     },
 
-    set: function(percent) {
+    set: function (percent) {
       this.init();
       if (!this._el) return;
       var p = Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0;
@@ -554,10 +604,13 @@
       this._el.setAttribute('aria-valuenow', String(Math.round(p)));
     },
 
-    complete: function() {
+    complete: function () {
       this.init();
       if (!this._el) return;
-      if (this._timer) { clearInterval(this._timer); this._timer = null; }
+      if (this._timer) {
+        clearInterval(this._timer);
+        this._timer = null;
+      }
 
       this._current = 100;
       this._el.style.width = '100%';
@@ -565,10 +618,10 @@
 
       var self = this;
       clearTimeout(this._transition);
-      this._transition = setTimeout(function() {
+      this._transition = setTimeout(function () {
         if (self._el) {
           self._el.style.opacity = '0';
-          self._transition = setTimeout(function() {
+          self._transition = setTimeout(function () {
             if (self._el) {
               self._el.style.width = '0%';
               self._el.classList.remove('active');
@@ -596,11 +649,13 @@
 
     wrapper.innerHTML =
       '<div class="task-progress-header">' +
-        '<span class="task-progress-title">' + escapeText(title) + '</span>' +
-        '<span class="task-progress-percent">0%</span>' +
+      '<span class="task-progress-title">' +
+      escapeText(title) +
+      '</span>' +
+      '<span class="task-progress-percent">0%</span>' +
       '</div>' +
       '<div class="task-progress-track">' +
-        '<div class="task-progress-fill" style="width:0%;"></div>' +
+      '<div class="task-progress-fill" style="width:0%;"></div>' +
       '</div>' +
       '<div class="task-progress-status">Preparing...</div>';
 
@@ -615,38 +670,43 @@
     return {
       element: wrapper,
 
-      update: function(stepIndex, stepLabel, percent) {
+      update: function (stepIndex, stepLabel, percent) {
         var p = Number.isFinite(percent) ? Math.max(0, Math.min(100, Math.round(percent))) : 0;
         if (fillEl) fillEl.style.width = p + '%';
         if (percentEl) percentEl.textContent = p + '%';
         if (statusEl) {
-          statusEl.textContent = (stepIndex && totalSteps ? stepIndex + '/' + totalSteps + ': ' : '') + (stepLabel || '');
+          statusEl.textContent =
+            (stepIndex && totalSteps ? stepIndex + '/' + totalSteps + ': ' : '') +
+            (stepLabel || '');
         }
         wrapper.setAttribute('aria-valuenow', String(p));
       },
 
-      complete: function(successMsg) {
+      complete: function (successMsg) {
         this.update(totalSteps, successMsg || 'Complete!', 100);
         if (fillEl) fillEl.style.background = 'var(--success, #22c55e)';
-        setTimeout(function() {
+        setTimeout(function () {
           if (wrapper.parentNode) {
             wrapper.style.transition = 'opacity 0.4s ease';
             wrapper.style.opacity = '0';
-            setTimeout(function() {
+            setTimeout(function () {
               if (wrapper.parentNode) wrapper.parentNode.removeChild(wrapper);
             }, 400);
           }
         }, 1200);
       },
 
-      fail: function(errorMsg) {
+      fail: function (errorMsg) {
         if (statusEl) {
-          statusEl.innerHTML = '<span style="color:var(--error, #ef4444);">' + escapeText(errorMsg || 'Failed') + '</span>';
+          statusEl.innerHTML =
+            '<span style="color:var(--error, #ef4444);">' +
+            escapeText(errorMsg || 'Failed') +
+            '</span>';
         }
         if (fillEl) fillEl.style.background = 'var(--error, #ef4444)';
       },
 
-      remove: function() {
+      remove: function () {
         if (wrapper.parentNode) {
           wrapper.parentNode.removeChild(wrapper);
         }
@@ -694,4 +754,4 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = SmartLoading;
   }
-})(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

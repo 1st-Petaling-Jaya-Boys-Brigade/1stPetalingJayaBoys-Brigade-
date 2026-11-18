@@ -25,6 +25,16 @@ var _gfResponsesViewMode = 'table'; // 'table' or 'individual'
 var _gfIndividualIndex = 0;
 var _gfResponsesList = [];
 
+/* global getAdminSessionToken */
+function resolveFormsAdminToken() {
+  if (typeof getAdminSessionToken === 'function') return getAdminSessionToken() || '';
+  if (typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function')
+    return window.getAdminSessionToken() || '';
+  if (typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function')
+    return global.getAdminSessionToken() || '';
+  return '';
+}
+
 /**
  * Resolves Supabase client instance across environments
  */
@@ -32,12 +42,15 @@ function getSupa() {
   if (typeof window !== 'undefined' && window.supa) return window.supa;
   if (typeof global !== 'undefined' && global.supa) return global.supa;
   if (typeof getSupaClient === 'function') return getSupaClient();
-  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function')
+    return window.getSupaClient();
   if (typeof supa !== 'undefined' && supa) return supa;
   return null;
 }
 
 // ── Data Persistence ───────────────────────────────────────────────────────
+
+var _customFormsLoadError = null;
 
 /**
  * Loads custom forms definitions from Supabase bb_config
@@ -49,10 +62,14 @@ async function loadCustomForms(force) {
   if (!force && client && typeof client.getConfigSnapshot === 'function') {
     var snapForms = client.getConfigSnapshot('bb_custom_forms');
     if (Array.isArray(snapForms)) {
-      if (!_isWritingCustomForms) _customForms.splice(0, _customForms.length, ...snapForms.filter(Boolean));
+      if (!_isWritingCustomForms)
+        _customForms.splice(0, _customForms.length, ...snapForms.filter(Boolean));
       if (typeof syncFormNotifications === 'function') {
         syncFormNotifications(_customForms);
-      } else if (typeof window !== 'undefined' && typeof window.syncFormNotifications === 'function') {
+      } else if (
+        typeof window !== 'undefined' &&
+        typeof window.syncFormNotifications === 'function'
+      ) {
         window.syncFormNotifications(_customForms);
       }
       return _customForms;
@@ -60,15 +77,41 @@ async function loadCustomForms(force) {
   }
   if (client && client.get) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_custom_forms&select=value', { cache: !force });
+      var rows = await client.get('bb_config?key=eq.bb_custom_forms&select=value', {
+        cache: !force
+      });
       if (_isWritingCustomForms || revision !== _customFormsRevision) return _customForms;
       var value = rows && rows.length ? rows[0].value : [];
       var parsed = typeof value === 'string' ? JSON.parse(value) : value;
       if (!Array.isArray(parsed)) return _customForms;
       _customForms.splice(0, _customForms.length, ...parsed.filter(Boolean));
       if (client.recordConfigSnapshot) client.recordConfigSnapshot('bb_custom_forms', _customForms);
+      _customFormsLoadError = null;
     } catch (e) {
-      // Keep the last valid catalog if the request fails.
+      _customFormsLoadError = e;
+      var target =
+        typeof document !== 'undefined'
+          ? document.getElementById('forms-hub-list') ||
+            document.getElementById('forms-list') ||
+            document.getElementById('forms-hub')
+          : null;
+      if (target) {
+        var errMsg = (e && e.message) || 'Failed to load forms.';
+        var safeMsg = typeof escapeHtml === 'function' ? escapeHtml(errMsg) : errMsg;
+        target.innerHTML =
+          '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+          safeMsg +
+          '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+        var retryBtn = target.querySelector('.btn-retry');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', function (ev) {
+            if (ev && ev.preventDefault) ev.preventDefault();
+            loadCustomForms(true).then(function () {
+              if (typeof renderFormsHub === 'function') renderFormsHub();
+            });
+          });
+        }
+      }
     }
   }
   if (typeof syncFormNotifications === 'function') {
@@ -94,15 +137,18 @@ async function saveCustomForms(nextForms) {
       if (!Array.isArray(payload)) throw new Error('Form catalog was not confirmed');
     } else {
       await client.req('POST', 'bb_config?on_conflict=key', {
-        key: 'bb_custom_forms', value: JSON.stringify(payload)
+        key: 'bb_custom_forms',
+        value: JSON.stringify(payload)
       });
     }
     _customForms.splice(0, _customForms.length, ...payload);
     _customFormsRevision++;
-    if (typeof client.recordConfigSnapshot === 'function') client.recordConfigSnapshot('bb_custom_forms', payload);
+    if (typeof client.recordConfigSnapshot === 'function')
+      client.recordConfigSnapshot('bb_custom_forms', payload);
     return true;
   } catch (_) {
-    if (typeof showToast === 'function') showToast('Form changes could not be saved. Please try again.', 'error');
+    if (typeof showToast === 'function')
+      showToast('Form changes could not be saved. Please try again.', 'error');
     return false;
   } finally {
     _isWritingCustomForms = false;
@@ -111,7 +157,9 @@ async function saveCustomForms(nextForms) {
 
 function parseFormSchedule(value) {
   if (typeof value !== 'string') return NaN;
-  return Date.parse(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value) ? value + '+08:00' : value);
+  return Date.parse(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value) ? value + '+08:00' : value
+  );
 }
 
 /**
@@ -122,9 +170,10 @@ function parseFormSchedule(value) {
 function isFormAcceptingResponses(form) {
   if (!form) return { open: true, reason: 'active', message: '' };
 
-  var defaultPausedMsg = typeof form.paused_message === 'string' && form.paused_message.trim()
-    ? form.paused_message.trim()
-    : 'Responses for this form are currently paused by the company administration. Please check back later.';
+  var defaultPausedMsg =
+    typeof form.paused_message === 'string' && form.paused_message.trim()
+      ? form.paused_message.trim()
+      : 'Responses for this form are currently paused by the company administration. Please check back later.';
 
   // 1. Explicit pause
   if (form.status === 'paused' || form.active === false) {
@@ -139,7 +188,11 @@ function isFormAcceptingResponses(form) {
   var openTime = form.open_at ? parseFormSchedule(form.open_at) : -Infinity;
   var closeTime = form.close_at ? parseFormSchedule(form.close_at) : Infinity;
   if (Number.isNaN(openTime) || Number.isNaN(closeTime) || openTime >= closeTime) {
-    return { open: false, reason: 'invalid_schedule', message: 'This form has an invalid response schedule. Contact the company office.' };
+    return {
+      open: false,
+      reason: 'invalid_schedule',
+      message: 'This form has an invalid response schedule. Contact the company office.'
+    };
   }
 
   // 2. Scheduled opening in future
@@ -157,9 +210,12 @@ function isFormAcceptingResponses(form) {
       return {
         open: false,
         reason: 'scheduled_future',
-        message: typeof form.paused_message === 'string' && form.paused_message.trim()
-          ? form.paused_message.trim()
-          : ('This form is scheduled to open on ' + openFormatted + '. Please check back once responses are open.')
+        message:
+          typeof form.paused_message === 'string' && form.paused_message.trim()
+            ? form.paused_message.trim()
+            : 'This form is scheduled to open on ' +
+              openFormatted +
+              '. Please check back once responses are open.'
       };
     }
   }
@@ -179,9 +235,10 @@ function isFormAcceptingResponses(form) {
       return {
         open: false,
         reason: 'scheduled_past',
-        message: typeof form.paused_message === 'string' && form.paused_message.trim()
-          ? form.paused_message.trim()
-          : ('Responses for this form closed on ' + closeFormatted + '.')
+        message:
+          typeof form.paused_message === 'string' && form.paused_message.trim()
+            ? form.paused_message.trim()
+            : 'Responses for this form closed on ' + closeFormatted + '.'
       };
     }
   }
@@ -194,12 +251,21 @@ function isFormAcceptingResponses(form) {
  * @param {string} formId
  */
 async function toggleCustomFormStatus(formId) {
-  var f = _customForms.find(function(x) { return String(x.id) === String(formId); });
+  var f = _customForms.find(function (x) {
+    return String(x.id) === String(formId);
+  });
   if (!f) return;
-  var isCurrentlyPaused = (f.status === 'paused' || f.active === false);
+  var isCurrentlyPaused = f.status === 'paused' || f.active === false;
   var nextStatus = isCurrentlyPaused ? 'active' : 'paused';
   var next = Object.assign({}, f, { status: nextStatus, active: nextStatus === 'active' });
-  if (!await saveCustomForms(_customForms.map(function(item) { return item === f ? next : item; }))) return false;
+  if (
+    !(await saveCustomForms(
+      _customForms.map(function (item) {
+        return item === f ? next : item;
+      })
+    ))
+  )
+    return false;
   renderAdminForms();
   renderFormsHub();
   var editIdEl = document.getElementById('fb-edit-id');
@@ -211,7 +277,10 @@ async function toggleCustomFormStatus(formId) {
     }
   }
   if (typeof showToast === 'function') {
-    showToast(nextStatus === 'paused' ? 'Form responses paused.' : 'Form responses resumed.', 'info');
+    showToast(
+      nextStatus === 'paused' ? 'Form responses paused.' : 'Form responses resumed.',
+      'info'
+    );
   }
   return true;
 }
@@ -225,31 +294,41 @@ async function toggleCustomFormStatus(formId) {
  */
 function convertOldFieldsToGfItems(fields) {
   if (!Array.isArray(fields)) return [];
-  return fields.filter(function(f) { return f && !isLegacyFormUpload(f); }).map(function (f, idx) {
-    var t = f.type || 'short_answer';
-    if (t === 'text') t = 'short_answer';
-    if (t === 'textarea') t = 'paragraph';
-    if (t === 'select') t = 'dropdown';
-    if (t === 'radio') t = 'multiple_choice';
+  return fields
+    .filter(function (f) {
+      return f && !isLegacyFormUpload(f);
+    })
+    .map(function (f, idx) {
+      var t = f.type || 'short_answer';
+      if (t === 'text') t = 'short_answer';
+      if (t === 'textarea') t = 'paragraph';
+      if (t === 'select') t = 'dropdown';
+      if (t === 'radio') t = 'multiple_choice';
 
-    var opts = [];
-    if (f.options) {
-      if (Array.isArray(f.options)) opts = f.options.slice();
-      else opts = String(f.options).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-    }
-    if (['multiple_choice', 'checkboxes', 'dropdown'].indexOf(t) !== -1 && opts.length === 0) {
-      opts = ['Option 1'];
-    }
+      var opts = [];
+      if (f.options) {
+        if (Array.isArray(f.options)) opts = f.options.slice();
+        else
+          opts = String(f.options)
+            .split(',')
+            .map(function (s) {
+              return s.trim();
+            })
+            .filter(Boolean);
+      }
+      if (['multiple_choice', 'checkboxes', 'dropdown'].indexOf(t) !== -1 && opts.length === 0) {
+        opts = ['Option 1'];
+      }
 
-    return {
-      id: 'q_' + (Date.now() + idx),
-      kind: 'question',
-      title: f.label || ('Question ' + (idx + 1)),
-      type: t,
-      required: !!f.required,
-      options: opts
-    };
-  });
+      return {
+        id: 'q_' + (Date.now() + idx),
+        kind: 'question',
+        title: f.label || 'Question ' + (idx + 1),
+        type: t,
+        required: !!f.required,
+        options: opts
+      };
+    });
 }
 
 /**
@@ -266,7 +345,7 @@ function convertGfItemsToFields(items) {
         label: it.title || it.label || 'Question',
         type: it.type || 'text',
         required: !!it.required,
-        options: Array.isArray(it.options) ? it.options.join(', ') : (it.options || '')
+        options: Array.isArray(it.options) ? it.options.join(', ') : it.options || ''
       });
     }
   });
@@ -278,11 +357,17 @@ function isLegacyFormUpload(field) {
 }
 
 function isFormQuestion(field) {
-  return field && !isLegacyFormUpload(field) && !['section', 'title_desc', 'image'].includes(field.kind);
+  return (
+    field && !isLegacyFormUpload(field) && !['section', 'title_desc', 'image'].includes(field.kind)
+  );
 }
 
 function isFormSignature(value) {
-  return typeof value === 'string' && value.length <= 500000 && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+  return (
+    typeof value === 'string' &&
+    value.length <= 500000 &&
+    /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(value)
+  );
 }
 
 /**
@@ -293,7 +378,13 @@ function isFormSignature(value) {
 function isOtherOption(val) {
   if (!val) return false;
   var s = String(val).trim().toLowerCase();
-  return s === 'other...' || s === 'other…' || s === 'other' || s.indexOf('other:') === 0 || s === '__other__';
+  return (
+    s === 'other...' ||
+    s === 'other…' ||
+    s === 'other' ||
+    s.indexOf('other:') === 0 ||
+    s === '__other__'
+  );
 }
 
 /**
@@ -341,7 +432,9 @@ function onGfOtherRadioChange(fieldId) {
   if (typeof document === 'undefined') return;
   var otherInp = document.getElementById(fieldId + '-other-text');
   if (otherInp) {
-    try { otherInp.focus(); } catch (_) {}
+    try {
+      otherInp.focus();
+    } catch (_) {}
   }
 }
 
@@ -355,7 +448,9 @@ function onGfOtherCheckboxChange(fieldId, isChecked) {
   if (isChecked) {
     var otherInp = document.getElementById(fieldId + '-other-text');
     if (otherInp) {
-      try { otherInp.focus(); } catch (_) {}
+      try {
+        otherInp.focus();
+      } catch (_) {}
     }
   }
 }
@@ -429,14 +524,22 @@ function attachSignatureCanvas(canvasEl, inputEl, clearBtn) {
   canvasEl.addEventListener('mousemove', draw);
   window.addEventListener('mouseup', stopDrawing);
 
-  canvasEl.addEventListener('touchstart', function (e) {
-    if (e.cancelable) e.preventDefault();
-    startDrawing(e);
-  }, { passive: false });
-  canvasEl.addEventListener('touchmove', function (e) {
-    if (e.cancelable) e.preventDefault();
-    draw(e);
-  }, { passive: false });
+  canvasEl.addEventListener(
+    'touchstart',
+    function (e) {
+      if (e.cancelable) e.preventDefault();
+      startDrawing(e);
+    },
+    { passive: false }
+  );
+  canvasEl.addEventListener(
+    'touchmove',
+    function (e) {
+      if (e.cancelable) e.preventDefault();
+      draw(e);
+    },
+    { passive: false }
+  );
   canvasEl.addEventListener('touchend', stopDrawing);
 
   if (clearBtn) {
@@ -472,9 +575,15 @@ function showSignatureEnlargedModal(dataUrl, signerName) {
     '</div>' +
     '<button type="button" class="btn-sig-modal-close" style="background:none;border:none;color:var(--text-secondary);font-size:24px;cursor:pointer;line-height:1;">&times;</button>' +
     '</div>' +
-    (signerName ? '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;text-align:left;">Signed by: <strong style="color:var(--text-primary);">' + (typeof escapeHtml === 'function' ? escapeHtml(signerName) : signerName) + '</strong></div>' : '') +
+    (signerName
+      ? '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;text-align:left;">Signed by: <strong style="color:var(--text-primary);">' +
+        (typeof escapeHtml === 'function' ? escapeHtml(signerName) : signerName) +
+        '</strong></div>'
+      : '') +
     '<div style="background:#ffffff;border:1.5px solid var(--border-card);border-radius:10px;padding:16px;display:inline-block;max-width:100%;margin-bottom:16px;">' +
-    '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(dataUrl) : dataUrl) + '" alt="Signature" style="max-height:180px;max-width:100%;display:block;margin:0 auto;"/>' +
+    '<img src="' +
+    (typeof escapeHtml === 'function' ? escapeHtml(dataUrl) : dataUrl) +
+    '" alt="Signature" style="max-height:180px;max-width:100%;display:block;margin:0 auto;"/>' +
     '</div>' +
     '<div>' +
     '<button type="button" class="portal-btn portal-btn-secondary btn-sig-modal-close" style="padding:8px 20px;font-size:13px;cursor:pointer;">Close</button>' +
@@ -483,7 +592,9 @@ function showSignatureEnlargedModal(dataUrl, signerName) {
 
   document.body.appendChild(overlay);
   overlay.querySelectorAll('.btn-sig-modal-close').forEach(function (btn) {
-    btn.addEventListener('click', function () { overlay.remove(); });
+    btn.addEventListener('click', function () {
+      overlay.remove();
+    });
   });
   overlay.addEventListener('click', function (e) {
     if (e.target === overlay) overlay.remove();
@@ -523,10 +634,35 @@ function removeFormFileUpload(fieldId) {
  */
 function renderFormsHub() {
   if (typeof document === 'undefined') return;
-  var hub = document.getElementById('forms-hub');
+  var hub = document.getElementById('forms-hub') || document.getElementById('forms-hub-list');
   var inline = document.getElementById('inline-form-view');
-  if (hub) hub.style.display = 'block';
+  if (hub && hub.id === 'forms-hub') hub.style.display = 'block';
   if (inline) inline.style.display = 'none';
+
+  var list =
+    document.getElementById('forms-hub-list') || document.getElementById('forms-list') || hub;
+  if (_customFormsLoadError) {
+    if (list) {
+      var errMsg =
+        (_customFormsLoadError && _customFormsLoadError.message) || 'Failed to load forms.';
+      var safeMsg = typeof escapeHtml === 'function' ? escapeHtml(errMsg) : errMsg;
+      list.innerHTML =
+        '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+        safeMsg +
+        '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+      var retryBtn = list.querySelector('.btn-retry');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          _customFormsLoadError = null;
+          loadCustomForms(true).then(function () {
+            renderFormsHub();
+          });
+        });
+      }
+    }
+    return;
+  }
   if (!hub) return;
 
   var uniformSvg =
@@ -587,8 +723,16 @@ function renderFormsHub() {
         : isFormAcceptingResponses(f);
     var statusBadge = '';
     if (!avail.open) {
-      var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled' : (avail.reason === 'scheduled_past' ? 'Closed' : 'Paused');
-      statusBadge = ' <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--brand-gold);border:1px solid rgba(234,179,8,0.3);margin-left:6px;vertical-align:middle;">' + badgeText + '</span>';
+      var badgeText =
+        avail.reason === 'scheduled_future'
+          ? 'Scheduled'
+          : avail.reason === 'scheduled_past'
+            ? 'Closed'
+            : 'Paused';
+      statusBadge =
+        ' <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--brand-gold);border:1px solid rgba(234,179,8,0.3);margin-left:6px;vertical-align:middle;">' +
+        badgeText +
+        '</span>';
     }
 
     html +=
@@ -642,7 +786,8 @@ function filterForms(query) {
   var countEl = document.getElementById('forms-search-count');
   var noResEl = document.getElementById('forms-no-results');
   var noResTitle = document.getElementById('forms-no-results-title');
-  var clearBtn = document.getElementById('form-search-clear') || document.getElementById('forms-search-clear');
+  var clearBtn =
+    document.getElementById('form-search-clear') || document.getElementById('forms-search-clear');
 
   if (clearBtn) {
     clearBtn.style.display = query && query.length > 0 ? 'flex' : 'none';
@@ -782,22 +927,34 @@ function backToFormsHub() {
  */
 function renderBuiltinFormInline(form, customContainer, options) {
   if (typeof document === 'undefined') return;
-  var container = customContainer || document.getElementById('inline-form-view') || document.getElementById('builtin-form-view');
+  var container =
+    customContainer ||
+    document.getElementById('inline-form-view') ||
+    document.getElementById('builtin-form-view');
   if (!container) return;
 
   var isPreview = Boolean(options && options.isPreview);
 
   var avail = isFormAcceptingResponses(form);
   if (!avail.open && !isPreview) {
-    var badgeText = avail.reason === 'scheduled_future' ? 'Scheduled to Open' : (avail.reason === 'paused' ? 'Responses Paused' : 'Responses Closed');
+    var badgeText =
+      avail.reason === 'scheduled_future'
+        ? 'Scheduled to Open'
+        : avail.reason === 'paused'
+          ? 'Responses Paused'
+          : 'Responses Closed';
     container.innerHTML =
       '<div class="dark-card" style="text-align:center;padding:36px 24px;">' +
       '<button onclick="backToFormsHub()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px;">\u2039 Back to Forms</button>' +
       '<div style="width:52px;height:52px;border-radius:50%;background:rgba(234,179,8,0.12);color:var(--brand-gold);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">' +
       '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
       '</div>' +
-      '<div class="page-title" style="margin-bottom:6px;">' + escapeHtml(form.name) + '</div>' +
-      '<div style="font-size:15px;color:#ffffff;font-weight:600;margin-bottom:16px;">' + badgeText + '</div>' +
+      '<div class="page-title" style="margin-bottom:6px;">' +
+      escapeHtml(form.name) +
+      '</div>' +
+      '<div style="font-size:15px;color:#ffffff;font-weight:600;margin-bottom:16px;">' +
+      badgeText +
+      '</div>' +
       '<div style="font-size:14px;color:var(--text-secondary);line-height:1.75;max-width:480px;margin:0 auto 24px;white-space:pre-wrap;">' +
       escapeHtml(avail.message) +
       '</div>' +
@@ -808,7 +965,7 @@ function renderBuiltinFormInline(form, customContainer, options) {
   }
 
   var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
-  var items = (form.items && form.items.length) ? form.items : (form.fields || []);
+  var items = form.items && form.items.length ? form.items : form.fields || [];
   var sigPadsToInit = [];
 
   // Group items into progressive section pages
@@ -843,17 +1000,28 @@ function renderBuiltinFormInline(form, customContainer, options) {
     var pFieldsHtml = '';
 
     // Page indicator (if multiple sections)
-    var pageBadge = totalPages > 1
-      ? '<div style="font-size:12px;font-weight:700;color:var(--brand-gold, #f59e0b);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Section ' + (pIdx + 1) + ' of ' + totalPages + '</div>'
-      : '';
+    var pageBadge =
+      totalPages > 1
+        ? '<div style="font-size:12px;font-weight:700;color:var(--brand-gold, #f59e0b);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Section ' +
+          (pIdx + 1) +
+          ' of ' +
+          totalPages +
+          '</div>'
+        : '';
 
     // Section Header (for section breaks)
     var sectionHeaderHtml = '';
     if (pIdx > 0 && page.title) {
       sectionHeaderHtml =
         '<div style="background:var(--bg-card-subtle);border-left:4px solid #f59e0b;border-radius:8px;padding:14px 18px;margin-bottom:18px;">' +
-        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">' + escapeHtml(page.title) + '</div>' +
-        (page.desc ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + escapeHtml(page.desc) + '</div>' : '') +
+        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);">' +
+        escapeHtml(page.title) +
+        '</div>' +
+        (page.desc
+          ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' +
+            escapeHtml(page.desc) +
+            '</div>'
+          : '') +
         '</div>';
     }
 
@@ -864,8 +1032,14 @@ function renderBuiltinFormInline(form, customContainer, options) {
       if (f.kind === 'title_desc') {
         pFieldsHtml +=
           '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:14px 18px;margin:16px 0;">' +
-          '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' + escapeHtml(f.title || '') + '</div>' +
-          (f.desc ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' + escapeHtml(f.desc) + '</div>' : '') +
+          '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' +
+          escapeHtml(f.title || '') +
+          '</div>' +
+          (f.desc
+            ? '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">' +
+              escapeHtml(f.desc) +
+              '</div>'
+            : '') +
           '</div>';
         return;
       }
@@ -874,13 +1048,23 @@ function renderBuiltinFormInline(form, customContainer, options) {
         if (f.url) {
           pFieldsHtml +=
             '<div class="form-image-block" style="margin:16px 0;text-align:center;">' +
-            (f.title ? '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:8px;text-align:left;">' + escapeHtml(f.title) + '</div>' : '') +
-            '<img src="' + escapeHtml(f.url) + '" alt="' + escapeHtml(f.title || 'Form image') + '" style="max-width:100%;max-height:360px;border-radius:10px;border:1px solid var(--border-card);object-fit:contain;box-shadow:0 2px 10px rgba(0,0,0,0.15);"/>' +
+            (f.title
+              ? '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:8px;text-align:left;">' +
+                escapeHtml(f.title) +
+                '</div>'
+              : '') +
+            '<img src="' +
+            escapeHtml(f.url) +
+            '" alt="' +
+            escapeHtml(f.title || 'Form image') +
+            '" style="max-width:100%;max-height:360px;border-radius:10px;border:1px solid var(--border-card);object-fit:contain;box-shadow:0 2px 10px rgba(0,0,0,0.15);"/>' +
             '</div>';
         } else if (f.title) {
           pFieldsHtml +=
             '<div class="form-image-block" style="margin:14px 0;">' +
-            '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' + escapeHtml(f.title) + '</div>' +
+            '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text-primary);">' +
+            escapeHtml(f.title) +
+            '</div>' +
             '</div>';
         }
         return;
@@ -888,12 +1072,19 @@ function renderBuiltinFormInline(form, customContainer, options) {
 
       var fieldId = 'bff-' + formKey + '-' + i;
       var req = f.required ? ' <span style="color:var(--red);">*</span>' : '';
-      var label = f.title || f.label || ('Question ' + (i + 1));
+      var label = f.title || f.label || 'Question ' + (i + 1);
       var inp = '';
-      var reqAttr = f.required ? ' data-required="true" data-label="' + escapeHtml(label) + '" ' : '';
+      var reqAttr = f.required
+        ? ' data-required="true" data-label="' + escapeHtml(label) + '" '
+        : '';
 
       if (f.type === 'textarea' || f.type === 'paragraph') {
-        inp = '<textarea class="form-textarea" id="' + fieldId + '" placeholder="Your answer..." style="margin-top:6px;"' + reqAttr + '></textarea>';
+        inp =
+          '<textarea class="form-textarea" id="' +
+          fieldId +
+          '" placeholder="Your answer..." style="margin-top:6px;"' +
+          reqAttr +
+          '></textarea>';
       } else if (f.type === 'select' || f.type === 'dropdown') {
         var opts = '<option value="">Select an option...</option>';
         var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
@@ -901,7 +1092,14 @@ function renderBuiltinFormInline(form, customContainer, options) {
           var t = String(o).trim();
           if (t) opts += '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
         });
-        inp = '<select class="form-select" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '>' + opts + '</select>';
+        inp =
+          '<select class="form-select" id="' +
+          fieldId +
+          '" style="margin-top:6px;"' +
+          reqAttr +
+          '>' +
+          opts +
+          '</select>';
       } else if (f.type === 'multiple_choice' || f.type === 'radio') {
         var optArr = Array.isArray(f.options) ? f.options : (f.options || '').split(',');
         var radiosHtml = '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
@@ -911,14 +1109,37 @@ function renderBuiltinFormInline(form, customContainer, options) {
           if (isOtherOption(t)) {
             radiosHtml +=
               '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;flex-wrap:wrap;">' +
-              '<input type="radio" name="' + fieldId + '" value="__other__" class="gf-other-radio" style="accent-color:#f59e0b;cursor:pointer;" onchange="onGfOtherRadioChange(\'' + fieldId + '\')"' + reqAttr + '/> ' +
+              '<input type="radio" name="' +
+              fieldId +
+              '" value="__other__" class="gf-other-radio" style="accent-color:#f59e0b;cursor:pointer;" onchange="onGfOtherRadioChange(\'' +
+              fieldId +
+              '\')"' +
+              reqAttr +
+              '/> ' +
               '<span>Other:</span>' +
-              '<input type="text" class="form-input form-input-sm gf-other-input" id="' + fieldId + '-other-text" data-field-id="' + fieldId + '" placeholder="Your answer" style="margin:0;padding:6px 12px;font-size:12px;height:auto;flex:1;min-width:180px;max-width:340px;border-radius:6px;" onfocus="onGfOtherInputFocus(\'' + fieldId + '\', \'radio\')" oninput="onGfOtherInputChange(\'' + fieldId + '\', \'radio\', this.value)"/>' +
+              '<input type="text" class="form-input form-input-sm gf-other-input" id="' +
+              fieldId +
+              '-other-text" data-field-id="' +
+              fieldId +
+              '" placeholder="Your answer" style="margin:0;padding:6px 12px;font-size:12px;height:auto;flex:1;min-width:180px;max-width:340px;border-radius:6px;" onfocus="onGfOtherInputFocus(\'' +
+              fieldId +
+              "', 'radio')\" oninput=\"onGfOtherInputChange('" +
+              fieldId +
+              "', 'radio', this.value)\"/>" +
               '</label>';
           } else {
-            radiosHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
-              '<input type="radio" name="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"' + reqAttr + '/> ' +
-              '<span>' + escapeHtml(t) + '</span>' +
+            radiosHtml +=
+              '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
+              '<input type="radio" name="' +
+              fieldId +
+              '" value="' +
+              escapeHtml(t) +
+              '" style="accent-color:#f59e0b;cursor:pointer;"' +
+              reqAttr +
+              '/> ' +
+              '<span>' +
+              escapeHtml(t) +
+              '</span>' +
               '</label>';
           }
         });
@@ -934,14 +1155,33 @@ function renderBuiltinFormInline(form, customContainer, options) {
           if (isOtherOption(t)) {
             cbsHtml +=
               '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;flex-wrap:wrap;">' +
-              '<input type="checkbox" data-cb-group="' + fieldId + '" value="__other__" class="gf-other-cb" style="accent-color:#f59e0b;cursor:pointer;" onchange="onGfOtherCheckboxChange(\'' + fieldId + '\', this.checked)"/> ' +
+              '<input type="checkbox" data-cb-group="' +
+              fieldId +
+              '" value="__other__" class="gf-other-cb" style="accent-color:#f59e0b;cursor:pointer;" onchange="onGfOtherCheckboxChange(\'' +
+              fieldId +
+              '\', this.checked)"/> ' +
               '<span>Other:</span>' +
-              '<input type="text" class="form-input form-input-sm gf-other-input" id="' + fieldId + '-other-text" data-field-id="' + fieldId + '" placeholder="Your answer" style="margin:0;padding:6px 12px;font-size:12px;height:auto;flex:1;min-width:180px;max-width:340px;border-radius:6px;" onfocus="onGfOtherInputFocus(\'' + fieldId + '\', \'checkbox\')" oninput="onGfOtherInputChange(\'' + fieldId + '\', \'checkbox\', this.value)"/>' +
+              '<input type="text" class="form-input form-input-sm gf-other-input" id="' +
+              fieldId +
+              '-other-text" data-field-id="' +
+              fieldId +
+              '" placeholder="Your answer" style="margin:0;padding:6px 12px;font-size:12px;height:auto;flex:1;min-width:180px;max-width:340px;border-radius:6px;" onfocus="onGfOtherInputFocus(\'' +
+              fieldId +
+              "', 'checkbox')\" oninput=\"onGfOtherInputChange('" +
+              fieldId +
+              "', 'checkbox', this.value)\"/>" +
               '</label>';
           } else {
-            cbsHtml += '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
-              '<input type="checkbox" data-cb-group="' + fieldId + '" value="' + escapeHtml(t) + '" style="accent-color:#f59e0b;cursor:pointer;"/> ' +
-              '<span>' + escapeHtml(t) + '</span>' +
+            cbsHtml +=
+              '<label style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary);cursor:pointer;">' +
+              '<input type="checkbox" data-cb-group="' +
+              fieldId +
+              '" value="' +
+              escapeHtml(t) +
+              '" style="accent-color:#f59e0b;cursor:pointer;"/> ' +
+              '<span>' +
+              escapeHtml(t) +
+              '</span>' +
               '</label>';
           }
         });
@@ -949,24 +1189,56 @@ function renderBuiltinFormInline(form, customContainer, options) {
         cbsHtml += '<input type="hidden" id="' + fieldId + '" value=""/>';
         inp = cbsHtml;
       } else if (f.type === 'date') {
-        inp = '<input class="form-input" type="date" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
+        inp =
+          '<input class="form-input" type="date" id="' +
+          fieldId +
+          '" style="margin-top:6px;"' +
+          reqAttr +
+          '/>';
       } else if (f.type === 'time') {
-        inp = '<input class="form-input" type="time" id="' + fieldId + '" style="margin-top:6px;"' + reqAttr + '/>';
+        inp =
+          '<input class="form-input" type="time" id="' +
+          fieldId +
+          '" style="margin-top:6px;"' +
+          reqAttr +
+          '/>';
       } else if (f.type === 'signature') {
-        inp = '<div class="form-signature-wrapper" id="sig-wrap-' + fieldId + '" style="margin-top:8px;">' +
+        inp =
+          '<div class="form-signature-wrapper" id="sig-wrap-' +
+          fieldId +
+          '" style="margin-top:8px;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-            '<span style="font-size:12px;color:#64748b;display:inline-flex;align-items:center;gap:6px;">' +
-              '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg> ' +
-              'Draw signature inside the box' +
-            '</span>' +
-            '<button type="button" class="btn-sig-clear" data-sig-clear="' + fieldId + '" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;padding:2px 8px;border-radius:4px;">Clear</button>' +
+          '<span style="font-size:12px;color:#64748b;display:inline-flex;align-items:center;gap:6px;">' +
+          '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg> ' +
+          'Draw signature inside the box' +
+          '</span>' +
+          '<button type="button" class="btn-sig-clear" data-sig-clear="' +
+          fieldId +
+          '" style="background:none;border:none;color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;padding:2px 8px;border-radius:4px;">Clear</button>' +
           '</div>' +
-          '<canvas id="canvas-' + fieldId + '" class="form-sig-canvas" width="460" height="140" style="background:#ffffff;border:1.5px dashed #cbd5e1;border-radius:8px;width:100%;max-width:500px;height:140px;cursor:crosshair;touch-action:none;display:block;"' + reqAttr + ' data-field-id="' + fieldId + '"></canvas>' +
-          '<input type="hidden" id="' + fieldId + '" name="' + escapeHtml(label) + '"/>' +
-        '</div>';
+          '<canvas id="canvas-' +
+          fieldId +
+          '" class="form-sig-canvas" width="460" height="140" style="background:#ffffff;border:1.5px dashed #cbd5e1;border-radius:8px;width:100%;max-width:500px;height:140px;cursor:crosshair;touch-action:none;display:block;"' +
+          reqAttr +
+          ' data-field-id="' +
+          fieldId +
+          '"></canvas>' +
+          '<input type="hidden" id="' +
+          fieldId +
+          '" name="' +
+          escapeHtml(label) +
+          '"/>' +
+          '</div>';
         sigPadsToInit.push({ fieldId: fieldId });
       } else {
-        inp = '<input class="form-input" type="' + (f.type || 'text') + '" id="' + fieldId + '" placeholder="Your answer..." style="margin-top:6px;"' + reqAttr + '/>';
+        inp =
+          '<input class="form-input" type="' +
+          (f.type || 'text') +
+          '" id="' +
+          fieldId +
+          '" placeholder="Your answer..." style="margin-top:6px;"' +
+          reqAttr +
+          '/>';
       }
 
       pFieldsHtml +=
@@ -982,17 +1254,30 @@ function renderBuiltinFormInline(form, customContainer, options) {
     // When on the last page/section: Back button first, then Submit button to the right of Back.
     var navButtonsHtml = '<div class="form-nav-btn-row">';
     if (pIdx > 0) {
-      navButtonsHtml += '<button type="button" class="portal-btn portal-btn-secondary btn-form-back" data-goto-page="' + (pIdx - 1) + '" style="padding:10px 22px;border-radius:10px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg> Back</button>';
+      navButtonsHtml +=
+        '<button type="button" class="portal-btn portal-btn-secondary btn-form-back" data-goto-page="' +
+        (pIdx - 1) +
+        '" style="padding:10px 22px;border-radius:10px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;cursor:pointer;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg> Back</button>';
     }
     if (pIdx < totalPages - 1) {
-      navButtonsHtml += '<button type="button" class="submit-btn gold btn-form-next" data-goto-page="' + (pIdx + 1) + '" style="width:auto;margin:0;padding:10px 26px;border-radius:10px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">Next <svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>';
+      navButtonsHtml +=
+        '<button type="button" class="submit-btn gold btn-form-next" data-goto-page="' +
+        (pIdx + 1) +
+        '" style="width:auto;margin:0;padding:10px 26px;border-radius:10px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;">Next <svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>';
     } else {
-      navButtonsHtml += '<button type="button" class="submit-btn gold btn-with-icon" data-submit-form="' + escapeHtml(form.id) + '" style="width:auto;margin:0;padding:10px 28px;border-radius:10px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;cursor:pointer;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Submit</button>';
+      navButtonsHtml +=
+        '<button type="button" class="submit-btn gold btn-with-icon" data-submit-form="' +
+        escapeHtml(form.id) +
+        '" style="width:auto;margin:0;padding:10px 28px;border-radius:10px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:8px;cursor:pointer;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg> Submit</button>';
     }
     navButtonsHtml += '</div>';
 
     pagesHtml +=
-      '<div class="form-section-page" data-page-index="' + pIdx + '" style="' + (pIdx === 0 ? '' : 'display:none;') + '">' +
+      '<div class="form-section-page" data-page-index="' +
+      pIdx +
+      '" style="' +
+      (pIdx === 0 ? '' : 'display:none;') +
+      '">' +
       pageBadge +
       sectionHeaderHtml +
       pFieldsHtml +
@@ -1029,13 +1314,18 @@ function renderBuiltinFormInline(form, customContainer, options) {
   container.querySelectorAll('.btn-form-next').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var targetIdx = parseInt(btn.getAttribute('data-goto-page'), 10);
-      var currentVisiblePage = container.querySelector('.form-section-page:not([style*="display: none"]):not([style*="display:none"])') || container.querySelector('.form-section-page[data-page-index="0"]');
+      var currentVisiblePage =
+        container.querySelector(
+          '.form-section-page:not([style*="display: none"]):not([style*="display:none"])'
+        ) || container.querySelector('.form-section-page[data-page-index="0"]');
 
       // Validate required inputs on current page before advancing
       if (currentVisiblePage) {
         var missingLabel = null;
 
-        var reqInputs = currentVisiblePage.querySelectorAll('input[data-required="true"], textarea[data-required="true"], select[data-required="true"]');
+        var reqInputs = currentVisiblePage.querySelectorAll(
+          'input[data-required="true"], textarea[data-required="true"], select[data-required="true"]'
+        );
         for (var k = 0; k < reqInputs.length; k++) {
           var inpEl = reqInputs[k];
           if (inpEl.type === 'radio') continue;
@@ -1048,9 +1338,11 @@ function renderBuiltinFormInline(form, customContainer, options) {
 
         if (!missingLabel) {
           var radioGroups = {};
-          currentVisiblePage.querySelectorAll('input[type="radio"][data-required="true"]').forEach(function (r) {
-            radioGroups[r.name] = r.getAttribute('data-label') || 'This question';
-          });
+          currentVisiblePage
+            .querySelectorAll('input[type="radio"][data-required="true"]')
+            .forEach(function (r) {
+              radioGroups[r.name] = r.getAttribute('data-label') || 'This question';
+            });
           var rNames = Object.keys(radioGroups);
           for (var rIdx = 0; rIdx < rNames.length; rIdx++) {
             var rName = rNames[rIdx];
@@ -1068,7 +1360,8 @@ function renderBuiltinFormInline(form, customContainer, options) {
             var sCanvas = reqCanvases[sIdx];
             var fId = sCanvas.getAttribute('data-field-id');
             var hInp = fId ? currentVisiblePage.querySelector('#' + fId) : null;
-            var hasVal = (hInp && hInp.value && hInp.value.indexOf('data:image') !== -1) || sCanvas._hasDrawn;
+            var hasVal =
+              (hInp && hInp.value && hInp.value.indexOf('data:image') !== -1) || sCanvas._hasDrawn;
             if (!hasVal) {
               missingLabel = sCanvas.getAttribute('data-label') || 'Signature';
               break;
@@ -1087,7 +1380,9 @@ function renderBuiltinFormInline(form, customContainer, options) {
       container.querySelectorAll('.form-section-page').forEach(function (p) {
         p.style.display = 'none';
       });
-      var targetPage = container.querySelector('.form-section-page[data-page-index="' + targetIdx + '"]');
+      var targetPage = container.querySelector(
+        '.form-section-page[data-page-index="' + targetIdx + '"]'
+      );
       if (targetPage) {
         targetPage.style.display = 'block';
         if (container.scrollIntoView) {
@@ -1104,7 +1399,9 @@ function renderBuiltinFormInline(form, customContainer, options) {
       container.querySelectorAll('.form-section-page').forEach(function (p) {
         p.style.display = 'none';
       });
-      var targetPage = container.querySelector('.form-section-page[data-page-index="' + targetIdx + '"]');
+      var targetPage = container.querySelector(
+        '.form-section-page[data-page-index="' + targetIdx + '"]'
+      );
       if (targetPage) {
         targetPage.style.display = 'block';
         if (container.scrollIntoView) {
@@ -1136,9 +1433,12 @@ function renderBuiltinFormInline(form, customContainer, options) {
  * @returns {{ valid: boolean, errors: Object, error: string|null }}
  */
 function validateFormAnswers(form, answersMap) {
-  var items = (form && Array.isArray(form.items) && form.items.length)
-    ? form.items
-    : ((form && Array.isArray(form.fields)) ? form.fields : []);
+  var items =
+    form && Array.isArray(form.items) && form.items.length
+      ? form.items
+      : form && Array.isArray(form.fields)
+        ? form.fields
+        : [];
   var answers = answersMap || {};
   var errors = Object.create(null);
   var firstError = null;
@@ -1149,8 +1449,9 @@ function validateFormAnswers(form, answersMap) {
   for (var i = 0; i < items.length; i++) {
     var f = items[i];
     if (!isFormQuestion(f)) continue;
-    var label = f.label || f.title || ('Question ' + (i + 1));
-    var val = Object.hasOwn(answers, label) && answers[label] != null ? String(answers[label]).trim() : '';
+    var label = f.label || f.title || 'Question ' + (i + 1);
+    var val =
+      Object.hasOwn(answers, label) && answers[label] != null ? String(answers[label]).trim() : '';
     var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : '';
     if (val === '' && formKey && answers['bff-' + formKey + '-' + i] !== undefined) {
       val = String(answers['bff-' + formKey + '-' + i]).trim();
@@ -1203,13 +1504,21 @@ function validateFormAnswers(form, answersMap) {
     }
 
     if (['select', 'dropdown', 'radio', 'multiple_choice', 'checkboxes'].includes(f.type)) {
-      var choices = (Array.isArray(f.options) ? f.options : String(f.options || '').split(',')).map(function(option) {
-        return String(option).trim();
-      }).filter(Boolean);
+      var choices = (Array.isArray(f.options) ? f.options : String(f.options || '').split(','))
+        .map(function (option) {
+          return String(option).trim();
+        })
+        .filter(Boolean);
       var entries = f.type === 'checkboxes' ? val.split(', ') : [val];
-      if (choices.length && !choices.includes(val) && !entries.every(function(entry) {
-        return choices.includes(entry) || (choices.some(isOtherOption) && /^Other: .+/.test(entry));
-      })) {
+      if (
+        choices.length &&
+        !choices.includes(val) &&
+        !entries.every(function (entry) {
+          return (
+            choices.includes(entry) || (choices.some(isOtherOption) && /^Other: .+/.test(entry))
+          );
+        })
+      ) {
         errors[label] = 'Please select a valid option for ' + label + '.';
         if (!firstError) firstError = errors[label];
         continue;
@@ -1218,7 +1527,7 @@ function validateFormAnswers(form, answersMap) {
 
     // Max length check (skip signature data URLs)
     if (f.type !== 'signature') {
-      var maxLen = (f.type === 'textarea' || f.type === 'paragraph') ? 2000 : 300;
+      var maxLen = f.type === 'textarea' || f.type === 'paragraph' ? 2000 : 300;
       if (val.length > maxLen) {
         errors[label] = label + ' exceeds maximum length of ' + maxLen + ' characters.';
         if (!firstError) firstError = errors[label];
@@ -1246,7 +1555,9 @@ async function submitBuiltinForm(form) {
   }
 
   if (!form || !form.id) return;
-  var currentForm = _customForms.find(function(item) { return item && String(item.id) === String(form.id); });
+  var currentForm = _customForms.find(function (item) {
+    return item && String(item.id) === String(form.id);
+  });
   var avail = isFormAcceptingResponses(currentForm || form);
   if (!avail.open) {
     if (typeof showToast === 'function') {
@@ -1255,28 +1566,38 @@ async function submitBuiltinForm(form) {
     return;
   }
 
-  var items = (form && Array.isArray(form.items) && form.items.length)
-    ? form.items
-    : ((form && Array.isArray(form.fields)) ? form.fields : []);
+  var items =
+    form && Array.isArray(form.items) && form.items.length
+      ? form.items
+      : form && Array.isArray(form.fields)
+        ? form.fields
+        : [];
   var formKey = form && form.id ? String(form.id).replace(/[^a-zA-Z0-9_-]/g, '_') : 'f';
   var rawAnswers = Object.create(null);
   var cleanAnswers = Object.create(null);
 
   items.forEach(function (f, i) {
     if (!isFormQuestion(f)) return;
-    var label = f.label || f.title || ('Question ' + (i + 1));
+    var label = f.label || f.title || 'Question ' + (i + 1);
     var scopedId = 'bff-' + formKey + '-' + i;
-    var el = typeof document !== 'undefined'
-      ? (document.getElementById(scopedId) || document.getElementById('bff-' + i))
-      : null;
+    var el =
+      typeof document !== 'undefined'
+        ? document.getElementById(scopedId) || document.getElementById('bff-' + i)
+        : null;
     var val = '';
     if (f.type === 'multiple_choice' || f.type === 'radio') {
-      var checkedRadio = typeof document !== 'undefined' ? document.querySelector('input[name="' + scopedId + '"]:checked') : null;
+      var checkedRadio =
+        typeof document !== 'undefined'
+          ? document.querySelector('input[name="' + scopedId + '"]:checked')
+          : null;
       if (checkedRadio) {
         if (checkedRadio.value === '__other__') {
-          var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
+          var otherInp =
+            typeof document !== 'undefined'
+              ? document.getElementById(scopedId + '-other-text')
+              : null;
           var otherVal = otherInp ? otherInp.value.trim() : '';
-          val = otherVal ? ('Other: ' + otherVal) : '';
+          val = otherVal ? 'Other: ' + otherVal : '';
         } else {
           val = checkedRadio.value;
         }
@@ -1284,11 +1605,17 @@ async function submitBuiltinForm(form) {
         val = '';
       }
     } else if (f.type === 'checkboxes') {
-      var checkedBoxes = typeof document !== 'undefined' ? document.querySelectorAll('input[data-cb-group="' + scopedId + '"]:checked') : [];
+      var checkedBoxes =
+        typeof document !== 'undefined'
+          ? document.querySelectorAll('input[data-cb-group="' + scopedId + '"]:checked')
+          : [];
       var vals = [];
       checkedBoxes.forEach(function (cb) {
         if (cb.value === '__other__') {
-          var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
+          var otherInp =
+            typeof document !== 'undefined'
+              ? document.getElementById(scopedId + '-other-text')
+              : null;
           var otherVal = otherInp ? otherInp.value.trim() : '';
           if (otherVal) vals.push('Other: ' + otherVal);
         } else {
@@ -1300,9 +1627,11 @@ async function submitBuiltinForm(form) {
       if (el && el.value && el.value.indexOf('data:image') !== -1) {
         val = el.value.trim();
       } else {
-        var sigCanvas = typeof document !== 'undefined'
-          ? (document.getElementById('canvas-' + scopedId) || document.getElementById('canvas-bff-' + i))
-          : null;
+        var sigCanvas =
+          typeof document !== 'undefined'
+            ? document.getElementById('canvas-' + scopedId) ||
+              document.getElementById('canvas-bff-' + i)
+            : null;
         if (sigCanvas && typeof sigCanvas.toDataURL === 'function' && sigCanvas._hasDrawn) {
           try {
             val = sigCanvas.toDataURL('image/png');
@@ -1314,9 +1643,12 @@ async function submitBuiltinForm(form) {
       val = el.value.trim();
     }
     rawAnswers[label] = val;
-    var sanitizedVal = f.type === 'signature'
-      ? val
-      : (typeof sanitizeInput === 'function' ? sanitizeInput(val, (f.type === 'textarea' || f.type === 'paragraph') ? 2000 : 300) : val);
+    var sanitizedVal =
+      f.type === 'signature'
+        ? val
+        : typeof sanitizeInput === 'function'
+          ? sanitizeInput(val, f.type === 'textarea' || f.type === 'paragraph' ? 2000 : 300)
+          : val;
     cleanAnswers[label] = sanitizedVal;
   });
 
@@ -1326,11 +1658,12 @@ async function submitBuiltinForm(form) {
   // Update DOM field border styling
   items.forEach(function (f, i) {
     if (!isFormQuestion(f)) return;
-    var label = f.label || f.title || ('Question ' + (i + 1));
+    var label = f.label || f.title || 'Question ' + (i + 1);
     var scopedId = 'bff-' + formKey + '-' + i;
-    var el = typeof document !== 'undefined'
-      ? (document.getElementById(scopedId) || document.getElementById('bff-' + i))
-      : null;
+    var el =
+      typeof document !== 'undefined'
+        ? document.getElementById(scopedId) || document.getElementById('bff-' + i)
+        : null;
     if (el) {
       if (validation.errors[label]) {
         el.style.borderColor = '#f66';
@@ -1338,9 +1671,13 @@ async function submitBuiltinForm(form) {
         el.style.borderColor = '';
       }
     }
-    var otherInp = typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
+    var otherInp =
+      typeof document !== 'undefined' ? document.getElementById(scopedId + '-other-text') : null;
     if (otherInp) {
-      var chkRadio = typeof document !== 'undefined' ? document.querySelector('input[name="' + scopedId + '"]:checked') : null;
+      var chkRadio =
+        typeof document !== 'undefined'
+          ? document.querySelector('input[name="' + scopedId + '"]:checked')
+          : null;
       var isOtherRad = chkRadio && chkRadio.value === '__other__';
       if (validation.errors[label] && isOtherRad && !otherInp.value.trim()) {
         otherInp.style.borderColor = '#f66';
@@ -1358,9 +1695,12 @@ async function submitBuiltinForm(form) {
 
   _isSubmittingBuiltinForm = true;
 
-  var btn = typeof document !== 'undefined' ? Array.from(document.querySelectorAll('[data-submit-form]')).find(function(button) {
-    return button.getAttribute('data-submit-form') === String(form.id);
-  }) : null;
+  var btn =
+    typeof document !== 'undefined'
+      ? Array.from(document.querySelectorAll('[data-submit-form]')).find(function (button) {
+          return button.getAttribute('data-submit-form') === String(form.id);
+        })
+      : null;
   if (typeof setButtonLoading === 'function') {
     setButtonLoading(btn, true, 'Submitting...', 'Submitting form responses...');
   } else if (btn) {
@@ -1404,32 +1744,48 @@ async function submitBuiltinForm(form) {
   try {
     if (currentForm) {
       await loadCustomForms(true);
-      var latest = _customForms.find(function(item) { return String(item.id) === String(form.id); });
-      var currentAvailability = latest ? isFormAcceptingResponses(latest) : { open: false, message: 'This form is no longer available.' };
+      var latest = _customForms.find(function (item) {
+        return String(item.id) === String(form.id);
+      });
+      var currentAvailability = latest
+        ? isFormAcceptingResponses(latest)
+        : { open: false, message: 'This form is no longer available.' };
       if (!currentAvailability.open || latest.type !== 'builtin') {
-        if (typeof showToast === 'function') showToast(currentAvailability.message || 'This form is no longer available.', 'warning');
+        if (typeof showToast === 'function')
+          showToast(currentAvailability.message || 'This form is no longer available.', 'warning');
         if (typeof setButtonLoading === 'function') setButtonLoading(btn, false);
-        else if (btn) { btn.innerHTML = 'Submit Response'; btn.disabled = false; }
+        else if (btn) {
+          btn.innerHTML = 'Submit Response';
+          btn.disabled = false;
+        }
         return;
       }
-      if (JSON.stringify(latest.items || latest.fields) !== JSON.stringify(form.items || form.fields)) {
-        if (typeof showToast === 'function') showToast('The questions changed. Reopen the form before submitting.', 'warning');
+      if (
+        JSON.stringify(latest.items || latest.fields) !== JSON.stringify(form.items || form.fields)
+      ) {
+        if (typeof showToast === 'function')
+          showToast('The questions changed. Reopen the form before submitting.', 'warning');
         if (typeof setButtonLoading === 'function') setButtonLoading(btn, false);
-        else if (btn) { btn.innerHTML = 'Submit Response'; btn.disabled = false; }
+        else if (btn) {
+          btn.innerHTML = 'Submit Response';
+          btn.disabled = false;
+        }
         return;
       }
     }
     try {
-      if (typeof client.req === 'function') await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 });
+      if (typeof client.req === 'function')
+        await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 });
       else await client.post('bb_orders', payload);
     } catch (error) {
       var message = String(error.message || '');
-      var omitted = ['notes', 'rank', 'squad', 'created_at'].find(function(key) {
+      var omitted = ['notes', 'rank', 'squad', 'created_at'].find(function (key) {
         return message.includes('PGRST204') && message.includes("'" + key + "'");
       });
       if (!omitted) throw error;
       delete payload[omitted];
-      if (typeof client.req === 'function') await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 });
+      if (typeof client.req === 'function')
+        await client.req('POST', 'bb_orders', payload, null, { maxRetries: 0 });
       else await client.post('bb_orders', payload);
     }
 
@@ -1439,15 +1795,17 @@ async function submitBuiltinForm(form) {
       if (btn) btn.style.display = 'none';
     }
 
-    if (typeof showToast === 'function')
-      showToast('Form submitted successfully!', 'success');
+    if (typeof showToast === 'function') showToast('Form submitted successfully!', 'success');
 
     setTimeout(function () {
       backToFormsHub();
     }, 1800);
   } catch (e) {
     if (typeof showToast === 'function')
-      showToast('Submission could not be confirmed. Check your responses before trying again.', 'error');
+      showToast(
+        'Submission could not be confirmed. Check your responses before trying again.',
+        'error'
+      );
     if (typeof setButtonLoading === 'function') setButtonLoading(btn, false);
     else if (btn) {
       btn.innerHTML = 'Submit Response';
@@ -1549,7 +1907,8 @@ function renderFbFields() {
 
   container.innerHTML = html;
   container.querySelectorAll('[data-fi]').forEach(function (el) {
-    var event = el.getAttribute('data-fk') === 'del' ? 'click' : el.type === 'checkbox' ? 'change' : 'input';
+    var event =
+      el.getAttribute('data-fk') === 'del' ? 'click' : el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(event, function () {
       var i = parseInt(el.getAttribute('data-fi'), 10);
       var fk = el.getAttribute('data-fk');
@@ -1609,7 +1968,11 @@ async function toggleFormBuilderStatus() {
   var isCurrentlyPaused = pausedRadio && pausedRadio.checked;
   var nextStatus = isCurrentlyPaused ? 'active' : 'paused';
   var editIdEl = document.getElementById('fb-edit-id');
-  var existing = editIdEl && _customForms.find(function(f) { return String(f.id) === String(editIdEl.value); });
+  var existing =
+    editIdEl &&
+    _customForms.find(function (f) {
+      return String(f.id) === String(editIdEl.value);
+    });
   if (existing) return toggleCustomFormStatus(existing.id);
 
   if (activeRadio && pausedRadio) {
@@ -1621,7 +1984,8 @@ async function toggleFormBuilderStatus() {
 
   if (typeof showToast === 'function') {
     showToast(
-      'Form status set to ' + (nextStatus === 'active' ? 'Active (accepting responses)' : 'Paused (closed to responses)'),
+      'Form status set to ' +
+        (nextStatus === 'active' ? 'Active (accepting responses)' : 'Paused (closed to responses)'),
       nextStatus === 'active' ? 'success' : 'info'
     );
   }
@@ -1694,7 +2058,11 @@ async function saveForm() {
     var closeAtInput = document.querySelector('.fb-close-at-input');
     var closeAt = closeAtInput ? closeAtInput.value.trim() : '';
     var pausedMsgInput = document.querySelector('.fb-paused-msg-input');
-    var pausedMsg = pausedMsgInput ? (typeof sanitizeText === 'function' ? sanitizeText(pausedMsgInput.value, 500) : pausedMsgInput.value.trim()) : '';
+    var pausedMsg = pausedMsgInput
+      ? typeof sanitizeText === 'function'
+        ? sanitizeText(pausedMsgInput.value, 500)
+        : pausedMsgInput.value.trim()
+      : '';
 
     var formData = {
       id: editId || 'form_' + Date.now(),
@@ -1739,7 +2107,7 @@ async function saveForm() {
     var idx = _customForms.findIndex(function (f) {
       return f.id === formData.id;
     });
-    if (!await saveFormDefinition(formData)) return;
+    if (!(await saveFormDefinition(formData))) return;
     clearFormBuilder();
     renderAdminForms();
     renderFormsHub();
@@ -1784,9 +2152,14 @@ async function deleteForm(id) {
       : true;
   if (!ok) return;
 
-  if (!await saveCustomForms(_customForms.filter(function (x) {
-    return x.id !== id;
-  }))) return false;
+  if (
+    !(await saveCustomForms(
+      _customForms.filter(function (x) {
+        return x.id !== id;
+      })
+    ))
+  )
+    return false;
   renderAdminForms();
   renderFormsHub();
 
@@ -1841,7 +2214,8 @@ function renderAdminForms() {
 
   var iconSvgs = {
     link: '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>',
-    builtin: '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>'
+    builtin:
+      '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>'
   };
   var typeLabel = { link: 'External Link', builtin: 'Built-in Form' };
   var html = '';
@@ -1850,29 +2224,64 @@ function renderAdminForms() {
     var isPaused = f.status === 'paused' || f.active === false;
     var statusBadge = '';
     if (isPaused) {
-      statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);margin-left:8px;vertical-align:middle;">PAUSED</span>';
+      statusBadge =
+        '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);margin-left:8px;vertical-align:middle;">PAUSED</span>';
     } else if (f.open_at || f.close_at) {
-      statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);margin-left:8px;vertical-align:middle;">SCHEDULED</span>';
+      statusBadge =
+        '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(59,130,246,0.15);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);margin-left:8px;vertical-align:middle;">SCHEDULED</span>';
     } else {
-      statusBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);margin-left:8px;vertical-align:middle;">ACTIVE</span>';
+      statusBadge =
+        '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);margin-left:8px;vertical-align:middle;">ACTIVE</span>';
     }
 
     var scheduleInfo = '';
     if (f.open_at || f.close_at) {
       var parts = [];
-      if (f.open_at) parts.push('Opens: ' + new Date(f.open_at).toLocaleDateString('en-MY', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }));
-      if (f.close_at) parts.push('Closes: ' + new Date(f.close_at).toLocaleDateString('en-MY', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }));
-      scheduleInfo = ' · <span style="color:var(--brand-blue);">' + escapeHtml(parts.join(' - ')) + '</span>';
+      if (f.open_at)
+        parts.push(
+          'Opens: ' +
+            new Date(f.open_at).toLocaleDateString('en-MY', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            })
+        );
+      if (f.close_at)
+        parts.push(
+          'Closes: ' +
+            new Date(f.close_at).toLocaleDateString('en-MY', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit'
+            })
+        );
+      scheduleInfo =
+        ' · <span style="color:var(--brand-blue);">' + escapeHtml(parts.join(' - ')) + '</span>';
     }
 
-    var togglePauseBtn = '<button type="button" data-toggle-pause="' + escapeHtml(f.id) + '" title="' + (isPaused ? 'Resume form responses' : 'Pause form responses') + '" style="background:' + (isPaused ? 'rgba(16,185,129,0.15)' : 'rgba(234,179,8,0.15)') + ';border:1px solid ' + (isPaused ? 'rgba(16,185,129,0.3)' : 'rgba(234,179,8,0.3)') + ';color:' + (isPaused ? 'var(--green, #10b981)' : 'var(--brand-gold, #eab308)') + ';padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">' +
+    var togglePauseBtn =
+      '<button type="button" data-toggle-pause="' +
+      escapeHtml(f.id) +
+      '" title="' +
+      (isPaused ? 'Resume form responses' : 'Pause form responses') +
+      '" style="background:' +
+      (isPaused ? 'rgba(16,185,129,0.15)' : 'rgba(234,179,8,0.15)') +
+      ';border:1px solid ' +
+      (isPaused ? 'rgba(16,185,129,0.3)' : 'rgba(234,179,8,0.3)') +
+      ';color:' +
+      (isPaused ? 'var(--green, #10b981)' : 'var(--brand-gold, #eab308)') +
+      ';padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">' +
       (isPaused
         ? '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume'
         : '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause') +
       '</button>';
 
     html +=
-      '<div class="adm-form-card" data-open-form-card="' + escapeHtml(f.id) + '" style="cursor:pointer;background:var(--bg-card);border-radius:12px;padding:14px 18px;margin-bottom:10px;border:1px solid var(--border-card);display:flex;align-items:center;gap:14px;flex-wrap:wrap;transition:all 0.15s ease;">' +
+      '<div class="adm-form-card" data-open-form-card="' +
+      escapeHtml(f.id) +
+      '" style="cursor:pointer;background:var(--bg-card);border-radius:12px;padding:14px 18px;margin-bottom:10px;border:1px solid var(--border-card);display:flex;align-items:center;gap:14px;flex-wrap:wrap;transition:all 0.15s ease;">' +
       '<div style="width:42px;height:42px;border-radius:10px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;color:#818cf8;flex-shrink:0;">' +
       (iconSvgs[f.type] || iconSvgs.builtin) +
       '</div>' +
@@ -1946,10 +2355,14 @@ function openCreateFormFlow() {
     '</div>';
 
   document.body.appendChild(overlay);
-  overlay.querySelector('.btn-ftype-close').addEventListener('click', function() { overlay.remove(); });
-  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
-  overlay.querySelectorAll('[data-choice]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  overlay.querySelector('.btn-ftype-close').addEventListener('click', function () {
+    overlay.remove();
+  });
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) overlay.remove();
+  });
+  overlay.querySelectorAll('[data-choice]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       var choice = btn.getAttribute('data-choice');
       overlay.remove();
       if (choice === 'link') {
@@ -1967,7 +2380,9 @@ function openCreateFormFlow() {
  */
 function openFormEditor(formId) {
   loadCustomForms();
-  var f = _customForms.find(function(x) { return String(x.id) === String(formId); });
+  var f = _customForms.find(function (x) {
+    return String(x.id) === String(formId);
+  });
   if (!f) return;
   if (f.type === 'link') {
     openExternalLinkFormEditor(f);
@@ -2005,18 +2420,20 @@ function openExternalLinkFormEditor(form) {
   if (!mount) return;
 
   var isEditing = !!form;
-  var currentForm = form ? JSON.parse(JSON.stringify(form)) : {
-    id: 'form_' + Date.now(),
-    name: '',
-    desc: '',
-    type: 'link',
-    url: '',
-    status: 'active',
-    active: true,
-    open_at: '',
-    close_at: '',
-    paused_message: ''
-  };
+  var currentForm = form
+    ? JSON.parse(JSON.stringify(form))
+    : {
+        id: 'form_' + Date.now(),
+        name: '',
+        desc: '',
+        type: 'link',
+        url: '',
+        status: 'active',
+        active: true,
+        open_at: '',
+        close_at: '',
+        paused_message: ''
+      };
 
   var isPaused = currentForm.status === 'paused' || currentForm.active === false;
 
@@ -2024,45 +2441,67 @@ function openExternalLinkFormEditor(form) {
     '<div style="max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px;">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
     '<button type="button" class="gf-back-btn" onclick="closeFormEditor()"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg> Back to Forms</button>' +
-    '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-secondary);">' + (isEditing ? 'Edit External Form' : 'New External Form') + '</div>' +
+    '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-secondary);">' +
+    (isEditing ? 'Edit External Form' : 'New External Form') +
+    '</div>' +
     '</div>' +
     '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:14px;padding:22px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;gap:16px;">' +
     '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:10px;">' +
     '<div style="width:36px;height:36px;border-radius:8px;background:rgba(59,130,246,0.15);color:#3b82f6;display:flex;align-items:center;justify-content:center;">' +
     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>' +
     '</div>' +
-    '<span>' + (isEditing ? 'Edit: ' + escapeHtml(currentForm.name) : 'External Link (Google Form / URL)') + '</span>' +
+    '<span>' +
+    (isEditing ? 'Edit: ' + escapeHtml(currentForm.name) : 'External Link (Google Form / URL)') +
+    '</span>' +
     '</div>' +
-    '<div class="form-group"><label class="form-label">Form Name <span style="color:var(--red);">*</span></label><input type="text" id="ext-form-name" class="form-input" placeholder="e.g. Annual Camp 2026 Registration" value="' + escapeHtml(currentForm.name) + '"/></div>' +
-    '<div class="form-group"><label class="form-label">Form URL (Google Form, etc.) <span style="color:var(--red);">*</span></label><input type="url" id="ext-form-url" class="form-input" placeholder="https://forms.google.com/..." value="' + escapeHtml(currentForm.url || '') + '"/></div>' +
-    '<div class="form-group"><label class="form-label">Description (Optional)</label><textarea id="ext-form-desc" class="form-textarea" rows="2" placeholder="Brief info about this form...">' + escapeHtml(currentForm.desc || '') + '</textarea></div>' +
+    '<div class="form-group"><label class="form-label">Form Name <span style="color:var(--red);">*</span></label><input type="text" id="ext-form-name" class="form-input" placeholder="e.g. Annual Camp 2026 Registration" value="' +
+    escapeHtml(currentForm.name) +
+    '"/></div>' +
+    '<div class="form-group"><label class="form-label">Form URL (Google Form, etc.) <span style="color:var(--red);">*</span></label><input type="url" id="ext-form-url" class="form-input" placeholder="https://forms.google.com/..." value="' +
+    escapeHtml(currentForm.url || '') +
+    '"/></div>' +
+    '<div class="form-group"><label class="form-label">Description (Optional)</label><textarea id="ext-form-desc" class="form-textarea" rows="2" placeholder="Brief info about this form...">' +
+    escapeHtml(currentForm.desc || '') +
+    '</textarea></div>' +
     '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:16px;">' +
     '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:6px;">' +
     '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Response Availability & Auto-Schedule' +
     '</div>' +
     '<div style="display:flex;gap:14px;margin-bottom:12px;align-items:center;">' +
-    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="ext-status" value="active" ' + (!isPaused ? 'checked' : '') + ' style="accent-color:var(--accent);"/> Active (Accepting Responses)</label>' +
-    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="ext-status" value="paused" ' + (isPaused ? 'checked' : '') + ' style="accent-color:var(--accent);"/> Paused (Closed)</label>' +
+    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="ext-status" value="active" ' +
+    (!isPaused ? 'checked' : '') +
+    ' style="accent-color:var(--accent);"/> Active (Accepting Responses)</label>' +
+    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="ext-status" value="paused" ' +
+    (isPaused ? 'checked' : '') +
+    ' style="accent-color:var(--accent);"/> Paused (Closed)</label>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">' +
-    '<div><label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label><input type="datetime-local" id="ext-open-at" class="form-input" value="' + escapeHtml(currentForm.open_at || '') + '" style="font-size:12px;padding:8px 10px;"/></div>' +
-    '<div><label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label><input type="datetime-local" id="ext-close-at" class="form-input" value="' + escapeHtml(currentForm.close_at || '') + '" style="font-size:12px;padding:8px 10px;"/></div>' +
+    '<div><label class="form-label" style="font-size:11px;">Auto-Open At (Optional)</label><input type="datetime-local" id="ext-open-at" class="form-input" value="' +
+    escapeHtml(currentForm.open_at || '') +
+    '" style="font-size:12px;padding:8px 10px;"/></div>' +
+    '<div><label class="form-label" style="font-size:11px;">Auto-Close At (Optional)</label><input type="datetime-local" id="ext-close-at" class="form-input" value="' +
+    escapeHtml(currentForm.close_at || '') +
+    '" style="font-size:12px;padding:8px 10px;"/></div>' +
     '</div>' +
-    '<div><label class="form-label" style="font-size:11px;">Custom Paused / Closed Notice for Members</label><textarea id="ext-paused-msg" class="form-textarea" rows="2" placeholder="e.g. Responses for this form are currently paused. Please check back later." style="font-size:12px;padding:8px 10px;min-height:50px;">' + escapeHtml(currentForm.paused_message || '') + '</textarea></div>' +
+    '<div><label class="form-label" style="font-size:11px;">Custom Paused / Closed Notice for Members</label><textarea id="ext-paused-msg" class="form-textarea" rows="2" placeholder="e.g. Responses for this form are currently paused. Please check back later." style="font-size:12px;padding:8px 10px;min-height:50px;">' +
+    escapeHtml(currentForm.paused_message || '') +
+    '</textarea></div>' +
     '</div>' +
     '<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:6px;">' +
     '<div style="display:flex;gap:8px;">' +
     '<button type="button" id="btn-save-ext-form" class="submit-btn gold btn-with-icon" style="padding:10px 22px;font-size:13px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Save Form</button>' +
     '<button type="button" class="portal-btn portal-btn-secondary" onclick="closeFormEditor()" style="padding:10px 18px;font-size:13px;">Cancel</button>' +
     '</div>' +
-    (isEditing ? '<button type="button" id="btn-del-ext-form" class="submit-btn danger" style="padding:10px 16px;font-size:12px;width:auto;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete Form</button>' : '') +
+    (isEditing
+      ? '<button type="button" id="btn-del-ext-form" class="submit-btn danger" style="padding:10px 16px;font-size:12px;width:auto;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete Form</button>'
+      : '') +
     '</div>' +
     '</div>' +
     '</div>';
 
   var saveBtn = document.getElementById('btn-save-ext-form');
   if (saveBtn) {
-    saveBtn.addEventListener('click', async function() {
+    saveBtn.addEventListener('click', async function () {
       var nameEl = document.getElementById('ext-form-name');
       var urlEl = document.getElementById('ext-form-url');
       var descEl = document.getElementById('ext-form-desc');
@@ -2083,7 +2522,8 @@ function openExternalLinkFormEditor(form) {
       }
       var checkedUrl = typeof safeUrl === 'function' ? safeUrl(url, '') : url;
       if (!checkedUrl || !/^https?:\/\//i.test(checkedUrl)) {
-        if (typeof showToast === 'function') showToast('Please enter a valid HTTP or HTTPS URL.', 'warning');
+        if (typeof showToast === 'function')
+          showToast('Please enter a valid HTTP or HTTPS URL.', 'warning');
         return;
       }
 
@@ -2096,7 +2536,7 @@ function openExternalLinkFormEditor(form) {
       currentForm.close_at = closeEl ? closeEl.value.trim() : '';
       currentForm.paused_message = pausedMsgEl ? pausedMsgEl.value.trim() : '';
 
-      if (!await saveFormDefinition(currentForm)) return;
+      if (!(await saveFormDefinition(currentForm))) return;
       if (typeof showToast === 'function') showToast('External form saved!', 'success');
       closeFormEditor();
     });
@@ -2104,7 +2544,7 @@ function openExternalLinkFormEditor(form) {
 
   var delBtn = document.getElementById('btn-del-ext-form');
   if (delBtn) {
-    delBtn.addEventListener('click', async function() {
+    delBtn.addEventListener('click', async function () {
       await deleteForm(currentForm.id);
       closeFormEditor();
     });
@@ -2127,7 +2567,9 @@ function openBuiltinGoogleFormEditor(form) {
   if (form) {
     _gfCurrentForm = JSON.parse(JSON.stringify(form));
     if (Array.isArray(_gfCurrentForm.items)) {
-      _gfCurrentForm.items = _gfCurrentForm.items.filter(function(item) { return item && !isLegacyFormUpload(item); });
+      _gfCurrentForm.items = _gfCurrentForm.items.filter(function (item) {
+        return item && !isLegacyFormUpload(item);
+      });
     }
     if (!_gfCurrentForm.items || !_gfCurrentForm.items.length) {
       if (_gfCurrentForm.fields && _gfCurrentForm.fields.length) {
@@ -2186,12 +2628,14 @@ function renderGfEditor() {
   var mount = document.querySelector('.adm-form-editor-mount');
   if (!mount || !_gfCurrentForm) return;
 
-  var isResponsesTable = (_gfActiveTab === 'responses' && _gfResponsesViewMode === 'table');
+  var isResponsesTable = _gfActiveTab === 'responses' && _gfResponsesViewMode === 'table';
   var topbarWideClass = isResponsesTable ? ' gf-topbar-wide' : '';
   var containerWideClass = isResponsesTable ? ' gf-builder-container-wide' : '';
 
   var topbarHtml =
-    '<div class="gf-editor-topbar' + topbarWideClass + '">' +
+    '<div class="gf-editor-topbar' +
+    topbarWideClass +
+    '">' +
     '<div class="gf-topbar-left">' +
     '<button type="button" class="gf-back-btn" onclick="closeFormEditor()">' +
     '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg> Back to Forms' +
@@ -2199,9 +2643,17 @@ function renderGfEditor() {
     '</div>' +
     '<div class="gf-topbar-center">' +
     '<div class="gf-top-tabs">' +
-    '<button type="button" class="gf-tab-btn ' + (_gfActiveTab === 'questions' ? 'is-active' : '') + '" onclick="switchGfTab(\'questions\')">Questions</button>' +
-    '<button type="button" class="gf-tab-btn ' + (_gfActiveTab === 'responses' ? 'is-active' : '') + '" onclick="switchGfTab(\'responses\')">Responses' + (_gfResponsesList.length ? ' (' + _gfResponsesList.length + ')' : '') + '</button>' +
-    '<button type="button" class="gf-tab-btn ' + (_gfActiveTab === 'settings' ? 'is-active' : '') + '" onclick="switchGfTab(\'settings\')">Settings</button>' +
+    '<button type="button" class="gf-tab-btn ' +
+    (_gfActiveTab === 'questions' ? 'is-active' : '') +
+    '" onclick="switchGfTab(\'questions\')">Questions</button>' +
+    '<button type="button" class="gf-tab-btn ' +
+    (_gfActiveTab === 'responses' ? 'is-active' : '') +
+    '" onclick="switchGfTab(\'responses\')">Responses' +
+    (_gfResponsesList.length ? ' (' + _gfResponsesList.length + ')' : '') +
+    '</button>' +
+    '<button type="button" class="gf-tab-btn ' +
+    (_gfActiveTab === 'settings' ? 'is-active' : '') +
+    '" onclick="switchGfTab(\'settings\')">Settings</button>' +
     '</div>' +
     '</div>' +
     '<div class="gf-topbar-right">' +
@@ -2214,7 +2666,8 @@ function renderGfEditor() {
     '</div>' +
     '</div>';
 
-  var bodyHtml = '<div class="gf-builder-container' + containerWideClass + '" id="gf-tab-container"></div>';
+  var bodyHtml =
+    '<div class="gf-builder-container' + containerWideClass + '" id="gf-tab-container"></div>';
   mount.innerHTML = topbarHtml + bodyHtml;
 
   if (_gfActiveTab === 'questions') {
@@ -2246,9 +2699,11 @@ async function saveGfCurrentForm() {
   if (titleEl) _gfCurrentForm.name = titleEl.value.trim() || 'Untitled form';
   if (descEl) _gfCurrentForm.desc = descEl.value.trim() || '';
 
-  _gfCurrentForm.items = (_gfCurrentForm.items || []).filter(function(item) { return item && !isLegacyFormUpload(item); });
+  _gfCurrentForm.items = (_gfCurrentForm.items || []).filter(function (item) {
+    return item && !isLegacyFormUpload(item);
+  });
   _gfCurrentForm.fields = convertGfItemsToFields(_gfCurrentForm.items);
-  if (!await saveFormDefinition(_gfCurrentForm)) return false;
+  if (!(await saveFormDefinition(_gfCurrentForm))) return false;
   renderFormsHub();
 
   if (typeof showToast === 'function') {
@@ -2258,24 +2713,34 @@ async function saveGfCurrentForm() {
 }
 
 function saveFormDefinition(form) {
-  var availability = isFormAcceptingResponses(Object.assign({}, form, { status: 'active', active: true }));
+  var availability = isFormAcceptingResponses(
+    Object.assign({}, form, { status: 'active', active: true })
+  );
   if (availability.reason === 'invalid_schedule') {
-    if (typeof showToast === 'function') showToast('Enter an opening time before the closing time.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Enter an opening time before the closing time.', 'warning');
     return false;
   }
   var labels = new Set();
-  var fields = form.items && form.items.length ? form.items : (form.fields || []);
-  if (fields.filter(isFormQuestion).some(function(field) {
-    var label = String(field.label || field.title || '').trim().toLowerCase();
-    if (!label || labels.has(label)) return true;
-    labels.add(label);
-    return false;
-  })) {
-    if (typeof showToast === 'function') showToast('Use a different, nonempty label for each question.', 'warning');
+  var fields = form.items && form.items.length ? form.items : form.fields || [];
+  if (
+    fields.filter(isFormQuestion).some(function (field) {
+      var label = String(field.label || field.title || '')
+        .trim()
+        .toLowerCase();
+      if (!label || labels.has(label)) return true;
+      labels.add(label);
+      return false;
+    })
+  ) {
+    if (typeof showToast === 'function')
+      showToast('Use a different, nonempty label for each question.', 'warning');
     return false;
   }
   var next = _customForms.slice();
-  var index = next.findIndex(function(item) { return String(item.id) === String(form.id); });
+  var index = next.findIndex(function (item) {
+    return String(item.id) === String(form.id);
+  });
   if (index < 0) next.push(form);
   else next[index] = form;
   return saveCustomForms(next);
@@ -2359,7 +2824,9 @@ function addGfQuestion(afterId) {
   };
 
   if (afterId) {
-    var idx = _gfCurrentForm.items.findIndex(function(x) { return x.id === afterId; });
+    var idx = _gfCurrentForm.items.findIndex(function (x) {
+      return x.id === afterId;
+    });
     if (idx >= 0) _gfCurrentForm.items.splice(idx + 1, 0, newItem);
     else _gfCurrentForm.items.push(newItem);
   } else {
@@ -2376,7 +2843,9 @@ function addGfQuestion(afterId) {
  */
 function duplicateGfItem(itemId) {
   if (!_gfCurrentForm || !_gfCurrentForm.items) return;
-  var idx = _gfCurrentForm.items.findIndex(function(x) { return x.id === itemId; });
+  var idx = _gfCurrentForm.items.findIndex(function (x) {
+    return x.id === itemId;
+  });
   if (idx < 0) return;
   var clone = JSON.parse(JSON.stringify(_gfCurrentForm.items[idx]));
   clone.id = 'q_' + Date.now();
@@ -2391,7 +2860,9 @@ function duplicateGfItem(itemId) {
  */
 function deleteGfItem(itemId) {
   if (!_gfCurrentForm || !_gfCurrentForm.items) return;
-  _gfCurrentForm.items = _gfCurrentForm.items.filter(function(x) { return x.id !== itemId; });
+  _gfCurrentForm.items = _gfCurrentForm.items.filter(function (x) {
+    return x.id !== itemId;
+  });
   if (_gfCurrentForm.items.length === 0) {
     addGfQuestion();
     return;
@@ -2415,7 +2886,9 @@ function addGfTitleDesc(afterId) {
     desc: 'Description (optional)'
   };
   if (afterId) {
-    var idx = _gfCurrentForm.items.findIndex(function(x) { return x.id === afterId; });
+    var idx = _gfCurrentForm.items.findIndex(function (x) {
+      return x.id === afterId;
+    });
     if (idx >= 0) _gfCurrentForm.items.splice(idx + 1, 0, newItem);
     else _gfCurrentForm.items.push(newItem);
   } else {
@@ -2438,7 +2911,9 @@ function addGfImage(afterId) {
     url: ''
   };
   if (afterId) {
-    var idx = _gfCurrentForm.items.findIndex(function(x) { return x.id === afterId; });
+    var idx = _gfCurrentForm.items.findIndex(function (x) {
+      return x.id === afterId;
+    });
     if (idx >= 0) _gfCurrentForm.items.splice(idx + 1, 0, newItem);
     else _gfCurrentForm.items.push(newItem);
   } else {
@@ -2461,7 +2936,9 @@ function addGfSection(afterId) {
     desc: ''
   };
   if (afterId) {
-    var idx = _gfCurrentForm.items.findIndex(function(x) { return x.id === afterId; });
+    var idx = _gfCurrentForm.items.findIndex(function (x) {
+      return x.id === afterId;
+    });
     if (idx >= 0) _gfCurrentForm.items.splice(idx + 1, 0, newItem);
     else _gfCurrentForm.items.push(newItem);
   } else {
@@ -2486,7 +2963,9 @@ function updateGfToolbarPosition() {
     activeCard = layout.querySelector('[data-item-id="' + _gfActiveItemId + '"]');
   }
   if (!activeCard) {
-    var allCards = layout.querySelectorAll('.gf-question-card, .gf-section-card, .gf-title-desc-card, .gf-image-card');
+    var allCards = layout.querySelectorAll(
+      '.gf-question-card, .gf-section-card, .gf-title-desc-card, .gf-image-card'
+    );
     if (allCards.length > 0) activeCard = allCards[allCards.length - 1];
     else activeCard = layout.querySelector('.gf-form-header-card');
   }
@@ -2508,15 +2987,22 @@ function renderGfQuestionsTab() {
   if (!container || !_gfCurrentForm) return;
 
   var items = _gfCurrentForm.items || [];
-  var totalSections = items.filter(function(x) { return x.kind === 'section'; }).length + 1;
+  var totalSections =
+    items.filter(function (x) {
+      return x.kind === 'section';
+    }).length + 1;
   var currentSectionNum = 1;
 
   var headerCardHtml =
     '<div class="gf-form-header-card gf-card-item" data-item-id="header">' +
     '<div class="gf-form-header-stripe"></div>' +
     '<div class="gf-form-header-body">' +
-    '<input type="text" class="gf-title-input" placeholder="Untitled form" value="' + escapeHtml(_gfCurrentForm.name || '') + '"/>' +
-    '<textarea class="gf-desc-input" rows="1" placeholder="Form description">' + escapeHtml(_gfCurrentForm.desc || '') + '</textarea>' +
+    '<input type="text" class="gf-title-input" placeholder="Untitled form" value="' +
+    escapeHtml(_gfCurrentForm.name || '') +
+    '"/>' +
+    '<textarea class="gf-desc-input" rows="1" placeholder="Form description">' +
+    escapeHtml(_gfCurrentForm.desc || '') +
+    '</textarea>' +
     '<div style="font-size:12px;color:var(--text-secondary);display:flex;align-items:center;gap:8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.22);border-radius:8px;padding:10px 14px;margin-top:2px;">' +
     '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
     'This form automatically collects respondent information upon submission.' +
@@ -2526,39 +3012,63 @@ function renderGfQuestionsTab() {
 
   var questionsListHtml = '<div class="gf-questions-list">';
 
-  items.forEach(function(it) {
+  items.forEach(function (it) {
     var isActive = it.id === _gfActiveItemId;
 
     if (it.kind === 'section') {
       currentSectionNum++;
       questionsListHtml +=
-        '<div class="gf-section-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
+        '<div class="gf-section-card gf-card-item ' +
+        (isActive ? 'is-active' : '') +
+        '" data-item-id="' +
+        escapeHtml(it.id) +
+        '">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-        '<span style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;">Section ' + currentSectionNum + ' of ' + totalSections + '</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.5px;">Section ' +
+        currentSectionNum +
+        ' of ' +
+        totalSections +
+        '</span>' +
         '<button type="button" class="gf-icon-btn" data-act="del" title="Delete section"><svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
         '</div>' +
-        '<input type="text" class="gf-q-title-input" placeholder="Section Title" value="' + escapeHtml(it.title || '') + '" data-bind="title" style="font-size:16px;font-weight:700;"/>' +
-        '<input type="text" class="form-input" placeholder="Description (optional)" value="' + escapeHtml(it.desc || '') + '" data-bind="desc" style="font-size:13px;"/>' +
+        '<input type="text" class="gf-q-title-input" placeholder="Section Title" value="' +
+        escapeHtml(it.title || '') +
+        '" data-bind="title" style="font-size:16px;font-weight:700;"/>' +
+        '<input type="text" class="form-input" placeholder="Description (optional)" value="' +
+        escapeHtml(it.desc || '') +
+        '" data-bind="desc" style="font-size:13px;"/>' +
         '</div>';
       return;
     }
 
     if (it.kind === 'title_desc') {
       questionsListHtml +=
-        '<div class="gf-title-desc-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
+        '<div class="gf-title-desc-card gf-card-item ' +
+        (isActive ? 'is-active' : '') +
+        '" data-item-id="' +
+        escapeHtml(it.id) +
+        '">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<span style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:0.5px;">Title & Description</span>' +
         '<button type="button" class="gf-icon-btn" data-act="del" title="Delete block"><svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
         '</div>' +
-        '<input type="text" class="gf-q-title-input" placeholder="Untitled Title" value="' + escapeHtml(it.title || '') + '" data-bind="title" style="font-size:15px;font-weight:700;"/>' +
-        '<input type="text" class="form-input" placeholder="Description" value="' + escapeHtml(it.desc || '') + '" data-bind="desc" style="font-size:13px;"/>' +
+        '<input type="text" class="gf-q-title-input" placeholder="Untitled Title" value="' +
+        escapeHtml(it.title || '') +
+        '" data-bind="title" style="font-size:15px;font-weight:700;"/>' +
+        '<input type="text" class="form-input" placeholder="Description" value="' +
+        escapeHtml(it.desc || '') +
+        '" data-bind="desc" style="font-size:13px;"/>' +
         '</div>';
       return;
     }
 
     if (it.kind === 'image') {
       questionsListHtml +=
-        '<div class="gf-image-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
+        '<div class="gf-image-card gf-card-item ' +
+        (isActive ? 'is-active' : '') +
+        '" data-item-id="' +
+        escapeHtml(it.id) +
+        '">' +
         '<div class="gf-drag-handle">' +
         '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>' +
         '</div>' +
@@ -2571,16 +3081,28 @@ function renderGfQuestionsTab() {
         '<button type="button" class="gf-icon-btn" data-act="del" title="Delete block"><svg class="ui-icon-xs" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
         '</div>' +
         '</div>' +
-        '<input type="text" class="gf-q-title-input" placeholder="Image Title (optional)" value="' + escapeHtml(it.title || '') + '" data-bind="title"/>' +
+        '<input type="text" class="gf-q-title-input" placeholder="Image Title (optional)" value="' +
+        escapeHtml(it.title || '') +
+        '" data-bind="title"/>' +
         '<div class="gf-image-content-box">' +
-        (it.url ? '<div style="margin-bottom:12px;text-align:center;"><img src="' + escapeHtml(it.url) + '" alt="' + escapeHtml(it.title || 'Image Preview') + '" style="max-height:220px;max-width:100%;border-radius:8px;border:1px solid var(--border-card);object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,0.2);"/></div>' : '') +
+        (it.url
+          ? '<div style="margin-bottom:12px;text-align:center;"><img src="' +
+            escapeHtml(it.url) +
+            '" alt="' +
+            escapeHtml(it.title || 'Image Preview') +
+            '" style="max-height:220px;max-width:100%;border-radius:8px;border:1px solid var(--border-card);object-fit:contain;box-shadow:0 2px 8px rgba(0,0,0,0.2);"/></div>'
+          : '') +
         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
-        '<input type="text" class="form-input" placeholder="Image URL (https://...) or upload below" value="' + escapeHtml(it.url || '') + '" data-bind="url" style="flex:1;min-width:180px;font-size:13px;"/>' +
+        '<input type="text" class="form-input" placeholder="Image URL (https://...) or upload below" value="' +
+        escapeHtml(it.url || '') +
+        '" data-bind="url" style="flex:1;min-width:180px;font-size:13px;"/>' +
         '<label class="portal-btn portal-btn-secondary" style="margin:0;cursor:pointer;padding:8px 14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;">' +
         '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Upload Image' +
         '<input type="file" accept="image/*" class="gf-image-file-input" style="display:none;"/>' +
         '</label>' +
-        (it.url ? '<button type="button" class="portal-btn portal-btn-secondary" data-act="clear-img" style="padding:8px 12px;font-size:12px;color:var(--red);">Clear</button>' : '') +
+        (it.url
+          ? '<button type="button" class="portal-btn portal-btn-secondary" data-act="clear-img" style="padding:8px 12px;font-size:12px;color:var(--red);">Clear</button>'
+          : '') +
         '</div>' +
         '</div>' +
         '</div>';
@@ -2592,43 +3114,65 @@ function renderGfQuestionsTab() {
     var qType = it.type || 'multiple_choice';
 
     if (qType === 'multiple_choice' || qType === 'checkboxes' || qType === 'dropdown') {
-      var bullet = qType === 'multiple_choice' ? '○' : (qType === 'checkboxes' ? '□' : '▾');
+      var bullet = qType === 'multiple_choice' ? '○' : qType === 'checkboxes' ? '□' : '▾';
       var options = Array.isArray(it.options) && it.options.length ? it.options : ['Option 1'];
       var hasOther = options.some(isOtherOption);
       bodyHtml += '<div class="gf-options-list">';
-      options.forEach(function(opt, optIdx) {
+      options.forEach(function (opt, optIdx) {
         var isOther = isOtherOption(opt);
         if (isOther && qType !== 'dropdown') {
           bodyHtml +=
             '<div class="gf-option-row gf-option-row-other" style="display:flex;align-items:center;gap:8px;">' +
-            '<span class="gf-opt-bullet">' + bullet + '</span>' +
+            '<span class="gf-opt-bullet">' +
+            bullet +
+            '</span>' +
             '<span style="font-size:13px;color:var(--text-secondary);flex:1;padding:6px 0;">Other... <span style="font-size:11px;color:var(--text-muted);font-style:italic;">(respondents can type a short answer)</span></span>' +
-            '<button type="button" class="gf-opt-del-btn" data-del-opt="' + optIdx + '" title="Remove Other option">&times;</button>' +
+            '<button type="button" class="gf-opt-del-btn" data-del-opt="' +
+            optIdx +
+            '" title="Remove Other option">&times;</button>' +
             '</div>';
         } else {
           bodyHtml +=
             '<div class="gf-option-row">' +
-            '<span class="gf-opt-bullet">' + bullet + '</span>' +
-            '<input type="text" class="gf-opt-input" value="' + escapeHtml(opt) + '" data-opt-idx="' + optIdx + '"/>' +
-            (options.length > 1 ? '<button type="button" class="gf-opt-del-btn" data-del-opt="' + optIdx + '" title="Remove option">&times;</button>' : '') +
+            '<span class="gf-opt-bullet">' +
+            bullet +
+            '</span>' +
+            '<input type="text" class="gf-opt-input" value="' +
+            escapeHtml(opt) +
+            '" data-opt-idx="' +
+            optIdx +
+            '"/>' +
+            (options.length > 1
+              ? '<button type="button" class="gf-opt-del-btn" data-del-opt="' +
+                optIdx +
+                '" title="Remove option">&times;</button>'
+              : '') +
             '</div>';
         }
       });
       bodyHtml +=
         '<div class="gf-add-opt-row">' +
-        '<span class="gf-opt-bullet" style="opacity:0.5;">' + bullet + '</span>' +
+        '<span class="gf-opt-bullet" style="opacity:0.5;">' +
+        bullet +
+        '</span>' +
         '<button type="button" class="gf-add-opt-link" data-act="add-opt">+ Add option</button>' +
-        (qType !== 'dropdown' && !hasOther ? ' <span style="font-size:12px;color:var(--text-muted);">or</span> <button type="button" class="gf-add-opt-link" data-act="add-other">add "Other"</button>' : '') +
+        (qType !== 'dropdown' && !hasOther
+          ? ' <span style="font-size:12px;color:var(--text-muted);">or</span> <button type="button" class="gf-add-opt-link" data-act="add-other">add "Other"</button>'
+          : '') +
         '</div>' +
         '</div>';
     } else if (qType === 'short_answer' || qType === 'text') {
-      bodyHtml = '<div style="border-bottom:1px solid var(--border-card);color:var(--text-muted);font-size:13px;padding:8px 0;width:50%;">Short answer text</div>';
+      bodyHtml =
+        '<div style="border-bottom:1px solid var(--border-card);color:var(--text-muted);font-size:13px;padding:8px 0;width:50%;">Short answer text</div>';
     } else if (qType === 'paragraph' || qType === 'textarea') {
-      bodyHtml = '<div style="border-bottom:1px solid var(--border-card);color:var(--text-muted);font-size:13px;padding:12px 0;width:75%;">Long answer text</div>';
+      bodyHtml =
+        '<div style="border-bottom:1px solid var(--border-card);color:var(--text-muted);font-size:13px;padding:12px 0;width:75%;">Long answer text</div>';
     } else if (qType === 'date') {
-      bodyHtml = '<div style="color:var(--text-muted);font-size:13px;display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-card);padding:8px 0;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Month, day, year</div>';
+      bodyHtml =
+        '<div style="color:var(--text-muted);font-size:13px;display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-card);padding:8px 0;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Month, day, year</div>';
     } else if (qType === 'time') {
-      bodyHtml = '<div style="color:var(--text-muted);font-size:13px;display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-card);padding:8px 0;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Time (hh:mm)</div>';
+      bodyHtml =
+        '<div style="color:var(--text-muted);font-size:13px;display:inline-flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-card);padding:8px 0;"><svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Time (hh:mm)</div>';
     } else if (qType === 'signature') {
       bodyHtml =
         '<div class="gf-signature-mockup">' +
@@ -2641,21 +3185,43 @@ function renderGfQuestionsTab() {
     }
 
     questionsListHtml +=
-      '<div class="gf-question-card gf-card-item ' + (isActive ? 'is-active' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
+      '<div class="gf-question-card gf-card-item ' +
+      (isActive ? 'is-active' : '') +
+      '" data-item-id="' +
+      escapeHtml(it.id) +
+      '">' +
       '<div class="gf-drag-handle">' +
       '<svg width="20" height="12" viewBox="0 0 20 12" fill="currentColor"><circle cx="7" cy="3" r="1.5"/><circle cx="13" cy="3" r="1.5"/><circle cx="7" cy="9" r="1.5"/><circle cx="13" cy="9" r="1.5"/></svg>' +
       '</div>' +
       '<div class="gf-question-toprow">' +
-      '<input type="text" class="gf-q-title-input" placeholder="Question" value="' + escapeHtml(it.title || '') + '" data-bind="title"/>' +
+      '<input type="text" class="gf-q-title-input" placeholder="Question" value="' +
+      escapeHtml(it.title || '') +
+      '" data-bind="title"/>' +
       '<select class="gf-type-selector" data-bind="type">' +
-      '<option value="short_answer" ' + (qType === 'short_answer' || qType === 'text' ? 'selected' : '') + '>Short answer</option>' +
-      '<option value="paragraph" ' + (qType === 'paragraph' || qType === 'textarea' ? 'selected' : '') + '>Paragraph</option>' +
-      '<option value="multiple_choice" ' + (qType === 'multiple_choice' ? 'selected' : '') + '>Multiple choice</option>' +
-      '<option value="checkboxes" ' + (qType === 'checkboxes' ? 'selected' : '') + '>Checkboxes</option>' +
-      '<option value="dropdown" ' + (qType === 'dropdown' || qType === 'select' ? 'selected' : '') + '>Dropdown</option>' +
-      '<option value="date" ' + (qType === 'date' ? 'selected' : '') + '>Date</option>' +
-      '<option value="time" ' + (qType === 'time' ? 'selected' : '') + '>Time</option>' +
-      '<option value="signature" ' + (qType === 'signature' ? 'selected' : '') + '>Signature</option>' +
+      '<option value="short_answer" ' +
+      (qType === 'short_answer' || qType === 'text' ? 'selected' : '') +
+      '>Short answer</option>' +
+      '<option value="paragraph" ' +
+      (qType === 'paragraph' || qType === 'textarea' ? 'selected' : '') +
+      '>Paragraph</option>' +
+      '<option value="multiple_choice" ' +
+      (qType === 'multiple_choice' ? 'selected' : '') +
+      '>Multiple choice</option>' +
+      '<option value="checkboxes" ' +
+      (qType === 'checkboxes' ? 'selected' : '') +
+      '>Checkboxes</option>' +
+      '<option value="dropdown" ' +
+      (qType === 'dropdown' || qType === 'select' ? 'selected' : '') +
+      '>Dropdown</option>' +
+      '<option value="date" ' +
+      (qType === 'date' ? 'selected' : '') +
+      '>Date</option>' +
+      '<option value="time" ' +
+      (qType === 'time' ? 'selected' : '') +
+      '>Time</option>' +
+      '<option value="signature" ' +
+      (qType === 'signature' ? 'selected' : '') +
+      '>Signature</option>' +
       '</select>' +
       '</div>' +
       bodyHtml +
@@ -2666,7 +3232,9 @@ function renderGfQuestionsTab() {
       '<div style="display:flex;align-items:center;gap:8px;">' +
       '<span style="font-size:12px;color:var(--text-secondary);font-weight:600;">Required</span>' +
       '<label class="gf-toggle-switch">' +
-      '<input type="checkbox" data-bind="required" ' + (it.required ? 'checked' : '') + '/>' +
+      '<input type="checkbox" data-bind="required" ' +
+      (it.required ? 'checked' : '') +
+      '/>' +
       '<span class="gf-toggle-slider"></span>' +
       '</label>' +
       '</div>' +
@@ -2697,15 +3265,19 @@ function renderGfQuestionsTab() {
   var titleInput = container.querySelector('.gf-title-input');
   var descInput = container.querySelector('.gf-desc-input');
   if (titleInput) {
-    titleInput.addEventListener('input', function() { _gfCurrentForm.name = titleInput.value; });
+    titleInput.addEventListener('input', function () {
+      _gfCurrentForm.name = titleInput.value;
+    });
   }
   if (descInput) {
-    descInput.addEventListener('input', function() { _gfCurrentForm.desc = descInput.value; });
+    descInput.addEventListener('input', function () {
+      _gfCurrentForm.desc = descInput.value;
+    });
   }
 
   // Wire toolbar buttons
-  container.querySelectorAll('[data-tool]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  container.querySelectorAll('[data-tool]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       var tool = btn.getAttribute('data-tool');
       if (tool === 'add-q') addGfQuestion(_gfActiveItemId);
       if (tool === 'add-td') addGfTitleDesc(_gfActiveItemId);
@@ -2715,15 +3287,17 @@ function renderGfQuestionsTab() {
   });
 
   // Wire card events
-  container.querySelectorAll('[data-item-id]').forEach(function(card) {
+  container.querySelectorAll('[data-item-id]').forEach(function (card) {
     var itemId = card.getAttribute('data-item-id');
-    var it = _gfCurrentForm.items.find(function(x) { return x.id === itemId; });
+    var it = _gfCurrentForm.items.find(function (x) {
+      return x.id === itemId;
+    });
     if (!it) return;
 
-    card.addEventListener('click', function(e) {
+    card.addEventListener('click', function (e) {
       if (_gfActiveItemId !== itemId && !e.target.closest('button')) {
         _gfActiveItemId = itemId;
-        container.querySelectorAll('.gf-card-item').forEach(function(c) {
+        container.querySelectorAll('.gf-card-item').forEach(function (c) {
           if (c.getAttribute('data-item-id') === itemId) c.classList.add('is-active');
           else c.classList.remove('is-active');
         });
@@ -2733,22 +3307,28 @@ function renderGfQuestionsTab() {
 
     var titleInp = card.querySelector('[data-bind="title"]');
     if (titleInp) {
-      titleInp.addEventListener('input', function() { it.title = titleInp.value; });
+      titleInp.addEventListener('input', function () {
+        it.title = titleInp.value;
+      });
     }
 
     var descInp = card.querySelector('[data-bind="desc"]');
     if (descInp) {
-      descInp.addEventListener('input', function() { it.desc = descInp.value; });
+      descInp.addEventListener('input', function () {
+        it.desc = descInp.value;
+      });
     }
 
     var urlInp = card.querySelector('[data-bind="url"]');
     if (urlInp) {
-      urlInp.addEventListener('input', function() { it.url = urlInp.value.trim(); });
+      urlInp.addEventListener('input', function () {
+        it.url = urlInp.value.trim();
+      });
     }
 
     var imgFileInp = card.querySelector('.gf-image-file-input');
     if (imgFileInp) {
-      imgFileInp.addEventListener('change', function(e) {
+      imgFileInp.addEventListener('change', function (e) {
         var file = e.target.files && e.target.files[0];
         if (!file) return;
         if (file.size > 5 * 1024 * 1024) {
@@ -2756,7 +3336,7 @@ function renderGfQuestionsTab() {
           return;
         }
         var reader = new FileReader();
-        reader.onload = function(evt) {
+        reader.onload = function (evt) {
           it.url = evt.target.result;
           renderGfEditor();
         };
@@ -2766,7 +3346,7 @@ function renderGfQuestionsTab() {
 
     var clearImgBtn = card.querySelector('[data-act="clear-img"]');
     if (clearImgBtn) {
-      clearImgBtn.addEventListener('click', function(e) {
+      clearImgBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         it.url = '';
         renderGfEditor();
@@ -2775,9 +3355,12 @@ function renderGfQuestionsTab() {
 
     var typeSel = card.querySelector('[data-bind="type"]');
     if (typeSel) {
-      typeSel.addEventListener('change', function() {
+      typeSel.addEventListener('change', function () {
         it.type = typeSel.value;
-        if (['multiple_choice', 'checkboxes', 'dropdown'].indexOf(it.type) !== -1 && (!it.options || !it.options.length)) {
+        if (
+          ['multiple_choice', 'checkboxes', 'dropdown'].indexOf(it.type) !== -1 &&
+          (!it.options || !it.options.length)
+        ) {
           it.options = ['Option 1'];
         }
         renderGfEditor();
@@ -2786,12 +3369,14 @@ function renderGfQuestionsTab() {
 
     var reqCb = card.querySelector('[data-bind="required"]');
     if (reqCb) {
-      reqCb.addEventListener('change', function() { it.required = reqCb.checked; });
+      reqCb.addEventListener('change', function () {
+        it.required = reqCb.checked;
+      });
     }
 
     // Option editing
-    card.querySelectorAll('[data-opt-idx]').forEach(function(optInp) {
-      optInp.addEventListener('input', function() {
+    card.querySelectorAll('[data-opt-idx]').forEach(function (optInp) {
+      optInp.addEventListener('input', function () {
         var idx = parseInt(optInp.getAttribute('data-opt-idx'), 10);
         if (Array.isArray(it.options) && it.options[idx] !== undefined) {
           it.options[idx] = optInp.value;
@@ -2799,8 +3384,8 @@ function renderGfQuestionsTab() {
       });
     });
 
-    card.querySelectorAll('[data-del-opt]').forEach(function(delOptBtn) {
-      delOptBtn.addEventListener('click', function(e) {
+    card.querySelectorAll('[data-del-opt]').forEach(function (delOptBtn) {
+      delOptBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         var idx = parseInt(delOptBtn.getAttribute('data-del-opt'), 10);
         if (Array.isArray(it.options)) {
@@ -2812,7 +3397,7 @@ function renderGfQuestionsTab() {
 
     var addOptBtn = card.querySelector('[data-act="add-opt"]');
     if (addOptBtn) {
-      addOptBtn.addEventListener('click', function(e) {
+      addOptBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (!Array.isArray(it.options)) it.options = [];
         it.options.push('Option ' + (it.options.length + 1));
@@ -2822,7 +3407,7 @@ function renderGfQuestionsTab() {
 
     var addOtherBtn = card.querySelector('[data-act="add-other"]');
     if (addOtherBtn) {
-      addOtherBtn.addEventListener('click', function(e) {
+      addOtherBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (!Array.isArray(it.options)) it.options = [];
         if (!it.options.some(isOtherOption)) {
@@ -2834,7 +3419,7 @@ function renderGfQuestionsTab() {
 
     var dupBtn = card.querySelector('[data-act="dup"]');
     if (dupBtn) {
-      dupBtn.addEventListener('click', function(e) {
+      dupBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         duplicateGfItem(itemId);
       });
@@ -2842,7 +3427,7 @@ function renderGfQuestionsTab() {
 
     var delBtn = card.querySelector('[data-act="del"]');
     if (delBtn) {
-      delBtn.addEventListener('click', function(e) {
+      delBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         deleteGfItem(itemId);
       });
@@ -2851,6 +3436,19 @@ function renderGfQuestionsTab() {
 
   updateGfToolbarPosition();
   setTimeout(updateGfToolbarPosition, 50);
+}
+
+function hasFormsAdminAccess() {
+  var fn =
+    typeof window !== 'undefined' && typeof window.hasAdminModuleAccess === 'function'
+      ? window.hasAdminModuleAccess
+      : typeof global !== 'undefined' && typeof global.hasAdminModuleAccess === 'function'
+        ? global.hasAdminModuleAccess
+        : null;
+  if (fn) {
+    return fn('orders') || fn('forms');
+  }
+  return true;
 }
 
 // ── Google Forms Responses Tab (Table View & Individual View) ──────────────
@@ -2863,10 +3461,23 @@ async function loadGfResponses() {
   if (typeof window !== 'undefined' && Array.isArray(window._mockGfResponses)) {
     return window._mockGfResponses;
   }
+  // Authorization check: Only administrators/officers can load organizational form submissions
+  if (!hasFormsAdminAccess()) {
+    return [];
+  }
   var client = getSupa();
-  if (!client || !client.get || !_gfCurrentForm) return [];
+  if (!client || typeof client.rpc !== 'function' || !_gfCurrentForm) return [];
   try {
-    var orders = await client.get('bb_orders?select=order_number,created_at,member_name,ic,rank,squad,items,notes&order=created_at.desc');
+    var adminToken = resolveFormsAdminToken();
+    if (!adminToken) return [];
+    var rpcRes = await client.rpc('rpc_admin_get_orders', {
+      p_token: adminToken,
+      p_form_id: String(_gfCurrentForm.id)
+    });
+    if (!rpcRes || !rpcRes.success || !Array.isArray(rpcRes.orders)) {
+      return [];
+    }
+    var orders = rpcRes.orders;
     var formId = String(_gfCurrentForm.id);
     var formName = String(_gfCurrentForm.name || '');
 
@@ -2911,8 +3522,8 @@ function downloadFormResponsesCsv(form, responses) {
   }
   var headers = ['Order Number', 'Date', 'Respondent Name', 'Rank', 'Platoon'];
   var questions = [];
-  var items = form.items && form.items.length ? form.items : (form.fields || []);
-  items.forEach(function(it) {
+  var items = form.items && form.items.length ? form.items : form.fields || [];
+  items.forEach(function (it) {
     if (isFormQuestion(it)) {
       var qName = it.title || it.label || 'Question';
       questions.push(qName);
@@ -2921,13 +3532,13 @@ function downloadFormResponsesCsv(form, responses) {
   });
 
   var rows = [headers.join(',')];
-  responses.forEach(function(r) {
+  responses.forEach(function (r) {
     var itemsObj = readFormResponseItems(r);
     var answers = itemsObj.answers || {};
-    var row = [
-      r.order_number, r.created_at, r.member_name || r.ic, r.rank, r.squad
-    ].map(quoteResponseCsvCell);
-    questions.forEach(function(q) {
+    var row = [r.order_number, r.created_at, r.member_name || r.ic, r.rank, r.squad].map(
+      quoteResponseCsvCell
+    );
+    questions.forEach(function (q) {
       var ans = answers[q] ?? '';
       if (isFormSignature(ans)) ans = '[Digital Signature Captured]';
       row.push(quoteResponseCsvCell(ans));
@@ -2938,7 +3549,10 @@ function downloadFormResponsesCsv(form, responses) {
   var csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.join('\n'));
   var link = document.createElement('a');
   link.setAttribute('href', csvContent);
-  link.setAttribute('download', (form.name || 'form_responses').replace(/[^a-zA-Z0-9_-]/g, '_') + '_responses.csv');
+  link.setAttribute(
+    'download',
+    (form.name || 'form_responses').replace(/[^a-zA-Z0-9_-]/g, '_') + '_responses.csv'
+  );
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -2970,7 +3584,8 @@ async function renderGfResponsesTab() {
     if (topbar) topbar.classList.remove('gf-topbar-wide');
   }
 
-  container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:14px;">Loading responses...</div>';
+  container.innerHTML =
+    '<div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:14px;">Loading responses...</div>';
 
   var activeForm = _gfCurrentForm;
   var activeTab = _gfActiveTab;
@@ -2984,14 +3599,22 @@ async function renderGfResponsesTab() {
   var headerHtml =
     '<div class="gf-responses-header">' +
     '<div>' +
-    '<div class="gf-responses-count">' + _gfResponsesList.length + ' response' + (_gfResponsesList.length === 1 ? '' : 's') + '</div>' +
-    (!availability.open && availability.reason !== 'paused' ? '<p class="page-desc">' + escapeHtml(availability.message) + '</p>' : '') +
+    '<div class="gf-responses-count">' +
+    _gfResponsesList.length +
+    ' response' +
+    (_gfResponsesList.length === 1 ? '' : 's') +
+    '</div>' +
+    (!availability.open && availability.reason !== 'paused'
+      ? '<p class="page-desc">' + escapeHtml(availability.message) + '</p>'
+      : '') +
     '</div>' +
     '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">' +
     '<div style="display:flex;align-items:center;gap:8px;">' +
     '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">Accepting responses</span>' +
     '<label class="gf-toggle-switch">' +
-    '<input type="checkbox" id="gf-accepting-toggle" ' + (isAccepting ? 'checked' : '') + '/>' +
+    '<input type="checkbox" id="gf-accepting-toggle" ' +
+    (isAccepting ? 'checked' : '') +
+    '/>' +
     '<span class="gf-toggle-slider"></span>' +
     '</label>' +
     '</div>' +
@@ -2999,8 +3622,12 @@ async function renderGfResponsesTab() {
     '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV' +
     '</button>' +
     '<div style="display:inline-flex;border:1px solid var(--border-card);border-radius:8px;padding:2px;background:var(--bg-card-subtle);">' +
-    '<button type="button" class="portal-btn ' + (_gfResponsesViewMode === 'table' ? 'portal-btn-primary' : '') + '" id="gf-view-table-btn" style="padding:4px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;">Table</button>' +
-    '<button type="button" class="portal-btn ' + (_gfResponsesViewMode === 'individual' ? 'portal-btn-primary' : '') + '" id="gf-view-ind-btn" style="padding:4px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;">Individual</button>' +
+    '<button type="button" class="portal-btn ' +
+    (_gfResponsesViewMode === 'table' ? 'portal-btn-primary' : '') +
+    '" id="gf-view-table-btn" style="padding:4px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;">Table</button>' +
+    '<button type="button" class="portal-btn ' +
+    (_gfResponsesViewMode === 'individual' ? 'portal-btn-primary' : '') +
+    '" id="gf-view-ind-btn" style="padding:4px 12px;font-size:12px;border:none;border-radius:6px;cursor:pointer;">Individual</button>' +
     '</div>' +
     '</div>' +
     '</div>';
@@ -3018,8 +3645,11 @@ async function renderGfResponsesTab() {
   }
 
   var questions = [];
-  var items = _gfCurrentForm.items && _gfCurrentForm.items.length ? _gfCurrentForm.items : (_gfCurrentForm.fields || []);
-  items.forEach(function(it) {
+  var items =
+    _gfCurrentForm.items && _gfCurrentForm.items.length
+      ? _gfCurrentForm.items
+      : _gfCurrentForm.fields || [];
+  items.forEach(function (it) {
     if (isFormQuestion(it)) {
       questions.push({
         label: it.title || it.label || 'Question',
@@ -3035,33 +3665,55 @@ async function renderGfResponsesTab() {
       '<th class="gf-col-autofill">Date</th>' +
       '<th class="gf-col-autofill gf-col-autofill-last">Respondent</th>';
 
-    questions.forEach(function(q) {
+    questions.forEach(function (q) {
       tableHeaders += '<th>' + escapeHtml(q.label) + '</th>';
     });
 
     var tableRows = '';
-    _gfResponsesList.forEach(function(r, rIdx) {
+    _gfResponsesList.forEach(function (r, rIdx) {
       var itemsObj = readFormResponseItems(r);
       var answers = itemsObj.answers || {};
 
       var formattedDate = r.created_at
-        ? new Date(r.created_at).toLocaleDateString('en-MY', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        ? new Date(r.created_at).toLocaleDateString('en-MY', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+          })
         : '';
 
-      tableRows += '<tr>' +
-        '<td class="gf-col-autofill" style="color:var(--text-muted);">' + (rIdx + 1) + '</td>' +
-        '<td class="gf-col-autofill" style="white-space:nowrap;font-size:12px;">' + escapeHtml(formattedDate) + '</td>' +
-        '<td class="gf-col-autofill gf-col-autofill-last" style="font-weight:600;">' + escapeHtml(r.member_name || r.ic || 'Guest') + '</td>';
+      tableRows +=
+        '<tr>' +
+        '<td class="gf-col-autofill" style="color:var(--text-muted);">' +
+        (rIdx + 1) +
+        '</td>' +
+        '<td class="gf-col-autofill" style="white-space:nowrap;font-size:12px;">' +
+        escapeHtml(formattedDate) +
+        '</td>' +
+        '<td class="gf-col-autofill gf-col-autofill-last" style="font-weight:600;">' +
+        escapeHtml(r.member_name || r.ic || 'Guest') +
+        '</td>';
 
-      questions.forEach(function(q) {
+      questions.forEach(function (q) {
         var val = answers[q.label] ?? '';
         if (q.type === 'signature' && isFormSignature(val)) {
-          tableRows += '<td>' +
-            '<img src="' + escapeHtml(val) + '" alt="Signature" style="max-height:28px;max-width:85px;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:2px;cursor:pointer;vertical-align:middle;" title="Click to view full signature" data-signature-signer="' + escapeHtml(r.member_name || '') + '"/>' +
+          tableRows +=
+            '<td>' +
+            '<img src="' +
+            escapeHtml(val) +
+            '" alt="Signature" style="max-height:28px;max-width:85px;background:#ffffff;border:1px solid #cbd5e1;border-radius:4px;padding:2px;cursor:pointer;vertical-align:middle;" title="Click to view full signature" data-signature-signer="' +
+            escapeHtml(r.member_name || '') +
+            '"/>' +
             '</td>';
         } else {
-          tableRows += '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(val) + '">' +
-            (val !== '' ? escapeHtml(String(val)) : '<span style="color:var(--text-muted);">—</span>') +
+          tableRows +=
+            '<td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' +
+            escapeHtml(val) +
+            '">' +
+            (val !== ''
+              ? escapeHtml(String(val))
+              : '<span style="color:var(--text-muted);">—</span>') +
             '</td>';
         }
       });
@@ -3073,14 +3725,19 @@ async function renderGfResponsesTab() {
       headerHtml +
       '<div class="gf-responses-table-wrap" style="margin-top:14px;">' +
       '<table class="gf-responses-table">' +
-      '<thead><tr>' + tableHeaders + '</tr></thead>' +
-      '<tbody>' + tableRows + '</tbody>' +
+      '<thead><tr>' +
+      tableHeaders +
+      '</tr></thead>' +
+      '<tbody>' +
+      tableRows +
+      '</tbody>' +
       '</table>' +
       '</div>';
   } else {
     // ── Individual 1 of N View ──
     if (_gfIndividualIndex < 0) _gfIndividualIndex = 0;
-    if (_gfIndividualIndex >= _gfResponsesList.length) _gfIndividualIndex = _gfResponsesList.length - 1;
+    if (_gfIndividualIndex >= _gfResponsesList.length)
+      _gfIndividualIndex = _gfResponsesList.length - 1;
 
     var currentResp = _gfResponsesList[_gfIndividualIndex];
     var currentAnswers = readFormResponseItems(currentResp).answers || {};
@@ -3099,9 +3756,19 @@ async function renderGfResponsesTab() {
     var navHtml =
       '<div class="gf-individual-nav" style="margin-top:14px;">' +
       '<div style="display:flex;align-items:center;gap:10px;">' +
-      '<button type="button" class="portal-btn portal-btn-secondary" id="gf-ind-prev" ' + (_gfIndividualIndex === 0 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '') + '>&lsaquo; Prev</button>' +
-      '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' + (_gfIndividualIndex + 1) + ' of ' + _gfResponsesList.length + '</span>' +
-      '<button type="button" class="portal-btn portal-btn-secondary" id="gf-ind-next" ' + (_gfIndividualIndex === _gfResponsesList.length - 1 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '') + '>Next &rsaquo;</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" id="gf-ind-prev" ' +
+      (_gfIndividualIndex === 0 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '') +
+      '>&lsaquo; Prev</button>' +
+      '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' +
+      (_gfIndividualIndex + 1) +
+      ' of ' +
+      _gfResponsesList.length +
+      '</span>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" id="gf-ind-next" ' +
+      (_gfIndividualIndex === _gfResponsesList.length - 1
+        ? 'disabled style="opacity:0.5;cursor:not-allowed;"'
+        : '') +
+      '>Next &rsaquo;</button>' +
       '</div>' +
       '<button type="button" class="submit-btn danger" id="gf-ind-del" style="padding:6px 14px;font-size:12px;width:auto;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete response</button>' +
       '</div>';
@@ -3110,20 +3777,31 @@ async function renderGfResponsesTab() {
       '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:22px;margin-top:14px;display:flex;flex-direction:column;gap:18px;">' +
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--border-card);padding-bottom:14px;flex-wrap:wrap;gap:10px;">' +
       '<div>' +
-      '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);">' + escapeHtml(currentResp.member_name || currentResp.ic || 'Guest Respondent') + '</div>' +
-      '<div style="font-size:12px;color:var(--text-secondary);margin-top:3px;">' + escapeHtml((currentResp.rank ? currentResp.rank + ' · ' : '') + (currentResp.squad ? currentResp.squad + ' Platoon' : '')) + '</div>' +
+      '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);">' +
+      escapeHtml(currentResp.member_name || currentResp.ic || 'Guest Respondent') +
       '</div>' +
-      '<div style="font-size:12px;color:var(--text-muted);">' + escapeHtml(formattedDate) + '</div>' +
+      '<div style="font-size:12px;color:var(--text-secondary);margin-top:3px;">' +
+      escapeHtml(
+        (currentResp.rank ? currentResp.rank + ' · ' : '') +
+          (currentResp.squad ? currentResp.squad + ' Platoon' : '')
+      ) +
+      '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);">' +
+      escapeHtml(formattedDate) +
+      '</div>' +
       '</div>';
 
-    questions.forEach(function(q) {
+    questions.forEach(function (q) {
       var ans = currentAnswers[q.label] ?? '';
       var valHtml = '';
 
       if (q.type === 'signature' && isFormSignature(ans)) {
         valHtml =
           '<div style="background:#ffffff;padding:14px 18px;border-radius:8px;border:1px solid #cbd5e1;display:inline-block;margin-top:8px;">' +
-          '<img src="' + escapeHtml(ans) + '" alt="Digital Signature" style="max-height:120px;max-width:100%;display:block;"/>' +
+          '<img src="' +
+          escapeHtml(ans) +
+          '" alt="Digital Signature" style="max-height:120px;max-width:100%;display:block;"/>' +
           '<div style="font-size:11px;color:#64748b;margin-top:6px;display:flex;align-items:center;gap:4px;">' +
           '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg> Digitally signed by respondent' +
           '</div>' +
@@ -3131,13 +3809,17 @@ async function renderGfResponsesTab() {
       } else {
         valHtml =
           '<div style="font-size:14px;color:var(--text-primary);background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:10px 14px;margin-top:6px;">' +
-          (ans !== '' ? escapeHtml(String(ans)) : '<span style="color:var(--text-muted);font-style:italic;">No answer provided</span>') +
+          (ans !== ''
+            ? escapeHtml(String(ans))
+            : '<span style="color:var(--text-muted);font-style:italic;">No answer provided</span>') +
           '</div>';
       }
 
       respBodyHtml +=
         '<div>' +
-        '<div style="font-size:13px;font-weight:700;color:var(--text-secondary);">' + escapeHtml(q.label) + '</div>' +
+        '<div style="font-size:13px;font-weight:700;color:var(--text-secondary);">' +
+        escapeHtml(q.label) +
+        '</div>' +
         valHtml +
         '</div>';
     });
@@ -3151,7 +3833,7 @@ async function renderGfResponsesTab() {
     var delRespBtn = document.getElementById('gf-ind-del');
 
     if (prevBtn) {
-      prevBtn.addEventListener('click', function() {
+      prevBtn.addEventListener('click', function () {
         if (_gfIndividualIndex > 0) {
           _gfIndividualIndex--;
           renderGfResponsesTab();
@@ -3159,7 +3841,7 @@ async function renderGfResponsesTab() {
       });
     }
     if (nextBtn) {
-      nextBtn.addEventListener('click', function() {
+      nextBtn.addEventListener('click', function () {
         if (_gfIndividualIndex < _gfResponsesList.length - 1) {
           _gfIndividualIndex++;
           renderGfResponsesTab();
@@ -3167,20 +3849,40 @@ async function renderGfResponsesTab() {
       });
     }
     if (delRespBtn) {
-      delRespBtn.addEventListener('click', async function() {
-        var ok = typeof showConfirmModal === 'function'
-          ? await showConfirmModal('Delete this response?', 'Delete Response')
-          : true;
+      delRespBtn.addEventListener('click', async function () {
+        var ok =
+          typeof showConfirmModal === 'function'
+            ? await showConfirmModal('Delete this response?', 'Delete Response')
+            : true;
         if (!ok) return;
 
+        if (!hasFormsAdminAccess()) {
+          if (typeof showToast === 'function')
+            showToast('Administrator access required to delete form responses.', 'error');
+          return;
+        }
+
         var client = getSupa();
-        if (client && client.delete) {
+        if (client && typeof client.rpc === 'function') {
           try {
-            await client.delete('bb_orders?order_number=eq.' + encodeURIComponent(currentResp.order_number));
+            var adminToken = resolveFormsAdminToken();
+            if (!adminToken) {
+              if (typeof showToast === 'function')
+                showToast('Administrator access required to delete form responses.', 'error');
+              return;
+            }
+            var rpcRes = await client.rpc('rpc_admin_delete_order', {
+              p_token: adminToken,
+              p_order_number: currentResp.order_number
+            });
+            if (!rpcRes || !rpcRes.success) {
+              throw new Error((rpcRes && rpcRes.error) || 'Failed to delete response.');
+            }
             if (typeof showToast === 'function') showToast('Response deleted.', 'info');
             renderGfResponsesTab();
-          } catch(err) {
-            if (typeof showToast === 'function') showToast('Delete failed: ' + err.message, 'error');
+          } catch (err) {
+            if (typeof showToast === 'function')
+              showToast('Delete failed: ' + err.message, 'error');
           }
         }
       });
@@ -3192,9 +3894,12 @@ async function renderGfResponsesTab() {
 }
 
 function wireResponseSignatures(container) {
-  container.querySelectorAll('[data-signature-signer]').forEach(function(image) {
-    image.addEventListener('click', function() {
-      showSignatureEnlargedModal(image.getAttribute('src'), image.getAttribute('data-signature-signer'));
+  container.querySelectorAll('[data-signature-signer]').forEach(function (image) {
+    image.addEventListener('click', function () {
+      showSignatureEnlargedModal(
+        image.getAttribute('src'),
+        image.getAttribute('data-signature-signer')
+      );
     });
   });
 }
@@ -3204,7 +3909,7 @@ function wireResponseSignatures(container) {
 function wireResponsesHeaderEvents() {
   var acceptingToggle = document.getElementById('gf-accepting-toggle');
   if (acceptingToggle) {
-    acceptingToggle.addEventListener('change', async function() {
+    acceptingToggle.addEventListener('change', async function () {
       var nextStatus = acceptingToggle.checked ? 'active' : 'paused';
       var form = _gfCurrentForm;
       acceptingToggle.disabled = true;
@@ -3221,7 +3926,7 @@ function wireResponsesHeaderEvents() {
 
   var exportBtn = document.getElementById('gf-btn-export-csv');
   if (exportBtn) {
-    exportBtn.addEventListener('click', function() {
+    exportBtn.addEventListener('click', function () {
       downloadFormResponsesCsv(_gfCurrentForm, _gfResponsesList);
     });
   }
@@ -3229,13 +3934,13 @@ function wireResponsesHeaderEvents() {
   var tableBtn = document.getElementById('gf-view-table-btn');
   var indBtn = document.getElementById('gf-view-ind-btn');
   if (tableBtn) {
-    tableBtn.addEventListener('click', function() {
+    tableBtn.addEventListener('click', function () {
       _gfResponsesViewMode = 'table';
       renderGfResponsesTab();
     });
   }
   if (indBtn) {
-    indBtn.addEventListener('click', function() {
+    indBtn.addEventListener('click', function () {
       _gfResponsesViewMode = 'individual';
       renderGfResponsesTab();
     });
@@ -3260,16 +3965,26 @@ function renderGfSettingsTab() {
     '<span>Response Availability & Auto-Schedule</span>' +
     '</div>' +
     '<div style="display:flex;gap:18px;margin-bottom:14px;align-items:center;">' +
-    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="gf-set-status" value="active" ' + (!isPaused ? 'checked' : '') + ' style="accent-color:var(--accent);"/> Active (Accepting Responses)</label>' +
-    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="gf-set-status" value="paused" ' + (isPaused ? 'checked' : '') + ' style="accent-color:var(--accent);"/> Paused (Closed to Responses)</label>' +
+    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="gf-set-status" value="active" ' +
+    (!isPaused ? 'checked' : '') +
+    ' style="accent-color:var(--accent);"/> Active (Accepting Responses)</label>' +
+    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer;"><input type="radio" name="gf-set-status" value="paused" ' +
+    (isPaused ? 'checked' : '') +
+    ' style="accent-color:var(--accent);"/> Paused (Closed to Responses)</label>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">' +
-    '<div><label class="form-label" style="font-size:12px;">Auto-Open At (Optional)</label><input type="datetime-local" id="gf-set-open" class="form-input" value="' + escapeHtml(_gfCurrentForm.open_at || '') + '" style="font-size:12px;"/></div>' +
-    '<div><label class="form-label" style="font-size:12px;">Auto-Close At (Optional)</label><input type="datetime-local" id="gf-set-close" class="form-input" value="' + escapeHtml(_gfCurrentForm.close_at || '') + '" style="font-size:12px;"/></div>' +
+    '<div><label class="form-label" style="font-size:12px;">Auto-Open At (Optional)</label><input type="datetime-local" id="gf-set-open" class="form-input" value="' +
+    escapeHtml(_gfCurrentForm.open_at || '') +
+    '" style="font-size:12px;"/></div>' +
+    '<div><label class="form-label" style="font-size:12px;">Auto-Close At (Optional)</label><input type="datetime-local" id="gf-set-close" class="form-input" value="' +
+    escapeHtml(_gfCurrentForm.close_at || '') +
+    '" style="font-size:12px;"/></div>' +
     '</div>' +
     '<div>' +
     '<label class="form-label" style="font-size:12px;">Custom Paused / Closed Notice for Members</label>' +
-    '<textarea id="gf-set-paused-msg" class="form-textarea" rows="2" placeholder="e.g. Responses for this form are currently paused by the company administration. Please check back later." style="font-size:13px;">' + escapeHtml(_gfCurrentForm.paused_message || '') + '</textarea>' +
+    '<textarea id="gf-set-paused-msg" class="form-textarea" rows="2" placeholder="e.g. Responses for this form are currently paused by the company administration. Please check back later." style="font-size:13px;">' +
+    escapeHtml(_gfCurrentForm.paused_message || '') +
+    '</textarea>' +
     '</div>' +
     '</div>' +
     '<div class="gf-settings-card" style="border-color:rgba(239,68,68,0.3);">' +
@@ -3281,25 +3996,34 @@ function renderGfSettingsTab() {
     '<button type="button" class="submit-btn danger" id="gf-btn-del-form" style="padding:10px 18px;font-size:13px;width:auto;display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete this Form</button>' +
     '</div>';
 
-  container.querySelectorAll('input[name="gf-set-status"]').forEach(function(radio) {
-    radio.addEventListener('change', function() {
+  container.querySelectorAll('input[name="gf-set-status"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
       _gfCurrentForm.status = radio.value;
       _gfCurrentForm.active = radio.value === 'active';
     });
   });
 
   var openInp = document.getElementById('gf-set-open');
-  if (openInp) openInp.addEventListener('change', function() { _gfCurrentForm.open_at = openInp.value; });
+  if (openInp)
+    openInp.addEventListener('change', function () {
+      _gfCurrentForm.open_at = openInp.value;
+    });
 
   var closeInp = document.getElementById('gf-set-close');
-  if (closeInp) closeInp.addEventListener('change', function() { _gfCurrentForm.close_at = closeInp.value; });
+  if (closeInp)
+    closeInp.addEventListener('change', function () {
+      _gfCurrentForm.close_at = closeInp.value;
+    });
 
   var pausedMsgInp = document.getElementById('gf-set-paused-msg');
-  if (pausedMsgInp) pausedMsgInp.addEventListener('input', function() { _gfCurrentForm.paused_message = pausedMsgInp.value; });
+  if (pausedMsgInp)
+    pausedMsgInp.addEventListener('input', function () {
+      _gfCurrentForm.paused_message = pausedMsgInp.value;
+    });
 
   var delBtn = document.getElementById('gf-btn-del-form');
   if (delBtn) {
-    delBtn.addEventListener('click', async function() {
+    delBtn.addEventListener('click', async function () {
       await deleteForm(_gfCurrentForm.id);
       closeFormEditor();
     });
@@ -3332,17 +4056,36 @@ function switchFormSubtab(sub) {
  */
 async function renderFormResponses() {
   if (typeof document === 'undefined') return;
+  if (!hasFormsAdminAccess()) {
+    var unauthList = document.getElementById('admin-form-responses-list');
+    if (unauthList)
+      unauthList.innerHTML =
+        '<div class="state-card error-card" style="padding:24px;text-align:center;color:var(--text-secondary);">Unauthorized: Administrator access required to view form responses.</div>';
+    return;
+  }
   var filterEl = document.getElementById('form-responses-filter');
   var formFilter = filterEl ? filterEl.value : '';
   var list = document.getElementById('admin-form-responses-list');
   if (!list) return;
 
-  list.innerHTML = (typeof renderSkeletonTable === 'function') ? renderSkeletonTable(5, 4) : '<div class="skeleton-shimmer" style="height:160px;border-radius:8px;"></div>';
+  list.innerHTML =
+    typeof renderSkeletonTable === 'function'
+      ? renderSkeletonTable(5, 4)
+      : '<div class="skeleton-shimmer" style="height:160px;border-radius:8px;"></div>';
   var client = getSupa();
 
   try {
-    if (!client || !client.get) throw new Error('Database client unavailable');
-    var orders = await client.get('bb_orders?select=order_number,created_at,member_name,ic,rank,squad,items,notes&order=created_at.desc');
+    if (!client || typeof client.rpc !== 'function') throw new Error('Database client unavailable');
+    var adminToken = resolveFormsAdminToken();
+    if (!adminToken) throw new Error('Administrator session required');
+    var rpcRes = await client.rpc('rpc_admin_get_orders', {
+      p_token: adminToken,
+      p_form_id: formFilter || null
+    });
+    if (!rpcRes || !rpcRes.success || !Array.isArray(rpcRes.orders)) {
+      throw new Error((rpcRes && rpcRes.error) || 'Failed to load form responses');
+    }
+    var orders = rpcRes.orders;
 
     var filtered = orders.filter(function (o) {
       return readFormResponseItems(o).form_name !== undefined;
@@ -3352,9 +4095,11 @@ async function renderFormResponses() {
       filtered = filtered.filter(function (o) {
         var items = readFormResponseItems(o);
         var responseId = items.form_id || o.notes;
-        return responseId ? String(responseId) === formFilter : _customForms.some(function(f) {
-          return f.id === formFilter && f.name === items.form_name;
-        });
+        return responseId
+          ? String(responseId) === formFilter
+          : _customForms.some(function (f) {
+              return f.id === formFilter && f.name === items.form_name;
+            });
       });
     }
 
@@ -3381,11 +4126,19 @@ async function renderFormResponses() {
       Object.entries(answers).forEach(function (kv) {
         var valDisplay = kv[1];
         if (isFormSignature(valDisplay)) {
-          valDisplay = '<img src="' + escapeHtml(valDisplay) + '" alt="Signature" style="max-height:28px;background:#fff;border-radius:4px;border:1px solid #ddd;padding:2px;cursor:pointer;" data-signature-signer="' + escapeHtml(o.member_name || '') + '"/>';
+          valDisplay =
+            '<img src="' +
+            escapeHtml(valDisplay) +
+            '" alt="Signature" style="max-height:28px;background:#fff;border-radius:4px;border:1px solid #ddd;padding:2px;cursor:pointer;" data-signature-signer="' +
+            escapeHtml(o.member_name || '') +
+            '"/>';
         } else if (typeof valDisplay === 'string' && valDisplay.startsWith('data:')) {
           return;
         } else {
-          valDisplay = valDisplay != null && valDisplay !== '' ? escapeHtml(String(valDisplay)) : '<span style="color:var(--text-muted);font-style:italic;">—</span>';
+          valDisplay =
+            valDisplay != null && valDisplay !== ''
+              ? escapeHtml(String(valDisplay))
+              : '<span style="color:var(--text-muted);font-style:italic;">—</span>';
         }
         answersHtml +=
           '<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-subtle);">' +
@@ -3440,22 +4193,49 @@ async function renderFormResponses() {
             : true;
         if (!ok) return;
 
-        client
-          .delete(
-            'bb_orders?order_number=eq.' + encodeURIComponent(btn.getAttribute('data-del-resp'))
-          )
-          .then(function () {
-            renderFormResponses();
-            if (typeof showToast === 'function') showToast('Response deleted.', 'info');
-          })
-          .catch(function (e) {
-            if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
+        if (!hasFormsAdminAccess()) {
+          if (typeof showToast === 'function')
+            showToast('Administrator access required to delete form responses.', 'error');
+          return;
+        }
+
+        var adminToken = resolveFormsAdminToken();
+        var orderNum = btn.getAttribute('data-del-resp');
+        if (!adminToken || typeof client.rpc !== 'function') {
+          if (typeof showToast === 'function')
+            showToast('Administrator session required to delete form responses.', 'error');
+          return;
+        }
+        try {
+          var rpcRes = await client.rpc('rpc_admin_delete_order', {
+            p_token: adminToken,
+            p_order_number: orderNum
           });
+          if (!rpcRes || !rpcRes.success) {
+            throw new Error((rpcRes && rpcRes.error) || 'Delete rejected');
+          }
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
+          return;
+        }
+        renderFormResponses();
+        if (typeof showToast === 'function') showToast('Response deleted.', 'info');
       });
     });
   } catch (e) {
+    var errMsg = (e && e.message) || 'Failed to load.';
+    var safeMsg = typeof escapeHtml === 'function' ? escapeHtml(errMsg) : errMsg;
     list.innerHTML =
-      '<div style="color:#f66;text-align:center;padding:20px;">Failed to load.</div>';
+      '<div class="state-card error-card" role="alert"><p class="error-msg">' +
+      safeMsg +
+      '</p><button type="button" class="btn-retry retry-btn">Try Again</button></div>';
+    var retryBtn = list.querySelector('.btn-retry');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        renderFormResponses();
+      });
+    }
   }
 }
 
@@ -3540,18 +4320,42 @@ if (typeof module !== 'undefined' && module.exports) {
     _customForms: _customForms,
     _currentFormType: _currentFormType,
     _fbFields: _fbFields,
-    get _gfCurrentForm() { return _gfCurrentForm; },
-    set _gfCurrentForm(val) { _gfCurrentForm = val; },
-    get _gfActiveTab() { return _gfActiveTab; },
-    set _gfActiveTab(val) { _gfActiveTab = val; },
-    get _gfActiveItemId() { return _gfActiveItemId; },
-    set _gfActiveItemId(val) { _gfActiveItemId = val; },
-    get _gfResponsesViewMode() { return _gfResponsesViewMode; },
-    set _gfResponsesViewMode(val) { _gfResponsesViewMode = val; },
-    get _gfIndividualIndex() { return _gfIndividualIndex; },
-    set _gfIndividualIndex(val) { _gfIndividualIndex = val; },
-    get _gfResponsesList() { return _gfResponsesList; },
-    set _gfResponsesList(val) { _gfResponsesList = val; },
+    get _gfCurrentForm() {
+      return _gfCurrentForm;
+    },
+    set _gfCurrentForm(val) {
+      _gfCurrentForm = val;
+    },
+    get _gfActiveTab() {
+      return _gfActiveTab;
+    },
+    set _gfActiveTab(val) {
+      _gfActiveTab = val;
+    },
+    get _gfActiveItemId() {
+      return _gfActiveItemId;
+    },
+    set _gfActiveItemId(val) {
+      _gfActiveItemId = val;
+    },
+    get _gfResponsesViewMode() {
+      return _gfResponsesViewMode;
+    },
+    set _gfResponsesViewMode(val) {
+      _gfResponsesViewMode = val;
+    },
+    get _gfIndividualIndex() {
+      return _gfIndividualIndex;
+    },
+    set _gfIndividualIndex(val) {
+      _gfIndividualIndex = val;
+    },
+    get _gfResponsesList() {
+      return _gfResponsesList;
+    },
+    set _gfResponsesList(val) {
+      _gfResponsesList = val;
+    },
 
     loadCustomForms: loadCustomForms,
     saveCustomForms: saveCustomForms,

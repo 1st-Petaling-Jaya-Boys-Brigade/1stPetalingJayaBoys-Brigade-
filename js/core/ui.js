@@ -6,7 +6,7 @@
  * Promise-based custom confirmation dialogs, replacing native browser alert() and confirm().
  */
 
-(function(global) {
+(function (global) {
   'use strict';
 
   /**
@@ -87,8 +87,14 @@
     var dedupKey = type + ':' + text;
     var container = document.getElementById('portal-toast-container');
     var visibleToasts = container ? Array.from(container.children) : [];
-    if (visibleToasts.some(function(toast) { return toast._dedupKey === dedupKey; }) ||
-        pendingToasts.some(function(entry) { return entry.toast._dedupKey === dedupKey; })) {
+    if (
+      visibleToasts.some(function (toast) {
+        return toast._dedupKey === dedupKey;
+      }) ||
+      pendingToasts.some(function (entry) {
+        return entry.toast._dedupKey === dedupKey;
+      })
+    ) {
       return null;
     }
     var now = Date.now();
@@ -106,24 +112,31 @@
 
     var iconSvg = '';
     if (type === 'success') {
-      iconSvg = '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+      iconSvg =
+        '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
     } else if (type === 'error') {
-      iconSvg = '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+      iconSvg =
+        '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
     } else if (type === 'warning') {
-      iconSvg = '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+      iconSvg =
+        '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
     } else {
-      iconSvg = '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+      iconSvg =
+        '<svg class="portal-toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
     }
 
     var safeMsg = text.replace(/\n/g, '<br>');
 
-    toast.innerHTML = iconSvg +
-      '<div class="portal-toast-body">' + safeMsg + '</div>' +
+    toast.innerHTML =
+      iconSvg +
+      '<div class="portal-toast-body">' +
+      safeMsg +
+      '</div>' +
       '<button type="button" class="portal-toast-close" aria-label="Close notification">&times;</button>';
 
     var closeBtn = toast.querySelector('.portal-toast-close');
     if (closeBtn) {
-      closeBtn.addEventListener('click', function() {
+      closeBtn.addEventListener('click', function () {
         dismissToast(toast);
       });
     }
@@ -141,15 +154,20 @@
    */
   function dismissToast(el) {
     if (!el || el.classList.contains('portal-toast-hide')) return;
-    var queued = pendingToasts.findIndex(function(entry) { return entry.toast === el; });
-    if (queued !== -1) { pendingToasts.splice(queued, 1); return; }
+    var queued = pendingToasts.findIndex(function (entry) {
+      return entry.toast === el;
+    });
+    if (queued !== -1) {
+      pendingToasts.splice(queued, 1);
+      return;
+    }
     if (el._dismissTimer) {
       clearTimeout(el._dismissTimer);
       el._dismissTimer = null;
     }
     el.classList.remove('portal-toast-show');
     el.classList.add('portal-toast-hide');
-    setTimeout(function() {
+    setTimeout(function () {
       if (el && el.parentNode) {
         el.parentNode.removeChild(el);
       }
@@ -172,7 +190,7 @@
     var confirmText = options.confirmText || 'Confirm';
     var cancelText = options.cancelText || 'Cancel';
 
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       if (typeof document === 'undefined') {
         resolve(false);
         return;
@@ -192,19 +210,38 @@
 
       modal.innerHTML =
         '<div class="portal-modal-header">' +
-          '<h3>' + safeTitle + '</h3>' +
+        '<h3>' +
+        safeTitle +
+        '</h3>' +
         '</div>' +
         '<div class="portal-modal-body">' +
-          '<p>' + safeMsg + '</p>' +
+        '<p>' +
+        safeMsg +
+        '</p>' +
         '</div>' +
         '<div class="portal-modal-actions">' +
-          '<button type="button" class="portal-btn portal-btn-secondary" id="portal-modal-cancel">' + safeEscapeHtml(cancelText) + '</button>' +
-          '<button type="button" class="portal-btn portal-btn-primary" id="portal-modal-ok">' + safeEscapeHtml(confirmText) + '</button>' +
+        '<button type="button" class="portal-btn portal-btn-secondary" id="portal-modal-cancel">' +
+        safeEscapeHtml(cancelText) +
+        '</button>' +
+        '<button type="button" class="portal-btn portal-btn-primary" id="portal-modal-ok">' +
+        safeEscapeHtml(confirmText) +
+        '</button>' +
         '</div>';
 
       var cancelBtn = modal.querySelector('#portal-modal-cancel');
       var okBtn = modal.querySelector('#portal-modal-ok');
-      mountPortalDialog(overlay, modal, cancelBtn || okBtn, cancelBtn, okBtn, false, function() { return true; }, resolve);
+      mountPortalDialog(
+        overlay,
+        modal,
+        cancelBtn || okBtn,
+        cancelBtn,
+        okBtn,
+        false,
+        function () {
+          return true;
+        },
+        resolve
+      );
     });
   }
 
@@ -225,7 +262,7 @@
     var cancelText = options.cancelText || 'Cancel';
     var subtitle = options.subtitle || '';
 
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       if (typeof document === 'undefined') {
         resolve(null);
         return;
@@ -244,38 +281,77 @@
       var safeTitle = safeEscapeHtml(title || 'Enter Value');
       var safePlaceholder = safeEscapeHtml(placeholder || '');
       var safeVal = safeEscapeHtml(defaultValue || '');
-      var safeSubtitle = subtitle ? ('<p style="margin:0 0 14px 0;font-size:13px;color:var(--text-secondary);line-height:1.5;">' + safeEscapeHtml(subtitle) + '</p>') : '';
+      var safeSubtitle = subtitle
+        ? '<p style="margin:0 0 14px 0;font-size:13px;color:var(--text-secondary);line-height:1.5;">' +
+          safeEscapeHtml(subtitle) +
+          '</p>'
+        : '';
 
       modal.innerHTML =
         '<div class="portal-modal-header">' +
-          '<h3>' + safeTitle + '</h3>' +
+        '<h3>' +
+        safeTitle +
+        '</h3>' +
         '</div>' +
         '<div class="portal-modal-body">' +
-          safeSubtitle +
-          '<div style="margin-bottom:18px;">' +
-            '<input type="text" class="form-input portal-prompt-input" style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:8px;font-size:14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);outline:none;" value="' + safeVal + '" placeholder="' + safePlaceholder + '" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />' +
-          '</div>' +
+        safeSubtitle +
+        '<div style="margin-bottom:18px;">' +
+        '<input type="text" class="form-input portal-prompt-input" style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:8px;font-size:14px;background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);outline:none;" value="' +
+        safeVal +
+        '" placeholder="' +
+        safePlaceholder +
+        '" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" />' +
+        '</div>' +
         '</div>' +
         '<div class="portal-modal-actions">' +
-          '<button type="button" class="portal-btn portal-btn-secondary" id="portal-prompt-cancel">' + safeEscapeHtml(cancelText) + '</button>' +
-          '<button type="button" class="portal-btn portal-btn-primary" id="portal-prompt-ok">' + safeEscapeHtml(confirmText) + '</button>' +
+        '<button type="button" class="portal-btn portal-btn-secondary" id="portal-prompt-cancel">' +
+        safeEscapeHtml(cancelText) +
+        '</button>' +
+        '<button type="button" class="portal-btn portal-btn-primary" id="portal-prompt-ok">' +
+        safeEscapeHtml(confirmText) +
+        '</button>' +
         '</div>';
 
       var input = modal.querySelector('.portal-prompt-input');
       if (input) input.setAttribute('aria-label', title || 'Enter value');
       var cancelBtn = modal.querySelector('#portal-prompt-cancel');
       var okBtn = modal.querySelector('#portal-prompt-ok');
-      mountPortalDialog(overlay, modal, input || okBtn, cancelBtn, okBtn, null, function() { return input ? input.value : null; }, resolve);
+      mountPortalDialog(
+        overlay,
+        modal,
+        input || okBtn,
+        cancelBtn,
+        okBtn,
+        null,
+        function () {
+          return input ? input.value : null;
+        },
+        resolve
+      );
       if (input && input.select) input.select();
     });
   }
 
   var portalDialogStack = [];
 
-  function mountPortalDialog(overlay, modal, initialFocus, cancelButton, confirmButton, cancelResult, confirmedValue, resolve) {
+  function mountPortalDialog(
+    overlay,
+    modal,
+    initialFocus,
+    cancelButton,
+    confirmButton,
+    cancelResult,
+    confirmedValue,
+    resolve
+  ) {
     var previousFocus = document.activeElement;
     var parent = portalDialogStack[portalDialogStack.length - 1];
-    var state = { overlay: overlay, closing: false, initialFocus: initialFocus || modal, previousFocus: previousFocus };
+    var state = {
+      overlay: overlay,
+      closing: false,
+      initialFocus: initialFocus || modal,
+      previousFocus: previousFocus
+    };
     portalDialogStack.push(state);
     if (parent) {
       parent.overlay.inert = true;
@@ -294,7 +370,7 @@
       if (!onTop() || state.closing) return;
       state.closing = true;
       overlay.classList.add('portal-modal-closing');
-      setTimeout(function() {
+      setTimeout(function () {
         document.removeEventListener('keydown', handleKeyDown, true);
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         var index = portalDialogStack.indexOf(state);
@@ -306,7 +382,9 @@
             active.overlay.inert = false;
             active.overlay.setAttribute('aria-modal', 'true');
           }
-          var restoreTo = state.previousFocus?.isConnected ? state.previousFocus : active?.initialFocus;
+          var restoreTo = state.previousFocus?.isConnected
+            ? state.previousFocus
+            : active?.initialFocus;
           restoreTo?.focus?.({ preventScroll: true });
         } else if (portalDialogStack[index]) {
           portalDialogStack[index].previousFocus = state.previousFocus;
@@ -321,14 +399,28 @@
         e.preventDefault?.();
         e.stopImmediatePropagation?.();
         cleanup(cancelResult);
-      } else if (e.key === 'Enter' && e.target === initialFocus && initialFocus?.tagName === 'INPUT' && !e.isComposing) {
+      } else if (
+        e.key === 'Enter' &&
+        e.target === initialFocus &&
+        initialFocus?.tagName === 'INPUT' &&
+        !e.isComposing
+      ) {
         e.preventDefault();
         cleanup(confirmedValue());
       } else if (e.key === 'Tab') {
-        var controls = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]'))
-          .filter(function(node) { return node.getClientRects().length > 0; });
+        var controls = Array.from(
+          modal.querySelectorAll(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex="0"]'
+          )
+        ).filter(function (node) {
+          return node.getClientRects().length > 0;
+        });
         var index = controls.indexOf(document.activeElement);
-        if (!controls.length || index === -1 || (e.shiftKey ? index === 0 : index === controls.length - 1)) {
+        if (
+          !controls.length ||
+          index === -1 ||
+          (e.shiftKey ? index === 0 : index === controls.length - 1)
+        ) {
           e.preventDefault();
           (controls[e.shiftKey ? controls.length - 1 : 0] || modal).focus();
         }
@@ -336,9 +428,13 @@
     }
 
     document.addEventListener('keydown', handleKeyDown, true);
-    cancelButton?.addEventListener('click', function() { cleanup(cancelResult); });
-    confirmButton?.addEventListener('click', function() { cleanup(confirmedValue()); });
-    overlay.addEventListener('click', function(e) {
+    cancelButton?.addEventListener('click', function () {
+      cleanup(cancelResult);
+    });
+    confirmButton?.addEventListener('click', function () {
+      cleanup(confirmedValue());
+    });
+    overlay.addEventListener('click', function (e) {
       if (e.target === overlay) cleanup(cancelResult);
     });
   }
@@ -353,8 +449,13 @@
     var wait = typeof delayMs === 'number' ? delayMs : 500;
     document.addEventListener(
       'click',
-      function(e) {
-        var btn = e.target && e.target.closest ? e.target.closest('button, [role="button"], input[type="submit"], input[type="button"], .btn') : null;
+      function (e) {
+        var btn =
+          e.target && e.target.closest
+            ? e.target.closest(
+                'button, [role="button"], input[type="submit"], input[type="button"], .btn'
+              )
+            : null;
         if (!btn) return;
         if (
           btn.hasAttribute('data-no-debounce') ||
@@ -364,7 +465,8 @@
           btn.classList.contains('nav-link') ||
           btn.classList.contains('tab-btn') ||
           btn.classList.contains('channel-item')
-        ) return;
+        )
+          return;
 
         var now = Date.now();
         var last = parseInt(btn.getAttribute('data-last-click') || '0', 10);
@@ -386,7 +488,8 @@
    * @returns {Promise<any>}
    */
   async function withButtonLock(btn, asyncFn) {
-    if (!btn || typeof asyncFn !== 'function') return typeof asyncFn === 'function' ? asyncFn() : null;
+    if (!btn || typeof asyncFn !== 'function')
+      return typeof asyncFn === 'function' ? asyncFn() : null;
     var wasDisabled = btn.disabled;
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
@@ -404,32 +507,106 @@
 
   // Non-blocking alert safety-net wrapper
   if (typeof global !== 'undefined' && global.window) {
-    global.window.alert = function(msg) {
+    global.window.alert = function (msg) {
       var str = String(msg || '');
-      var isSuccess = str.indexOf('✅') !== -1 || /success|saved|added|updated|created|synced/i.test(str);
-      var isError = str.indexOf('❌') !== -1 || /failed|error|wrong|cannot|invalid|incorrect|denied/i.test(str);
+      var isSuccess =
+        str.indexOf('✅') !== -1 || /success|saved|added|updated|created|synced/i.test(str);
+      var isError =
+        str.indexOf('❌') !== -1 || /failed|error|wrong|cannot|invalid|incorrect|denied/i.test(str);
       var isWarning = /please|warning|at least|select|required|fill|do not/i.test(str);
-      var type = isSuccess ? 'success' : (isError ? 'error' : (isWarning ? 'warning' : 'info'));
+      var type = isSuccess ? 'success' : isError ? 'error' : isWarning ? 'warning' : 'info';
       showToast(str, type);
     };
   }
 
   // ── Rich Text Formatting & Color Popover Engine ──────
   var RICH_TEXT_COLOR_PALETTE = [
-    '#000000', '#262626', '#434343', '#555555', '#737373', '#8c8c8c', '#a6a6a6', '#d9d9d9', '#f2f2f2', '#ffffff',
-    '#7f0000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
-    '#e6b8af', '#f4cccc', '#fce5cd', '#fff2cc', '#d9ead3', '#d0e0e3', '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc',
-    '#dd7e6b', '#ea9999', '#f9cb9c', '#ffe599', '#b6d7a8', '#a2c4c9', '#a4c2f4', '#9fc5e8', '#b4a7d6', '#d5a6bd',
-    '#cc4125', '#e06666', '#f6b26b', '#ffd966', '#93c47d', '#76a5af', '#6d9eeb', '#6fa8dc', '#8e7cc3', '#c27ba0',
-    '#a61c00', '#cc0000', '#e69138', '#f1c232', '#6aa84f', '#45818e', '#3c78d8', '#3d85c6', '#674ea7', '#a64d79',
-    '#85200c', '#990000', '#b45f06', '#bf9000', '#38761d', '#134f5c', '#1155cc', '#0b5394', '#351c75', '#741b47',
-    '#5b0f00', '#660000', '#783f04', '#7f6000', '#274e13', '#0c343d', '#1c4587', '#073763', '#20124d', '#4c1130'
+    '#000000',
+    '#262626',
+    '#434343',
+    '#555555',
+    '#737373',
+    '#8c8c8c',
+    '#a6a6a6',
+    '#d9d9d9',
+    '#f2f2f2',
+    '#ffffff',
+    '#7f0000',
+    '#ff0000',
+    '#ff9900',
+    '#ffff00',
+    '#00ff00',
+    '#00ffff',
+    '#4a86e8',
+    '#0000ff',
+    '#9900ff',
+    '#ff00ff',
+    '#e6b8af',
+    '#f4cccc',
+    '#fce5cd',
+    '#fff2cc',
+    '#d9ead3',
+    '#d0e0e3',
+    '#c9daf8',
+    '#cfe2f3',
+    '#d9d2e9',
+    '#ead1dc',
+    '#dd7e6b',
+    '#ea9999',
+    '#f9cb9c',
+    '#ffe599',
+    '#b6d7a8',
+    '#a2c4c9',
+    '#a4c2f4',
+    '#9fc5e8',
+    '#b4a7d6',
+    '#d5a6bd',
+    '#cc4125',
+    '#e06666',
+    '#f6b26b',
+    '#ffd966',
+    '#93c47d',
+    '#76a5af',
+    '#6d9eeb',
+    '#6fa8dc',
+    '#8e7cc3',
+    '#c27ba0',
+    '#a61c00',
+    '#cc0000',
+    '#e69138',
+    '#f1c232',
+    '#6aa84f',
+    '#45818e',
+    '#3c78d8',
+    '#3d85c6',
+    '#674ea7',
+    '#a64d79',
+    '#85200c',
+    '#990000',
+    '#b45f06',
+    '#bf9000',
+    '#38761d',
+    '#134f5c',
+    '#1155cc',
+    '#0b5394',
+    '#351c75',
+    '#741b47',
+    '#5b0f00',
+    '#660000',
+    '#783f04',
+    '#7f6000',
+    '#274e13',
+    '#0c343d',
+    '#1c4587',
+    '#073763',
+    '#20124d',
+    '#4c1130'
   ];
 
   var _activeRichEditor = null;
   var _activeRichRange = null;
 
-    function saveRichEditorRange(editor) {
+  function saveRichEditorRange(editor) {
     if (typeof window === 'undefined' || !window.getSelection) return;
     var sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
@@ -437,9 +614,11 @@
     var ed = editor;
     if (!ed) {
       var node = r.commonAncestorContainer;
-      var el = (node && node.nodeType === 1) ? node : (node ? node.parentElement : null);
+      var el = node && node.nodeType === 1 ? node : node ? node.parentElement : null;
       if (el && el.closest) {
-        ed = el.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]');
+        ed = el.closest(
+          '.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]'
+        );
       }
     }
     if (ed && (ed.contains(r.commonAncestorContainer) || ed === r.commonAncestorContainer)) {
@@ -457,7 +636,10 @@
     // If the browser already has an active selection inside `ed`, NEVER destroy it!
     if (sel && sel.rangeCount > 0) {
       var currentRange = sel.getRangeAt(0);
-      if (ed.contains(currentRange.commonAncestorContainer) || ed === currentRange.commonAncestorContainer) {
+      if (
+        ed.contains(currentRange.commonAncestorContainer) ||
+        ed === currentRange.commonAncestorContainer
+      ) {
         _activeRichEditor = ed;
         _activeRichRange = currentRange.cloneRange();
         return;
@@ -475,7 +657,11 @@
 
   function resolveTargetRichEditor(btnOrEl) {
     if (!btnOrEl || typeof document === 'undefined') {
-      return _activeRichEditor || document.querySelector('.task-editable-desc') || document.getElementById('ann-body-input');
+      return (
+        _activeRichEditor ||
+        document.querySelector('.task-editable-desc') ||
+        document.getElementById('ann-body-input')
+      );
     }
     if (typeof btnOrEl === 'string') {
       return document.getElementById(btnOrEl) || document.querySelector(btnOrEl);
@@ -489,19 +675,29 @@
     // Check closest container
     var toolbar = btnOrEl.closest('.task-brief-toolbar, .ann-toolbar, .new-task-desc-toolbar');
     if (toolbar) {
-      var nextEd = toolbar.parentElement.querySelector('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]');
+      var nextEd = toolbar.parentElement.querySelector(
+        '.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]'
+      );
       if (nextEd) return nextEd;
     }
-    return _activeRichEditor || document.getElementById('tdm-desc') || document.getElementById('ann-body-input');
+    return (
+      _activeRichEditor ||
+      document.getElementById('tdm-desc') ||
+      document.getElementById('ann-body-input')
+    );
   }
 
-    async function executeRichFormat(cmd, value, btnOrEl) {
+  async function executeRichFormat(cmd, value, btnOrEl) {
     if (typeof document === 'undefined') return;
     var editor = resolveTargetRichEditor(btnOrEl);
     if (editor) {
       _activeRichEditor = editor;
-      var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
-      var hasActiveCaret = sel && sel.rangeCount > 0 && (editor.contains(sel.getRangeAt(0).commonAncestorContainer) || editor === sel.getRangeAt(0).commonAncestorContainer);
+      var sel = typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null;
+      var hasActiveCaret =
+        sel &&
+        sel.rangeCount > 0 &&
+        (editor.contains(sel.getRangeAt(0).commonAncestorContainer) ||
+          editor === sel.getRangeAt(0).commonAncestorContainer);
       if (!hasActiveCaret) {
         restoreRichEditorRange(editor);
       } else {
@@ -513,15 +709,23 @@
       var tag = value || 'p';
       document.execCommand('formatBlock', false, '<' + tag + '>');
     } else if (cmd === 'code') {
-      var selCode = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      var selCode =
+        typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null;
       var selectedText = selCode ? selCode.toString() : '';
       if (selectedText) {
-        document.execCommand('insertHTML', false, '<code>' + safeEscapeHtml(selectedText) + '</code>');
+        document.execCommand(
+          'insertHTML',
+          false,
+          '<code>' + safeEscapeHtml(selectedText) + '</code>'
+        );
       } else {
         document.execCommand('insertHTML', false, '<code>code</code>&nbsp;');
       }
     } else if (cmd === 'link') {
-      var url = await showPromptModal('Insert Link', 'https://...', '', { confirmText: 'Insert', cancelText: 'Cancel' });
+      var url = await showPromptModal('Insert Link', 'https://...', '', {
+        confirmText: 'Insert',
+        cancelText: 'Cancel'
+      });
       if (url && url.trim()) {
         restoreRichEditorRange();
         var validUrl = typeof safeUrl === 'function' ? safeUrl(url, '') : '';
@@ -530,24 +734,45 @@
         }
       }
     } else if (cmd === 'image') {
-      var imgUrl = await showPromptModal('Insert Image', 'https://...', '', { confirmText: 'Insert Image', cancelText: 'Cancel' });
+      var imgUrl = await showPromptModal('Insert Image', 'https://...', '', {
+        confirmText: 'Insert Image',
+        cancelText: 'Cancel'
+      });
       if (imgUrl && imgUrl.trim()) {
         restoreRichEditorRange();
         var validImgUrl = typeof safeUrl === 'function' ? safeUrl(imgUrl, '') : '';
         if (validImgUrl) {
-          document.execCommand('insertHTML', false, '<img src="' + safeEscapeHtml(validImgUrl) + '" alt="Embedded image" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;" /><br/>');
+          document.execCommand(
+            'insertHTML',
+            false,
+            '<img src="' +
+              safeEscapeHtml(validImgUrl) +
+              '" alt="Embedded image" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;" /><br/>'
+          );
         }
       }
     } else if (cmd === 'checklist') {
-      document.execCommand('insertHTML', false, '<div class="tb-checklist-row" style="display:flex;align-items:center;gap:8px;margin:4px 0;"><input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true">Checklist item</span></div><div><br></div>');
+      document.execCommand(
+        'insertHTML',
+        false,
+        '<div class="tb-checklist-row" style="display:flex;align-items:center;gap:8px;margin:4px 0;"><input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true">Checklist item</span></div><div><br></div>'
+      );
     } else if (cmd === 'table') {
-      if (btnOrEl && btnOrEl.parentElement && btnOrEl.parentElement.querySelector('.tb-table-grid-popover')) {
+      if (
+        btnOrEl &&
+        btnOrEl.parentElement &&
+        btnOrEl.parentElement.querySelector('.tb-table-grid-popover')
+      ) {
         toggleTableGridPicker(btnOrEl);
       } else {
         insertTableWithDimensions(2, 2, btnOrEl);
       }
     } else if (cmd === 'divider') {
-      document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid var(--border-card);margin:14px 0;"/><div><br></div>');
+      document.execCommand(
+        'insertHTML',
+        false,
+        '<hr style="border:none;border-top:1px solid var(--border-card);margin:14px 0;"/><div><br></div>'
+      );
     } else {
       document.execCommand(cmd, false, value || null);
     }
@@ -576,33 +801,44 @@
     var popover = document.createElement('div');
     popover.className = 'rich-color-popover';
     popover._anchorBtn = btn;
-    popover.style.cssText = 'position:absolute;z-index:9999;background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);border-radius:12px;padding:12px;width:250px;animation:menuPopIn 0.15s ease-out;';
+    popover.style.cssText =
+      'position:absolute;z-index:9999;background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);border-radius:12px;padding:12px;width:250px;animation:menuPopIn 0.15s ease-out;';
 
     // Position popover right below button
     var rect = btn.getBoundingClientRect();
-    popover.style.top = (rect.bottom + (typeof window !== 'undefined' ? window.scrollY : 0) + 6) + 'px';
-    var leftOffset = (rect.left + (typeof window !== 'undefined' ? window.scrollX : 0) - 60);
+    popover.style.top =
+      rect.bottom + (typeof window !== 'undefined' ? window.scrollY : 0) + 6 + 'px';
+    var leftOffset = rect.left + (typeof window !== 'undefined' ? window.scrollX : 0) - 60;
     var maxLeft = (typeof window !== 'undefined' ? window.innerWidth : 800) - 260;
     popover.style.left = Math.max(10, Math.min(maxLeft, leftOffset)) + 'px';
 
     // Build 10x8 grid (Image 5)
-    var gridHtml = '<div style="display:grid;grid-template-columns:repeat(10, 1fr);gap:5px;margin-bottom:10px;">';
-    RICH_TEXT_COLOR_PALETTE.forEach(function(hex) {
-      gridHtml += '<button type="button" class="rcp-swatch" data-hex="' + hex + '" title="' + hex + '" style="width:18px;height:18px;border-radius:50%;background:' + hex + ';border:1px solid rgba(128,128,128,0.3);cursor:pointer;padding:0;transition:transform 0.1s;outline:none;"></button>';
+    var gridHtml =
+      '<div style="display:grid;grid-template-columns:repeat(10, 1fr);gap:5px;margin-bottom:10px;">';
+    RICH_TEXT_COLOR_PALETTE.forEach(function (hex) {
+      gridHtml +=
+        '<button type="button" class="rcp-swatch" data-hex="' +
+        hex +
+        '" title="' +
+        hex +
+        '" style="width:18px;height:18px;border-radius:50%;background:' +
+        hex +
+        ';border:1px solid rgba(128,128,128,0.3);cursor:pointer;padding:0;transition:transform 0.1s;outline:none;"></button>';
     });
     gridHtml += '</div>';
 
     // Custom color section (Image 5)
-    var customHtml = '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">'
-      + '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text-secondary);margin-bottom:6px;">CUSTOM</div>'
-      + '<div style="display:flex;align-items:center;gap:8px;">'
-      + '<label class="rcp-custom-btn-wrap" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;color:var(--text-primary);">'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>'
-      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 12 3 3m-9-9 9 9-4 4-9-9 4-4Z"/><path d="M18 2l4 4"/><path d="m2 22 5-1-4-4-1 5Z"/></svg>'
-      + '<span>Pick Color</span>'
-      + '<input type="color" class="rcp-custom-input" style="opacity:0;position:absolute;width:1px;height:1px;pointer-events:none;" />'
-      + '</label>'
-      + '</div></div>';
+    var customHtml =
+      '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' +
+      '<div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text-secondary);margin-bottom:6px;">CUSTOM</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<label class="rcp-custom-btn-wrap" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;color:var(--text-primary);">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m14 12 3 3m-9-9 9 9-4 4-9-9 4-4Z"/><path d="M18 2l4 4"/><path d="m2 22 5-1-4-4-1 5Z"/></svg>' +
+      '<span>Pick Color</span>' +
+      '<input type="color" class="rcp-custom-input" style="opacity:0;position:absolute;width:1px;height:1px;pointer-events:none;" />' +
+      '</label>' +
+      '</div></div>';
 
     popover.innerHTML = gridHtml + customHtml;
     document.body.appendChild(popover);
@@ -617,8 +853,8 @@
       popover.remove();
     }
 
-    popover.querySelectorAll('.rcp-swatch').forEach(function(swatch) {
-      swatch.addEventListener('click', function(e) {
+    popover.querySelectorAll('.rcp-swatch').forEach(function (swatch) {
+      swatch.addEventListener('click', function (e) {
         e.preventDefault();
         applyChosenColor(swatch.getAttribute('data-hex'));
       });
@@ -628,16 +864,18 @@
     if (customInp) {
       var customLbl = customInp.parentElement;
       if (customLbl) {
-        customLbl.addEventListener('click', function() {
-          try { customInp.click(); } catch (_) {}
+        customLbl.addEventListener('click', function () {
+          try {
+            customInp.click();
+          } catch (_) {}
         });
       }
-      customInp.addEventListener('change', function() {
+      customInp.addEventListener('change', function () {
         applyChosenColor(customInp.value);
       });
     }
 
-    setTimeout(function() {
+    setTimeout(function () {
       function closeOnOutside(e) {
         if (!popover.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
           popover.remove();
@@ -660,13 +898,13 @@
 
     var isOpen = menu.style.display === 'flex' || menu.style.display === 'block';
     // Close other dropdown menus
-    btn.parentElement.querySelectorAll('.tb-dropdown-menu').forEach(function(m) {
+    btn.parentElement.querySelectorAll('.tb-dropdown-menu').forEach(function (m) {
       m.style.display = 'none';
     });
 
     if (!isOpen) {
       menu.style.display = 'flex';
-      setTimeout(function() {
+      setTimeout(function () {
         function closeDropdown(e) {
           if (!menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
             menu.style.display = 'none';
@@ -692,15 +930,17 @@
       modal.setAttribute('role', 'dialog');
       modal.setAttribute('aria-modal', 'true');
       modal.setAttribute('aria-label', 'Announcement Infographic Preview');
-      modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;animation:fadeIn 0.2s ease-out;';
-      modal.innerHTML = '<div class="ann-zoom-card" style="position:relative;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;align-items:center;">'
-        + '<button type="button" class="ann-zoom-close-btn" style="position:absolute;top:-40px;right:0;background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" title="Close (Esc)">&times;</button>'
-        + '<img class="ann-zoom-img" src="" alt="Announcement Infographic" style="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:10px;box-shadow:0 20px 40px rgba(0,0,0,0.6);" />'
-        + '<div class="ann-zoom-caption" style="margin-top:12px;color:rgba(255,255,255,0.9);font-size:14px;font-weight:600;text-align:center;font-family:var(--font-headline);max-width:85vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>'
-        + '</div>';
+      modal.style.cssText =
+        'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;animation:fadeIn 0.2s ease-out;';
+      modal.innerHTML =
+        '<div class="ann-zoom-card" style="position:relative;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;align-items:center;">' +
+        '<button type="button" class="ann-zoom-close-btn" style="position:absolute;top:-40px;right:0;background:rgba(255,255,255,0.15);border:none;color:#fff;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" title="Close (Esc)">&times;</button>' +
+        '<img class="ann-zoom-img" src="" alt="Announcement Infographic" style="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:10px;box-shadow:0 20px 40px rgba(0,0,0,0.6);" />' +
+        '<div class="ann-zoom-caption" style="margin-top:12px;color:rgba(255,255,255,0.9);font-size:14px;font-weight:600;text-align:center;font-family:var(--font-headline);max-width:85vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>' +
+        '</div>';
       document.body.appendChild(modal);
 
-      modal.addEventListener('click', function(e) {
+      modal.addEventListener('click', function (e) {
         if (e.target === modal || e.target.classList.contains('ann-zoom-close-btn')) {
           closeAnnouncementZoomModal();
         }
@@ -712,10 +952,14 @@
       img._hasRetried = false;
       img.style.display = 'block';
       img.setAttribute('data-original-url', imageUrl);
-      img.onerror = function() {
-        var errFn = (typeof window !== 'undefined' && typeof window.handleAnnouncementImageError === 'function')
-          ? window.handleAnnouncementImageError
-          : (typeof global !== 'undefined' && typeof global.handleAnnouncementImageError === 'function' ? global.handleAnnouncementImageError : null);
+      img.onerror = function () {
+        var errFn =
+          typeof window !== 'undefined' && typeof window.handleAnnouncementImageError === 'function'
+            ? window.handleAnnouncementImageError
+            : typeof global !== 'undefined' &&
+                typeof global.handleAnnouncementImageError === 'function'
+              ? global.handleAnnouncementImageError
+              : null;
         if (errFn) errFn(img, imageUrl);
       };
       img.src = imageUrl;
@@ -737,7 +981,6 @@
     }
   }
 
-  
   var _lastContextCell = null;
 
   function executeRichTableAction(action, btnOrEl) {
@@ -747,7 +990,7 @@
       var sel = window.getSelection();
       if (sel && sel.rangeCount > 0) {
         var node = sel.anchorNode;
-        var el = (node && node.nodeType === 1) ? node : (node ? node.parentElement : null);
+        var el = node && node.nodeType === 1 ? node : node ? node.parentElement : null;
         if (el && el.closest) cell = el.closest('td, th');
       }
     }
@@ -778,7 +1021,8 @@
       var isHeader = tr.parentElement && tr.parentElement.tagName.toLowerCase() === 'thead';
       for (var i = 0; i < cols; i++) {
         var newCell = document.createElement(isHeader ? 'th' : 'td');
-        newCell.style.cssText = 'border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);';
+        newCell.style.cssText =
+          'border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);';
         if (isHeader) newCell.style.background = 'rgba(255,255,255,0.04)';
         newCell.innerHTML = '&nbsp;';
         newTr.appendChild(newCell);
@@ -795,15 +1039,21 @@
         r.setStart(firstC, 0);
         r.collapse(true);
         var s = window.getSelection();
-        if (s) { s.removeAllRanges(); s.addRange(r); }
+        if (s) {
+          s.removeAllRanges();
+          s.addRange(r);
+        }
       }
     } else if (action === 'insertColLeft' || action === 'insertColRight') {
       var colIdx = cell.cellIndex;
       var allRows = table.querySelectorAll('tr');
-      allRows.forEach(function(row) {
-        var isH = (row.parentElement && row.parentElement.tagName.toLowerCase() === 'thead') || row.querySelector('th');
+      allRows.forEach(function (row) {
+        var isH =
+          (row.parentElement && row.parentElement.tagName.toLowerCase() === 'thead') ||
+          row.querySelector('th');
         var c = document.createElement(isH ? 'th' : 'td');
-        c.style.cssText = 'border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);';
+        c.style.cssText =
+          'border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);';
         if (isH) c.style.background = 'rgba(255,255,255,0.04)';
         c.innerHTML = '&nbsp;';
         var refCell = row.cells[colIdx];
@@ -823,7 +1073,7 @@
     } else if (action === 'deleteCol') {
       var delColIdx = cell.cellIndex;
       var rows = table.querySelectorAll('tr');
-      rows.forEach(function(row) {
+      rows.forEach(function (row) {
         if (row.cells[delColIdx]) row.cells[delColIdx].remove();
       });
       if (table.querySelector('tr') && table.querySelector('tr').cells.length === 0) {
@@ -842,10 +1092,10 @@
       menu.className = 'tb-table-context-menu';
       menu.style.display = 'none';
       document.body.appendChild(menu);
-      document.addEventListener('click', function(ev) {
+      document.addEventListener('click', function (ev) {
         if (!menu.contains(ev.target)) closeTableContextMenu();
       });
-      document.addEventListener('keydown', function(ev) {
+      document.addEventListener('keydown', function (ev) {
         if (ev.key === 'Escape') closeTableContextMenu();
       });
     }
@@ -857,29 +1107,30 @@
     _lastContextCell = cell;
     var menu = ensureTableContextMenu();
     if (!menu) return;
-    menu.innerHTML = ''
-      + '<button type="button" class="tb-table-ctx-item" data-action="insertRowAbove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Row Above</button>'
-      + '<button type="button" class="tb-table-ctx-item" data-action="insertRowBelow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Row Below</button>'
-      + '<button type="button" class="tb-table-ctx-item" data-action="insertColLeft"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Column Left</button>'
-      + '<button type="button" class="tb-table-ctx-item" data-action="insertColRight"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Column Right</button>'
-      + '<div class="tb-table-ctx-divider"></div>'
-      + '<button type="button" class="tb-table-ctx-item danger" data-action="deleteRow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg> Delete Row</button>'
-      + '<button type="button" class="tb-table-ctx-item danger" data-action="deleteCol"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg> Delete Column</button>'
-      + '<button type="button" class="tb-table-ctx-item danger" data-action="deleteTable"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete Table</button>';
+    menu.innerHTML =
+      '' +
+      '<button type="button" class="tb-table-ctx-item" data-action="insertRowAbove"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Row Above</button>' +
+      '<button type="button" class="tb-table-ctx-item" data-action="insertRowBelow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Row Below</button>' +
+      '<button type="button" class="tb-table-ctx-item" data-action="insertColLeft"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Column Left</button>' +
+      '<button type="button" class="tb-table-ctx-item" data-action="insertColRight"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Insert Column Right</button>' +
+      '<div class="tb-table-ctx-divider"></div>' +
+      '<button type="button" class="tb-table-ctx-item danger" data-action="deleteRow"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg> Delete Row</button>' +
+      '<button type="button" class="tb-table-ctx-item danger" data-action="deleteCol"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg> Delete Column</button>' +
+      '<button type="button" class="tb-table-ctx-item danger" data-action="deleteTable"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete Table</button>';
 
-    var winW = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1000;
-    var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 800;
+    var winW = typeof window !== 'undefined' && window.innerWidth ? window.innerWidth : 1000;
+    var winH = typeof window !== 'undefined' && window.innerHeight ? window.innerHeight : 800;
     var menuW = 180;
     var menuH = 220;
-    var posX = (x + menuW > winW) ? (winW - menuW - 10) : x;
-    var posY = (y + menuH > winH) ? (winH - menuH - 10) : y;
+    var posX = x + menuW > winW ? winW - menuW - 10 : x;
+    var posY = y + menuH > winH ? winH - menuH - 10 : y;
     menu.style.left = Math.max(10, posX) + 'px';
     menu.style.top = Math.max(10, posY) + 'px';
     menu.style.display = 'flex';
 
     var items = menu.querySelectorAll('.tb-table-ctx-item');
-    items.forEach(function(item) {
-      item.addEventListener('click', function(ev) {
+    items.forEach(function (item) {
+      item.addEventListener('click', function (ev) {
         ev.stopPropagation();
         var act = item.getAttribute('data-action');
         closeTableContextMenu();
@@ -888,7 +1139,6 @@
     });
   }
 
-  
   function insertTableWithDimensions(cols, rows, btnOrEditor) {
     if (typeof document === 'undefined') return;
     var c = Math.max(1, Math.min(10, parseInt(cols, 10) || 2));
@@ -896,25 +1146,34 @@
     var editor = resolveTargetRichEditor(btnOrEditor);
     if (editor) {
       _activeRichEditor = editor;
-      var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
-      var hasActiveCaret = sel && sel.rangeCount > 0 && (editor.contains(sel.getRangeAt(0).commonAncestorContainer) || editor === sel.getRangeAt(0).commonAncestorContainer);
+      var sel = typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null;
+      var hasActiveCaret =
+        sel &&
+        sel.rangeCount > 0 &&
+        (editor.contains(sel.getRangeAt(0).commonAncestorContainer) ||
+          editor === sel.getRangeAt(0).commonAncestorContainer);
       if (!hasActiveCaret) {
         restoreRichEditorRange(editor);
       }
     }
 
-    var tableHtml = '<table class="tb-table" style="width:100%;border-collapse:collapse;margin:12px 0;border:1px solid var(--border-card);">';
+    var tableHtml =
+      '<table class="tb-table" style="width:100%;border-collapse:collapse;margin:12px 0;border:1px solid var(--border-card);">';
     tableHtml += '<thead><tr style="background:rgba(255,255,255,0.04);">';
     for (var i = 1; i <= c; i++) {
-      tableHtml += '<th style="border:1px solid var(--border-card);padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:var(--text-primary);">Header ' + i + '</th>';
+      tableHtml +=
+        '<th style="border:1px solid var(--border-card);padding:8px 10px;text-align:left;font-size:12px;font-weight:600;color:var(--text-primary);">Header ' +
+        i +
+        '</th>';
     }
     tableHtml += '</tr></thead><tbody>';
 
-    var bodyRows = (r > 1) ? (r - 1) : 1;
+    var bodyRows = r > 1 ? r - 1 : 1;
     for (var rowIdx = 1; rowIdx <= bodyRows; rowIdx++) {
       tableHtml += '<tr>';
       for (var colIdx = 1; colIdx <= c; colIdx++) {
-        tableHtml += '<td style="border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);">&nbsp;</td>';
+        tableHtml +=
+          '<td style="border:1px solid var(--border-card);padding:8px 10px;font-size:13px;color:var(--text-secondary);">&nbsp;</td>';
       }
       tableHtml += '</tr>';
     }
@@ -936,13 +1195,15 @@
       saveRichEditorRange(editor);
     }
 
-    var popover = btn.parentElement ? btn.parentElement.querySelector('.tb-table-grid-popover') : null;
+    var popover = btn.parentElement
+      ? btn.parentElement.querySelector('.tb-table-grid-popover')
+      : null;
     if (!popover) return;
 
     var isOpen = popover.style.display === 'flex' || popover.style.display === 'block';
 
     // Close any other open popovers
-    document.querySelectorAll('.tb-dropdown-menu, .rich-color-popover').forEach(function(m) {
+    document.querySelectorAll('.tb-dropdown-menu, .rich-color-popover').forEach(function (m) {
       m.style.display = 'none';
     });
 
@@ -954,7 +1215,7 @@
     renderTableGridPickerContent(popover, btn, editor);
     popover.style.display = 'flex';
 
-    setTimeout(function() {
+    setTimeout(function () {
       function closeGridOnOutside(e) {
         if (!popover.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
           popover.style.display = 'none';
@@ -966,12 +1227,13 @@
   }
 
   function renderTableGridPickerContent(popover, btn, editor) {
-    var html = ''
-      + '<div class="tb-grid-header">'
-      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>'
-      + '<span>Table</span>'
-      + '</div>'
-      + '<div class="tb-grid-matrix">';
+    var html =
+      '' +
+      '<div class="tb-grid-header">' +
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 3v18"/></svg>' +
+      '<span>Table</span>' +
+      '</div>' +
+      '<div class="tb-grid-matrix">';
 
     for (var r = 1; r <= 8; r++) {
       for (var c = 1; c <= 10; c++) {
@@ -979,17 +1241,17 @@
       }
     }
 
-    html += '</div>'
-      + '<div class="tb-grid-dimension">1 x 1</div>';
+    html += '</div>' + '<div class="tb-grid-dimension">1 x 1</div>';
 
     var inTable = false;
     if (_lastContextCell && editor && editor.contains(_lastContextCell)) inTable = true;
     if (inTable) {
-      html += '<div class="tb-table-quick-actions" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-card);display:flex;flex-direction:column;gap:2px;">'
-        + '<button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" data-act="insertRowBelow">+ Insert Row Below</button>'
-        + '<button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" data-act="insertColRight">+ Insert Column Right</button>'
-        + '<button type="button" class="tb-dropdown-item" style="color:#ef4444;" onmousedown="event.preventDefault()" data-act="deleteTable">🗑 Delete Table</button>'
-        + '</div>';
+      html +=
+        '<div class="tb-table-quick-actions" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-card);display:flex;flex-direction:column;gap:2px;">' +
+        '<button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" data-act="insertRowBelow">+ Insert Row Below</button>' +
+        '<button type="button" class="tb-dropdown-item" onmousedown="event.preventDefault()" data-act="insertColRight">+ Insert Column Right</button>' +
+        '<button type="button" class="tb-dropdown-item" style="color:#ef4444;" onmousedown="event.preventDefault()" data-act="deleteTable">🗑 Delete Table</button>' +
+        '</div>';
     }
 
     popover.innerHTML = html;
@@ -999,7 +1261,7 @@
     var cells = popover.querySelectorAll('.tb-grid-cell');
 
     function updateHover(maxCol, maxRow) {
-      cells.forEach(function(cell) {
+      cells.forEach(function (cell) {
         var col = parseInt(cell.getAttribute('data-col'), 10);
         var row = parseInt(cell.getAttribute('data-row'), 10);
         if (col <= maxCol && row <= maxRow) {
@@ -1013,14 +1275,14 @@
 
     updateHover(1, 1);
 
-    cells.forEach(function(cell) {
-      cell.addEventListener('mouseenter', function() {
+    cells.forEach(function (cell) {
+      cell.addEventListener('mouseenter', function () {
         var col = parseInt(cell.getAttribute('data-col'), 10);
         var row = parseInt(cell.getAttribute('data-row'), 10);
         updateHover(col, row);
       });
 
-      cell.addEventListener('mousedown', function(e) {
+      cell.addEventListener('mousedown', function (e) {
         e.preventDefault();
         var col = parseInt(cell.getAttribute('data-col'), 10);
         var row = parseInt(cell.getAttribute('data-row'), 10);
@@ -1030,14 +1292,14 @@
     });
 
     if (matrix) {
-      matrix.addEventListener('mouseleave', function() {
+      matrix.addEventListener('mouseleave', function () {
         updateHover(1, 1);
       });
     }
 
     var actionBtns = popover.querySelectorAll('.tb-table-quick-actions .tb-dropdown-item');
-    actionBtns.forEach(function(actBtn) {
-      actBtn.addEventListener('click', function(e) {
+    actionBtns.forEach(function (actBtn) {
+      actBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         var act = actBtn.getAttribute('data-act');
         popover.style.display = 'none';
@@ -1055,7 +1317,12 @@
   function handleRichEditorKeydown(e) {
     if (typeof document === 'undefined') return;
     var target = e.target;
-    var editor = (target && target.closest) ? target.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
+    var editor =
+      target && target.closest
+        ? target.closest(
+            '.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]'
+          )
+        : null;
     if (!editor) return;
 
     // 1. Tab Key -> Indent (or Outdent if Shift is held)
@@ -1071,11 +1338,11 @@
 
     // 2. Checklist Enter Key Handling -> Insert new row, or exit if empty
     if (e.key === 'Enter') {
-      var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      var sel = typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null;
       if (sel && sel.rangeCount > 0) {
         var anchor = sel.anchorNode;
-        var el = (anchor && anchor.nodeType === 1) ? anchor : (anchor ? anchor.parentElement : null);
-        var checkRow = (el && el.closest) ? el.closest('.tb-checklist-row') : null;
+        var el = anchor && anchor.nodeType === 1 ? anchor : anchor ? anchor.parentElement : null;
+        var checkRow = el && el.closest ? el.closest('.tb-checklist-row') : null;
         if (checkRow && editor.contains(checkRow)) {
           e.preventDefault();
           var textSpan = checkRow.querySelector('span') || checkRow;
@@ -1098,7 +1365,8 @@
           var nextRow = document.createElement('div');
           nextRow.className = 'tb-checklist-row';
           nextRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;';
-          nextRow.innerHTML = '<input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true"><br></span>';
+          nextRow.innerHTML =
+            '<input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true"><br></span>';
           checkRow.insertAdjacentElement('afterend', nextRow);
 
           var nextSpan = nextRow.querySelector('span');
@@ -1117,11 +1385,12 @@
 
     // 3. Checklist Backspace on Empty Item -> convert to blank paragraph
     if (e.key === 'Backspace') {
-      var selBk = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+      var selBk =
+        typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null;
       if (selBk && selBk.rangeCount > 0) {
         var anc = selBk.anchorNode;
-        var elem = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
-        var chk = (elem && elem.closest) ? elem.closest('.tb-checklist-row') : null;
+        var elem = anc && anc.nodeType === 1 ? anc : anc ? anc.parentElement : null;
+        var chk = elem && elem.closest ? elem.closest('.tb-checklist-row') : null;
         if (chk && editor.contains(chk)) {
           var sp = chk.querySelector('span') || chk;
           var t = (sp.textContent || '').replace(/\u00a0/g, ' ').trim();
@@ -1150,16 +1419,21 @@
   if (typeof document !== 'undefined') {
     // Save range on mouseup (never on every keystroke)
     // Save range on mousedown of toolbar button to preserve active caret
-    document.addEventListener('mousedown', function(e) {
-      var tbBtn = (e.target && e.target.closest) ? e.target.closest('.tb-btn, .rich-tb-btn') : null;
+    document.addEventListener('mousedown', function (e) {
+      var tbBtn = e.target && e.target.closest ? e.target.closest('.tb-btn, .rich-tb-btn') : null;
       if (tbBtn) {
         var editor = resolveTargetRichEditor(tbBtn);
         if (editor) saveRichEditorRange(editor);
       }
     });
 
-    document.addEventListener('mouseup', function(e) {
-      var ed = (e.target && e.target.closest) ? e.target.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
+    document.addEventListener('mouseup', function (e) {
+      var ed =
+        e.target && e.target.closest
+          ? e.target.closest(
+              '.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]'
+            )
+          : null;
       if (ed) saveRichEditorRange(ed);
     });
 
@@ -1167,10 +1441,17 @@
     document.addEventListener('keydown', handleRichEditorKeydown, false);
 
     // Table right-click context menu
-    document.addEventListener('contextmenu', function(e) {
-      var cell = (e.target && e.target.closest) ? e.target.closest('table.tb-table td, table.tb-table th') : null;
+    document.addEventListener('contextmenu', function (e) {
+      var cell =
+        e.target && e.target.closest
+          ? e.target.closest('table.tb-table td, table.tb-table th')
+          : null;
       if (cell) {
-        var editor = cell.closest ? cell.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
+        var editor = cell.closest
+          ? cell.closest(
+              '.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]'
+            )
+          : null;
         if (editor) {
           e.preventDefault();
           showTableContextMenu(cell, e.clientX, e.clientY);
@@ -1180,7 +1461,6 @@
       closeTableContextMenu();
     });
   }
-
 
   // ── Portal Notification Sound Effect ──────────────────────────────────────
   var NOTIF_SOUND_URL = 'assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav';
@@ -1207,7 +1487,7 @@
       var ctx = _getWebAudioCtx();
       if (!ctx) return;
       if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
-        ctx.resume().catch(function() {});
+        ctx.resume().catch(function () {});
       }
       var now = ctx.currentTime;
       var osc = ctx.createOscillator();
@@ -1229,7 +1509,7 @@
     try {
       var ctx = _getWebAudioCtx();
       if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
-        ctx.resume().catch(function() {});
+        ctx.resume().catch(function () {});
       }
       if (!_notifAudioInstance && typeof Audio !== 'undefined') {
         _notifAudioInstance = new Audio(NOTIF_SOUND_URL);
@@ -1239,12 +1519,12 @@
         _notifAudioInstance.muted = true;
         var p = _notifAudioInstance.play();
         if (p && typeof p.then === 'function') {
-          p.then(function() {
+          p.then(function () {
             _notifAudioInstance.pause();
             _notifAudioInstance.currentTime = 0;
             _notifAudioInstance.muted = false;
             _audioUnlocked = true;
-          }).catch(function() {});
+          }).catch(function () {});
         } else {
           _audioUnlocked = true;
         }
@@ -1264,7 +1544,12 @@
       _lastNotifSoundPlayTs = now;
 
       var url = soundUrl || NOTIF_SOUND_URL;
-      if (!_notifAudioInstance || (_notifAudioInstance.src && _notifAudioInstance.src.indexOf('Notification%20Sound_PopSound%20(1).wav') === -1 && soundUrl)) {
+      if (
+        !_notifAudioInstance ||
+        (_notifAudioInstance.src &&
+          _notifAudioInstance.src.indexOf('Notification%20Sound_PopSound%20(1).wav') === -1 &&
+          soundUrl)
+      ) {
         _notifAudioInstance = new Audio(url);
         _notifAudioInstance.preload = 'auto';
       }
@@ -1273,7 +1558,7 @@
       _notifAudioInstance.currentTime = 0;
       var p = _notifAudioInstance.play();
       if (p && typeof p.catch === 'function') {
-        p.catch(function() {
+        p.catch(function () {
           _playWebAudioPopFallback();
         });
       }
@@ -1290,7 +1575,7 @@
   // Pre-prime audio on any user gesture across window and document
   if (typeof document !== 'undefined') {
     var _interactionEvents = ['click', 'pointerdown', 'keydown', 'touchstart'];
-    _interactionEvents.forEach(function(ev) {
+    _interactionEvents.forEach(function (ev) {
       document.addEventListener(ev, unlockAudioContextAndElement, { passive: true });
     });
   }
@@ -1313,7 +1598,7 @@
       var hash = 0;
       var strTag = String(tag);
       for (var i = 0; i < strTag.length; i++) {
-        hash = ((hash << 5) - hash) + strTag.charCodeAt(i);
+        hash = (hash << 5) - hash + strTag.charCodeAt(i);
         hash |= 0;
       }
       schedId = Math.abs(hash) % 2147483647;
@@ -1376,10 +1661,19 @@
     if (nativePlugin) {
       try {
         if (localStorage.getItem('bb_notif_system_enabled') !== 'true') return null;
-        if (!isForce && (now - _lastSystemNotifTs < 1500)) return null;
-      } catch (_) { return null; }
+        if (!isForce && now - _lastSystemNotifTs < 1500) return null;
+      } catch (_) {
+        return null;
+      }
       _lastSystemNotifTs = now;
-      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound, options && options.tag).catch(function() { return false; });
+      return scheduleNativeNotification(
+        nativePlugin,
+        false,
+        soundEnabled && !isSilentSound,
+        options && options.tag
+      ).catch(function () {
+        return false;
+      });
     }
     if (!isSilentSound && soundEnabled && typeof playNotificationSound === 'function') {
       playNotificationSound();
@@ -1395,7 +1689,7 @@
 
     if (!isForce && !sysEnabled) return null;
 
-    if (!isForce && (now - _lastSystemNotifTs < 1500)) return null;
+    if (!isForce && now - _lastSystemNotifTs < 1500) return null;
     _lastSystemNotifTs = now;
 
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -1412,7 +1706,7 @@
           body: body || '',
           icon: iconUrl,
           badge: iconUrl,
-          tag: (options && options.tag) || ('bb-notif-' + now),
+          tag: (options && options.tag) || 'bb-notif-' + now,
           renotify: true,
           requireInteraction: false,
           data: {
@@ -1424,7 +1718,7 @@
         // Directly spawn native desktop OS notification (Windows Action Center Toast)
         try {
           var notif = new Notification(notifTitle, notifOpts);
-          notif.onclick = function() {
+          notif.onclick = function () {
             try {
               window.focus();
               if (options && typeof options.onClick === 'function') {
@@ -1438,13 +1732,20 @@
           return notif;
         } catch (_) {
           // Mobile fallback for environments that disallow window Notification constructor (e.g. Android Chrome)
-          if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          if (
+            typeof navigator !== 'undefined' &&
+            'serviceWorker' in navigator &&
+            navigator.serviceWorker.controller
+          ) {
             try {
-              navigator.serviceWorker.getRegistration().then(function(reg) {
-                if (reg && typeof reg.showNotification === 'function') {
-                return reg.showNotification(notifTitle, notifOpts);
-                }
-              }).catch(function() {});
+              navigator.serviceWorker
+                .getRegistration()
+                .then(function (reg) {
+                  if (reg && typeof reg.showNotification === 'function') {
+                    return reg.showNotification(notifTitle, notifOpts);
+                  }
+                })
+                .catch(function () {});
             } catch (_) {}
           }
           return null;
@@ -1473,7 +1774,7 @@
       if (perm === 'granted') {
         triggerPortalSystemNotification(
           "1st Petaling Jaya Boys' Brigade",
-          "System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
+          'System notifications active! Live updates for parade rundowns, announcements & forum alerts are enabled.',
           { tag: 'bb-notif-welcome', silentSound: false, force: true }
         );
       }
@@ -1491,12 +1792,17 @@
     var nativePlugin = nativeNotificationPlugin();
     if (nativePlugin) {
       try {
-        if (await requestNotificationPermission() !== 'granted') {
-          showToast('Allow app notifications in your phone settings to send a test.', 'warning', 4000, { silent: true });
+        if ((await requestNotificationPermission()) !== 'granted') {
+          showToast(
+            'Allow app notifications in your phone settings to send a test.',
+            'warning',
+            4000,
+            { silent: true }
+          );
           return;
         }
         var sound = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
-        if (!await scheduleNativeNotification(nativePlugin, true, sound)) {
+        if (!(await scheduleNativeNotification(nativePlugin, true, sound))) {
           showToast('Your phone blocked the test notification.', 'warning', 3000, { silent: true });
           return;
         }
@@ -1504,7 +1810,12 @@
         if (nativeToggle) nativeToggle.checked = true;
         showToast('Test notification sent.', 'success', 2500, { silent: true });
       } catch (_) {
-        showToast('Could not send the test notification. Try again from Settings.', 'warning', 3000, { silent: true });
+        showToast(
+          'Could not send the test notification. Try again from Settings.',
+          'warning',
+          3000,
+          { silent: true }
+        );
       }
       return;
     }
@@ -1526,7 +1837,7 @@
     if (Notification.permission === 'granted') {
       triggerPortalSystemNotification(
         "1st Petaling Jaya Boys' Brigade",
-        "Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
+        'Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.',
         { tag: 'bb-test-' + Date.now(), silentSound: false, force: true }
       );
       if (typeof showToast === 'function') {
@@ -1537,21 +1848,31 @@
 
     if (Notification.permission === 'denied') {
       if (typeof showToast === 'function') {
-        showToast('Notifications are blocked by your browser settings. Please allow notifications in site permissions.', 'warning', 4500);
+        showToast(
+          'Notifications are blocked by your browser settings. Please allow notifications in site permissions.',
+          'warning',
+          4500
+        );
       }
       return;
     }
 
     try {
-      var perm = await (typeof requestNotificationPermission === 'function' ? requestNotificationPermission() : Notification.requestPermission());
+      var perm = await (typeof requestNotificationPermission === 'function'
+        ? requestNotificationPermission()
+        : Notification.requestPermission());
       if (perm === 'granted') {
         triggerPortalSystemNotification(
           "1st Petaling Jaya Boys' Brigade",
-          "Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.",
+          'Test notification active! Live updates for parade rundowns, announcements & forum alerts are enabled.',
           { tag: 'bb-test-' + Date.now(), silentSound: false, force: true }
         );
         if (typeof showToast === 'function') {
-          showToast('Notifications enabled! Test notification sent to your device.', 'success', 2500);
+          showToast(
+            'Notifications enabled! Test notification sent to your device.',
+            'success',
+            2500
+          );
         }
       } else {
         if (typeof showToast === 'function') {
@@ -1560,7 +1881,11 @@
       }
     } catch (err) {
       if (typeof showToast === 'function') {
-        showToast('Could not request notification permission: ' + (err && err.message ? err.message : err), 'warning', 3000);
+        showToast(
+          'Could not request notification permission: ' + (err && err.message ? err.message : err),
+          'warning',
+          3000
+        );
       }
     }
   }
@@ -1577,26 +1902,38 @@
     }
     if (count > _lastSeenNotifUnread) {
       _lastSeenNotifUnread = count;
-      var notifList = (typeof window !== 'undefined' && Array.isArray(window._allPortalNotifications))
-        ? window._allPortalNotifications
-        : ((typeof global !== 'undefined' && Array.isArray(global._allPortalNotifications)) ? global._allPortalNotifications : []);
-      var activeList = notifList.filter(function(n) { return n && n.unread; });
+      var notifList =
+        typeof window !== 'undefined' && Array.isArray(window._allPortalNotifications)
+          ? window._allPortalNotifications
+          : typeof global !== 'undefined' && Array.isArray(global._allPortalNotifications)
+            ? global._allPortalNotifications
+            : [];
+      var activeList = notifList.filter(function (n) {
+        return n && n.unread;
+      });
       var latest = activeList[0];
-      var title = latest ? (latest.title || "1st PJ Notification") : "1st PJ Boys' Brigade";
-      var body = latest ? (latest.message || latest.text || "You have a new unread notification.") : "You have new unread notifications.";
+      var title = latest ? latest.title || '1st PJ Notification' : "1st PJ Boys' Brigade";
+      var body = latest
+        ? latest.message || latest.text || 'You have a new unread notification.'
+        : 'You have new unread notifications.';
       triggerPortalSystemNotification(title, body, { tag: latest ? latest.id : undefined });
     } else {
       _lastSeenNotifUnread = count;
     }
   }
 
-// Disable browser password manager autofill on all search bars and non-auth inputs
+  // Disable browser password manager autofill on all search bars and non-auth inputs
   function disableNonAuthAutofill() {
     if (typeof document === 'undefined') return;
-    var inputs = document.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]), textarea');
+    var inputs = document.querySelectorAll(
+      'input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]), textarea'
+    );
     for (var i = 0; i < inputs.length; i++) {
       var el = inputs[i];
-      if (el.closest && (el.closest('#auth-login') || el.closest('#auth-register') || el.closest('#auth-forgot'))) {
+      if (
+        el.closest &&
+        (el.closest('#auth-login') || el.closest('#auth-register') || el.closest('#auth-forgot'))
+      ) {
         continue;
       }
       if (!el.getAttribute('autocomplete') || el.getAttribute('autocomplete') === 'on') {
@@ -1617,22 +1954,34 @@
     } else {
       disableNonAuthAutofill();
     }
-    document.addEventListener('focusin', function(e) {
-      if (e && e.target && e.target.tagName === 'INPUT') {
-        var el = e.target;
-        if (el.closest && (el.closest('#auth-login') || el.closest('#auth-register') || el.closest('#auth-forgot'))) return;
-        if (!el.getAttribute('autocomplete') || el.getAttribute('autocomplete') === 'on') {
-          el.setAttribute('autocomplete', 'off');
+    document.addEventListener(
+      'focusin',
+      function (e) {
+        if (e && e.target && e.target.tagName === 'INPUT') {
+          var el = e.target;
+          if (
+            el.closest &&
+            (el.closest('#auth-login') ||
+              el.closest('#auth-register') ||
+              el.closest('#auth-forgot'))
+          )
+            return;
+          if (!el.getAttribute('autocomplete') || el.getAttribute('autocomplete') === 'on') {
+            el.setAttribute('autocomplete', 'off');
+          }
+          if (!el.getAttribute('data-lpignore')) el.setAttribute('data-lpignore', 'true');
+          if (!el.getAttribute('data-1p-ignore')) el.setAttribute('data-1p-ignore', 'true');
         }
-        if (!el.getAttribute('data-lpignore')) el.setAttribute('data-lpignore', 'true');
-        if (!el.getAttribute('data-1p-ignore')) el.setAttribute('data-1p-ignore', 'true');
-      }
-    }, true);
+      },
+      true
+    );
   }
 
   function _resolveGlobalFn(fnName) {
-    if (typeof window !== 'undefined' && typeof window[fnName] === 'function') return window[fnName];
-    if (typeof global !== 'undefined' && typeof global[fnName] === 'function') return global[fnName];
+    if (typeof window !== 'undefined' && typeof window[fnName] === 'function')
+      return window[fnName];
+    if (typeof global !== 'undefined' && typeof global[fnName] === 'function')
+      return global[fnName];
     return null;
   }
 
@@ -1641,7 +1990,13 @@
    * Follows WAI-ARIA Dialog recommendations: closes topmost visible dialog/modal on Escape
    */
   function handleGlobalModalEscape(e) {
-    if (!e || e.defaultPrevented || portalDialogStack.length || (e.key !== 'Escape' && e.keyCode !== 27)) return;
+    if (
+      !e ||
+      e.defaultPrevented ||
+      portalDialogStack.length ||
+      (e.key !== 'Escape' && e.keyCode !== 27)
+    )
+      return;
     if (typeof document === 'undefined') return;
 
     // 1. Zoom Modal
@@ -1655,84 +2010,121 @@
     var lbModal = document.getElementById('gallery-lightbox-modal');
     if (lbModal && lbModal.style.display !== 'none') {
       var closeLb = _resolveGlobalFn('closeGalleryLightbox');
-      if (closeLb) { closeLb(); return; }
+      if (closeLb) {
+        closeLb();
+        return;
+      }
     }
 
     // 3. Story Viewer Modal
     var storyModal = document.getElementById('story-viewer-modal');
     if (storyModal && storyModal.style.display !== 'none') {
       var closeSv = _resolveGlobalFn('closeStoryViewer');
-      if (closeSv) { closeSv(); return; }
+      if (closeSv) {
+        closeSv();
+        return;
+      }
     }
 
     // 4. Calendar Day Modal
     var calDayModal = document.getElementById('calendar-day-modal');
     if (calDayModal && calDayModal.style.display !== 'none') {
       var closeCdm = _resolveGlobalFn('closeCalendarDayModal');
-      if (closeCdm) { closeCdm(); return; }
+      if (closeCdm) {
+        closeCdm();
+        return;
+      }
     }
 
     // 5. Admin Event Edit Modal
     var admEventModal = document.getElementById('adm-event-edit-modal');
     if (admEventModal && admEventModal.style.display !== 'none') {
-      var closeAem = _resolveGlobalFn('closeAdminEventModal') || _resolveGlobalFn('closeEventEditModal');
-      if (closeAem) { closeAem(); return; }
+      var closeAem =
+        _resolveGlobalFn('closeAdminEventModal') || _resolveGlobalFn('closeEventEditModal');
+      if (closeAem) {
+        closeAem();
+        return;
+      }
     }
 
     // 6. Admin Story Modal
     var admStoryModal = document.getElementById('adm-story-modal');
     if (admStoryModal && admStoryModal.style.display !== 'none') {
       var closeAsm = _resolveGlobalFn('closeAdminStoryModal');
-      if (closeAsm) { closeAsm(); return; }
+      if (closeAsm) {
+        closeAsm();
+        return;
+      }
     }
 
     // 7. Uniform Orders Schedule Modal
     var uoModal = document.querySelector('.uo-schedule-modal-overlay');
     if (uoModal && uoModal.style.display !== 'none') {
       var closeUo = _resolveGlobalFn('closeUniformOrdersScheduleModal');
-      if (closeUo) { closeUo(); return; }
+      if (closeUo) {
+        closeUo();
+        return;
+      }
     }
 
     // 8. Admin Product Modal
     var prodModal = document.querySelector('.adm-product-modal-overlay');
     if (prodModal && prodModal.style.display !== 'none') {
       var closeProd = _resolveGlobalFn('closeProductModal');
-      if (closeProd) { closeProd(); return; }
+      if (closeProd) {
+        closeProd();
+        return;
+      }
     }
 
     // 9. Edit Member Modal
     var editMemModal = document.getElementById('edit-member-modal');
     if (editMemModal && editMemModal.classList.contains('active')) {
       var closeEm = _resolveGlobalFn('closeEditMember');
-      if (closeEm) { closeEm(); return; }
+      if (closeEm) {
+        closeEm();
+        return;
+      }
     }
 
     // 10. Child Safety Modal
     var csModal = document.getElementById('child-safety-modal');
     if (csModal && csModal.style.display !== 'none') {
       var closeCs = _resolveGlobalFn('closeChildSafetyModal');
-      if (closeCs) { closeCs(); return; }
+      if (closeCs) {
+        closeCs();
+        return;
+      }
     }
 
     // 11. Task Detail Modal
     var detailModal = document.getElementById('task-detail-modal');
     if (detailModal && detailModal.style.display !== 'none') {
       var closeTd = _resolveGlobalFn('closeTaskDetail');
-      if (closeTd) { closeTd(); return; }
+      if (closeTd) {
+        closeTd();
+        return;
+      }
     }
 
     // 12. Create Task Modal
     var createModal = document.querySelector('.task-create-modal');
     if (createModal && createModal.style.display !== 'none') {
       var closeCt = _resolveGlobalFn('closeCreateTaskModal');
-      if (closeCt) { closeCt(); return; }
+      if (closeCt) {
+        closeCt();
+        return;
+      }
     }
 
     // 13. Global Search Palette
     var searchModal = document.getElementById('global-search-modal');
     if (searchModal && searchModal.style.display !== 'none') {
       var closeGs = _resolveGlobalFn('closeGlobalSearch');
-      if (closeGs) { closeGs(); return; }
+      if (closeGs) {
+        closeGs();
+        return;
+      }
     }
 
     // 14. Table Context Menu
@@ -1743,9 +2135,16 @@
     }
 
     var admin = document.getElementById('admin-overlay');
-    if (admin && admin.style.display === 'block' && (e.target === admin || admin.contains(e.target))) {
+    if (
+      admin &&
+      admin.style.display === 'block' &&
+      (e.target === admin || admin.contains(e.target))
+    ) {
       var closeAdmin = _resolveGlobalFn('closeAdmin');
-      if (closeAdmin) { e.preventDefault(); closeAdmin(); }
+      if (closeAdmin) {
+        e.preventDefault();
+        closeAdmin();
+      }
     }
   }
 
@@ -1796,7 +2195,7 @@
       showPromptModal: showPromptModal,
       ensureToastContainer: ensureToastContainer,
       initGlobalButtonDebounce: initGlobalButtonDebounce,
-            withButtonLock: withButtonLock,
+      withButtonLock: withButtonLock,
       RICH_TEXT_COLOR_PALETTE: RICH_TEXT_COLOR_PALETTE,
       saveRichEditorRange: saveRichEditorRange,
       restoreRichEditorRange: restoreRichEditorRange,

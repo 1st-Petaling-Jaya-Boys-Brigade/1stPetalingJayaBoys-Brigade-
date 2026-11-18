@@ -41,7 +41,9 @@
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
   text-decoration: none;
 }
 
@@ -1179,7 +1181,7 @@
   text-align: left;
 }
 
-.sidebar-user-card[aria-current="page"] {
+.sidebar-user-card[aria-current='page'] {
   background: var(--bg-card-hover);
   border-color: var(--accent-border);
 }
@@ -1779,7 +1781,6 @@
     width: auto !important;
     max-width: none !important;
   }
-
 }
 
 @media (max-width: 480px) {
@@ -1792,7 +1793,8 @@
   }
 
   .nav-inner {
-    padding: 0 max(0px, calc(10px - var(--safe-area-right))) 0 max(0px, calc(10px - var(--safe-area-left))) !important;
+    padding: 0 max(0px, calc(10px - var(--safe-area-right))) 0
+      max(0px, calc(10px - var(--safe-area-left))) !important;
     gap: 4px !important;
   }
 
@@ -1840,7 +1842,8 @@
 
 @media (max-width: 340px) {
   .nav-inner {
-    padding: 0 max(0px, calc(6px - var(--safe-area-right))) 0 max(0px, calc(6px - var(--safe-area-left))) !important;
+    padding: 0 max(0px, calc(6px - var(--safe-area-right))) 0
+      max(0px, calc(6px - var(--safe-area-left))) !important;
     gap: 4px !important;
   }
 
@@ -1886,7 +1889,9 @@
     max-height: 100dvh;
     overflow-y: hidden;
     overscroll-behavior: contain;
-    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s ease !important;
+    transition:
+      transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 0.28s ease !important;
   }
 
   .sidebar-overlay.open .sidebar-panel,

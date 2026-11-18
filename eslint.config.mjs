@@ -57,7 +57,6 @@ export default [
         DEFAULT_2026_CALENDAR: 'readonly',
         currentCalendarYear: 'writable',
         currentCalendarMonth: 'writable',
-        openLightbox: 'readonly',
         renderCompanyLeaderboard: 'readonly',
         hashPassword: 'readonly',
         verifyPassword: 'readonly',
@@ -170,7 +169,6 @@ export default [
         closeTaskDetail: 'readonly',
         memberUpdateTaskStatus: 'readonly',
         // Admin Console Master Controller Globals
-        ADMIN_PASSWORD_HASH: 'readonly',
         timingSafeEqualToken: 'readonly',
         computeSha256: 'readonly',
         verifyAdminPassword: 'readonly',

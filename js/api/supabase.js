@@ -7,7 +7,15 @@
  * In-memory concurrency locks per config key
  */
 const _configLocks = Object.create(null);
-const PRIVATE_STORAGE_BUCKETS = ['avatars', 'gallery', 'story_highlights', 'highlights', 'receipts', 'waivers', 'resources'];
+const PRIVATE_STORAGE_BUCKETS = [
+  'avatars',
+  'gallery',
+  'story_highlights',
+  'highlights',
+  'receipts',
+  'waivers',
+  'resources'
+];
 const _signedUrlCache = new Map();
 
 /**
@@ -114,7 +122,8 @@ let _activeRequests = 0;
 const _requestQueue = [];
 
 function acquireRequestSlot(signal) {
-  if (signal?.aborted) return Promise.reject(signal.reason || new DOMException('Request cancelled', 'AbortError'));
+  if (signal?.aborted)
+    return Promise.reject(signal.reason || new DOMException('Request cancelled', 'AbortError'));
   if (_activeRequests < MAX_CONCURRENT_REQUESTS) {
     _activeRequests++;
     return Promise.resolve();
@@ -143,7 +152,10 @@ async function throttledFetch(url, fetchOpts, timeoutMs, consumeResponse) {
   external?.addEventListener('abort', forwardAbort, { once: true });
   if (external?.aborted) forwardAbort();
 
-  const timeout = setTimeout(() => controller.abort(new DOMException('Database request timed out.', 'TimeoutError')), timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => controller.abort(new DOMException('Database request timed out.', 'TimeoutError')),
+    timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
+  );
   try {
     if (controller.signal.aborted) throw controller.signal.reason;
     const response = await fetch(url, { ...fetchOpts, signal: controller.signal });
@@ -161,24 +173,37 @@ async function throttledFetch(url, fetchOpts, timeoutMs, consumeResponse) {
 }
 
 function emitDatabaseError(code, method, status) {
-  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
-    window.dispatchEvent(new CustomEvent('bb:database-error', { detail: { code, method, status } }));
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.dispatchEvent === 'function' &&
+    typeof CustomEvent === 'function'
+  ) {
+    window.dispatchEvent(
+      new CustomEvent('bb:database-error', { detail: { code, method, status } })
+    );
   }
 }
 
 function readDatabaseResponse(response) {
   if (response.ok) return response.status === 204 ? null : response.json();
-  return response.text().then(function(body) {
-    var error = new Error(response.status >= 500 ? 'Database unavailable (HTTP ' + response.status + ').' : 'Database rejected the request.');
+  return response.text().then(function (body) {
+    var error = new Error(
+      response.status >= 500
+        ? 'Database unavailable (HTTP ' + response.status + ').'
+        : 'Database rejected the request.'
+    );
     try {
       var info = JSON.parse(body);
       if (info && typeof info.code === 'string') {
         error.code = info.code;
         // Keep schema compatibility errors recognizable without returning row values.
-        if (['PGRST204', '42703'].includes(info.code) && typeof info.message === 'string') error.message = info.code + ': ' + info.message;
+        if (['PGRST204', '42703'].includes(info.code) && typeof info.message === 'string')
+          error.message = info.code + ': ' + info.message;
         else error.message += ' (' + info.code + ')';
       }
-    } catch (_) {}
+    } catch (_) {
+      /* ignore */
+    }
     error.status = response.status;
     if (response.headers?.get('X-BB-Offline') === 'true') error.code = 'offline';
     error.retryAfter = response.headers?.get('Retry-After');
@@ -242,6 +267,25 @@ function clearQueryCache() {
   _queryCache.clear();
 }
 
+function getEffectiveAuthToken(defaultKey) {
+  try {
+    var adminToken =
+      typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function'
+        ? window.getAdminSessionToken()
+        : typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function'
+          ? global.getAdminSessionToken()
+          : null;
+    if (adminToken) return adminToken;
+    if (typeof sessionGet === 'function') {
+      var memberToken = sessionGet('session_token') || sessionGet('token');
+      if (memberToken) return memberToken;
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  return defaultKey;
+}
+
 const supa = {
   /**
    * PostgREST HTTP Request helper with Request Throttling, Exponential Backoff on HTTP 429/500,
@@ -280,7 +324,7 @@ const supa = {
 
     const headers = {
       apikey: key,
-      Authorization: 'Bearer ' + key,
+      Authorization: 'Bearer ' + getEffectiveAuthToken(key),
       'Content-Type': 'application/json'
     };
     if (preferHeader) {
@@ -313,29 +357,50 @@ const supa = {
             error.code = 'offline';
             throw error;
           }
-          return await throttledFetch(url, {
-            method,
-            headers,
-            signal: options.signal,
-            body: serializedBody
-          }, options.timeoutMs, readDatabaseResponse);
+          return await throttledFetch(
+            url,
+            {
+              method,
+              headers,
+              signal: options.signal,
+              body: serializedBody
+            },
+            options.timeoutMs,
+            readDatabaseResponse
+          );
         } catch (error) {
           if (options.signal?.aborted || error?.name === 'AbortError') throw error;
           const status = error?.status;
           const timedOut = error?.name === 'TimeoutError';
           const network = error instanceof TypeError;
-          const offline = error?.code === 'offline' || (network && typeof navigator !== 'undefined' && navigator.onLine === false);
-          const retryable = timedOut || network || status === 429 || (status >= 500 && status <= 599 && status !== 544);
+          const offline =
+            error?.code === 'offline' ||
+            (network && typeof navigator !== 'undefined' && navigator.onLine === false);
+          const retryable =
+            timedOut ||
+            network ||
+            status === 429 ||
+            (status >= 500 && status <= 599 && status !== 544);
           if (!offline && retryable && attempt < maxRetries) {
             const retryAfter = error.retryAfter;
-            const retryAt = typeof retryAfter === 'string' && /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
-            const delay = Number.isFinite(retryAt) ? Math.max(0, retryAt) : baseDelay * Math.pow(2, attempt) + Math.random() * 50;
+            const retryAt =
+              typeof retryAfter === 'string' && /^\d+$/.test(retryAfter)
+                ? Number(retryAfter) * 1000
+                : Date.parse(retryAfter) - Date.now();
+            const delay = Number.isFinite(retryAt)
+              ? Math.max(0, retryAt)
+              : baseDelay * Math.pow(2, attempt) + Math.random() * 50;
             await new Promise(resolve => setTimeout(resolve, Math.min(maxDelay, delay)));
             continue;
           }
-          if (!offline && (status === 544 || status === 503 || status === 504 || timedOut)) tripCircuitBreaker('Database temporarily unavailable');
+          if (!offline && (status === 544 || status === 503 || status === 504 || timedOut))
+            tripCircuitBreaker('Database temporarily unavailable');
           if (offline || timedOut || network || status === 429 || status >= 500) {
-            emitDatabaseError(offline ? 'offline' : timedOut ? 'timeout' : network ? 'network' : 'http', method, status ?? null);
+            emitDatabaseError(
+              offline ? 'offline' : timedOut ? 'timeout' : network ? 'network' : 'http',
+              method,
+              status ?? null
+            );
           }
           if (offline) {
             const offlineError = new Error('You are offline. Reconnect and try again.');
@@ -355,7 +420,11 @@ const supa = {
       }
     }
 
-    const entry = { data: cached ? cached.data : null, expiresAt: 0, inFlightPromise: executeRequest() };
+    const entry = {
+      data: cached ? cached.data : null,
+      expiresAt: 0,
+      inFlightPromise: executeRequest()
+    };
     if (_queryCache.size >= MAX_CACHED_QUERIES) _queryCache.delete(_queryCache.keys().next().value);
     _queryCache.set(cKey, entry);
     try {
@@ -367,7 +436,8 @@ const supa = {
       return cloneQueryData(data);
     } finally {
       entry.inFlightPromise = null;
-      if (entry.expiresAt === 0 && entry.data === null && _queryCache.get(cKey) === entry) _queryCache.delete(cKey);
+      if (entry.expiresAt === 0 && entry.data === null && _queryCache.get(cKey) === entry)
+        _queryCache.delete(cKey);
     }
   },
 
@@ -400,7 +470,7 @@ const supa = {
 
     const headers = {
       apikey: key,
-      Authorization: 'Bearer ' + key,
+      Authorization: 'Bearer ' + getEffectiveAuthToken(key),
       'Content-Type': 'application/json',
       Prefer: 'count=exact'
     };
@@ -408,18 +478,41 @@ const supa = {
       Object.assign(headers, extraHeaders);
     }
 
-    return throttledFetch(url, {
-      method, headers, signal: options.signal,
-      body: body == null ? undefined : JSON.stringify(body)
-    }, options.timeoutMs, async function(response) {
-      const data = await readDatabaseResponse(response);
-      const range = response.headers?.get('content-range');
-      const count = range ? Number.parseInt(range.split('/')[1], 10) : NaN;
-      return { data, total: Number.isFinite(count) ? count : (Array.isArray(data) ? data.length : 0), status: response.status };
-    }).catch(function(error) {
+    return throttledFetch(
+      url,
+      {
+        method,
+        headers,
+        signal: options.signal,
+        body: body == null ? undefined : JSON.stringify(body)
+      },
+      options.timeoutMs,
+      async function (response) {
+        const data = await readDatabaseResponse(response);
+        const range = response.headers?.get('content-range');
+        const count = range ? Number.parseInt(range.split('/')[1], 10) : NaN;
+        return {
+          data,
+          total: Number.isFinite(count) ? count : Array.isArray(data) ? data.length : 0,
+          status: response.status
+        };
+      }
+    ).catch(function (error) {
       if (error?.name !== 'AbortError' && !options.signal?.aborted) {
-        const offline = error?.code === 'offline' || (typeof navigator !== 'undefined' && navigator.onLine === false);
-        emitDatabaseError(offline ? 'offline' : error?.name === 'TimeoutError' ? 'timeout' : error?.status ? 'http' : 'network', method, error?.status ?? null);
+        const offline =
+          error?.code === 'offline' ||
+          (typeof navigator !== 'undefined' && navigator.onLine === false);
+        emitDatabaseError(
+          offline
+            ? 'offline'
+            : error?.name === 'TimeoutError'
+              ? 'timeout'
+              : error?.status
+                ? 'http'
+                : 'network',
+          method,
+          error?.status ?? null
+        );
       }
       throw error;
     });
@@ -530,8 +623,10 @@ const supa = {
   async getConfig(key) {
     if (!key) return null;
     try {
-      const client = (this && typeof this.get === 'function') ? this : supa;
-      const rows = await client.get('bb_config?key=eq.' + encodeURIComponent(key) + '&select=value');
+      const client = this && typeof this.get === 'function' ? this : supa;
+      const rows = await client.get(
+        'bb_config?key=eq.' + encodeURIComponent(key) + '&select=value'
+      );
       if (Array.isArray(rows) && rows.length > 0 && rows[0] && rows[0].value !== undefined) {
         try {
           return JSON.parse(rows[0].value);
@@ -554,16 +649,21 @@ const supa = {
   async setConfig(key, value) {
     if (!key) return false;
     try {
-      const client = (this && typeof this.upsert === 'function') ? this : supa;
+      const client = this && typeof this.upsert === 'function' ? this : supa;
       const valStr = typeof value === 'string' ? value : JSON.stringify(value);
       if (typeof client.upsert === 'function') {
         await client.upsert('bb_config', { key: key, value: valStr }, 'key');
         return true;
       }
       if (typeof client.req === 'function') {
-        await client.req('POST', 'bb_config?on_conflict=key', { key: key, value: valStr }, {
-          headers: { 'Prefer': 'resolution=merge-duplicates' }
-        });
+        await client.req(
+          'POST',
+          'bb_config?on_conflict=key',
+          { key: key, value: valStr },
+          {
+            headers: { Prefer: 'resolution=merge-duplicates' }
+          }
+        );
         return true;
       }
     } catch (e) {
@@ -620,7 +720,11 @@ const supa = {
   async safeConfigGet(key, fallback, options) {
     options = options || {};
     // Single-flight in-memory cache hit: If snapshot exists and force !== true, return immediately
-    if (options.force !== true && _configSnapshots[key] !== undefined && _configSnapshots[key] !== null) {
+    if (
+      options.force !== true &&
+      _configSnapshots[key] !== undefined &&
+      _configSnapshots[key] !== null
+    ) {
       try {
         return JSON.parse(JSON.stringify(_configSnapshots[key]));
       } catch (_) {
@@ -809,7 +913,9 @@ const supa = {
         if (putRes.ok) {
           return putRes.json();
         }
-      } catch (_) {}
+      } catch (_) {
+        /* ignore */
+      }
 
       // Tier 3: Try standard POST without x-upsert
       try {
@@ -825,7 +931,9 @@ const supa = {
         if (plainPostRes.ok) {
           return plainPostRes.json();
         }
-      } catch (_) {}
+      } catch (_) {
+        /* ignore */
+      }
     }
 
     if (!r.ok) {
@@ -834,7 +942,9 @@ const supa = {
       try {
         const parsed = JSON.parse(e);
         parsedMsg = parsed.message || parsed.error || e;
-      } catch (_) {}
+      } catch (_) {
+        /* ignore */
+      }
       throw new Error(parsedMsg);
     }
     return r.json();
@@ -902,15 +1012,20 @@ const supa = {
     const url = baseUrl + '/storage/v1/object/sign/' + bucket + '/' + filePath;
 
     try {
-      const res = await throttledFetch(url, {
-        method: 'POST',
-        headers: {
-          apikey: key,
-          Authorization: 'Bearer ' + key,
-          'Content-Type': 'application/json'
+      const res = await throttledFetch(
+        url,
+        {
+          method: 'POST',
+          headers: {
+            apikey: key,
+            Authorization: 'Bearer ' + key,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ expiresIn: expiresIn })
         },
-        body: JSON.stringify({ expiresIn: expiresIn })
-      }, undefined, readDatabaseResponse);
+        undefined,
+        readDatabaseResponse
+      );
       const signedPath = res.signedURL || res.signedUrl;
       let fullUrl = signedPath;
       if (!signedPath) throw new Error('Storage did not provide a signed URL.');
@@ -1059,9 +1174,8 @@ const supa = {
   }
 };
 
-
 // ── Realtime Synchronization Engine (Zero-Dependency) ──────────────────────
-var PortalRealtime = (function() {
+var PortalRealtime = (function () {
   var _ws = null;
   var _reconnectTimer = null;
   var _broadcastChannel = null;
@@ -1077,7 +1191,10 @@ var PortalRealtime = (function() {
   if (typeof BroadcastChannel !== 'undefined') {
     try {
       _broadcastChannel = new BroadcastChannel('bb_portal_realtime');
-      _broadcastChannel.onmessage = function(ev) {
+      if (typeof _broadcastChannel.unref === 'function') {
+        _broadcastChannel.unref();
+      }
+      _broadcastChannel.onmessage = function (ev) {
         if (!ev || !ev.data) return;
         var msg = ev.data;
         if (msg.senderId && msg.senderId === _realtimeTabId) return;
@@ -1093,11 +1210,13 @@ var PortalRealtime = (function() {
           triggerEntityUpdate(msg.entity, msg.action, msg.data, true);
         }
       };
-    } catch (_) {}
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function broadcastLocalChange(entity, action, data) {
-    var msgId = _realtimeTabId + ':' + entity + ':' + Date.now() + ':' + (++_refCounter);
+    var msgId = _realtimeTabId + ':' + entity + ':' + Date.now() + ':' + ++_refCounter;
 
     // 1. Cross-Tab Local BroadcastChannel (Same Device, 0ms)
     if (_broadcastChannel) {
@@ -1110,30 +1229,36 @@ var PortalRealtime = (function() {
           action: action || 'update',
           data: data || null
         });
-      } catch (_) {}
+      } catch (_) {
+        /* ignore */
+      }
     }
 
     // 2. Cross-Device Supabase Realtime WebSocket Push (All Devices Worldwide)
     if (_ws && _ws.readyState === WebSocket.OPEN) {
       try {
-        _ws.send(JSON.stringify({
-          topic: 'realtime:public',
-          event: 'broadcast',
-          payload: {
-            type: 'broadcast',
-            event: 'PORTAL_REALTIME_CHANGE',
+        _ws.send(
+          JSON.stringify({
+            topic: 'realtime:public',
+            event: 'broadcast',
             payload: {
-              type: 'PORTAL_REALTIME_CHANGE',
-              senderId: _realtimeTabId,
-              msgId: msgId,
-              entity: entity,
-              action: action || 'update',
-              data: data || null
-            }
-          },
-          ref: String(_refCounter++)
-        }));
-      } catch (_) {}
+              type: 'broadcast',
+              event: 'PORTAL_REALTIME_CHANGE',
+              payload: {
+                type: 'PORTAL_REALTIME_CHANGE',
+                senderId: _realtimeTabId,
+                msgId: msgId,
+                entity: entity,
+                action: action || 'update',
+                data: data || null
+              }
+            },
+            ref: String(_refCounter++)
+          })
+        );
+      } catch (_) {
+        /* ignore */
+      }
     }
   }
 
@@ -1141,32 +1266,48 @@ var PortalRealtime = (function() {
   function connectWebSocket() {
     if (typeof WebSocket === 'undefined') return;
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-    if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING)) return;
+    if (_ws && (_ws.readyState === WebSocket.OPEN || _ws.readyState === WebSocket.CONNECTING))
+      return;
     clearTimeout(_reconnectTimer);
 
     // Multi-Tab Coordination: Non-leader tabs receive updates instantly via BroadcastChannel (0ms latency).
     // Only the elected leader tab maintains an active WebSocket to prevent socket & memory exhaustion.
-    var isLeaderFn = (typeof window !== 'undefined' && typeof window.isLeaderTab === 'function')
-      ? window.isLeaderTab
-      : (typeof global !== 'undefined' && typeof global.isLeaderTab === 'function')
-        ? global.isLeaderTab
-        : null;
+    var isLeaderFn =
+      typeof window !== 'undefined' && typeof window.isLeaderTab === 'function'
+        ? window.isLeaderTab
+        : typeof global !== 'undefined' && typeof global.isLeaderTab === 'function'
+          ? global.isLeaderTab
+          : null;
     if (isLeaderFn && !isLeaderFn() && typeof BroadcastChannel !== 'undefined') {
       return;
     }
 
     try {
-      var sUrl = (typeof SUPA_URL !== 'undefined') ? SUPA_URL : (typeof window !== 'undefined' ? window.SUPA_URL : '');
-      var sKey = (typeof SUPA_KEY !== 'undefined') ? SUPA_KEY : (typeof window !== 'undefined' ? window.SUPA_KEY : '');
+      var sUrl =
+        typeof SUPA_URL !== 'undefined'
+          ? SUPA_URL
+          : typeof window !== 'undefined'
+            ? window.SUPA_URL
+            : '';
+      var sKey =
+        typeof SUPA_KEY !== 'undefined'
+          ? SUPA_KEY
+          : typeof window !== 'undefined'
+            ? window.SUPA_KEY
+            : '';
       if (!sUrl || !sKey) return;
 
-      var wsUrl = sUrl.replace(/^https?:\/\//, function(m) {
-        return m.startsWith('https') ? 'wss://' : 'ws://';
-      }) + '/realtime/v1/websocket?apikey=' + encodeURIComponent(sKey) + '&vsn=1.0.0';
+      var wsUrl =
+        sUrl.replace(/^https?:\/\//, function (m) {
+          return m.startsWith('https') ? 'wss://' : 'ws://';
+        }) +
+        '/realtime/v1/websocket?apikey=' +
+        encodeURIComponent(sKey) +
+        '&vsn=1.0.0';
 
       _ws = new WebSocket(wsUrl);
 
-      _ws.onopen = function() {
+      _ws.onopen = function () {
         _reconnectAttempts = 0;
         // Join realtime:public channel to receive postgres change events
         var joinMsg = {
@@ -1179,7 +1320,8 @@ var PortalRealtime = (function() {
                 { event: '*', schema: 'public', table: 'bb_config' },
                 { event: '*', schema: 'public', table: 'bb_tasks' },
                 { event: '*', schema: 'public', table: 'bb_announcements' },
-                { event: '*', schema: 'public', table: 'bb_members' }
+                { event: '*', schema: 'public', table: 'bb_members' },
+                { event: '*', schema: 'public', table: 'bb_gallery' }
               ]
             }
           },
@@ -1189,26 +1331,31 @@ var PortalRealtime = (function() {
 
         // Phoenix WebSocket heartbeat every 25s
         if (_heartbeatTimer) clearInterval(_heartbeatTimer);
-        _heartbeatTimer = setInterval(function() {
+        _heartbeatTimer = setInterval(function () {
           if (_ws && _ws.readyState === WebSocket.OPEN) {
-            _ws.send(JSON.stringify({
-              topic: 'phoenix',
-              event: 'heartbeat',
-              payload: {},
-              ref: String(_refCounter++)
-            }));
+            _ws.send(
+              JSON.stringify({
+                topic: 'phoenix',
+                event: 'heartbeat',
+                payload: {},
+                ref: String(_refCounter++)
+              })
+            );
           }
         }, 25000);
       };
 
-      _ws.onmessage = function(event) {
+      _ws.onmessage = function (event) {
         if (!event || !event.data) return;
         try {
           var data = JSON.parse(event.data);
 
           // 1. Supabase Cross-Device Broadcast Events
           if (data.event === 'broadcast' && data.payload) {
-            var bPayload = (data.payload.payload && typeof data.payload.payload === 'object') ? data.payload.payload : data.payload;
+            var bPayload =
+              data.payload.payload && typeof data.payload.payload === 'object'
+                ? data.payload.payload
+                : data.payload;
             if (bPayload && bPayload.senderId && bPayload.senderId === _realtimeTabId) {
               return;
             }
@@ -1221,18 +1368,26 @@ var PortalRealtime = (function() {
               }
             }
             if (bPayload && bPayload.entity) {
-              triggerEntityUpdate(bPayload.entity, bPayload.action || 'update', bPayload.data || null, true);
+              triggerEntityUpdate(
+                bPayload.entity,
+                bPayload.action || 'update',
+                bPayload.data || null,
+                true
+              );
               if (_broadcastChannel) {
                 try {
                   _broadcastChannel.postMessage({
                     type: 'PORTAL_REALTIME_CHANGE',
                     senderId: _realtimeTabId,
-                    msgId: bPayload.msgId || (_realtimeTabId + ':' + bPayload.entity + ':' + Date.now()),
+                    msgId:
+                      bPayload.msgId || _realtimeTabId + ':' + bPayload.entity + ':' + Date.now(),
                     entity: bPayload.entity,
                     action: bPayload.action || 'update',
                     data: bPayload.data || null
                   });
-                } catch (_) {}
+                } catch (_) {
+                  /* ignore */
+                }
               }
             }
             return;
@@ -1279,13 +1434,17 @@ var PortalRealtime = (function() {
               triggerEntityUpdate('announcements', evType || 'update', record);
             } else if (table === 'bb_members') {
               triggerEntityUpdate('members', evType || 'update', record);
+            } else if (table === 'bb_gallery') {
+              triggerEntityUpdate('gallery', evType || 'update', record);
             }
           }
-        } catch (_) {}
+        } catch (_) {
+          /* ignore */
+        }
       };
 
       var socket = _ws;
-      _ws.onclose = function() {
+      _ws.onclose = function () {
         if (_ws !== socket) return;
         if (_heartbeatTimer) clearInterval(_heartbeatTimer);
         if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
@@ -1293,10 +1452,16 @@ var PortalRealtime = (function() {
         _reconnectTimer = setTimeout(connectWebSocket, delay);
       };
 
-      _ws.onerror = function() {
-        try { _ws.close(); } catch (_) {}
+      _ws.onerror = function () {
+        try {
+          _ws.close();
+        } catch (_) {
+          /* ignore */
+        }
       };
-    } catch (_) {}
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   // 3. Smart Adaptive Delta Poller (25s interval, backoff on error, paused when hidden or WebSocket active)
@@ -1304,19 +1469,24 @@ var PortalRealtime = (function() {
   var _deltaSyncInFlight = false;
 
   async function checkDeltaSync() {
-    if (_deltaSyncInFlight || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+    if (_deltaSyncInFlight || (typeof navigator !== 'undefined' && navigator.onLine === false))
+      return;
     // Multi-Tab Coordination: Non-leader tabs receive updates via BroadcastChannel; leader runs delta poller
-    var isLeaderFn = (typeof window !== 'undefined' && typeof window.isLeaderTab === 'function')
-      ? window.isLeaderTab
-      : (typeof global !== 'undefined' && typeof global.isLeaderTab === 'function')
-        ? global.isLeaderTab
-        : null;
+    var isLeaderFn =
+      typeof window !== 'undefined' && typeof window.isLeaderTab === 'function'
+        ? window.isLeaderTab
+        : typeof global !== 'undefined' && typeof global.isLeaderTab === 'function'
+          ? global.isLeaderTab
+          : null;
     if (isLeaderFn && !isLeaderFn() && typeof BroadcastChannel !== 'undefined') {
       scheduleNextDeltaSync(120000);
       return;
     }
     // If tab is hidden, back off to avoid battery drain
-    if (typeof document !== 'undefined' && (document.hidden || document.visibilityState === 'hidden')) {
+    if (
+      typeof document !== 'undefined' &&
+      (document.hidden || document.visibilityState === 'hidden')
+    ) {
       scheduleNextDeltaSync(60000);
       return;
     }
@@ -1324,7 +1494,7 @@ var PortalRealtime = (function() {
       scheduleNextDeltaSync(60000);
       return;
     }
-    var client = (typeof getSupaClient === 'function') ? getSupaClient() : null;
+    var client = typeof getSupaClient === 'function' ? getSupaClient() : null;
     if (!client || typeof client.get !== 'function') {
       scheduleNextDeltaSync(15000);
       return;
@@ -1332,35 +1502,57 @@ var PortalRealtime = (function() {
 
     _deltaSyncInFlight = true;
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines)&select=key,updated_at');
+      var rows = await client.get(
+        'bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines)&select=key,updated_at'
+      );
       if (Array.isArray(rows)) {
-        rows.forEach(function(r) {
+        rows.forEach(function (r) {
           if (!r?.key) return;
           var ts = r.updated_at || '';
           if (_lastEntityTimestamps[r.key] && _lastEntityTimestamps[r.key] !== ts) {
             if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update');
             else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update');
-            else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update');
+            else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_'))
+              triggerEntityUpdate('announcements', 'update');
             else if (r.key === 'bb_projects') triggerEntityUpdate('projects', 'update');
             else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update');
             else if (r.key === 'bb_member_cosmetics') triggerEntityUpdate('cosmetics', 'update');
-            else if (r.key === 'bb_custom_avatar_outlines') triggerEntityUpdate('avatar_outlines', 'update');
+            else if (r.key === 'bb_custom_avatar_outlines')
+              triggerEntityUpdate('avatar_outlines', 'update');
           }
           _lastEntityTimestamps[r.key] = ts;
         });
       }
 
-      var curUserKey = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : null;
+      var curUserKey =
+        typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : null;
       if (curUserKey) {
-        var cleanU = String(curUserKey).toLowerCase().replace(/[^a-zA-Z0-9_-]/g, '_');
-        var prefRows = await client.get('bb_config?key=in.(bb_pref_theme_' + cleanU + ',bb_pref_particles_' + cleanU + ')&select=key,value,updated_at');
+        var cleanU = String(curUserKey)
+          .toLowerCase()
+          .replace(/[^a-zA-Z0-9_-]/g, '_');
+        var prefRows = await client.get(
+          'bb_config?key=in.(bb_pref_theme_' +
+            cleanU +
+            ',bb_pref_particles_' +
+            cleanU +
+            ')&select=key,value,updated_at'
+        );
         if (Array.isArray(prefRows)) {
-          prefRows.forEach(function(pr) {
+          prefRows.forEach(function (pr) {
             var pts = pr.updated_at || '';
             if (_lastEntityTimestamps[pr.key] && _lastEntityTimestamps[pr.key] !== pts) {
-              if (pr.key === 'bb_pref_theme_' + cleanU && pr.value && typeof window !== 'undefined' && typeof window.themeApply === 'function') {
+              if (
+                pr.key === 'bb_pref_theme_' + cleanU &&
+                pr.value &&
+                typeof window !== 'undefined' &&
+                typeof window.themeApply === 'function'
+              ) {
                 window.themeApply(pr.value, false);
-              } else if (pr.key === 'bb_pref_particles_' + cleanU && typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {
+              } else if (
+                pr.key === 'bb_pref_particles_' + cleanU &&
+                typeof window !== 'undefined' &&
+                typeof window.toggleAmbientParticles === 'function'
+              ) {
                 window.toggleAmbientParticles(pr.value === 'true');
               }
             }
@@ -1369,33 +1561,62 @@ var PortalRealtime = (function() {
         }
       }
 
-      var annRows = await client.get('bb_announcements?select=id,created_at&order=created_at.desc&limit=1');
+      var annRows = await client.get(
+        'bb_announcements?select=id,created_at&order=created_at.desc&limit=1'
+      );
       if (Array.isArray(annRows) && annRows.length) {
         var annKey = (annRows[0].id || '') + ':' + (annRows[0].created_at || '');
-        if (_lastEntityTimestamps['bb_announcements_latest'] && _lastEntityTimestamps['bb_announcements_latest'] !== annKey) {
+        if (
+          _lastEntityTimestamps['bb_announcements_latest'] &&
+          _lastEntityTimestamps['bb_announcements_latest'] !== annKey
+        ) {
           triggerEntityUpdate('announcements', 'update');
         }
         _lastEntityTimestamps['bb_announcements_latest'] = annKey;
       }
 
-      var taskRows = await client.get('bb_tasks?select=id,updated_at&order=updated_at.desc&limit=1');
+      var taskRows = await client.get(
+        'bb_tasks?select=id,updated_at&order=updated_at.desc&limit=1'
+      );
       if (Array.isArray(taskRows) && taskRows.length) {
         var tId = taskRows[0].id + ':' + (taskRows[0].updated_at || '');
-        if (_lastEntityTimestamps['bb_tasks_latest'] && _lastEntityTimestamps['bb_tasks_latest'] !== tId) {
+        if (
+          _lastEntityTimestamps['bb_tasks_latest'] &&
+          _lastEntityTimestamps['bb_tasks_latest'] !== tId
+        ) {
           triggerEntityUpdate('tasks', 'update');
         }
         _lastEntityTimestamps['bb_tasks_latest'] = tId;
       }
 
-      var memberRows = await client.get('bb_members?select=ic,updated_at&order=updated_at.desc&limit=1');
+      var memberRows = await client.get(
+        'bb_members?select=ic,updated_at&order=updated_at.desc&limit=1'
+      );
       if (Array.isArray(memberRows) && memberRows.length) {
         var mKey = (memberRows[0].ic || '') + ':' + (memberRows[0].updated_at || '');
-        if (_lastEntityTimestamps['bb_members_latest'] && _lastEntityTimestamps['bb_members_latest'] !== mKey) {
+        if (
+          _lastEntityTimestamps['bb_members_latest'] &&
+          _lastEntityTimestamps['bb_members_latest'] !== mKey
+        ) {
           triggerEntityUpdate('members', 'update', memberRows[0]);
         }
         _lastEntityTimestamps['bb_members_latest'] = mKey;
       }
-      _deltaSyncBackoff = (_ws && _ws.readyState === 1) ? 25000 : 12000;
+
+      var galRows = await client.get(
+        'bb_gallery?select=id,created_at&order=created_at.desc&limit=1'
+      );
+      if (Array.isArray(galRows) && galRows.length) {
+        var gKey = (galRows[0].id || '') + ':' + (galRows[0].created_at || '');
+        if (
+          _lastEntityTimestamps['bb_gallery_latest'] &&
+          _lastEntityTimestamps['bb_gallery_latest'] !== gKey
+        ) {
+          triggerEntityUpdate('gallery', 'update');
+        }
+        _lastEntityTimestamps['bb_gallery_latest'] = gKey;
+      }
+      _deltaSyncBackoff = _ws && _ws.readyState === 1 ? 25000 : 12000;
     } catch (_) {
       // Back off on error to prevent database saturation
       _deltaSyncBackoff = Math.min(120000, _deltaSyncBackoff * 2);
@@ -1417,7 +1638,7 @@ var PortalRealtime = (function() {
   }
 
   if (typeof document !== 'undefined' && document.addEventListener) {
-    document.addEventListener('visibilitychange', function() {
+    document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') {
         if (!_ws || _ws.readyState !== 1) {
           connectWebSocket();
@@ -1425,17 +1646,17 @@ var PortalRealtime = (function() {
         checkDeltaSync();
       }
     });
-    document.addEventListener('resume', function() {
+    document.addEventListener('resume', function () {
       if (!_ws || _ws.readyState !== 1) {
         connectWebSocket();
       }
       checkDeltaSync();
     });
     if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('focus', function() {
+      window.addEventListener('focus', function () {
         checkDeltaSync();
       });
-      window.addEventListener('online', function() {
+      window.addEventListener('online', function () {
         resetCircuitBreaker();
         connectWebSocket();
         checkDeltaSync();
@@ -1449,101 +1670,222 @@ var PortalRealtime = (function() {
       broadcastLocalChange(entity, action, data);
     }
 
+    if (entity === 'gallery') {
+      var loadGalFn =
+        typeof window !== 'undefined' && typeof window.loadGallery === 'function'
+          ? window.loadGallery
+          : typeof global !== 'undefined' && typeof global.loadGallery === 'function'
+            ? global.loadGallery
+            : null;
+      if (loadGalFn) {
+        loadGalFn().catch(function () {
+          /* ignore */
+        });
+      }
+      return;
+    }
+
+    if (entity === 'resources') {
+      var loadResFn =
+        typeof window !== 'undefined' && typeof window.loadResources === 'function'
+          ? window.loadResources
+          : typeof global !== 'undefined' && typeof global.loadResources === 'function'
+            ? global.loadResources
+            : null;
+      if (loadResFn) {
+        loadResFn().catch(function () {
+          /* ignore */
+        });
+      }
+      return;
+    }
+
+    if (entity === 'forms') {
+      var loadFormsFn =
+        typeof window !== 'undefined' && typeof window.loadCustomForms === 'function'
+          ? window.loadCustomForms
+          : typeof global !== 'undefined' && typeof global.loadCustomForms === 'function'
+            ? global.loadCustomForms
+            : null;
+      if (loadFormsFn) {
+        loadFormsFn().catch(function () {
+          /* ignore */
+        });
+      }
+      return;
+    }
+
+    if (entity === 'prices') {
+      var loadPricesFn =
+        typeof window !== 'undefined' && typeof window.loadUniformStorePrices === 'function'
+          ? window.loadUniformStorePrices
+          : typeof global !== 'undefined' && typeof global.loadUniformStorePrices === 'function'
+            ? global.loadUniformStorePrices
+            : null;
+      if (loadPricesFn) {
+        loadPricesFn().catch(function () {
+          /* ignore */
+        });
+      }
+      return;
+    }
+
     if (entity === 'blocklist') {
       if (typeof window !== 'undefined' && typeof window.verifyActiveMemberSession === 'function') {
-        window.verifyActiveMemberSession(true).catch(function() {});
+        window.verifyActiveMemberSession(true).catch(function () {
+          /* ignore */
+        });
       }
       return;
     }
 
     if (entity === 'attendance') {
       if (typeof window !== 'undefined' && typeof window.onMasterAttendanceChanged === 'function') {
-        window.onMasterAttendanceChanged().catch(function() {});
+        window.onMasterAttendanceChanged().catch(function () {
+          /* ignore */
+        });
       }
       return;
     }
 
     if (entity === 'cosmetics') {
-      var loadCosmFn = (typeof window !== 'undefined' && typeof window.loadMemberCosmetics === 'function')
-        ? window.loadMemberCosmetics
-        : (typeof global !== 'undefined' && typeof global.loadMemberCosmetics === 'function' ? global.loadMemberCosmetics : null);
-      var refreshCosmFn = (typeof window !== 'undefined' && typeof window.refreshActiveAvatarCosmetics === 'function')
-        ? window.refreshActiveAvatarCosmetics
-        : (typeof global !== 'undefined' && typeof global.refreshActiveAvatarCosmetics === 'function' ? global.refreshActiveAvatarCosmetics : null);
+      var loadCosmFn =
+        typeof window !== 'undefined' && typeof window.loadMemberCosmetics === 'function'
+          ? window.loadMemberCosmetics
+          : typeof global !== 'undefined' && typeof global.loadMemberCosmetics === 'function'
+            ? global.loadMemberCosmetics
+            : null;
+      var refreshCosmFn =
+        typeof window !== 'undefined' && typeof window.refreshActiveAvatarCosmetics === 'function'
+          ? window.refreshActiveAvatarCosmetics
+          : typeof global !== 'undefined' &&
+              typeof global.refreshActiveAvatarCosmetics === 'function'
+            ? global.refreshActiveAvatarCosmetics
+            : null;
       if (loadCosmFn) {
-        loadCosmFn(true).then(function() {
-          if (refreshCosmFn) refreshCosmFn();
-        }).catch(function() {});
+        loadCosmFn(true)
+          .then(function () {
+            if (refreshCosmFn) refreshCosmFn();
+          })
+          .catch(function () {
+            /* ignore */
+          });
       }
       return;
     }
 
     if (entity === 'avatar_outlines') {
-      var loadOutFn = (typeof window !== 'undefined' && typeof window.loadCustomAvatarOutlines === 'function')
-        ? window.loadCustomAvatarOutlines
-        : (typeof global !== 'undefined' && typeof global.loadCustomAvatarOutlines === 'function' ? global.loadCustomAvatarOutlines : null);
-      var refreshOutFn = (typeof window !== 'undefined' && typeof window.refreshActiveAvatarOutlines === 'function')
-        ? window.refreshActiveAvatarOutlines
-        : (typeof global !== 'undefined' && typeof global.refreshActiveAvatarOutlines === 'function' ? global.refreshActiveAvatarOutlines : null);
+      var loadOutFn =
+        typeof window !== 'undefined' && typeof window.loadCustomAvatarOutlines === 'function'
+          ? window.loadCustomAvatarOutlines
+          : typeof global !== 'undefined' && typeof global.loadCustomAvatarOutlines === 'function'
+            ? global.loadCustomAvatarOutlines
+            : null;
+      var refreshOutFn =
+        typeof window !== 'undefined' && typeof window.refreshActiveAvatarOutlines === 'function'
+          ? window.refreshActiveAvatarOutlines
+          : typeof global !== 'undefined' &&
+              typeof global.refreshActiveAvatarOutlines === 'function'
+            ? global.refreshActiveAvatarOutlines
+            : null;
       if (loadOutFn) {
-        loadOutFn().then(function() {
-          if (refreshOutFn) refreshOutFn();
-        }).catch(function() {});
+        loadOutFn()
+          .then(function () {
+            if (refreshOutFn) refreshOutFn();
+          })
+          .catch(function () {
+            /* ignore */
+          });
       }
       return;
     }
 
     if (entity === 'notifications') {
-      var fetchDismissedFn = (typeof window !== 'undefined' && typeof window.fetchRemoteDismissedNotifs === 'function')
-        ? window.fetchRemoteDismissedNotifs
-        : (typeof global !== 'undefined' && typeof global.fetchRemoteDismissedNotifs === 'function' ? global.fetchRemoteDismissedNotifs : null);
+      var fetchDismissedFn =
+        typeof window !== 'undefined' && typeof window.fetchRemoteDismissedNotifs === 'function'
+          ? window.fetchRemoteDismissedNotifs
+          : typeof global !== 'undefined' && typeof global.fetchRemoteDismissedNotifs === 'function'
+            ? global.fetchRemoteDismissedNotifs
+            : null;
       if (fetchDismissedFn) {
-        fetchDismissedFn().then(function() {
-          if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
-            window.renderNotifications();
-          }
-        }).catch(function() {});
+        fetchDismissedFn()
+          .then(function () {
+            if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') {
+              window.renderNotifications();
+            }
+          })
+          .catch(function () {
+            /* ignore */
+          });
       }
       return;
     }
 
     if (entity === 'calendar') {
       if (typeof window !== 'undefined' && typeof window.loadCalendarEvents === 'function') {
-        window.loadCalendarEvents().then(function() {
-          if (typeof window.renderCalendarWidget === 'function') window.renderCalendarWidget();
-          if (typeof window.renderAdminCalendarGrid === 'function') window.renderAdminCalendarGrid();
-          var pParade = document.getElementById('page-parade');
-          if (pParade && pParade.style.display !== 'none' && typeof window.renderCalendarTab === 'function') {
-            window.renderCalendarTab();
-          }
-        }).catch(function() {});
+        window
+          .loadCalendarEvents()
+          .then(function () {
+            if (typeof window.renderCalendarWidget === 'function') window.renderCalendarWidget();
+            if (typeof window.renderAdminCalendarGrid === 'function')
+              window.renderAdminCalendarGrid();
+            var pParade = document.getElementById('page-parade');
+            if (
+              pParade &&
+              pParade.style.display !== 'none' &&
+              typeof window.renderCalendarTab === 'function'
+            ) {
+              window.renderCalendarTab();
+            }
+          })
+          .catch(function () {
+            /* ignore */
+          });
       }
     } else if (entity === 'forum') {
       if (typeof window !== 'undefined' && typeof window.loadForumPosts === 'function') {
-        window.loadForumPosts().then(function() {
-          var pForum = document.getElementById('page-forum');
-          if (pForum && pForum.style.display !== 'none' && typeof window.renderForumFeed === 'function') {
-            window.renderForumFeed();
-          }
-          if (typeof window.syncForumNotifications === 'function') {
-            window.syncForumNotifications();
-          }
-          if (typeof window.renderNotifications === 'function') {
-            window.renderNotifications();
-          }
-        }).catch(function() {});
+        window
+          .loadForumPosts()
+          .then(function () {
+            var pForum = document.getElementById('page-forum');
+            if (
+              pForum &&
+              pForum.style.display !== 'none' &&
+              typeof window.renderForumFeed === 'function'
+            ) {
+              window.renderForumFeed();
+            }
+            if (typeof window.syncForumNotifications === 'function') {
+              window.syncForumNotifications();
+            }
+            if (typeof window.renderNotifications === 'function') {
+              window.renderNotifications();
+            }
+          })
+          .catch(function () {
+            /* ignore */
+          });
       }
     } else if (entity === 'tasks' || entity === 'comments') {
       if (typeof window !== 'undefined' && typeof window.fetchAllRemoteTasks === 'function') {
-        window.fetchAllRemoteTasks(true).catch(function() {});
+        window.fetchAllRemoteTasks(true).catch(function () {
+          /* ignore */
+        });
       }
-      if (typeof window !== 'undefined' && typeof window.fetchAllRemoteTaskComments === 'function') {
-        window.fetchAllRemoteTaskComments().catch(function() {});
+      if (
+        typeof window !== 'undefined' &&
+        typeof window.fetchAllRemoteTaskComments === 'function'
+      ) {
+        window.fetchAllRemoteTaskComments().catch(function () {
+          /* ignore */
+        });
       }
     } else if (entity === 'announcements') {
       if (typeof window !== 'undefined' && typeof window.loadAnnouncements === 'function') {
         // shortcut: reload the feed for each signal, use row deltas when all legacy metadata is on the row.
-        window.loadAnnouncements().catch(function() {});
+        window.loadAnnouncements().catch(function () {
+          /* ignore */
+        });
       }
     } else if (entity === 'projects') {
       if (typeof window !== 'undefined' && typeof window.loadProjectsCatalog === 'function') {
@@ -1551,28 +1893,30 @@ var PortalRealtime = (function() {
         if (typeof window.renderProjectsView === 'function') window.renderProjectsView();
       }
     } else if (entity === 'members') {
-      var sessGetFn = (typeof sessionGet === 'function')
-        ? sessionGet
-        : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
-          ? window.sessionGet
-          : (typeof global !== 'undefined' && typeof global.sessionGet === 'function')
-            ? global.sessionGet
-            : null;
+      var sessGetFn =
+        typeof sessionGet === 'function'
+          ? sessionGet
+          : typeof window !== 'undefined' && typeof window.sessionGet === 'function'
+            ? window.sessionGet
+            : typeof global !== 'undefined' && typeof global.sessionGet === 'function'
+              ? global.sessionGet
+              : null;
 
-      var sessSetFn = (typeof sessionSet === 'function')
-        ? sessionSet
-        : (typeof window !== 'undefined' && typeof window.sessionSet === 'function')
-          ? window.sessionSet
-          : (typeof global !== 'undefined' && typeof global.sessionSet === 'function')
-            ? global.sessionSet
-            : null;
+      var sessSetFn =
+        typeof sessionSet === 'function'
+          ? sessionSet
+          : typeof window !== 'undefined' && typeof window.sessionSet === 'function'
+            ? window.sessionSet
+            : typeof global !== 'undefined' && typeof global.sessionSet === 'function'
+              ? global.sessionSet
+              : null;
 
       if (data && data.ic) {
         try {
           var memCache = JSON.parse(localStorage.getItem('bb_members_cache') || '[]');
           if (Array.isArray(memCache)) {
             var updatedCache = false;
-            memCache.forEach(function(m) {
+            memCache.forEach(function (m) {
               if (m.ic === data.ic || (data.name && m.name === data.name)) {
                 if (data.name !== undefined) m.name = data.name;
                 if (data.rank !== undefined) m.rank = data.rank;
@@ -1585,67 +1929,105 @@ var PortalRealtime = (function() {
             });
             if (updatedCache) localStorage.setItem('bb_members_cache', JSON.stringify(memCache));
           }
-        } catch (_) {}
+        } catch (_) {
+          /* ignore */
+        }
       }
 
-      var currentIc = sessGetFn ? (sessGetFn('ic') || sessGetFn('email')) : '';
+      var currentIc = sessGetFn ? sessGetFn('ic') || sessGetFn('email') : '';
       var currentName = sessGetFn ? sessGetFn('name') : '';
-      var isMe = (data && data.ic && currentIc && data.ic.toLowerCase() === currentIc.toLowerCase()) ||
-                 (data && data.name && currentName && data.name.toLowerCase() === currentName.toLowerCase()) ||
-                 !data || !data.ic;
+      var isMe =
+        (data && data.ic && currentIc && data.ic.toLowerCase() === currentIc.toLowerCase()) ||
+        (data &&
+          data.name &&
+          currentName &&
+          data.name.toLowerCase() === currentName.toLowerCase()) ||
+        !data ||
+        !data.ic;
 
       if (isMe) {
         if (data && data.ic) {
           if (data.name && sessSetFn) sessSetFn('name', data.name, { localOnly: true });
-          if (data.rank !== undefined && sessSetFn) sessSetFn('rank', data.rank, { localOnly: true });
-          if (data.squad !== undefined && sessSetFn) sessSetFn('squad', data.squad, { localOnly: true });
-          if (data.department !== undefined && sessSetFn) sessSetFn('department', data.department, { localOnly: true });
-          if ((data.att_section || data.section) && sessSetFn) sessSetFn('section', data.att_section || data.section, { localOnly: true });
+          if (data.rank !== undefined && sessSetFn)
+            sessSetFn('rank', data.rank, { localOnly: true });
+          if (data.squad !== undefined && sessSetFn)
+            sessSetFn('squad', data.squad, { localOnly: true });
+          if (data.department !== undefined && sessSetFn)
+            sessSetFn('department', data.department, { localOnly: true });
+          if ((data.att_section || data.section) && sessSetFn)
+            sessSetFn('section', data.att_section || data.section, { localOnly: true });
 
-          var sn = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-name') : null;
+          var sn =
+            typeof document !== 'undefined' ? document.getElementById('sidebar-user-name') : null;
           if (sn && data.name) sn.textContent = data.name;
 
-          var effRank = data.rank !== undefined ? data.rank : (sessGetFn ? sessGetFn('rank') : '');
+          var effRank = data.rank !== undefined ? data.rank : sessGetFn ? sessGetFn('rank') : '';
           var effSec = data.att_section || data.section || (sessGetFn ? sessGetFn('section') : '');
-          var effSquad = data.squad !== undefined ? data.squad : (sessGetFn ? sessGetFn('squad') : '');
-          var fmtSquadFn = (typeof formatPlatoonOrSquad === 'function')
-            ? formatPlatoonOrSquad
-            : (typeof window !== 'undefined' && typeof window.formatPlatoonOrSquad === 'function')
-              ? window.formatPlatoonOrSquad
-              : (typeof global !== 'undefined' && typeof global.formatPlatoonOrSquad === 'function')
-                ? global.formatPlatoonOrSquad
-                : null;
-          var sqFmt = fmtSquadFn ? fmtSquadFn(effSquad, effSec) : (effSquad ? effSquad + ' Sq' : '');
-          var badgeStr = (effRank ? effRank + (sqFmt || effSec ? ' · ' : '') : '') + (sqFmt || effSec || 'Member');
-          var sb = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-badge') : null;
+          var effSquad =
+            data.squad !== undefined ? data.squad : sessGetFn ? sessGetFn('squad') : '';
+          var fmtSquadFn =
+            typeof formatPlatoonOrSquad === 'function'
+              ? formatPlatoonOrSquad
+              : typeof window !== 'undefined' && typeof window.formatPlatoonOrSquad === 'function'
+                ? window.formatPlatoonOrSquad
+                : typeof global !== 'undefined' && typeof global.formatPlatoonOrSquad === 'function'
+                  ? global.formatPlatoonOrSquad
+                  : null;
+          var sqFmt = fmtSquadFn ? fmtSquadFn(effSquad, effSec) : effSquad ? effSquad + ' Sq' : '';
+          var badgeStr =
+            (effRank ? effRank + (sqFmt || effSec ? ' · ' : '') : '') +
+            (sqFmt || effSec || 'Member');
+          var sb =
+            typeof document !== 'undefined' ? document.getElementById('sidebar-user-badge') : null;
           if (sb) sb.textContent = badgeStr;
 
-          var rbacObj = (typeof RBAC !== 'undefined') ? RBAC : (typeof window !== 'undefined' && typeof window.RBAC !== 'undefined') ? window.RBAC : (typeof global !== 'undefined' ? global.RBAC : null);
+          var rbacObj =
+            typeof RBAC !== 'undefined'
+              ? RBAC
+              : typeof window !== 'undefined' && typeof window.RBAC !== 'undefined'
+                ? window.RBAC
+                : typeof global !== 'undefined'
+                  ? global.RBAC
+                  : null;
           if (rbacObj && typeof rbacObj.renderHeaderRoleBadge === 'function') {
-            try { rbacObj.renderHeaderRoleBadge(); } catch (_) {}
+            try {
+              rbacObj.renderHeaderRoleBadge();
+            } catch (_) {
+              /* ignore */
+            }
           }
-          var checkTasksFn = (typeof checkTasksAccess === 'function')
-            ? checkTasksAccess
-            : (typeof window !== 'undefined' && typeof window.checkTasksAccess === 'function')
-              ? window.checkTasksAccess
-              : (typeof global !== 'undefined' && typeof global.checkTasksAccess === 'function')
-                ? global.checkTasksAccess
-                : null;
+          var checkTasksFn =
+            typeof checkTasksAccess === 'function'
+              ? checkTasksAccess
+              : typeof window !== 'undefined' && typeof window.checkTasksAccess === 'function'
+                ? window.checkTasksAccess
+                : typeof global !== 'undefined' && typeof global.checkTasksAccess === 'function'
+                  ? global.checkTasksAccess
+                  : null;
           if (checkTasksFn) {
-            try { checkTasksFn(); } catch (_) {}
+            try {
+              checkTasksFn();
+            } catch (_) {
+              /* ignore */
+            }
           }
         }
 
         if (!data || !data.department || !data.ic) {
-          var refreshProfileFn = (typeof refreshLoggedInUserProfile === 'function')
-            ? refreshLoggedInUserProfile
-            : (typeof window !== 'undefined' && typeof window.refreshLoggedInUserProfile === 'function')
-              ? window.refreshLoggedInUserProfile
-              : (typeof global !== 'undefined' && typeof global.refreshLoggedInUserProfile === 'function')
-                ? global.refreshLoggedInUserProfile
-                : null;
+          var refreshProfileFn =
+            typeof refreshLoggedInUserProfile === 'function'
+              ? refreshLoggedInUserProfile
+              : typeof window !== 'undefined' &&
+                  typeof window.refreshLoggedInUserProfile === 'function'
+                ? window.refreshLoggedInUserProfile
+                : typeof global !== 'undefined' &&
+                    typeof global.refreshLoggedInUserProfile === 'function'
+                  ? global.refreshLoggedInUserProfile
+                  : null;
           if (refreshProfileFn) {
-            refreshProfileFn().catch(function() {});
+            refreshProfileFn().catch(function () {
+              /* ignore */
+            });
           }
         }
       }
@@ -1653,12 +2035,26 @@ var PortalRealtime = (function() {
       if (typeof document !== 'undefined') {
         var admP = document.getElementById('page-admin');
         if (admP && admP.style.display !== 'none') {
-          var loadAdminFn = (typeof window !== 'undefined' && typeof window.loadAdminMembers === 'function') ? window.loadAdminMembers : (typeof global !== 'undefined' && typeof global.loadAdminMembers === 'function' ? global.loadAdminMembers : null);
-          var renderAdminFn = (typeof renderAdminList === 'function') ? renderAdminList : (typeof window !== 'undefined' ? window.renderAdminList : null);
+          var loadAdminFn =
+            typeof window !== 'undefined' && typeof window.loadAdminMembers === 'function'
+              ? window.loadAdminMembers
+              : typeof global !== 'undefined' && typeof global.loadAdminMembers === 'function'
+                ? global.loadAdminMembers
+                : null;
+          var renderAdminFn =
+            typeof renderAdminList === 'function'
+              ? renderAdminList
+              : typeof window !== 'undefined'
+                ? window.renderAdminList
+                : null;
           if (loadAdminFn && renderAdminFn) {
-            loadAdminFn().then(function() {
-              renderAdminFn();
-            }).catch(function() {});
+            loadAdminFn()
+              .then(function () {
+                renderAdminFn();
+              })
+              .catch(function () {
+                /* ignore */
+              });
           }
         }
       }
@@ -1670,7 +2066,7 @@ var PortalRealtime = (function() {
   }
 
   return {
-    connect: function() {
+    connect: function () {
       connectWebSocket();
       startDeltaSync();
     },

@@ -6,7 +6,7 @@
  * scoped Admin Console access, and top navigation header role badge state synchronization.
  */
 
-(function(global) {
+(function (global) {
   'use strict';
 
   var ROLES = {
@@ -16,22 +16,40 @@
   };
 
   var MODULES = [
-    { id: 'members',       label: 'Members Directory',      desc: 'Member profiles, ranks, sections & credentials' },
-    { id: 'orders',        label: 'Forms & Form Builder',   desc: 'Custom registration forms & surveys' },
-    { id: 'uniform',       label: 'Uniform Orders & Store', desc: 'Uniform inventory and pricing' },
-    { id: 'tasks',         label: 'Departments & Tasks',    desc: 'Department roles and NCO tasks' },
-    { id: 'announcements', label: 'Company Announcements',  desc: 'Announcements and broadcast emails' },
-    { id: 'badges',        label: 'Awards & Badges',        desc: 'Badge requirements & President Award tracker' },
-    { id: 'gallery',       label: 'Gallery & Highlights',   desc: 'Company photos and video stories' },
-    { id: 'attendance',    label: 'Attendance & Standings', desc: 'Squad points, rankings & Master Sheet sync' },
-    { id: 'resources',     label: 'Company Resources Hub',  desc: 'Handbooks, drill manuals & syllabi' },
-    { id: 'calendar',      label: 'Parade & Master Schedule', desc: 'Company events & parade dates' },
-    { id: 'roles',         label: 'Roles & Permissions',    desc: 'RBAC management and permission scopes (Super Admin only)' }
+    {
+      id: 'members',
+      label: 'Members Directory',
+      desc: 'Member profiles, ranks, sections & credentials'
+    },
+    { id: 'orders', label: 'Forms & Form Builder', desc: 'Custom registration forms & surveys' },
+    { id: 'uniform', label: 'Uniform Orders & Store', desc: 'Uniform inventory and pricing' },
+    { id: 'tasks', label: 'Departments & Tasks', desc: 'Department roles and NCO tasks' },
+    {
+      id: 'announcements',
+      label: 'Company Announcements',
+      desc: 'Announcements and broadcast emails'
+    },
+    {
+      id: 'badges',
+      label: 'Awards & Badges',
+      desc: 'Badge requirements & President Award tracker'
+    },
+    { id: 'gallery', label: 'Gallery & Highlights', desc: 'Company photos and video stories' },
+    {
+      id: 'attendance',
+      label: 'Attendance & Standings',
+      desc: 'Squad points, rankings & Master Sheet sync'
+    },
+    { id: 'resources', label: 'Company Resources Hub', desc: 'Handbooks, drill manuals & syllabi' },
+    { id: 'calendar', label: 'Parade & Master Schedule', desc: 'Company events & parade dates' },
+    {
+      id: 'roles',
+      label: 'Roles & Permissions',
+      desc: 'RBAC management and permission scopes (Super Admin only)'
+    }
   ];
 
-  var SUPER_ADMIN_DEFAULT_EMAILS = [
-    'jeshuakoh2008@gmail.com'
-  ];
+  var SUPER_ADMIN_DEFAULT_EMAILS = ['jeshuakoh2008@gmail.com'];
 
   var DEFAULT_ADMIN_MODULES = [
     'members',
@@ -46,7 +64,7 @@
     'calendar'
   ];
 
-  var _rolesConfig = (function() {
+  var _rolesConfig = (function () {
     try {
       if (typeof localStorage !== 'undefined') {
         var cached = localStorage.getItem('bb_admin_roles');
@@ -54,8 +72,10 @@
           var parsed = JSON.parse(cached);
           if (parsed && typeof parsed === 'object') {
             return {
-              super_admins: Array.isArray(parsed.super_admins) ? parsed.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
-              admins: (parsed.admins && typeof parsed.admins === 'object') ? parsed.admins : {}
+              super_admins: Array.isArray(parsed.super_admins)
+                ? parsed.super_admins
+                : [...SUPER_ADMIN_DEFAULT_EMAILS],
+              admins: parsed.admins && typeof parsed.admins === 'object' ? parsed.admins : {}
             };
           }
         }
@@ -71,7 +91,8 @@
     if (typeof window !== 'undefined' && window.supa) return window.supa;
     if (typeof global !== 'undefined' && global.supa) return global.supa;
     if (typeof getSupaClient === 'function') return getSupaClient();
-    if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+    if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function')
+      return window.getSupaClient();
     if (typeof supa !== 'undefined') return supa;
     return null;
   }
@@ -83,8 +104,10 @@
 
   function getSession(key) {
     if (typeof sessionGet === 'function') return sessionGet(key);
-    if (typeof global !== 'undefined' && typeof global.sessionGet === 'function') return global.sessionGet(key);
-    if (typeof window !== 'undefined' && typeof window.sessionGet === 'function') return window.sessionGet(key);
+    if (typeof global !== 'undefined' && typeof global.sessionGet === 'function')
+      return global.sessionGet(key);
+    if (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+      return window.sessionGet(key);
     return null;
   }
 
@@ -95,12 +118,22 @@
    */
   async function loadRolesConfig(_forceRefresh) {
     try {
-      if (!_forceRefresh && typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
+      if (
+        !_forceRefresh &&
+        typeof supa !== 'undefined' &&
+        typeof supa.safeConfigGet === 'function'
+      ) {
         var snapRoles = await supa.safeConfigGet('bb_admin_roles');
-        if (snapRoles && typeof snapRoles === 'object' && (snapRoles.super_admins || snapRoles.admins)) {
+        if (
+          snapRoles &&
+          typeof snapRoles === 'object' &&
+          (snapRoles.super_admins || snapRoles.admins)
+        ) {
           _rolesConfig = {
-            super_admins: Array.isArray(snapRoles.super_admins) ? snapRoles.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
-            admins: (snapRoles.admins && typeof snapRoles.admins === 'object') ? snapRoles.admins : {}
+            super_admins: Array.isArray(snapRoles.super_admins)
+              ? snapRoles.super_admins
+              : [...SUPER_ADMIN_DEFAULT_EMAILS],
+            admins: snapRoles.admins && typeof snapRoles.admins === 'object' ? snapRoles.admins : {}
           };
           try {
             if (typeof localStorage !== 'undefined') {
@@ -120,8 +153,10 @@
           var parsed = typeof res[0].value === 'string' ? JSON.parse(res[0].value) : res[0].value;
           if (parsed && typeof parsed === 'object') {
             _rolesConfig = {
-              super_admins: Array.isArray(parsed.super_admins) ? parsed.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
-              admins: (parsed.admins && typeof parsed.admins === 'object') ? parsed.admins : {}
+              super_admins: Array.isArray(parsed.super_admins)
+                ? parsed.super_admins
+                : [...SUPER_ADMIN_DEFAULT_EMAILS],
+              admins: parsed.admins && typeof parsed.admins === 'object' ? parsed.admins : {}
             };
             try {
               if (typeof localStorage !== 'undefined') {
@@ -142,8 +177,49 @@
     return _rolesConfig;
   }
 
+  function isConfiguredSuperAdmin(userEmail) {
+    if (!userEmail) return false;
+    return (
+      userEmail === 'jeshuakoh2008@gmail.com' ||
+      (_rolesConfig &&
+        Array.isArray(_rolesConfig.super_admins) &&
+        _rolesConfig.super_admins.map(cleanEmail).includes(userEmail))
+    );
+  }
+
+  function isConfiguredAdmin(email) {
+    var userEmail = cleanEmail(email);
+    if (!userEmail) return false;
+    return Boolean(
+      isConfiguredSuperAdmin(userEmail) ||
+      (_rolesConfig && _rolesConfig.admins && Object.hasOwn(_rolesConfig.admins, userEmail))
+    );
+  }
+
+  function hasVerifiedAdminAuth(targetEmail) {
+    var fnGetAdminToken =
+      typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function'
+        ? global.getAdminSessionToken
+        : typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function'
+          ? window.getAdminSessionToken
+          : null;
+
+    var adminToken = fnGetAdminToken ? fnGetAdminToken() : null;
+    if (!adminToken) return false;
+
+    var sessionEmail = cleanEmail(getSession('email') || getSession('ic'));
+    if (!sessionEmail) return false;
+
+    // Cross-user role query: Only verified Super Admins can resolve another user's administrative status
+    if (sessionEmail !== targetEmail) {
+      return isConfiguredSuperAdmin(sessionEmail);
+    }
+    return true;
+  }
+
   /**
    * Resolves the active role for an identifier or the current session user.
+   * Requires verified administrative session proof before returning elevated roles.
    * @param {string} [email]
    * @returns {string} 'member' | 'admin' | 'super_admin'
    */
@@ -157,17 +233,14 @@
       return ROLES.MEMBER;
     }
 
-    // 1. Check Super Admin pre-assigned list & Portal Creator (jeshuakoh2008@gmail.com)
-    if (
-      userEmail === 'jeshuakoh2008@gmail.com' ||
-      (_rolesConfig && _rolesConfig.super_admins && _rolesConfig.super_admins.map(cleanEmail).includes(userEmail))
-    ) {
-      return ROLES.SUPER_ADMIN;
+    // 1. Check Super Admin pre-assigned list & Portal Creator (requires verified admin session proof)
+    if (isConfiguredSuperAdmin(userEmail)) {
+      return hasVerifiedAdminAuth(userEmail) ? ROLES.SUPER_ADMIN : ROLES.MEMBER;
     }
 
-    // 2. Check Scoped Admin list (Explicitly assigned in database bb_config)
+    // 2. Check Scoped Admin list (Explicitly assigned in database bb_config; requires verified admin session proof)
     if (_rolesConfig && _rolesConfig.admins && Object.hasOwn(_rolesConfig.admins, userEmail)) {
-      return ROLES.ADMIN;
+      return hasVerifiedAdminAuth(userEmail) ? ROLES.ADMIN : ROLES.MEMBER;
     }
 
     // CRITICAL SECURITY ENFORCEMENT:
@@ -186,7 +259,9 @@
   function getUserPermissions(email) {
     var role = getUserRole(email);
     if (role === ROLES.SUPER_ADMIN) {
-      return MODULES.map(function(m) { return m.id; });
+      return MODULES.map(function (m) {
+        return m.id;
+      });
     }
 
     if (role === ROLES.ADMIN) {
@@ -194,9 +269,14 @@
       if (!userEmail) {
         userEmail = cleanEmail(getSession('email') || getSession('ic'));
       }
-      if (userEmail && _rolesConfig && _rolesConfig.admins && Object.hasOwn(_rolesConfig.admins, userEmail)) {
+      if (
+        userEmail &&
+        _rolesConfig &&
+        _rolesConfig.admins &&
+        Object.hasOwn(_rolesConfig.admins, userEmail)
+      ) {
         var adminEntry = _rolesConfig.admins[userEmail];
-        var perms = Array.isArray(adminEntry) ? adminEntry : (adminEntry && adminEntry.permissions);
+        var perms = Array.isArray(adminEntry) ? adminEntry : adminEntry && adminEntry.permissions;
         return Array.isArray(perms) ? perms : [];
       }
       return [];
@@ -285,17 +365,29 @@
     }
 
     var validPerms = Array.isArray(permissions)
-      ? permissions.filter(function(p) { return MODULES.some(function(m) { return m.id === p && p !== 'roles'; }); })
+      ? permissions.filter(function (p) {
+          return MODULES.some(function (m) {
+            return m.id === p && p !== 'roles';
+          });
+        })
       : [...DEFAULT_ADMIN_MODULES];
 
     // Try server-side RPC if available
     var client = getSupabaseClient();
-    if (client && typeof client.rpc === 'function') {
+    var fnGetAdminToken =
+      typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function'
+        ? global.getAdminSessionToken
+        : typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function'
+          ? window.getAdminSessionToken
+          : null;
+    var adminToken = fnGetAdminToken ? fnGetAdminToken() : null;
+
+    if (client && typeof client.rpc === 'function' && adminToken) {
       try {
-        var rpcRes = await client.rpc('rpc_assign_user_role', {
-          p_actor_email: actor,
+        var rpcRes = await client.rpc('rpc_set_admin_role', {
+          p_token: adminToken,
           p_target_email: target,
-          p_new_role: role,
+          p_role: role,
           p_permissions: validPerms
         });
         if (rpcRes && rpcRes.success) {
@@ -303,7 +395,7 @@
           return rpcRes;
         }
       } catch (rpcErr) {
-        console.warn('RPC assign role fallback:', rpcErr);
+        console.warn('RPC set admin role error:', rpcErr);
       }
     }
 
@@ -311,7 +403,9 @@
     if (!_rolesConfig) await loadRolesConfig(true);
 
     // Remove from super_admins and admins
-    _rolesConfig.super_admins = _rolesConfig.super_admins.filter(function(e) { return cleanEmail(e) !== target; });
+    _rolesConfig.super_admins = _rolesConfig.super_admins.filter(function (e) {
+      return cleanEmail(e) !== target;
+    });
     delete _rolesConfig.admins[target];
 
     if (role === ROLES.SUPER_ADMIN) {
@@ -336,15 +430,24 @@
     if (client) {
       try {
         if (typeof client.upsert === 'function') {
-          await client.upsert('bb_config', {
-            key: 'bb_admin_roles',
-            value: JSON.stringify(_rolesConfig)
-          }, 'key');
+          await client.upsert(
+            'bb_config',
+            {
+              key: 'bb_admin_roles',
+              value: JSON.stringify(_rolesConfig)
+            },
+            'key'
+          );
         } else if (typeof client.req === 'function') {
-          await client.req('POST', 'bb_config?on_conflict=key', {
-            key: 'bb_admin_roles',
-            value: JSON.stringify(_rolesConfig)
-          }, { headers: { 'Prefer': 'resolution=merge-duplicates' } });
+          await client.req(
+            'POST',
+            'bb_config?on_conflict=key',
+            {
+              key: 'bb_admin_roles',
+              value: JSON.stringify(_rolesConfig)
+            },
+            { headers: { Prefer: 'resolution=merge-duplicates' } }
+          );
         }
       } catch (saveErr) {
         console.warn('Failed to save bb_admin_roles to Supabase:', saveErr);
@@ -389,7 +492,8 @@
       if (profBtn && profBtn.parentNode) {
         var wrap = document.createElement('div');
         wrap.className = 'nav-role-badge-wrap';
-        wrap.innerHTML = '<span class="nav-role-badge" role="status" aria-label="Current Role: Member" title="Current Role: Member"><span class="nav-role-badge-icon"></span><span class="nav-role-badge-text">Member</span></span>';
+        wrap.innerHTML =
+          '<span class="nav-role-badge" role="status" aria-label="Current Role: Member" title="Current Role: Member"><span class="nav-role-badge-icon"></span><span class="nav-role-badge-text">Member</span></span>';
         profBtn.parentNode.insertBefore(wrap, profBtn.nextSibling);
         badge = wrap.querySelector('.nav-role-badge');
       }
@@ -421,7 +525,8 @@
       badge.classList.add('role-super-admin');
       if (textSpan) textSpan.textContent = 'Super Admin';
       if (iconSpan) {
-        iconSpan.innerHTML = '<svg class="role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+        iconSpan.innerHTML =
+          '<svg class="role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
       }
       badge.title = 'Super Admin (Full System Control & Role Management)';
       badge.setAttribute('aria-label', 'Current Role: Super Admin');
@@ -429,7 +534,8 @@
       badge.classList.add('role-admin');
       if (textSpan) textSpan.textContent = 'Admin';
       if (iconSpan) {
-        iconSpan.innerHTML = '<svg class="role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+        iconSpan.innerHTML =
+          '<svg class="role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
       }
       var perms = getUserPermissions();
       var permCount = perms.length;
@@ -439,7 +545,8 @@
       badge.classList.add('role-member');
       if (textSpan) textSpan.textContent = 'Member';
       if (iconSpan) {
-        iconSpan.innerHTML = '<svg class="role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+        iconSpan.innerHTML =
+          '<svg class="role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
       }
       badge.title = 'Standard Member (Internal Portal Access)';
       badge.setAttribute('aria-label', 'Current Role: Member');
@@ -459,7 +566,7 @@
     if (!adminBtns || !adminBtns.length) return;
 
     var identity = cleanEmail(getSession('email') || getSession('ic'));
-    var canAccess = Boolean(identity && isAdmin(identity));
+    var canAccess = Boolean(identity && (isAdmin(identity) || isConfiguredAdmin(identity)));
     for (var i = 0; i < adminBtns.length; i++) {
       adminBtns[i].hidden = !canAccess;
       adminBtns[i].style.display = canAccess ? 'flex' : 'none';
@@ -472,14 +579,19 @@
     MODULES: MODULES,
     SUPER_ADMIN_DEFAULT_EMAILS: SUPER_ADMIN_DEFAULT_EMAILS,
     DEFAULT_ADMIN_MODULES: DEFAULT_ADMIN_MODULES,
-    _getRolesConfig: function() { return _rolesConfig; },
-    _setRolesConfig: function(cfg) { _rolesConfig = cfg; },
+    _getRolesConfig: function () {
+      return _rolesConfig;
+    },
+    _setRolesConfig: function (cfg) {
+      _rolesConfig = cfg;
+    },
     loadRolesConfig: loadRolesConfig,
     getUserRole: getUserRole,
     getUserPermissions: getUserPermissions,
     hasModulePermission: hasModulePermission,
     isSuperAdmin: isSuperAdmin,
     isAdmin: isAdmin,
+    isConfiguredAdmin: isConfiguredAdmin,
     assignUserRole: assignUserRole,
     renderHeaderRoleBadge: renderHeaderRoleBadge,
     syncAdminButtonVisibility: syncAdminButtonVisibility
@@ -499,14 +611,19 @@
       MODULES: MODULES,
       SUPER_ADMIN_DEFAULT_EMAILS: SUPER_ADMIN_DEFAULT_EMAILS,
       DEFAULT_ADMIN_MODULES: DEFAULT_ADMIN_MODULES,
-      _getRolesConfig: function() { return _rolesConfig; },
-      _setRolesConfig: function(cfg) { _rolesConfig = cfg; },
+      _getRolesConfig: function () {
+        return _rolesConfig;
+      },
+      _setRolesConfig: function (cfg) {
+        _rolesConfig = cfg;
+      },
       loadRolesConfig: loadRolesConfig,
       getUserRole: getUserRole,
       getUserPermissions: getUserPermissions,
       hasModulePermission: hasModulePermission,
       isSuperAdmin: isSuperAdmin,
       isAdmin: isAdmin,
+      isConfiguredAdmin: isConfiguredAdmin,
       assignUserRole: assignUserRole,
       renderHeaderRoleBadge: renderHeaderRoleBadge,
       syncAdminButtonVisibility: syncAdminButtonVisibility

@@ -15,21 +15,27 @@ var _lastSessionVerifyTime = 0; // Post-login redirect memory
  */
 function isRememberMeExpired(savedTime) {
   if (!savedTime || typeof savedTime !== 'number') return false;
-  return (Date.now() - savedTime) > REMEMBER_ME_TTL_MS;
+  return Date.now() - savedTime > REMEMBER_ME_TTL_MS;
 }
 
-var _session = (function() {
+var _session = (function () {
   try {
     if (typeof sessionStorage !== 'undefined') {
       var s = sessionStorage.getItem('bb_session');
-      if (s) return JSON.parse(s);
+      if (s) {
+        var parsedSession = JSON.parse(s);
+        delete parsedSession.adminAuthed;
+        return parsedSession;
+      }
     }
     if (typeof localStorage !== 'undefined') {
       var l = localStorage.getItem('bb_session');
       if (l) {
         var parsed = JSON.parse(l);
         // Auto-expire Remember Me sessions after 14 days
-        var savedAt = parsed._session_saved_at || (parsed.expires_at ? (parsed.expires_at - REMEMBER_ME_TTL_MS) : null);
+        var savedAt =
+          parsed._session_saved_at ||
+          (parsed.expires_at ? parsed.expires_at - REMEMBER_ME_TTL_MS : null);
         if (savedAt && isRememberMeExpired(savedAt)) {
           localStorage.removeItem('bb_session');
           localStorage.removeItem('bb_remember');
@@ -89,7 +95,9 @@ function isLeaderTab() {
 function onLeaderChange(callback) {
   if (typeof callback === 'function') {
     _leaderListeners.push(callback);
-    try { callback(_isLeader); } catch (_) {}
+    try {
+      callback(_isLeader);
+    } catch (_) {}
   }
 }
 
@@ -97,15 +105,20 @@ function _setLeaderState(newState) {
   if (_isLeader !== newState) {
     _isLeader = newState;
     for (var i = 0; i < _leaderListeners.length; i++) {
-      try { _leaderListeners[i](_isLeader); } catch (_) {}
+      try {
+        _leaderListeners[i](_isLeader);
+      } catch (_) {}
     }
-    var pr = (typeof window !== 'undefined' && window.PortalRealtime)
-      ? window.PortalRealtime
-      : (typeof global !== 'undefined' && global.PortalRealtime)
-        ? global.PortalRealtime
-        : null;
+    var pr =
+      typeof window !== 'undefined' && window.PortalRealtime
+        ? window.PortalRealtime
+        : typeof global !== 'undefined' && global.PortalRealtime
+          ? global.PortalRealtime
+          : null;
     if (_isLeader && pr && typeof pr.connect === 'function') {
-      try { pr.connect(); } catch (_) {}
+      try {
+        pr.connect();
+      } catch (_) {}
     }
   }
 }
@@ -117,16 +130,22 @@ function initLeaderElection() {
   }
 
   // Tier 1: Web Locks API (automatic unlock on tab crash/close, zero collision)
-  if (typeof navigator !== 'undefined' && navigator.locks && typeof navigator.locks.request === 'function') {
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.locks &&
+    typeof navigator.locks.request === 'function'
+  ) {
     try {
-      navigator.locks.request('bb_tab_leader', function() {
-        _setLeaderState(true);
-        return new Promise(function() {
-          // Lock held until tab is closed or navigated away
+      navigator.locks
+        .request('bb_tab_leader', function () {
+          _setLeaderState(true);
+          return new Promise(function () {
+            // Lock held until tab is closed or navigated away
+          });
+        })
+        .catch(function () {
+          initHeartbeatLeaderElection();
         });
-      }).catch(function() {
-        initHeartbeatLeaderElection();
-      });
       return;
     } catch (_) {}
   }
@@ -146,10 +165,12 @@ function initHeartbeatLeaderElection() {
       var raw = localStorage.getItem('bb_leader_heartbeat');
       var hb = null;
       if (raw) {
-        try { hb = JSON.parse(raw); } catch (_) {}
+        try {
+          hb = JSON.parse(raw);
+        } catch (_) {}
       }
 
-      if (!hb || !hb.tabId || (now - hb.ts) > LEADER_HEARTBEAT_TIMEOUT_MS || hb.tabId === _tabId) {
+      if (!hb || !hb.tabId || now - hb.ts > LEADER_HEARTBEAT_TIMEOUT_MS || hb.tabId === _tabId) {
         localStorage.setItem('bb_leader_heartbeat', JSON.stringify({ tabId: _tabId, ts: now }));
         _setLeaderState(true);
       } else {
@@ -165,7 +186,7 @@ function initHeartbeatLeaderElection() {
   _leaderHeartbeatTimer = setInterval(checkOrClaimLeader, LEADER_HEARTBEAT_INTERVAL_MS);
 
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-    window.addEventListener('beforeunload', function() {
+    window.addEventListener('beforeunload', function () {
       try {
         if (_isLeader && typeof localStorage !== 'undefined') {
           var raw = localStorage.getItem('bb_leader_heartbeat');
@@ -190,7 +211,7 @@ if (typeof BroadcastChannel !== 'undefined') {
     if (typeof _syncChannel.unref === 'function') {
       _syncChannel.unref();
     }
-    _syncChannel.onmessage = function(event) {
+    _syncChannel.onmessage = function (event) {
       handleSyncMessage(event.data);
     };
   } catch (_) {}
@@ -226,14 +247,16 @@ function handleSyncMessage(data) {
         if (remoteId && remoteId !== prevId) {
           for (var sKey in _session) delete _session[sKey];
         }
-        Object.keys(data.session).forEach(function(key) {
+        Object.keys(data.session).forEach(function (key) {
           if (key !== 'adminAuthed') _session[key] = data.session[key];
         });
       } else if (data.key && data.key !== 'adminAuthed') {
         _session[data.key] = data.value;
       }
       if (typeof sessionStorage !== 'undefined') {
-        try { sessionStorage.setItem('bb_session', JSON.stringify(_session)); } catch (_) {}
+        try {
+          sessionStorage.setItem('bb_session', JSON.stringify(_session));
+        } catch (_) {}
       }
 
       var newId = _session['ic'] || _session['email'];
@@ -261,7 +284,7 @@ function handleSyncMessage(data) {
 }
 
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('storage', function(e) {
+  window.addEventListener('storage', function (e) {
     if (e.key === 'bb_session_sync' && e.newValue) {
       try {
         var parsed = JSON.parse(e.newValue);
@@ -286,7 +309,9 @@ function sessionSet(key, value, options) {
   // Strict dirty-check: Avoid broadcasting identical unchanged values
   var existing = _session[key];
   var isPrimitive = typeof value !== 'object' || value === null;
-  var isSame = isPrimitive ? (existing === value) : (JSON.stringify(existing) === JSON.stringify(value));
+  var isSame = isPrimitive
+    ? existing === value
+    : JSON.stringify(existing) === JSON.stringify(value);
   if (isSame && key !== 'remember') {
     return;
   }
@@ -298,11 +323,16 @@ function sessionSet(key, value, options) {
   }
 
   try {
-    if (typeof sessionStorage !== 'undefined' && sessionStorage && typeof sessionStorage.setItem === 'function') {
+    if (
+      typeof sessionStorage !== 'undefined' &&
+      sessionStorage &&
+      typeof sessionStorage.setItem === 'function'
+    ) {
       sessionStorage.setItem('bb_session', JSON.stringify(_session));
     }
     if (typeof localStorage !== 'undefined') {
-      var isRemember = _session['remember'] === true || localStorage.getItem('bb_remember') === 'true';
+      var isRemember =
+        _session['remember'] === true || localStorage.getItem('bb_remember') === 'true';
       if (key === 'remember' && value === false) {
         delete _session._session_saved_at;
         localStorage.removeItem('bb_session');
@@ -320,7 +350,7 @@ function sessionSet(key, value, options) {
 
     // Broadcast to other tabs only if NOT local-only and NOT handling an incoming remote sync
     if (!localOnly && !_isApplyingRemoteSync && key !== 'adminAuthed') {
-      var msgId = _tabId + ':' + Date.now() + ':' + (++_msgSeq);
+      var msgId = _tabId + ':' + Date.now() + ':' + ++_msgSeq;
       isDuplicateMessage(msgId);
 
       var sharedSession = { ..._session };
@@ -345,7 +375,10 @@ function sessionSet(key, value, options) {
   } catch (e) {
     console.warn('Session storage unavailable:', e);
   }
-  if (typeof window !== 'undefined' && ['ic', 'email', 'rank', 'section', 'department', 'role'].includes(key)) {
+  if (
+    typeof window !== 'undefined' &&
+    ['ic', 'email', 'rank', 'section', 'department', 'role'].includes(key)
+  ) {
     window.syncSidebarAccess?.();
   }
 }
@@ -355,14 +388,18 @@ function sessionGet(key) {
   if (key === 'ic') {
     return _session['ic'] || _session['email'] || null;
   }
-  return (_session[key] !== undefined && _session[key] !== null) ? _session[key] : null;
+  return _session[key] !== undefined && _session[key] !== null ? _session[key] : null;
 }
 
 function saveAdminMemberSignIn(signIn, remember) {
   try {
     sessionStorage.removeItem('bb_admin_member_signin');
     localStorage.removeItem('bb_admin_member_signin');
-    if (signIn && /^[a-f0-9]{64}$/.test(signIn.token) && Date.parse(signIn.expires_at) > Date.now()) {
+    if (
+      signIn &&
+      /^[a-f0-9]{64}$/.test(signIn.token) &&
+      Date.parse(signIn.expires_at) > Date.now()
+    ) {
       var storage = remember ? localStorage : sessionStorage;
       storage.setItem('bb_admin_member_signin', JSON.stringify(signIn));
     }
@@ -371,16 +408,29 @@ function saveAdminMemberSignIn(signIn, remember) {
 
 function getAdminMemberSignIn() {
   try {
-    var signIn = JSON.parse(sessionStorage.getItem('bb_admin_member_signin') || localStorage.getItem('bb_admin_member_signin') || 'null');
-    var identity = String(sessionGet('email') || sessionGet('ic') || '').trim().toLowerCase();
-    return signIn && signIn.email === identity && Date.parse(signIn.expires_at) > Date.now() &&
-      /^[a-f0-9]{64}$/.test(signIn.token) ? signIn.token : null;
-  } catch (_) { return null; }
+    var signIn = JSON.parse(
+      sessionStorage.getItem('bb_admin_member_signin') ||
+        localStorage.getItem('bb_admin_member_signin') ||
+        'null'
+    );
+    var identity = String(sessionGet('email') || sessionGet('ic') || '')
+      .trim()
+      .toLowerCase();
+    return signIn &&
+      signIn.email === identity &&
+      Date.parse(signIn.expires_at) > Date.now() &&
+      /^[a-f0-9]{64}$/.test(signIn.token)
+      ? signIn.token
+      : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('storage', function(event) {
-    if (event.key === 'bb_admin_member_signin' && !getAdminMemberSignIn()) window.revokeAdminSession?.();
+  window.addEventListener('storage', function (event) {
+    if (event.key === 'bb_admin_member_signin' && !getAdminMemberSignIn())
+      window.revokeAdminSession?.();
   });
 }
 
@@ -394,7 +444,18 @@ function sessionClear(options) {
   var adminSignIn = getAdminMemberSignIn();
   saveAdminMemberSignIn(null);
   if (adminSignIn && !localOnly && typeof supa !== 'undefined' && typeof supa.rpc === 'function') {
-    supa.rpc('rpc_end_admin_member_signin', { p_member_token: adminSignIn }).catch(function() {});
+    supa.rpc('rpc_end_admin_member_signin', { p_member_token: adminSignIn }).catch(function () {});
+  }
+  var memberToken =
+    typeof sessionGet === 'function'
+      ? sessionGet('session_token') || sessionGet('member_token')
+      : null;
+  if (memberToken && !localOnly) {
+    var client =
+      typeof supa !== 'undefined' && supa ? supa : typeof getSupa === 'function' ? getSupa() : null;
+    if (client && typeof client.rpc === 'function') {
+      client.rpc('rpc_member_logout', { p_token: memberToken }).catch(function () {});
+    }
   }
   for (var k in _session) {
     if (Object.prototype.hasOwnProperty.call(_session, k)) {
@@ -419,7 +480,7 @@ function sessionClear(options) {
     }
 
     if (!localOnly && !_isApplyingRemoteSync) {
-      var msgId = _tabId + ':' + Date.now() + ':' + (++_msgSeq);
+      var msgId = _tabId + ':' + Date.now() + ':' + ++_msgSeq;
       isDuplicateMessage(msgId);
       var clearPayload = {
         action: 'clear',
@@ -458,11 +519,34 @@ async function signOutEverywhere() {
   try {
     var client = null;
     if (typeof getSupa === 'function') client = getSupa();
-    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function') client = window.getSupa();
+    else if (typeof window !== 'undefined' && typeof window.getSupa === 'function')
+      client = window.getSupa();
     else if (typeof window !== 'undefined' && window.supabaseClient) client = window.supabaseClient;
 
+    var memberToken = sessionGet('session_token') || sessionGet('member_token');
+    var getAdminTokenFn =
+      typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function'
+        ? window.getAdminSessionToken
+        : typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function'
+          ? global.getAdminSessionToken
+          : null;
+    var getAdminSignInFn =
+      typeof window !== 'undefined' && typeof window.getAdminMemberSignIn === 'function'
+        ? window.getAdminMemberSignIn
+        : typeof global !== 'undefined' && typeof global.getAdminMemberSignIn === 'function'
+          ? global.getAdminMemberSignIn
+          : null;
+    var adminToken =
+      (getAdminTokenFn ? getAdminTokenFn() : null) ||
+      (getAdminSignInFn ? getAdminSignInFn() : null);
+    var token = memberToken || adminToken;
     if (client && typeof client.rpc === 'function') {
-      var result = await client.rpc('rpc_sign_out_everywhere', { p_actor_id: actorId });
+      var result = await client.rpc('rpc_sign_out_everywhere', {
+        p_token: token,
+        p_actor_id: actorId,
+        p_email: sessionGet('email'),
+        p_ic: sessionGet('ic')
+      });
       remoteRevoked = !!(result && result.success);
     } else if (typeof logAuditEvent === 'function') {
       await logAuditEvent({
@@ -510,14 +594,24 @@ async function signOutEverywhere() {
  * Global Route-Protection Middleware & Authenticated Portal Gatekeeper
  */
 var AuthGuard = {
-  PROTECTED_ROUTES: ['home', 'order', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade'],
+  PROTECTED_ROUTES: [
+    'home',
+    'order',
+    'tasks',
+    'badges',
+    'attendance',
+    'resources',
+    'gallery',
+    'forum',
+    'arcade'
+  ],
   PUBLIC_ROUTES: ['member', 'admin'],
 
   /**
    * Checks whether the current user has an active, valid authentication session.
    * @returns {boolean}
    */
-  isUserAuthenticated: function() {
+  isUserAuthenticated: function () {
     try {
       var ic = sessionGet('ic');
       var email = sessionGet('email');
@@ -535,11 +629,20 @@ var AuthGuard = {
         var blocked = localStorage.getItem('bb_blocked_emails');
         if (blocked) {
           try {
-            var currentIdentity = [ic, email].filter(Boolean).map(function(id) { return String(id).trim().toLowerCase(); });
+            var currentIdentity = [ic, email].filter(Boolean).map(function (id) {
+              return String(id).trim().toLowerCase();
+            });
             var entries = JSON.parse(blocked);
-            if (Array.isArray(entries) && entries.some(function(entry) {
-              return currentIdentity.includes(String(entry && (entry.email || entry)).trim().toLowerCase());
-            })) {
+            if (
+              Array.isArray(entries) &&
+              entries.some(function (entry) {
+                return currentIdentity.includes(
+                  String(entry && (entry.email || entry))
+                    .trim()
+                    .toLowerCase()
+                );
+              })
+            ) {
               forceKickDeletedAccount();
               return false;
             }
@@ -550,10 +653,16 @@ var AuthGuard = {
           try {
             var delList = JSON.parse(delRaw);
             if (Array.isArray(delList)) {
-              var cleanIc = String(ic || '').toLowerCase().trim();
-              var cleanEmail = String(email || '').toLowerCase().trim();
-              var isDel = delList.some(function(item) {
-                var itm = String(item || '').toLowerCase().trim();
+              var cleanIc = String(ic || '')
+                .toLowerCase()
+                .trim();
+              var cleanEmail = String(email || '')
+                .toLowerCase()
+                .trim();
+              var isDel = delList.some(function (item) {
+                var itm = String(item || '')
+                  .toLowerCase()
+                  .trim();
                 return itm && (itm === cleanIc || itm === cleanEmail);
               });
               if (isDel) {
@@ -580,7 +689,7 @@ var AuthGuard = {
    * @param {string} route
    * @returns {boolean}
    */
-  canActivate: function(route) {
+  canActivate: function (route) {
     if (!route) return false;
     var cleanRoute = String(route).toLowerCase().trim().replace(/^#/, '');
 
@@ -598,15 +707,15 @@ var AuthGuard = {
    * @param {string} [identifier]
    * @returns {boolean}
    */
-  isUserOnboarded: function(identifier) {
-    return (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(identifier) : true;
+  isUserOnboarded: function (identifier) {
+    return typeof isOnboardingCompleted === 'function' ? isOnboardingCompleted(identifier) : true;
   },
 
   /**
    * Stores the intended destination route when unauthenticated access is intercepted.
    * @param {string} route
    */
-  setRedirectTarget: function(route) {
+  setRedirectTarget: function (route) {
     if (!route) return;
     var cleanRoute = String(route).toLowerCase().trim().replace(/^#/, '');
     if (cleanRoute === 'member') return;
@@ -622,7 +731,7 @@ var AuthGuard = {
    * Retrieves the stored post-login redirect destination.
    * @returns {string|null}
    */
-  getRedirectTarget: function() {
+  getRedirectTarget: function () {
     if (_redirectTarget) return _redirectTarget;
     try {
       if (typeof sessionStorage !== 'undefined') {
@@ -638,7 +747,7 @@ var AuthGuard = {
   /**
    * Clears the stored redirect target after navigation has completed.
    */
-  clearRedirectTarget: function() {
+  clearRedirectTarget: function () {
     _redirectTarget = null;
     try {
       if (typeof sessionStorage !== 'undefined') {
@@ -652,7 +761,7 @@ var AuthGuard = {
    * @param {string} targetRoute
    * @returns {{ allowed: boolean, redirect?: string, reason?: string }}
    */
-  enforceRouteProtection: function(targetRoute) {
+  enforceRouteProtection: function (targetRoute) {
     if (this.canActivate(targetRoute)) {
       return { allowed: true };
     }
@@ -665,13 +774,27 @@ var AuthGuard = {
   }
 };
 
-
 /**
  * Asynchronously verifies that the active authenticated session still exists in the database
  * and has not been deleted or revoked by an administrator.
  * If revoked or missing, immediately kicks the user out to the login/registration page (#member).
  * @returns {Promise<boolean>} true if session is valid, false if revoked
  */
+/**
+ * Sanitizes user inputs before interpolation into PostgREST filter parameters.
+ * Prevents query AST injection via (), commas, and dots.
+ * @param {string} val
+ * @returns {string}
+ */
+function sanitizePostgrestFilterParam(val) {
+  if (val === null || val === undefined) return '';
+  return encodeURIComponent(String(val).trim())
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/,/g, '%2C')
+    .replace(/\./g, '%2E');
+}
+
 var _lastSessionVerifyTime = 0;
 var SESSION_VERIFY_TTL = 30 * 1000; // 30-second TTL prevents redundant remote network queries on view transitions
 
@@ -682,17 +805,26 @@ async function verifyActiveMemberSession(force) {
   if (!ic && !email) return false;
 
   // 1. Instant local verification against cached deleted/blocked members (0ms latency)
-  var cleanIc = String(ic || '').toLowerCase().trim();
-  var cleanEmail = String(email || '').toLowerCase().trim();
+  var cleanIc = String(ic || '')
+    .toLowerCase()
+    .trim();
+  var cleanEmail = String(email || '')
+    .toLowerCase()
+    .trim();
   if (typeof localStorage !== 'undefined') {
     try {
       var cachedDel = localStorage.getItem('bb_deleted_members');
       if (cachedDel) {
         var localDelList = JSON.parse(cachedDel);
-        if (Array.isArray(localDelList) && localDelList.some(function(item) {
-          var itm = String(item || '').toLowerCase().trim();
-          return itm && (itm === cleanIc || itm === cleanEmail);
-        })) {
+        if (
+          Array.isArray(localDelList) &&
+          localDelList.some(function (item) {
+            var itm = String(item || '')
+              .toLowerCase()
+              .trim();
+            return itm && (itm === cleanIc || itm === cleanEmail);
+          })
+        ) {
           forceKickDeletedAccount();
           return false;
         }
@@ -700,10 +832,18 @@ async function verifyActiveMemberSession(force) {
       var cachedBlk = localStorage.getItem('bb_blocked_emails');
       if (cachedBlk) {
         var localBlkList = JSON.parse(cachedBlk);
-        if (Array.isArray(localBlkList) && localBlkList.some(function(item) {
-          var itm = (item && typeof item === 'object' && item.email) ? String(item.email).toLowerCase().trim() : String(item || '').toLowerCase().trim();
-          return itm && (itm === cleanIc || itm === cleanEmail);
-        })) {
+        if (
+          Array.isArray(localBlkList) &&
+          localBlkList.some(function (item) {
+            var itm =
+              item && typeof item === 'object' && item.email
+                ? String(item.email).toLowerCase().trim()
+                : String(item || '')
+                    .toLowerCase()
+                    .trim();
+            return itm && (itm === cleanIc || itm === cleanEmail);
+          })
+        ) {
           forceKickDeletedAccount();
           return false;
         }
@@ -721,7 +861,7 @@ async function verifyActiveMemberSession(force) {
       }
     } catch (_) {}
     var effectiveVerifyTs = Math.max(_lastSessionVerifyTime, cachedVerifyTs);
-    if (effectiveVerifyTs > 0 && (now - effectiveVerifyTs < SESSION_VERIFY_TTL)) {
+    if (effectiveVerifyTs > 0 && now - effectiveVerifyTs < SESSION_VERIFY_TTL) {
       return true;
     }
   }
@@ -729,52 +869,102 @@ async function verifyActiveMemberSession(force) {
   var lookupId = ic || email;
 
   try {
-    var client = (typeof getSupabaseClient === 'function')
-      ? getSupabaseClient()
-      : (typeof window !== 'undefined' && window.supa ? window.supa : (typeof supa !== 'undefined' ? supa : null));
+    var client =
+      typeof getSupabaseClient === 'function'
+        ? getSupabaseClient()
+        : typeof window !== 'undefined' && window.supa
+          ? window.supa
+          : typeof supa !== 'undefined'
+            ? supa
+            : null;
 
-    if (!client || typeof client.get !== 'function') return true;
+    // Cryptographic Server Session Token Verification (Anti-Spoofing Gatekeeper)
+    var memberToken = sessionGet('session_token') || sessionGet('member_token');
+    if (!memberToken) {
+      console.warn('Unverified session detected without token proof.');
+      forceKickDeletedAccount();
+      return false;
+    }
+
+    if (!client || typeof client.rpc !== 'function') {
+      forceKickDeletedAccount();
+      return false;
+    }
+
+    try {
+      var verifyRes = await client.rpc('rpc_verify_member_session', {
+        p_token: memberToken,
+        p_email: cleanEmail || cleanIc
+      });
+      if (!verifyRes || verifyRes.valid !== true) {
+        forceKickDeletedAccount();
+        return false;
+      }
+    } catch (rpcErr) {
+      console.warn('rpc_verify_member_session rejected:', rpcErr);
+      forceKickDeletedAccount();
+      return false;
+    }
 
     // 1. Fetch remote bb_deleted_members list to keep local cache synchronized
     try {
-      var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value', { cache: !force });
+      var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value', {
+        cache: !force
+      });
       if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
       if (cfgRes && cfgRes.length && cfgRes[0].value) {
-        var delList = typeof cfgRes[0].value === 'string' ? JSON.parse(cfgRes[0].value) : cfgRes[0].value;
+        var delList =
+          typeof cfgRes[0].value === 'string' ? JSON.parse(cfgRes[0].value) : cfgRes[0].value;
         if (Array.isArray(delList)) {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem('bb_deleted_members', JSON.stringify(delList));
           }
           if (typeof cleanMembersCache === 'function') {
-            try { cleanMembersCache(); } catch (_) {}
+            try {
+              cleanMembersCache();
+            } catch (_) {}
           }
-          var cleanIc = String(ic || '').toLowerCase().trim();
-          var cleanEmail = String(email || '').toLowerCase().trim();
-          var isDeleted = delList.some(function(item) {
-            var itm = String(item || '').toLowerCase().trim();
+          var cleanIc = String(ic || '')
+            .toLowerCase()
+            .trim();
+          var cleanEmail = String(email || '')
+            .toLowerCase()
+            .trim();
+          var isDeleted = delList.some(function (item) {
+            var itm = String(item || '')
+              .toLowerCase()
+              .trim();
             return itm && (itm === cleanIc || itm === cleanEmail);
           });
           if (isDeleted) {
             forceKickDeletedAccount();
             return false;
           }
-
         }
       }
     } catch (_) {}
 
     // Restrictions are independent of the deleted-member registry.
     try {
-      var blkCfg = await client.get('bb_config?key=eq.bb_blocked_emails&select=value', { cache: !force });
+      var blkCfg = await client.get('bb_config?key=eq.bb_blocked_emails&select=value', {
+        cache: !force
+      });
       if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
       if (Array.isArray(blkCfg) && blkCfg.length && blkCfg[0].value) {
-        var blkList = typeof blkCfg[0].value === 'string' ? JSON.parse(blkCfg[0].value) : blkCfg[0].value;
+        var blkList =
+          typeof blkCfg[0].value === 'string' ? JSON.parse(blkCfg[0].value) : blkCfg[0].value;
         if (Array.isArray(blkList)) {
-          try { localStorage.setItem('bb_blocked_emails', JSON.stringify(blkList)); } catch (_) {}
-          if (blkList.some(function(item) {
-            var value = String(item && item.email || item || '').trim().toLowerCase();
-            return value && (value === cleanIc || value === cleanEmail);
-          })) {
+          try {
+            localStorage.setItem('bb_blocked_emails', JSON.stringify(blkList));
+          } catch (_) {}
+          if (
+            blkList.some(function (item) {
+              var value = String((item && item.email) || item || '')
+                .trim()
+                .toLowerCase();
+              return value && (value === cleanIc || value === cleanEmail);
+            })
+          ) {
             forceKickDeletedAccount();
             return false;
           }
@@ -783,15 +973,23 @@ async function verifyActiveMemberSession(force) {
     } catch (_) {}
 
     // 2. Query bb_members table directly for active member row
-    var query = 'bb_members?select=ic,email,department&or=(ic.eq.' + encodeURIComponent(lookupId) +
-      (email ? (',email.ilike.' + encodeURIComponent(cleanEmail)) : '') + ')';
+    var safeLookupId = sanitizePostgrestFilterParam(lookupId);
+    var safeCleanEmail = sanitizePostgrestFilterParam(cleanEmail);
+    var query =
+      'bb_members?select=ic,email,department&or=(ic.eq.' +
+      safeLookupId +
+      (email ? ',email.ilike.' + safeCleanEmail : '') +
+      ')';
     var rows = await client.get(query);
     if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
 
     // Only revoke access if database explicitly returns a record marked as deleted or archived.
     // Transient network timeouts, empty query fallbacks, or offline states must NEVER purge user sessions.
     if (Array.isArray(rows) && rows.length > 0) {
-      if (['deleted', 'archived_deleted'].includes(rows[0].department) || (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)) {
+      if (
+        ['deleted', 'archived_deleted'].includes(rows[0].department) ||
+        (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)
+      ) {
         forceKickDeletedAccount();
         return false;
       }
@@ -841,7 +1039,11 @@ function forceKickDeletedAccount() {
       if (authEl) authEl.style.display = 'block';
     }
     if (typeof showToast === 'function') {
-      showToast('Your account has been deleted. Access to the portal has been revoked.', 'error', 6000);
+      showToast(
+        'Your account has been deleted. Access to the portal has been revoked.',
+        'error',
+        6000
+      );
     }
   } catch (e) {
     console.error('Error during forceKickDeletedAccount:', e);
@@ -849,8 +1051,8 @@ function forceKickDeletedAccount() {
 }
 
 // ── Member Online, Idle & Offline Presence Tracking ────────────────
-var PRESENCE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;      // 5 minutes of inactivity = Idle
-var PRESENCE_HEARTBEAT_INTERVAL_MS = 60 * 1000;    // 60-second periodic heartbeat
+var PRESENCE_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity = Idle
+var PRESENCE_HEARTBEAT_INTERVAL_MS = 60 * 1000; // 60-second periodic heartbeat
 var _lastUserActivityTs = Date.now();
 var _localPresenceStatus = 'online';
 var _presenceHeartbeatTimer = null;
@@ -874,7 +1076,8 @@ function getLocalPresenceStatus() {
  * @param {string} status - 'online', 'idle', or 'offline'
  */
 function setLocalPresenceStatus(status) {
-  var cleanStatus = (status === 'online' || status === 'idle' || status === 'offline') ? status : 'offline';
+  var cleanStatus =
+    status === 'online' || status === 'idle' || status === 'offline' ? status : 'offline';
   var changed = _localPresenceStatus !== cleanStatus;
   _localPresenceStatus = cleanStatus;
 
@@ -899,7 +1102,9 @@ function setLocalPresenceStatus(status) {
 
   if (changed) {
     for (var i = 0; i < _presenceListeners.length; i++) {
-      try { _presenceListeners[i](_localPresenceStatus); } catch (_) {}
+      try {
+        _presenceListeners[i](_localPresenceStatus);
+      } catch (_) {}
     }
   }
 }
@@ -911,7 +1116,9 @@ function setLocalPresenceStatus(status) {
 function onPresenceChange(callback) {
   if (typeof callback === 'function') {
     _presenceListeners.push(callback);
-    try { callback(_localPresenceStatus); } catch (_) {}
+    try {
+      callback(_localPresenceStatus);
+    } catch (_) {}
   }
 }
 
@@ -947,7 +1154,7 @@ var _isFetchingPresence = false;
  */
 async function fetchRemoteMemberPresence(force) {
   var now = Date.now();
-  if (!force && _cachedPresenceMap && (now - _lastPresenceFetchTs) < PRESENCE_FETCH_CACHE_MS) {
+  if (!force && _cachedPresenceMap && now - _lastPresenceFetchTs < PRESENCE_FETCH_CACHE_MS) {
     return _cachedPresenceMap;
   }
   if (_isFetchingPresence) {
@@ -956,9 +1163,14 @@ async function fetchRemoteMemberPresence(force) {
   _isFetchingPresence = true;
 
   try {
-    var client = (typeof getSupabaseClient === 'function')
-      ? getSupabaseClient()
-      : (typeof window !== 'undefined' && window.supa ? window.supa : (typeof supa !== 'undefined' ? supa : null));
+    var client =
+      typeof getSupabaseClient === 'function'
+        ? getSupabaseClient()
+        : typeof window !== 'undefined' && window.supa
+          ? window.supa
+          : typeof supa !== 'undefined'
+            ? supa
+            : null;
 
     if (!client || typeof client.get !== 'function') {
       if (!_cachedPresenceMap && typeof localStorage !== 'undefined') {
@@ -972,11 +1184,13 @@ async function fetchRemoteMemberPresence(force) {
 
     var res = await client.get('bb_config?key=eq.bb_member_presence&select=value');
     if (res && res.length && res[0].value) {
-      var remoteMap = (typeof res[0].value === 'string') ? JSON.parse(res[0].value) : res[0].value;
+      var remoteMap = typeof res[0].value === 'string' ? JSON.parse(res[0].value) : res[0].value;
       if (remoteMap && typeof remoteMap === 'object') {
         // Merge with active local user's own live presence
-        var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : '';
-        var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '').toLowerCase().trim() : '';
+        var myEmail =
+          typeof sessionGet === 'function' ? (sessionGet('email') || '').toLowerCase().trim() : '';
+        var myIc =
+          typeof sessionGet === 'function' ? (sessionGet('ic') || '').toLowerCase().trim() : '';
         var myKey = myEmail || myIc;
         if (myKey && typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
           var myStatus = getLocalPresenceStatus();
@@ -1002,7 +1216,9 @@ async function fetchRemoteMemberPresence(force) {
         if (typeof window !== 'undefined') {
           window._globalPresenceMap = _cachedPresenceMap;
           if (typeof window.dispatchEvent === 'function') {
-            window.dispatchEvent(new CustomEvent('bb:presence_updated', { detail: _cachedPresenceMap }));
+            window.dispatchEvent(
+              new CustomEvent('bb:presence_updated', { detail: _cachedPresenceMap })
+            );
           }
         }
         if (typeof global !== 'undefined') {
@@ -1038,7 +1254,7 @@ function refreshLivePresenceDots() {
   if (typeof document === 'undefined') return;
   var dots = document.querySelectorAll('.avatar-status-dot');
   if (!dots || !dots.length) return;
-  dots.forEach(function(dot) {
+  dots.forEach(function (dot) {
     var id = dot.getAttribute ? dot.getAttribute('data-presence-id') : null;
     if (!id) return;
     var name = dot.getAttribute('data-presence-name') || '';
@@ -1049,11 +1265,14 @@ function refreshLivePresenceDots() {
     var prefix = currentTitle.split(' (')[0] || name || id;
     dot.title = prefix + ' (' + pInfo.label + ')';
     dot.setAttribute('aria-label', prefix + ' (' + pInfo.label + ')');
-    dot.className = dot.className.replace(/\bstatus-(online|idle|offline)\b/g, '').trim() + ' status-' + pInfo.status;
+    dot.className =
+      dot.className.replace(/\bstatus-(online|idle|offline)\b/g, '').trim() +
+      ' status-' +
+      pInfo.status;
   });
 }
 
-var _lastSessionVerifyTs = 0;
+var _lastSessionVerifyTs = Date.now();
 
 /**
  * Sends presence heartbeat to local cache and Supabase bb_config (leader tab only)
@@ -1065,14 +1284,14 @@ async function sendPresenceHeartbeat(forcedStatus) {
       return;
     }
     var nowTs = Date.now();
-    if (typeof verifyActiveMemberSession === 'function' && (nowTs - _lastSessionVerifyTs > 600000)) {
+    if (typeof verifyActiveMemberSession === 'function' && nowTs - _lastSessionVerifyTs > 600000) {
       _lastSessionVerifyTs = nowTs;
-      verifyActiveMemberSession().catch(function() {});
+      verifyActiveMemberSession().catch(function () {});
     }
-    var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
-    var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
-    var name = (typeof sessionGet === 'function') ? sessionGet('name') : null;
-    var rank = (typeof sessionGet === 'function') ? sessionGet('rank') : null;
+    var ic = typeof sessionGet === 'function' ? sessionGet('ic') : null;
+    var email = typeof sessionGet === 'function' ? sessionGet('email') : null;
+    var name = typeof sessionGet === 'function' ? sessionGet('name') : null;
+    var rank = typeof sessionGet === 'function' ? sessionGet('rank') : null;
     var key = (email || ic || '').toLowerCase().trim();
     if (!key) return;
 
@@ -1100,22 +1319,34 @@ async function sendPresenceHeartbeat(forcedStatus) {
 
     // 2. Persist to Supabase bb_config if leader tab
     if (typeof isLeaderTab === 'function' && isLeaderTab()) {
-      var client = (typeof getSupabaseClient === 'function')
-        ? getSupabaseClient()
-        : (typeof window !== 'undefined' && window.supa ? window.supa : (typeof supa !== 'undefined' ? supa : null));
+      var client =
+        typeof getSupabaseClient === 'function'
+          ? getSupabaseClient()
+          : typeof window !== 'undefined' && window.supa
+            ? window.supa
+            : typeof supa !== 'undefined'
+              ? supa
+              : null;
 
       if (client && typeof client.safeConfigUpdate === 'function') {
-        await client.safeConfigUpdate('bb_member_presence', function(currentRemote) {
-          var remoteMap = (currentRemote && typeof currentRemote === 'object') ? currentRemote : {};
-          var cutoff = Date.now() - 24 * 60 * 60 * 1000;
-          Object.keys(remoteMap).forEach(function(k) {
-            if (remoteMap[k] && remoteMap[k].last_seen && remoteMap[k].last_seen < cutoff) {
-              delete remoteMap[k];
-            }
-          });
-          remoteMap[key] = payload;
-          return remoteMap;
-        }, { enableMerge: false, maxRetries: 2 }).catch(function() {});
+        await client
+          .safeConfigUpdate(
+            'bb_member_presence',
+            function (currentRemote) {
+              var remoteMap =
+                currentRemote && typeof currentRemote === 'object' ? currentRemote : {};
+              var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+              Object.keys(remoteMap).forEach(function (k) {
+                if (remoteMap[k] && remoteMap[k].last_seen && remoteMap[k].last_seen < cutoff) {
+                  delete remoteMap[k];
+                }
+              });
+              remoteMap[key] = payload;
+              return remoteMap;
+            },
+            { enableMerge: false, maxRetries: 2 }
+          )
+          .catch(function () {});
       }
     }
   } catch (_) {}
@@ -1128,16 +1359,18 @@ function initPresenceTracking() {
   if (typeof window === 'undefined') return;
 
   var events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
-  events.forEach(function(ev) {
+  events.forEach(function (ev) {
     try {
       window.addEventListener(ev, recordUserActivity, { passive: true });
     } catch (_) {
-      try { window.addEventListener(ev, recordUserActivity); } catch (_) {}
+      try {
+        window.addEventListener(ev, recordUserActivity);
+      } catch (_) {}
     }
   });
 
   if (typeof document !== 'undefined' && document.addEventListener) {
-    document.addEventListener('visibilitychange', function() {
+    document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') {
         recordUserActivity();
       }
@@ -1146,11 +1379,11 @@ function initPresenceTracking() {
 
   // Periodic activity checker & remote presence sync (every 3 minutes)
   if (_presenceCheckTimer) clearInterval(_presenceCheckTimer);
-  _presenceCheckTimer = setInterval(function() {
-    var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  _presenceCheckTimer = setInterval(function () {
+    var isTabHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
     if (!isTabHidden && typeof isLeaderTab === 'function' && isLeaderTab()) {
       if (typeof fetchRemoteMemberPresence === 'function') {
-        fetchRemoteMemberPresence().catch(function() {});
+        fetchRemoteMemberPresence().catch(function () {});
       }
     }
     if (typeof isUserAuthenticated !== 'function' || !isUserAuthenticated()) {
@@ -1180,8 +1413,8 @@ function initPresenceTracking() {
 
   // Periodic heartbeat timer (every 3 minutes)
   if (_presenceHeartbeatTimer) clearInterval(_presenceHeartbeatTimer);
-  _presenceHeartbeatTimer = setInterval(function() {
-    var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  _presenceHeartbeatTimer = setInterval(function () {
+    var isTabHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
     if (!isTabHidden && typeof isLeaderTab === 'function' && isLeaderTab()) {
       sendPresenceHeartbeat();
     }
@@ -1189,7 +1422,7 @@ function initPresenceTracking() {
 
   // Initial heartbeat and remote presence sync
   if (typeof fetchRemoteMemberPresence === 'function') {
-    fetchRemoteMemberPresence(true).catch(function() {});
+    fetchRemoteMemberPresence(true).catch(function () {});
   }
   if (typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
     if (typeof isLeaderTab === 'function' && isLeaderTab()) {
@@ -1206,37 +1439,59 @@ function initPresenceTracking() {
  */
 function getMemberPresenceStatus(member, presenceMap) {
   var now = Date.now();
-  var mObj = (typeof member === 'object' && member !== null) ? member : { ic: String(member), email: String(member) };
+  var mObj =
+    typeof member === 'object' && member !== null
+      ? member
+      : { ic: String(member), email: String(member) };
   var mIc = (mObj.ic || '').trim();
   var mEmail = (mObj.email || '').trim().toLowerCase();
   var mName = (mObj.name || '').trim().toLowerCase();
 
-  var currentIc = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
-  var currentEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '').toLowerCase().trim() : null;
-  var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '').toLowerCase().trim() : null;
+  var currentIc = typeof sessionGet === 'function' ? sessionGet('ic') : null;
+  var currentEmail =
+    typeof sessionGet === 'function' ? (sessionGet('email') || '').toLowerCase().trim() : null;
+  var currentName =
+    typeof sessionGet === 'function' ? (sessionGet('name') || '').toLowerCase().trim() : null;
 
-  var isSelf = (currentIc && (mIc === currentIc || mEmail === currentIc.toLowerCase())) ||
-               (currentEmail && (mEmail === currentEmail || mIc.toLowerCase() === currentEmail)) ||
-               (currentName && mName && (mName === currentName || mName.replace(/\s+/g, ' ') === currentName.replace(/\s+/g, ' ')));
+  var isSelf =
+    (currentIc && (mIc === currentIc || mEmail === currentIc.toLowerCase())) ||
+    (currentEmail && (mEmail === currentEmail || mIc.toLowerCase() === currentEmail)) ||
+    (currentName &&
+      mName &&
+      (mName === currentName || mName.replace(/\s+/g, ' ') === currentName.replace(/\s+/g, ' ')));
 
   if (isSelf) {
     var selfStatus = getLocalPresenceStatus();
     return {
       status: selfStatus,
-      label: selfStatus === 'idle' ? 'Away / Idle' : (selfStatus === 'online' ? 'Online' : 'Offline'),
-      color: selfStatus === 'idle' ? '#f59e0b' : (selfStatus === 'online' ? '#10b981' : '#6b7280'),
+      label: selfStatus === 'idle' ? 'Away / Idle' : selfStatus === 'online' ? 'Online' : 'Offline',
+      color: selfStatus === 'idle' ? '#f59e0b' : selfStatus === 'online' ? '#10b981' : '#6b7280',
       lastSeen: now
     };
   }
 
-  var map = (presenceMap && typeof presenceMap === 'object' && Object.keys(presenceMap).length > 0) ? presenceMap : _cachedPresenceMap;
-  if ((!map || (typeof map === 'object' && Object.keys(map).length === 0)) && typeof window !== 'undefined' && window._globalPresenceMap) {
+  var map =
+    presenceMap && typeof presenceMap === 'object' && Object.keys(presenceMap).length > 0
+      ? presenceMap
+      : _cachedPresenceMap;
+  if (
+    (!map || (typeof map === 'object' && Object.keys(map).length === 0)) &&
+    typeof window !== 'undefined' &&
+    window._globalPresenceMap
+  ) {
     map = window._globalPresenceMap;
   }
-  if ((!map || (typeof map === 'object' && Object.keys(map).length === 0)) && typeof global !== 'undefined' && global._globalPresenceMap) {
+  if (
+    (!map || (typeof map === 'object' && Object.keys(map).length === 0)) &&
+    typeof global !== 'undefined' &&
+    global._globalPresenceMap
+  ) {
     map = global._globalPresenceMap;
   }
-  if ((!map || (typeof map === 'object' && Object.keys(map).length === 0)) && typeof localStorage !== 'undefined') {
+  if (
+    (!map || (typeof map === 'object' && Object.keys(map).length === 0)) &&
+    typeof localStorage !== 'undefined'
+  ) {
     try {
       var raw = localStorage.getItem('bb_member_presence');
       if (raw) map = JSON.parse(raw);
@@ -1257,7 +1512,11 @@ function getMemberPresenceStatus(member, presenceMap) {
         var itEmail = (it.email || '').toLowerCase().trim();
         var itIc = String(it.ic || '').trim();
         var itName = (it.name || '').toLowerCase().trim();
-        if ((mEmail && itEmail === mEmail) || (mIc && itIc === mIc) || (mName && itName === mName)) {
+        if (
+          (mEmail && itEmail === mEmail) ||
+          (mIc && itIc === mIc) ||
+          (mName && itName === mName)
+        ) {
           rec = it;
           break;
         }
@@ -1265,9 +1524,13 @@ function getMemberPresenceStatus(member, presenceMap) {
     }
     if (!rec && mName) {
       try {
-        var dirInfo = (typeof resolveMemberDirectoryInfo === 'function')
-          ? resolveMemberDirectoryInfo(mName)
-          : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo(mName) : null);
+        var dirInfo =
+          typeof resolveMemberDirectoryInfo === 'function'
+            ? resolveMemberDirectoryInfo(mName)
+            : typeof window !== 'undefined' &&
+                typeof window.resolveMemberDirectoryInfo === 'function'
+              ? window.resolveMemberDirectoryInfo(mName)
+              : null;
         if (dirInfo) {
           var dirEmail = (dirInfo.email || dirInfo.ic || '').toLowerCase().trim();
           var dirIc = String(dirInfo.ic || '').trim();
@@ -1311,10 +1574,10 @@ function getMemberPresenceStatus(member, presenceMap) {
   var timeAgo = '';
   var hrs = Math.round(elapsed / 3600000);
   if (hrs < 24) {
-    timeAgo = hrs <= 1 ? '1h ago' : (hrs + 'h ago');
+    timeAgo = hrs <= 1 ? '1h ago' : hrs + 'h ago';
   } else {
     var days = Math.round(hrs / 24);
-    timeAgo = days <= 1 ? 'yesterday' : (days + 'd ago');
+    timeAgo = days <= 1 ? 'yesterday' : days + 'd ago';
   }
 
   return {
@@ -1337,25 +1600,40 @@ function getMemberPresenceStatus(member, presenceMap) {
  */
 function isOnboardingCompleted(identifier) {
   try {
-    var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+    var id =
+      identifier ||
+      (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '');
     if (!id) return true; // Unauthenticated route protection handled by AuthGuard
 
     var cleanId = String(id).toLowerCase().trim();
     // Test accounts / layout test bypass
-    if (cleanId === '010101-14-1234' || (typeof window !== 'undefined' && window.__SKIP_ONBOARDING__)) {
+    if (
+      cleanId === '010101-14-1234' ||
+      (typeof window !== 'undefined' && window.__SKIP_ONBOARDING__)
+    ) {
       return true;
     }
 
     // On native mobile app (Capacitor/PWA/Android WebView), verify if the app on this device has completed onboarding
-    var isNativeApp = typeof window !== 'undefined' && (
-      (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
-      Boolean(window.androidBridge) ||
-      (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
-      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
-      (window.navigator && window.navigator.standalone === true)
-    );
+    var isNativeApp =
+      typeof window !== 'undefined' &&
+      ((typeof window.Capacitor !== 'undefined' &&
+        typeof window.Capacitor.isNativePlatform === 'function' &&
+        window.Capacitor.isNativePlatform()) ||
+        Boolean(window.androidBridge) ||
+        (window.location &&
+          (window.location.protocol === 'capacitor:' ||
+            window.location.protocol === 'ionic:' ||
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1')) ||
+        (typeof window.matchMedia === 'function' &&
+          window.matchMedia('(display-mode: standalone)').matches) ||
+        (window.navigator && window.navigator.standalone === true));
     if (isNativeApp) {
-      if (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true') {
+      if (
+        typeof localStorage !== 'undefined' &&
+        localStorage.getItem('bb_native_onboarding_completed') !== 'true'
+      ) {
         return false;
       }
     }
@@ -1369,7 +1647,9 @@ function isOnboardingCompleted(identifier) {
     if (typeof sessionGet === 'function') {
       var sVal = sessionGet('onboarding_completed');
       if (sVal === true || sVal === 'true') {
-        var curSessUser = String(sessionGet('email') || sessionGet('ic') || '').toLowerCase().trim();
+        var curSessUser = String(sessionGet('email') || sessionGet('ic') || '')
+          .toLowerCase()
+          .trim();
         if (!identifier || curSessUser === cleanId) return true;
       }
     }
@@ -1401,7 +1681,10 @@ function isOnboardingCompleted(identifier) {
         if (storedSession) {
           try {
             var pSess = JSON.parse(storedSession);
-            if (pSess && (pSess.onboarding_completed === true || pSess.onboarding_completed === 'true')) {
+            if (
+              pSess &&
+              (pSess.onboarding_completed === true || pSess.onboarding_completed === 'true')
+            ) {
               return true;
             }
           } catch (_) {}
@@ -1420,7 +1703,8 @@ function isOnboardingCompleted(identifier) {
  * @param {Object} [details]
  */
 function markOnboardingCompleted(identifier, details) {
-  var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+  var id =
+    identifier || (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '');
   if (!id) return;
   var cleanId = String(id).toLowerCase().trim();
 
@@ -1428,13 +1712,16 @@ function markOnboardingCompleted(identifier, details) {
     sessionSet('onboarding_completed', true);
   }
 
-  var payload = Object.assign({
-    completed: true,
-    completed_at: new Date().toISOString(),
-    terms_accepted: true,
-    privacy_accepted: true,
-    timezone: 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)'
-  }, details || {});
+  var payload = Object.assign(
+    {
+      completed: true,
+      completed_at: new Date().toISOString(),
+      terms_accepted: true,
+      privacy_accepted: true,
+      timezone: 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)'
+    },
+    details || {}
+  );
 
   if (typeof localStorage !== 'undefined') {
     try {
@@ -1447,11 +1734,17 @@ function markOnboardingCompleted(identifier, details) {
       if (typeof sessionGet === 'function') {
         var sEmail = sessionGet('email');
         if (sEmail && String(sEmail).toLowerCase().trim() !== cleanId) {
-          localStorage.setItem('bb_onboarding_completed_' + String(sEmail).toLowerCase().trim(), 'true');
+          localStorage.setItem(
+            'bb_onboarding_completed_' + String(sEmail).toLowerCase().trim(),
+            'true'
+          );
         }
         var sIc = sessionGet('ic');
         if (sIc && String(sIc).toLowerCase().trim() !== cleanId) {
-          localStorage.setItem('bb_onboarding_completed_' + String(sIc).toLowerCase().trim(), 'true');
+          localStorage.setItem(
+            'bb_onboarding_completed_' + String(sIc).toLowerCase().trim(),
+            'true'
+          );
         }
       }
 
@@ -1471,18 +1764,25 @@ function markOnboardingCompleted(identifier, details) {
 
   // Remote synchronization to bb_config
   try {
-    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    var client =
+      typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
     if (client) {
       var cfgKey = 'bb_onboarding_' + cleanId.replace(/[^a-zA-Z0-9]/g, '_');
       var valStr = JSON.stringify(payload);
       if (typeof client.setConfig === 'function') {
-        client.setConfig(cfgKey, valStr).catch(function() {});
+        client.setConfig(cfgKey, valStr).catch(function () {});
       } else if (typeof client.upsert === 'function') {
-        client.upsert('bb_config', {
-          key: cfgKey,
-          value: valStr,
-          updated_at: new Date().toISOString()
-        }, 'key').catch(function() {});
+        client
+          .upsert(
+            'bb_config',
+            {
+              key: cfgKey,
+              value: valStr,
+              updated_at: new Date().toISOString()
+            },
+            'key'
+          )
+          .catch(function () {});
       }
     }
   } catch (_) {}
@@ -1496,31 +1796,42 @@ function markOnboardingCompleted(identifier, details) {
  */
 async function fetchRemoteOnboardingStatus(identifier) {
   try {
-    var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+    var id =
+      identifier ||
+      (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '');
     if (!id) return false;
     var cleanId = String(id).toLowerCase().trim();
-    if (cleanId === '010101-14-1234' || (typeof window !== 'undefined' && window.__SKIP_ONBOARDING__)) {
+    if (
+      cleanId === '010101-14-1234' ||
+      (typeof window !== 'undefined' && window.__SKIP_ONBOARDING__)
+    ) {
       return true;
     }
     if (isOnboardingCompleted(cleanId)) {
       return true;
     }
-    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    var client =
+      typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
     if (client && typeof client.get === 'function') {
       var candidateIds = [cleanId];
       if (typeof sessionGet === 'function') {
         var sEm = sessionGet('email');
-        if (sEm && String(sEm).toLowerCase().trim() !== cleanId) candidateIds.push(String(sEm).toLowerCase().trim());
+        if (sEm && String(sEm).toLowerCase().trim() !== cleanId)
+          candidateIds.push(String(sEm).toLowerCase().trim());
         var sI = sessionGet('ic');
-        if (sI && String(sI).toLowerCase().trim() !== cleanId) candidateIds.push(String(sI).toLowerCase().trim());
+        if (sI && String(sI).toLowerCase().trim() !== cleanId)
+          candidateIds.push(String(sI).toLowerCase().trim());
       }
 
       for (var j = 0; j < candidateIds.length; j++) {
         var cId = candidateIds[j];
         var cfgKey = 'bb_onboarding_' + cId.replace(/[^a-zA-Z0-9]/g, '_');
-        var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value');
+        var rows = await client.get(
+          'bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value'
+        );
         if (rows && rows.length && rows[0].value) {
-          var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+          var parsed =
+            typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
           if (parsed && (parsed.completed === true || parsed.completed === 'true')) {
             if (typeof sessionSet === 'function') {
               sessionSet('onboarding_completed', true);
@@ -1538,17 +1849,35 @@ async function fetchRemoteOnboardingStatus(identifier) {
               } catch (_) {}
             }
             try {
-              if (parsed.theme && typeof window !== 'undefined' && typeof window.themeApply === 'function') {
+              if (
+                parsed.theme &&
+                typeof window !== 'undefined' &&
+                typeof window.themeApply === 'function'
+              ) {
                 window.themeApply(parsed.theme, true);
               }
-              if (typeof parsed.seasonal_particles_enabled !== 'undefined' && typeof window !== 'undefined' && typeof window.toggleAmbientParticles === 'function') {
+              if (
+                typeof parsed.seasonal_particles_enabled !== 'undefined' &&
+                typeof window !== 'undefined' &&
+                typeof window.toggleAmbientParticles === 'function'
+              ) {
                 window.toggleAmbientParticles(Boolean(parsed.seasonal_particles_enabled));
               }
-              if (parsed.seasonal_particles_mode && typeof window !== 'undefined' && typeof window.setAmbientParticlesMode === 'function') {
+              if (
+                parsed.seasonal_particles_mode &&
+                typeof window !== 'undefined' &&
+                typeof window.setAmbientParticlesMode === 'function'
+              ) {
                 window.setAmbientParticlesMode(parsed.seasonal_particles_mode);
               }
-              if (typeof parsed.notification_sound !== 'undefined' && typeof localStorage !== 'undefined') {
-                localStorage.setItem('bb_notif_sound_enabled', parsed.notification_sound ? 'true' : 'false');
+              if (
+                typeof parsed.notification_sound !== 'undefined' &&
+                typeof localStorage !== 'undefined'
+              ) {
+                localStorage.setItem(
+                  'bb_notif_sound_enabled',
+                  parsed.notification_sound ? 'true' : 'false'
+                );
               }
             } catch (_) {}
             return true;
@@ -1565,7 +1894,8 @@ async function fetchRemoteOnboardingStatus(identifier) {
  * @param {string} identifier
  */
 function resetOnboarding(identifier) {
-  var id = identifier || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '');
+  var id =
+    identifier || (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '');
   if (!id) return;
   var cleanId = String(id).toLowerCase().trim();
   if (typeof sessionSet === 'function') {
@@ -1627,6 +1957,7 @@ if (typeof window !== 'undefined') {
   window.markOnboardingCompleted = markOnboardingCompleted;
   window.fetchRemoteOnboardingStatus = fetchRemoteOnboardingStatus;
   window.resetOnboarding = resetOnboarding;
+  window.sanitizePostgrestFilterParam = sanitizePostgrestFilterParam;
 }
 
 if (typeof module !== 'undefined' && module.exports) {
@@ -1661,6 +1992,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isOnboardingCompleted,
     markOnboardingCompleted,
     fetchRemoteOnboardingStatus,
-    resetOnboarding
+    resetOnboarding,
+    sanitizePostgrestFilterParam
   };
 }

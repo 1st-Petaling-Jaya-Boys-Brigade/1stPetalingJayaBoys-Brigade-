@@ -8,6 +8,7 @@
  * Google Drive / YouTube URL normalization, and Supabase Storage uploads.
  */
 
+/* global getAdminSessionToken, PortalRealtime */
 // ── State ──────────────────────────────────────────────────────────────────
 // ── Default Fallback Gallery Images (Zero-Blank Offline Resilience) ────────
 var DEFAULT_GALLERY_IMAGES = [
@@ -28,7 +29,7 @@ var DEFAULT_GALLERY_IMAGES = [
   }
 ];
 
-var galleryImages = (function() {
+var galleryImages = (function () {
   if (typeof localStorage !== 'undefined') {
     try {
       var cached = localStorage.getItem('bb_gallery_cache');
@@ -41,6 +42,10 @@ var galleryImages = (function() {
   return JSON.parse(JSON.stringify(DEFAULT_GALLERY_IMAGES));
 })();
 var _currentGalleryFilter = 'all'; // 'all' | 'photos' | 'videos'
+var DEFAULT_GALLERY_PAGE_SIZE = 24;
+var _galleryHasMore = false;
+var _isLoadingMoreGallery = false;
+var _batchSignPromise = null;
 
 /**
  * Resolves Supabase client instance across environments
@@ -49,7 +54,8 @@ function getSupa() {
   if (typeof window !== 'undefined' && window.supa) return window.supa;
   if (typeof global !== 'undefined' && global.supa) return global.supa;
   if (typeof getSupaClient === 'function') return getSupaClient();
-  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function')
+    return window.getSupaClient();
   if (typeof supa !== 'undefined' && supa) return supa;
   return null;
 }
@@ -70,10 +76,31 @@ function galleryMediaSource(url) {
   var provider;
   if (host === 'drive.google.com' || host === 'docs.google.com') {
     provider = 'drive';
-    id = path[0] === 'file' && path[1] === 'd' ? path[2] : (['open', 'uc', 'thumbnail'].includes(path[0]) ? url.searchParams.get('id') : '');
-  } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com', 'youtu.be'].includes(host)) {
+    id =
+      path[0] === 'file' && path[1] === 'd'
+        ? path[2]
+        : ['open', 'uc', 'thumbnail'].includes(path[0])
+          ? url.searchParams.get('id')
+          : '';
+  } else if (
+    [
+      'youtube.com',
+      'www.youtube.com',
+      'm.youtube.com',
+      'youtube-nocookie.com',
+      'www.youtube-nocookie.com',
+      'youtu.be'
+    ].includes(host)
+  ) {
     provider = 'youtube';
-    id = host === 'youtu.be' ? path[0] : (path[0] === 'watch' ? url.searchParams.get('v') : (['embed', 'shorts', 'live'].includes(path[0]) ? path[1] : ''));
+    id =
+      host === 'youtu.be'
+        ? path[0]
+        : path[0] === 'watch'
+          ? url.searchParams.get('v')
+          : ['embed', 'shorts', 'live'].includes(path[0])
+            ? path[1]
+            : '';
   } else if (['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'].includes(host)) {
     provider = 'vimeo';
     id = path[0] === 'video' ? path[1] : path[0];
@@ -86,7 +113,9 @@ function galleryStorageObject(rawUrl) {
   var url = parseGalleryUrl(rawUrl);
   var configured = parseGalleryUrl(typeof SUPA_URL !== 'undefined' ? SUPA_URL : '');
   if (!url || !configured || url.origin !== configured.origin) return null;
-  var object = url.pathname.match(/^\/storage\/v1\/(?:object|render\/image)\/(sign|public|authenticated)\/gallery\/(.+)$/);
+  var object = url.pathname.match(
+    /^\/storage\/v1\/(?:object|render\/image)\/(sign|public|authenticated)\/gallery\/(.+)$/
+  );
   return object ? { mode: object[1], path: object[2] } : null;
 }
 
@@ -96,15 +125,26 @@ function signGalleryObject(path) {
   var client = getSupa();
   if (!client || typeof client.createSignedUrl !== 'function') return Promise.resolve('');
   if (pendingGallerySignatures.has(path)) return pendingGallerySignatures.get(path);
-  var request = Promise.resolve().then(function() {
-    return client.createSignedUrl('gallery', path, 3600);
-  }).then(function(result) {
-    var signed = result?.signedUrl;
-    var object = galleryStorageObject(signed);
-    return object?.mode === 'sign' && object.path === path ? signed : '';
-  }).catch(function() {
-    return '';
-  }).finally(function() { pendingGallerySignatures.delete(path); });
+  var request = Promise.resolve()
+    .then(async function () {
+      if (_batchSignPromise) {
+        try {
+          await _batchSignPromise;
+        } catch (_) {}
+      }
+      return client.createSignedUrl('gallery', path, 3600);
+    })
+    .then(function (result) {
+      var signed = result?.signedUrl;
+      var object = galleryStorageObject(signed);
+      return object?.mode === 'sign' && object.path === path ? signed : '';
+    })
+    .catch(function () {
+      return '';
+    })
+    .finally(function () {
+      pendingGallerySignatures.delete(path);
+    });
   pendingGallerySignatures.set(path, request);
   return request;
 }
@@ -115,15 +155,20 @@ function loadGalleryMedia(image, rawUrl, initialUrl, failed) {
   var source = parseGalleryUrl(rawUrl);
   var drive = source && galleryMediaSource(source);
   var triedFallback = false;
-  function finish() { if (image.isConnected) failed(); }
+  function finish() {
+    if (image.isConnected) failed();
+  }
   function load(url) {
     if (!image.isConnected) return;
     if (url) image.src = url;
     else finish();
   }
-  image.onerror = function() {
+  image.onerror = function () {
     if (!image.isConnected) return;
-    if (triedFallback) { finish(); return; }
+    if (triedFallback) {
+      finish();
+      return;
+    }
     triedFallback = true;
     if (storage) {
       signGalleryObject(storage.path).then(load);
@@ -138,18 +183,20 @@ function loadGalleryMedia(image, rawUrl, initialUrl, failed) {
   };
   if (storage && storage.mode !== 'public') {
     triedFallback = true;
-    signGalleryObject(storage.path).then(function(url) { load(url || (storage.mode === 'sign' ? initialUrl : '')); });
+    signGalleryObject(storage.path).then(function (url) {
+      load(url || (storage.mode === 'sign' ? initialUrl : ''));
+    });
   } else {
     load(initialUrl);
   }
 }
 
 function configureGalleryThumbs(container, items) {
-  container.querySelectorAll('img[data-gallery-item]').forEach(function(img) {
+  container.querySelectorAll('img[data-gallery-item]').forEach(function (img) {
     var item = items[Number(img.dataset.galleryItem)];
     if (!item) return;
     var url = typeof item === 'string' ? item : item.url;
-    loadGalleryMedia(img, url, getGalleryThumbnailUrl(url, item.type), function() {
+    loadGalleryMedia(img, url, getGalleryThumbnailUrl(url, item.type), function () {
       img.onerror = null;
       img.src = 'assets/logo.png';
     });
@@ -184,7 +231,11 @@ function normalizeMediaUrl(rawUrl, preferType) {
 
   // 2. YouTube Links
   if (source.provider === 'youtube') {
-    return 'https://www.youtube-nocookie.com/embed/' + source.id + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1';
+    return (
+      'https://www.youtube-nocookie.com/embed/' +
+      source.id +
+      '?autoplay=1&enablejsapi=1&rel=0&playsinline=1'
+    );
   }
 
   // 3. Vimeo Links
@@ -257,26 +308,30 @@ async function compressGalleryPhoto(file, maxDim, quality) {
     return file;
   }
 
-    // Block SVG uploads to prevent stored XSS
+  // Block SVG uploads to prevent stored XSS
   var ext = (file.name ? file.name.split('.').pop() || '' : '').toLowerCase();
   if (file.type === 'image/svg+xml' || ext === 'svg') {
-    throw new Error('File upload blocked: SVG files are strictly prohibited to prevent stored XSS.');
+    throw new Error(
+      'File upload blocked: SVG files are strictly prohibited to prevent stored XSS.'
+    );
   }
   if (file.type === 'image/gif' || ext === 'gif') {
     return file;
   }
 
-  return new Promise(function(resolve) {
+  return new Promise(function (resolve) {
     var img = new Image();
     var objUrl = null;
 
     function cleanup() {
       if (objUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) {
-        try { URL.revokeObjectURL(objUrl); } catch (e) {}
+        try {
+          URL.revokeObjectURL(objUrl);
+        } catch (e) {}
       }
     }
 
-    img.onload = function() {
+    img.onload = function () {
       cleanup();
       try {
         var w = img.naturalWidth || img.width || 1200;
@@ -303,13 +358,17 @@ async function compressGalleryPhoto(file, maxDim, quality) {
         }
 
         if (typeof canvas.toBlob === 'function') {
-          canvas.toBlob(function(blob) {
-            if (blob) {
-              resolve(blob); // Always resolve canvas-rasterized blob to strip EXIF GPS metadata
-            } else {
-              resolve(file);
-            }
-          }, 'image/jpeg', quality);
+          canvas.toBlob(
+            function (blob) {
+              if (blob) {
+                resolve(blob); // Always resolve canvas-rasterized blob to strip EXIF GPS metadata
+              } else {
+                resolve(file);
+              }
+            },
+            'image/jpeg',
+            quality
+          );
         } else {
           resolve(file);
         }
@@ -318,7 +377,7 @@ async function compressGalleryPhoto(file, maxDim, quality) {
       }
     };
 
-    img.onerror = function() {
+    img.onerror = function () {
       cleanup();
       resolve(file);
     };
@@ -343,8 +402,12 @@ async function compressGalleryPhoto(file, maxDim, quality) {
  */
 async function uploadSingleMediaFile(file) {
   if (!file) return null;
-  var rawExt = (file.name ? file.name.split('.').pop() || '' : '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  var isVid = (file.type && file.type.startsWith('video/')) || ['mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'].indexOf(rawExt) !== -1;
+  var rawExt = (file.name ? file.name.split('.').pop() || '' : '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  var isVid =
+    (file.type && file.type.startsWith('video/')) ||
+    ['mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'].indexOf(rawExt) !== -1;
 
   // Validation: File size limit checks
   var maxPhotoSize = 15 * 1024 * 1024; // 15MB limit for photos
@@ -357,7 +420,10 @@ async function uploadSingleMediaFile(file) {
   }
   if (isVid && file.size && file.size > maxVideoSize) {
     if (typeof showToast === 'function') {
-      showToast('Video file size exceeds 50MB limit. Please use a Google Drive or YouTube link instead.', 'warning');
+      showToast(
+        'Video file size exceeds 50MB limit. Please use a Google Drive or YouTube link instead.',
+        'warning'
+      );
     }
     return null;
   }
@@ -384,7 +450,11 @@ async function uploadSingleMediaFile(file) {
   var blob;
   if (typeof Blob !== 'undefined' && uploadData instanceof Blob) {
     blob = uploadData;
-  } else if (typeof Blob !== 'undefined' && uploadData && typeof uploadData.arrayBuffer === 'function') {
+  } else if (
+    typeof Blob !== 'undefined' &&
+    uploadData &&
+    typeof uploadData.arrayBuffer === 'function'
+  ) {
     blob = new Blob([await uploadData.arrayBuffer()], { type: mime });
   } else {
     blob = uploadData;
@@ -394,14 +464,21 @@ async function uploadSingleMediaFile(file) {
   if (client && typeof client.uploadFile === 'function') {
     await client.uploadFile('gallery', fname, blob);
     // Create signed URL for private gallery bucket
-    var signedRes = (typeof client.createSignedUrl === 'function')
-      ? await client.createSignedUrl('gallery', fname, 86400)
-      : null;
-    var url = (signedRes && signedRes.signedUrl) ? signedRes.signedUrl : client.fileUrl('gallery', fname);
+    var signedRes =
+      typeof client.createSignedUrl === 'function'
+        ? await client.createSignedUrl('gallery', fname, 86400)
+        : null;
+    var url =
+      signedRes && signedRes.signedUrl ? signedRes.signedUrl : client.fileUrl('gallery', fname);
 
     // Advisory notification if file is large (>25MB)
     if (file.size > 25 * 1024 * 1024 && typeof showToast === 'function') {
-      showToast('Uploaded large media file (' + Math.round(file.size / (1024 * 1024)) + 'MB). Tip: For large videos, Google Drive links are recommended to preserve storage.', 'info');
+      showToast(
+        'Uploaded large media file (' +
+          Math.round(file.size / (1024 * 1024)) +
+          'MB). Tip: For large videos, Google Drive links are recommended to preserve storage.',
+        'info'
+      );
     }
 
     return {
@@ -425,7 +502,9 @@ async function loadGallery() {
       if (cachedGalStr) {
         var parsedLocalGal = JSON.parse(cachedGalStr);
         if (Array.isArray(parsedLocalGal) && parsedLocalGal.length > 0) {
-          parsedLocalGal.forEach(function(item) { galleryImages.push(item); });
+          parsedLocalGal.forEach(function (item) {
+            galleryImages.push(item);
+          });
           renderGallery();
         }
       }
@@ -437,16 +516,25 @@ async function loadGallery() {
     if (client && client.req) {
       var rows = null;
       try {
-        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=id,url,type');
+        rows = await client.req(
+          'GET',
+          'bb_gallery?order=created_at.desc&limit=' +
+            DEFAULT_GALLERY_PAGE_SIZE +
+            '&select=id,url,type'
+        );
       } catch (errGet) {
-        rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=*');
+        rows = await client.req(
+          'GET',
+          'bb_gallery?order=created_at.desc&limit=' + DEFAULT_GALLERY_PAGE_SIZE + '&select=*'
+        );
       }
       if (Array.isArray(rows) && rows.length > 0) {
         galleryImages.length = 0;
-        rows.forEach(function(r) {
+        rows.forEach(function (r) {
           var detectedType = r.type || (isVideoMedia(r.url) ? 'video' : 'image');
           galleryImages.push({ id: r.id, url: r.url, type: detectedType });
         });
+        _galleryHasMore = rows.length >= DEFAULT_GALLERY_PAGE_SIZE;
         try {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem('bb_gallery_cache', JSON.stringify(galleryImages));
@@ -454,6 +542,7 @@ async function loadGallery() {
         } catch (_) {}
       } else if (Array.isArray(rows) && rows.length === 0) {
         galleryImages.length = 0;
+        _galleryHasMore = false;
         try {
           if (typeof localStorage !== 'undefined') {
             localStorage.removeItem('bb_gallery_cache');
@@ -464,7 +553,9 @@ async function loadGallery() {
   } catch (e) {
     console.warn('loadGallery error:', e);
     if (!galleryImages.length) {
-      DEFAULT_GALLERY_IMAGES.forEach(function(item) { galleryImages.push(item); });
+      DEFAULT_GALLERY_IMAGES.forEach(function (item) {
+        galleryImages.push(item);
+      });
     }
   }
 
@@ -483,14 +574,15 @@ function filterGallery(filter, btn) {
   if (!['all', 'photos', 'videos'].includes(filter)) return;
   _currentGalleryFilter = filter || 'all';
   if (typeof document !== 'undefined') {
-    document.querySelectorAll('.gallery-filter-pill').forEach(function(p) {
+    document.querySelectorAll('.gallery-filter-pill').forEach(function (p) {
       p.classList.remove('active');
     });
     if (btn) {
       if (btn.classList && typeof btn.classList.add === 'function') btn.classList.add('active');
     } else {
       var target = document.getElementById('gallery-filter-' + _currentGalleryFilter);
-      if (target && target.classList && typeof target.classList.add === 'function') target.classList.add('active');
+      if (target && target.classList && typeof target.classList.add === 'function')
+        target.classList.add('active');
     }
   }
   renderGallery();
@@ -501,7 +593,7 @@ function galleryItemIsVideo(item) {
 }
 
 function filteredGalleryItems() {
-  return galleryImages.filter(function(item) {
+  return galleryImages.filter(function (item) {
     if (!item) return false;
     if (_currentGalleryFilter === 'photos') return !galleryItemIsVideo(item);
     if (_currentGalleryFilter === 'videos') return galleryItemIsVideo(item);
@@ -516,13 +608,14 @@ function filteredGalleryItems() {
 function renderGallery() {
   if (typeof document === 'undefined') return;
 
-  var grid          = document.getElementById('gallery-grid');
-  var homeGrid      = document.getElementById('home-gallery-grid');
-  var adminGrid     = document.getElementById('admin-gallery-grid');
-  var noPhotos      = document.getElementById('no-photos');
-  var noPhotosHome  = document.getElementById('no-photos-home');
-  var countBadge    = document.getElementById('gallery-media-count-badge');
-  var isHomeGridVisible = homeGrid && (!homeGrid.closest || !homeGrid.closest('[style*="display:none"]'));
+  var grid = document.getElementById('gallery-grid');
+  var homeGrid = document.getElementById('home-gallery-grid');
+  var adminGrid = document.getElementById('admin-gallery-grid');
+  var noPhotos = document.getElementById('no-photos');
+  var noPhotosHome = document.getElementById('no-photos-home');
+  var countBadge = document.getElementById('gallery-media-count-badge');
+  var isHomeGridVisible =
+    homeGrid && (!homeGrid.closest || !homeGrid.closest('[style*="display:none"]'));
 
   renderStoryHighlightsReel();
   renderAdminStoryHighlights();
@@ -530,25 +623,78 @@ function renderGallery() {
   // Filter items
   var filtered = filteredGalleryItems();
 
+  // Batch sign private items to prevent N individual signed URL RPC requests
+  var client = getSupa();
+  if (client && typeof client.createSignedUrls === 'function') {
+    var privatePaths = [];
+    filtered.forEach(function (item) {
+      var rawUrl = typeof item === 'string' ? item : item && item.url ? item.url : '';
+      var storage = galleryStorageObject(rawUrl);
+      if (storage && storage.mode !== 'public' && storage.path) {
+        privatePaths.push(storage.path);
+      }
+    });
+    if (privatePaths.length > 0) {
+      var uniquePaths = Array.from(new Set(privatePaths));
+      _batchSignPromise = client
+        .createSignedUrls('gallery', uniquePaths, 3600)
+        .then(function (signedList) {
+          _batchSignPromise = null;
+          if (!Array.isArray(signedList)) return signedList;
+          var pathMap = {};
+          signedList.forEach(function (res) {
+            if (res && res.path && res.signedUrl) {
+              pathMap[res.path] = res.signedUrl;
+            }
+          });
+          [grid, homeGrid, adminGrid].forEach(function (container) {
+            if (!container) return;
+            container.querySelectorAll('img[data-gallery-item]').forEach(function (img) {
+              var idx = Number(img.dataset.galleryItem);
+              var itm = filtered[idx];
+              if (!itm) return;
+              var u = typeof itm === 'string' ? itm : itm.url;
+              var st = galleryStorageObject(u);
+              if (st && pathMap[st.path]) {
+                img.src = pathMap[st.path];
+              }
+            });
+          });
+          return signedList;
+        })
+        .catch(function (err) {
+          _batchSignPromise = null;
+          console.warn('Batch createSignedUrls error:', err);
+        });
+    }
+  }
+
   if (countBadge) {
-    var filterLabel = _currentGalleryFilter === 'photos' ? 'Photos' : (_currentGalleryFilter === 'videos' ? 'Videos' : 'All Media');
+    var filterLabel =
+      _currentGalleryFilter === 'photos'
+        ? 'Photos'
+        : _currentGalleryFilter === 'videos'
+          ? 'Videos'
+          : 'All Media';
     countBadge.textContent = filtered.length + ' ' + filterLabel;
   }
 
   if (!galleryImages.length) {
-    if (grid)              grid.innerHTML = '';
+    if (grid) grid.innerHTML = '';
     if (isHomeGridVisible) homeGrid.innerHTML = '';
-    if (adminGrid)         adminGrid.innerHTML = '';
+    if (adminGrid) adminGrid.innerHTML = '';
     if (noPhotos) {
-      noPhotos.innerHTML = '<div class="gallery-empty-state" style="text-align:center;padding:44px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
-        + '<div style="font-size:32px;margin-bottom:8px;">📷</div>'
-        + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">No gallery media uploaded yet</div>'
-        + '<div style="font-size:12.5px;color:var(--text-muted);max-width:360px;margin:0 auto;">Photos and videos from weekly parades, camps, and events will appear here.</div>'
-        + '</div>';
+      noPhotos.innerHTML =
+        '<div class="gallery-empty-state" style="text-align:center;padding:44px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">' +
+        '<div style="font-size:32px;margin-bottom:8px;">📷</div>' +
+        '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">No gallery media uploaded yet</div>' +
+        '<div style="font-size:12.5px;color:var(--text-muted);max-width:360px;margin:0 auto;">Photos and videos from weekly parades, camps, and events will appear here.</div>' +
+        '</div>';
       noPhotos.style.display = 'block';
     }
     if (isHomeGridVisible && noPhotosHome) {
-      noPhotosHome.innerHTML = '<div class="gallery-empty-state-home" style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">No media uploaded yet. Check back soon for parade highlights.</div>';
+      noPhotosHome.innerHTML =
+        '<div class="gallery-empty-state-home" style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">No media uploaded yet. Check back soon for parade highlights.</div>';
       noPhotosHome.style.display = 'block';
     }
     return;
@@ -556,13 +702,21 @@ function renderGallery() {
 
   if (noPhotos) {
     if (!filtered.length) {
-      var filterLabel = _currentGalleryFilter === 'photos' ? 'photos' : (_currentGalleryFilter === 'videos' ? 'videos' : 'media items');
-      noPhotos.innerHTML = '<div class="gallery-empty-state" style="text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
-        + '<div style="font-size:28px;margin-bottom:8px;">🔍</div>'
-        + '<div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No ' + filterLabel + ' found</div>'
-        + '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Try selecting "All" to view all photos and videos in the gallery.</div>'
-        + '<button type="button" class="portal-btn portal-btn-secondary" onclick="filterGallery(\'all\', document.getElementById(\'gallery-filter-all\'))" style="font-size:12px;padding:6px 14px;cursor:pointer;">Show All Media</button>'
-        + '</div>';
+      var filterLabel =
+        _currentGalleryFilter === 'photos'
+          ? 'photos'
+          : _currentGalleryFilter === 'videos'
+            ? 'videos'
+            : 'media items';
+      noPhotos.innerHTML =
+        '<div class="gallery-empty-state" style="text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">' +
+        '<div style="font-size:28px;margin-bottom:8px;">🔍</div>' +
+        '<div style="font-family:var(--font-headline);font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No ' +
+        filterLabel +
+        ' found</div>' +
+        '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Try selecting "All" to view all photos and videos in the gallery.</div>' +
+        '<button type="button" class="portal-btn portal-btn-secondary" onclick="filterGallery(\'all\', document.getElementById(\'gallery-filter-all\'))" style="font-size:12px;padding:6px 14px;cursor:pointer;">Show All Media</button>' +
+        '</div>';
       noPhotos.style.display = 'block';
     } else {
       noPhotos.style.display = 'none';
@@ -574,44 +728,68 @@ function renderGallery() {
   var homeHtml = '';
   var admHtml = '';
 
-  filtered.forEach(function(item, i) {
-    var rawUrl = (typeof item === 'string') ? item : (item.url || '');
-    var id     = (typeof item === 'object' && item && item.id) ? item.id : '';
-    var isVid  = isVideoMedia(rawUrl, item.type);
+  filtered.forEach(function (item, i) {
+    var rawUrl = typeof item === 'string' ? item : item.url || '';
+    var id = typeof item === 'object' && item && item.id ? item.id : '';
+    var isVid = isVideoMedia(rawUrl, item.type);
 
-    var thumbnail = '<img data-gallery-item="' + i + '" alt="Media ' + (i + 1) + '" loading="lazy" />';
+    var thumbnail =
+      '<img data-gallery-item="' + i + '" alt="Media ' + (i + 1) + '" loading="lazy" />';
 
     var videoBadgeHtml = isVid
       ? '<span class="gallery-video-badge"><svg viewBox="0 0 24 24" fill="currentColor" style="width:10px;height:10px;"><polygon points="5 3 19 12 5 21 5 3"/></svg> Video</span>'
       : '';
 
     // Public grid item with clickable lightbox preview
-    pubHtml += '<div class="gallery-img-wrap" data-lightbox-idx="' + i + '" style="cursor:pointer;" title="Click to view ' + (isVid ? 'video' : 'photo') + '">'
-      + videoBadgeHtml
-      + thumbnail
-      + '</div>';
+    pubHtml +=
+      '<div class="gallery-img-wrap" data-lightbox-idx="' +
+      i +
+      '" style="cursor:pointer;" title="Click to view ' +
+      (isVid ? 'video' : 'photo') +
+      '">' +
+      videoBadgeHtml +
+      thumbnail +
+      '</div>';
 
     // Home teaser: limit to first 6 items
     if (homeGrid && i < 6) {
-      homeHtml += '<div class="gallery-img-wrap" data-home-idx="' + i + '" style="cursor:pointer;" title="Click to preview">'
-        + videoBadgeHtml
-        + thumbnail
-        + '</div>';
+      homeHtml +=
+        '<div class="gallery-img-wrap" data-home-idx="' +
+        i +
+        '" style="cursor:pointer;" title="Click to preview">' +
+        videoBadgeHtml +
+        thumbnail +
+        '</div>';
     }
 
     // Admin grid item with delete button
-    admHtml += '<div class="gallery-img-wrap">'
-      + videoBadgeHtml
-      + thumbnail
-      + '<button type="button" class="del-btn" data-gi="' + galleryImages.indexOf(item) + '" data-gid="' + escapeHtml(id) + '" title="Delete Media" aria-label="Delete Media">&times;</button>'
-      + '</div>';
+    admHtml +=
+      '<div class="gallery-img-wrap">' +
+      videoBadgeHtml +
+      thumbnail +
+      '<button type="button" class="del-btn" data-gi="' +
+      galleryImages.indexOf(item) +
+      '" data-gid="' +
+      escapeHtml(id) +
+      '" title="Delete Media" aria-label="Delete Media">&times;</button>' +
+      '</div>';
   });
 
   if (grid) {
     grid.innerHTML = pubHtml;
+    if (_galleryHasMore) {
+      var lmWrap = document.createElement('div');
+      lmWrap.id = 'gallery-load-more-wrap';
+      lmWrap.style.cssText = 'text-align:center;margin:24px 0 12px;width:100%;grid-column:1/-1;';
+      lmWrap.innerHTML =
+        '<button type="button" class="portal-btn portal-btn-secondary" id="btn-load-more-gallery" onclick="loadMoreGallery()">' +
+        (_isLoadingMoreGallery ? 'Loading media...' : 'Load More Media') +
+        '</button>';
+      grid.appendChild(lmWrap);
+    }
     configureGalleryThumbs(grid, filtered);
-    grid.querySelectorAll('[data-lightbox-idx]').forEach(function(el) {
-      el.addEventListener('click', function() {
+    grid.querySelectorAll('[data-lightbox-idx]').forEach(function (el) {
+      el.addEventListener('click', function () {
         var idx = parseInt(el.getAttribute('data-lightbox-idx'), 10);
         openGalleryLightbox(idx);
       });
@@ -621,8 +799,8 @@ function renderGallery() {
   if (isHomeGridVisible) {
     homeGrid.innerHTML = homeHtml;
     configureGalleryThumbs(homeGrid, filtered);
-    homeGrid.querySelectorAll('[data-home-idx]').forEach(function(el) {
-      el.addEventListener('click', function() {
+    homeGrid.querySelectorAll('[data-home-idx]').forEach(function (el) {
+      el.addEventListener('click', function () {
         var idx = parseInt(el.getAttribute('data-home-idx'), 10);
         openGalleryLightbox(idx);
       });
@@ -632,8 +810,8 @@ function renderGallery() {
   if (adminGrid) {
     adminGrid.innerHTML = admHtml;
     configureGalleryThumbs(adminGrid, filtered);
-    adminGrid.querySelectorAll('[data-gi]').forEach(function(btn) {
-      btn.addEventListener('click', function(e) {
+    adminGrid.querySelectorAll('[data-gi]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
         e.stopPropagation();
         var idx = parseInt(btn.getAttribute('data-gi'), 10);
         var rowId = btn.getAttribute('data-gid');
@@ -642,6 +820,53 @@ function renderGallery() {
     });
   }
 }
+
+async function loadMoreGallery() {
+  if (_isLoadingMoreGallery || !_galleryHasMore) return;
+  _isLoadingMoreGallery = true;
+  var btn = document.getElementById('btn-load-more-gallery');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Loading media...';
+  }
+  try {
+    var client = getSupa();
+    var offset = galleryImages.length;
+    var rows = await client.req(
+      'GET',
+      'bb_gallery?order=created_at.desc&limit=' +
+        DEFAULT_GALLERY_PAGE_SIZE +
+        '&offset=' +
+        offset +
+        '&select=id,url,type'
+    );
+    if (Array.isArray(rows) && rows.length > 0) {
+      rows.forEach(function (r) {
+        var detectedType = r.type || (isVideoMedia(r.url) ? 'video' : 'image');
+        if (
+          !galleryImages.some(function (x) {
+            return x.id === r.id;
+          })
+        ) {
+          galleryImages.push({ id: r.id, url: r.url, type: detectedType });
+        }
+      });
+      _galleryHasMore = rows.length >= DEFAULT_GALLERY_PAGE_SIZE;
+      try {
+        if (typeof localStorage !== 'undefined')
+          localStorage.setItem('bb_gallery_cache', JSON.stringify(galleryImages));
+      } catch (_) {}
+    } else {
+      _galleryHasMore = false;
+    }
+  } catch (err) {
+    console.warn('loadMoreGallery error:', err);
+  } finally {
+    _isLoadingMoreGallery = false;
+    renderGallery();
+  }
+}
+if (typeof window !== 'undefined') window.loadMoreGallery = loadMoreGallery;
 
 // ── Lightbox Preview (WhatsApp-Style Photo & Video Posts Viewer) ───────────
 var _lightboxActiveIdx = 0;
@@ -661,17 +886,17 @@ function renderActiveLightboxItem() {
   var item = _lightboxFiltered[_lightboxActiveIdx];
   if (!item) return;
 
-  var rawUrl = (typeof item === 'string') ? item : item.url;
+  var rawUrl = typeof item === 'string' ? item : item.url;
   var normUrl = normalizeMediaUrl(rawUrl, item.type);
   var isVid = isVideoMedia(normUrl, item.type);
 
-  var validatedUrl = (typeof safeUrl === 'function') ? safeUrl(normUrl, '') : normUrl;
-  var safeUrlStr   = (typeof escapeHtml === 'function') ? escapeHtml(validatedUrl) : validatedUrl;
+  var validatedUrl = typeof safeUrl === 'function' ? safeUrl(normUrl, '') : normUrl;
+  var safeUrlStr = typeof escapeHtml === 'function' ? escapeHtml(validatedUrl) : validatedUrl;
 
   // 1. Update counter & type badge
   var counterEl = modal.querySelector('#gallery-lb-counter');
   if (counterEl) {
-    counterEl.textContent = (_lightboxActiveIdx + 1) + ' of ' + _lightboxFiltered.length;
+    counterEl.textContent = _lightboxActiveIdx + 1 + ' of ' + _lightboxFiltered.length;
   }
   var badgeEl = modal.querySelector('#gallery-lb-badge');
   if (badgeEl) {
@@ -688,33 +913,43 @@ function renderActiveLightboxItem() {
       mediaContentHtml = '<p>Media preview unavailable.</p>';
     } else if (isVid) {
       if (source) {
-        var referrer = source.provider === 'youtube' ? ' referrerpolicy="strict-origin-when-cross-origin"' : '';
-        mediaContentHtml = '<iframe class="gallery-lb-iframe" title="Video preview" src="' + safeUrlStr + '"' + referrer + ' allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>';
+        var referrer =
+          source.provider === 'youtube' ? ' referrerpolicy="strict-origin-when-cross-origin"' : '';
+        mediaContentHtml =
+          '<iframe class="gallery-lb-iframe" title="Video preview" src="' +
+          safeUrlStr +
+          '"' +
+          referrer +
+          ' allow="autoplay; fullscreen; encrypted-media" allowfullscreen></iframe>';
       } else {
-        mediaContentHtml = '<video class="gallery-lb-video" src="' + safeUrlStr + '" controls autoplay playsinline></video>';
+        mediaContentHtml =
+          '<video class="gallery-lb-video" src="' +
+          safeUrlStr +
+          '" controls autoplay playsinline></video>';
       }
     } else {
       mediaContentHtml = '<img class="gallery-lb-img" alt="Photo preview" />';
     }
     wrap.innerHTML = mediaContentHtml;
     var photo = wrap.querySelector('.gallery-lb-img');
-    if (photo) loadGalleryMedia(photo, rawUrl, validatedUrl, function() {
-      var message = document.createElement('p');
-      message.setAttribute('role', 'status');
-      message.textContent = 'This photo could not be loaded.';
-      photo.replaceWith(message);
-    });
+    if (photo)
+      loadGalleryMedia(photo, rawUrl, validatedUrl, function () {
+        var message = document.createElement('p');
+        message.setAttribute('role', 'status');
+        message.textContent = 'This photo could not be loaded.';
+        photo.replaceWith(message);
+      });
     var video = wrap.querySelector('.gallery-lb-video');
     var storage = galleryStorageObject(rawUrl);
     if (video && storage) {
-      loadGalleryMedia(video, rawUrl, validatedUrl, function() {
+      loadGalleryMedia(video, rawUrl, validatedUrl, function () {
         var message = document.createElement('p');
         message.setAttribute('role', 'status');
         message.textContent = 'This video could not be loaded.';
         video.replaceWith(message);
       });
     }
-    wrap.onclick = function(e) {
+    wrap.onclick = function (e) {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     };
   }
@@ -751,7 +986,8 @@ function nextGallerySlide() {
  */
 function prevGallerySlide() {
   if (!_lightboxFiltered || !_lightboxFiltered.length) return;
-  _lightboxActiveIdx = (_lightboxActiveIdx - 1 + _lightboxFiltered.length) % _lightboxFiltered.length;
+  _lightboxActiveIdx =
+    (_lightboxActiveIdx - 1 + _lightboxFiltered.length) % _lightboxFiltered.length;
   renderActiveLightboxItem();
 }
 
@@ -776,7 +1012,8 @@ function closeGalleryLightbox() {
   if (existing && existing.parentNode) {
     existing.parentNode.removeChild(existing);
     document.body.style.overflow = _lightboxPreviousOverflow;
-    if (_lightboxPreviousFocus && typeof _lightboxPreviousFocus.focus === 'function') _lightboxPreviousFocus.focus();
+    if (_lightboxPreviousFocus && typeof _lightboxPreviousFocus.focus === 'function')
+      _lightboxPreviousFocus.focus();
     _lightboxPreviousFocus = null;
   }
   if (_lightboxKeyHandler) {
@@ -821,11 +1058,12 @@ function openGalleryLightbox(idx) {
   // 1. Top Header Bar
   var topbar = document.createElement('div');
   topbar.className = 'gallery-lb-topbar';
-  topbar.innerHTML = '<div class="gallery-lb-meta">'
-    + '<span class="gallery-lb-counter" id="gallery-lb-counter"></span>'
-    + '<span class="gallery-lb-badge" id="gallery-lb-badge"></span>'
-    + '</div>'
-    + '<button type="button" class="gallery-lb-close-btn" id="gallery-lb-close" aria-label="Close Preview" title="Close (Esc)">&times;</button>';
+  topbar.innerHTML =
+    '<div class="gallery-lb-meta">' +
+    '<span class="gallery-lb-counter" id="gallery-lb-counter"></span>' +
+    '<span class="gallery-lb-badge" id="gallery-lb-badge"></span>' +
+    '</div>' +
+    '<button type="button" class="gallery-lb-close-btn" id="gallery-lb-close" aria-label="Close Preview" title="Close (Esc)">&times;</button>';
 
   // 2. Central Media Viewport Stage
   var stage = document.createElement('div');
@@ -844,7 +1082,8 @@ function openGalleryLightbox(idx) {
   prevBtn.id = 'gallery-lb-prev';
   prevBtn.title = 'Previous (Left Arrow)';
   prevBtn.setAttribute('aria-label', 'Previous photo or video');
-  prevBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+  prevBtn.innerHTML =
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
 
   var nextBtn = document.createElement('button');
   nextBtn.type = 'button';
@@ -852,7 +1091,8 @@ function openGalleryLightbox(idx) {
   nextBtn.id = 'gallery-lb-next';
   nextBtn.title = 'Next (Right Arrow)';
   nextBtn.setAttribute('aria-label', 'Next photo or video');
-  nextBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+  nextBtn.innerHTML =
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 
   // 4. WhatsApp-Style Bottom Filmstrip Carousel
   var filmstrip = document.createElement('div');
@@ -863,8 +1103,8 @@ function openGalleryLightbox(idx) {
   track.className = 'gallery-lb-track';
   track.id = 'gallery-lb-track';
 
-  _lightboxFiltered.forEach(function(item, i) {
-    var rawUrl = (typeof item === 'string') ? item : item.url;
+  _lightboxFiltered.forEach(function (item, i) {
+    var rawUrl = typeof item === 'string' ? item : item.url;
     var normUrl = normalizeMediaUrl(rawUrl, item.type);
     var isVid = isVideoMedia(normUrl, item.type);
 
@@ -874,13 +1114,15 @@ function openGalleryLightbox(idx) {
     thumbEl.setAttribute('data-idx', String(i));
     thumbEl.title = 'View ' + (isVid ? 'video' : 'photo') + ' ' + (i + 1);
 
-    var inner = '<img data-gallery-item="' + i + '" alt="Thumbnail ' + (i + 1) + '" loading="lazy" />';
+    var inner =
+      '<img data-gallery-item="' + i + '" alt="Thumbnail ' + (i + 1) + '" loading="lazy" />';
     if (isVid) {
-      inner += '<div class="gallery-lb-thumb-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
+      inner +=
+        '<div class="gallery-lb-thumb-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>';
     }
     thumbEl.innerHTML = inner;
 
-    thumbEl.addEventListener('click', function(e) {
+    thumbEl.addEventListener('click', function (e) {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       goToGallerySlide(i);
     });
@@ -903,46 +1145,64 @@ function openGalleryLightbox(idx) {
   var closeBtn = topbar.querySelector('#gallery-lb-close');
   if (closeBtn) closeBtn.addEventListener('click', closeGalleryLightbox);
 
-  modal.addEventListener('click', function(e) {
+  modal.addEventListener('click', function (e) {
     if (e.target === modal || e.target === stage) {
       closeGalleryLightbox();
     }
   });
 
-  prevBtn.addEventListener('click', function(e) {
+  prevBtn.addEventListener('click', function (e) {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     prevGallerySlide();
   });
 
-  nextBtn.addEventListener('click', function(e) {
+  nextBtn.addEventListener('click', function (e) {
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
     nextGallerySlide();
   });
 
   // Mobile Swipe Gestures (touch left / right)
   var swipeStart = null;
-  stage.addEventListener('touchstart', function(e) {
-    swipeStart = e.touches.length === 1 && e.target.tagName !== 'VIDEO' ? e.touches[0] : null;
-  }, { passive: true });
-  stage.addEventListener('touchcancel', function() { swipeStart = null; }, { passive: true });
+  stage.addEventListener(
+    'touchstart',
+    function (e) {
+      swipeStart = e.touches.length === 1 && e.target.tagName !== 'VIDEO' ? e.touches[0] : null;
+    },
+    { passive: true }
+  );
+  stage.addEventListener(
+    'touchcancel',
+    function () {
+      swipeStart = null;
+    },
+    { passive: true }
+  );
 
-  stage.addEventListener('touchend', function(e) {
-    if (swipeStart && e.changedTouches.length === 1 && !e.touches.length) {
-      var diffX = e.changedTouches[0].clientX - swipeStart.clientX;
-      var diffY = e.changedTouches[0].clientY - swipeStart.clientY;
-      if (e.changedTouches[0].identifier === swipeStart.identifier && Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.3) {
-        if (diffX < 0) {
-          nextGallerySlide(); // Swiped left -> next
-        } else {
-          prevGallerySlide(); // Swiped right -> prev
+  stage.addEventListener(
+    'touchend',
+    function (e) {
+      if (swipeStart && e.changedTouches.length === 1 && !e.touches.length) {
+        var diffX = e.changedTouches[0].clientX - swipeStart.clientX;
+        var diffY = e.changedTouches[0].clientY - swipeStart.clientY;
+        if (
+          e.changedTouches[0].identifier === swipeStart.identifier &&
+          Math.abs(diffX) > 40 &&
+          Math.abs(diffX) > Math.abs(diffY) * 1.3
+        ) {
+          if (diffX < 0) {
+            nextGallerySlide(); // Swiped left -> next
+          } else {
+            prevGallerySlide(); // Swiped right -> prev
+          }
         }
       }
-    }
-    swipeStart = null;
-  }, { passive: true });
+      swipeStart = null;
+    },
+    { passive: true }
+  );
 
   // Keyboard navigation
-  _lightboxKeyHandler = function(e) {
+  _lightboxKeyHandler = function (e) {
     if (e.key === 'Escape') {
       closeGalleryLightbox();
     } else if (e.key === 'ArrowLeft') {
@@ -975,39 +1235,66 @@ var _isUploadingGallery = false;
 async function uploadGalleryFiles(files) {
   if (!files || !files.length) return;
   if (_isUploadingGallery) {
-    if (typeof showToast === 'function') showToast('Media upload already in progress. Please wait.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Media upload already in progress. Please wait.', 'warning');
     return;
   }
-  var validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'heic', 'mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'];
+  var validExts = [
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'gif',
+    'svg',
+    'avif',
+    'heic',
+    'mp4',
+    'webm',
+    'mov',
+    'm4v',
+    'ogg',
+    'ogv',
+    'mkv'
+  ];
 
-  var validFiles = Array.from(files).filter(function(f) {
+  var validFiles = Array.from(files).filter(function (f) {
     if (!f) return false;
     var ext = (f.name.split('.').pop() || '').toLowerCase();
-    var isMimeValid = (f.type && (f.type.startsWith('image/') || f.type.startsWith('video/')));
+    var isMimeValid = f.type && (f.type.startsWith('image/') || f.type.startsWith('video/'));
     return isMimeValid || validExts.indexOf(ext) !== -1;
   });
 
   if (!validFiles.length) {
     if (typeof showToast === 'function') {
-      showToast('Please select valid image or video files (JPG, PNG, WebP, MP4, MOV, WebM).', 'warning');
+      showToast(
+        'Please select valid image or video files (JPG, PNG, WebP, MP4, MOV, WebM).',
+        'warning'
+      );
     }
     return;
   }
   _isUploadingGallery = true;
 
-  var dropZone = (typeof document !== 'undefined') ? document.getElementById('gallery-drop') : null;
+  var dropZone = typeof document !== 'undefined' ? document.getElementById('gallery-drop') : null;
   if (dropZone) dropZone.style.opacity = '0.5';
 
-  var progressContainer = (typeof document !== 'undefined') ? document.getElementById('gallery-upload-progress') : null;
+  var progressContainer =
+    typeof document !== 'undefined' ? document.getElementById('gallery-upload-progress') : null;
   if (!progressContainer && dropZone && dropZone.parentNode) {
     progressContainer = dropZone.parentNode;
   }
-  var progressBar = (progressContainer && typeof createTaskProgressBar === 'function')
-    ? createTaskProgressBar(progressContainer, {
-        title: 'Uploading Media (' + validFiles.length + ' file' + (validFiles.length > 1 ? 's' : '') + ')',
-        totalSteps: validFiles.length
-      })
-    : null;
+  var progressBar =
+    progressContainer && typeof createTaskProgressBar === 'function'
+      ? createTaskProgressBar(progressContainer, {
+          title:
+            'Uploading Media (' +
+            validFiles.length +
+            ' file' +
+            (validFiles.length > 1 ? 's' : '') +
+            ')',
+          totalSteps: validFiles.length
+        })
+      : null;
 
   var successCount = 0;
   var failCount = 0;
@@ -1017,7 +1304,11 @@ async function uploadGalleryFiles(files) {
     var file = validFiles[fi];
     if (progressBar) {
       var pct = Math.round((fi / validFiles.length) * 100);
-      progressBar.update(fi + 1, 'Processing & uploading ' + (file ? file.name : 'file') + '...', pct);
+      progressBar.update(
+        fi + 1,
+        'Processing & uploading ' + (file ? file.name : 'file') + '...',
+        pct
+      );
     }
     var file = validFiles[fi];
     try {
@@ -1043,7 +1334,7 @@ async function uploadGalleryFiles(files) {
             });
           }
         }
-        var id = (row && row[0] && row[0].id) ? row[0].id : null;
+        var id = row && row[0] && row[0].id ? row[0].id : null;
         galleryImages.push({ id: id, url: url, type: res.type });
         successCount++;
       }
@@ -1078,11 +1369,30 @@ async function uploadGalleryFiles(files) {
 
   if (typeof showToast === 'function') {
     if (successCount > 0 && failCount === 0) {
-      showToast('Uploaded ' + successCount + ' media file' + (successCount > 1 ? 's' : '') + ' successfully!', 'success');
+      showToast(
+        'Uploaded ' +
+          successCount +
+          ' media file' +
+          (successCount > 1 ? 's' : '') +
+          ' successfully!',
+        'success'
+      );
     } else if (successCount > 0 && failCount > 0) {
-      showToast('Uploaded ' + successCount + ' file' + (successCount > 1 ? 's' : '') + ' (' + failCount + ' failed).', 'warning');
+      showToast(
+        'Uploaded ' +
+          successCount +
+          ' file' +
+          (successCount > 1 ? 's' : '') +
+          ' (' +
+          failCount +
+          ' failed).',
+        'warning'
+      );
     } else if (failCount > 0) {
-      showToast('Upload failed: ' + (lastUploadError || 'Please check storage bucket permissions.'), 'error');
+      showToast(
+        'Upload failed: ' + (lastUploadError || 'Please check storage bucket permissions.'),
+        'error'
+      );
     }
   }
   _isUploadingGallery = false;
@@ -1107,11 +1417,19 @@ async function handleGalleryUpload(input) {
  * @returns {Promise<object|null>}
  */
 async function addGalleryMediaByUrl(explicitUrl, explicitType) {
-  var inputEl = (typeof document !== 'undefined') ? document.querySelector('.gallery-drive-url-input') : null;
-  var typeSelect = (typeof document !== 'undefined') ? document.querySelector('.gallery-drive-type-select') : null;
-  var btn = (typeof document !== 'undefined') ? document.querySelector('.gallery-add-link-btn') : null;
+  var inputEl =
+    typeof document !== 'undefined' ? document.querySelector('.gallery-drive-url-input') : null;
+  var typeSelect =
+    typeof document !== 'undefined' ? document.querySelector('.gallery-drive-type-select') : null;
+  var btn =
+    typeof document !== 'undefined' ? document.querySelector('.gallery-add-link-btn') : null;
 
-  var rawUrl = (explicitUrl && typeof explicitUrl === 'string') ? explicitUrl.trim() : (inputEl ? inputEl.value.trim() : '');
+  var rawUrl =
+    explicitUrl && typeof explicitUrl === 'string'
+      ? explicitUrl.trim()
+      : inputEl
+        ? inputEl.value.trim()
+        : '';
   if (!rawUrl) {
     if (typeof showToast === 'function') {
       showToast('Please enter a Google Drive link or media URL.', 'warning');
@@ -1144,7 +1462,7 @@ async function addGalleryMediaByUrl(explicitUrl, explicitType) {
   }
 
   var createdItem = null;
-  var executeAdd = async function() {
+  var executeAdd = async function () {
     var client = getSupa();
     var row = null;
     if (client && client.post) {
@@ -1162,7 +1480,7 @@ async function addGalleryMediaByUrl(explicitUrl, explicitType) {
       }
     }
 
-    var id = (row && row[0] && row[0].id) ? row[0].id : ('gdrive-' + Date.now());
+    var id = row && row[0] && row[0].id ? row[0].id : 'gdrive-' + Date.now();
     createdItem = { id: id, url: rawUrl, type: mediaType };
     galleryImages.push(createdItem);
 
@@ -1192,8 +1510,17 @@ async function addGalleryMediaByUrl(explicitUrl, explicitType) {
       });
     }
 
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-      window.PortalRealtime.broadcast('gallery_update', { action: 'add', id: id, url: rawUrl, type: mediaType });
+    if (
+      typeof window !== 'undefined' &&
+      window.PortalRealtime &&
+      typeof window.PortalRealtime.broadcast === 'function'
+    ) {
+      window.PortalRealtime.broadcast('gallery_update', {
+        action: 'add',
+        id: id,
+        url: rawUrl,
+        type: mediaType
+      });
     }
   };
 
@@ -1249,25 +1576,61 @@ async function deleteGalleryImage(idx, rowId) {
   try {
     var client = getSupa();
     if (client) {
-      if (rowId && client.delete) {
-        await client.delete('bb_gallery?id=eq.' + encodeURIComponent(rowId));
+      if (rowId) {
+        var adminToken =
+          (typeof getAdminSessionToken === 'function' ? getAdminSessionToken() : '') ||
+          (typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function'
+            ? window.getAdminSessionToken()
+            : '') ||
+          (typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function'
+            ? global.getAdminSessionToken()
+            : '');
+        if (!adminToken || typeof client.rpc !== 'function') {
+          throw new Error('Administrator session required to delete gallery item.');
+        }
+        var rpcDel = await client.rpc('rpc_admin_delete_gallery_item', {
+          p_token: adminToken,
+          p_id: String(rowId)
+        });
+        if (!rpcDel || !rpcDel.success)
+          throw new Error((rpcDel && rpcDel.error) || 'Failed to delete gallery item.');
       }
       var parsed = url && parseGalleryUrl(url);
-      var object = parsed && parsed.hostname.endsWith('.supabase.co') && parsed.pathname.match(/^\/storage\/v1\/object\/(?:sign|public|authenticated)\/gallery\/(.+)$/);
+      var object =
+        parsed &&
+        parsed.hostname.endsWith('.supabase.co') &&
+        parsed.pathname.match(
+          /^\/storage\/v1\/object\/(?:sign|public|authenticated)\/gallery\/(.+)$/
+        );
       if (object && client.deleteFile) {
         try {
           await client.deleteFile('gallery', decodeURIComponent(object[1]));
         } catch (_) {
-          if (typeof showToast === 'function') showToast('Media removed from the gallery. Storage cleanup failed.', 'warning');
+          if (typeof showToast === 'function')
+            showToast('Media removed from the gallery. Storage cleanup failed.', 'warning');
           return;
         }
       }
+    }
+    if (
+      typeof window !== 'undefined' &&
+      window.PortalRealtime &&
+      typeof window.PortalRealtime.broadcast === 'function'
+    ) {
+      window.PortalRealtime.broadcast('gallery', 'delete', {
+        id: rowId ? String(rowId) : url || 'photo'
+      });
+    } else if (
+      typeof PortalRealtime !== 'undefined' &&
+      typeof PortalRealtime.broadcast === 'function'
+    ) {
+      PortalRealtime.broadcast('gallery', 'delete', { id: rowId ? String(rowId) : url || 'photo' });
     }
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'gallery.delete',
         targetType: 'gallery',
-        targetId: rowId ? String(rowId) : (url || 'photo'),
+        targetId: rowId ? String(rowId) : url || 'photo',
         actorRole: 'officer_admin',
         details: { mediaType: item.type || 'image' }
       });
@@ -1281,7 +1644,10 @@ async function deleteGalleryImage(idx, rowId) {
     galleryImages.splice(idx, 0, item);
     renderGallery();
     if (typeof showToast === 'function') {
-      showToast('Failed to delete media: ' + (e.message || 'Database error') + '. Restored.', 'error');
+      showToast(
+        'Failed to delete media: ' + (e.message || 'Database error') + '. Restored.',
+        'error'
+      );
     }
   }
 }
@@ -1297,16 +1663,16 @@ function initGalleryDropZone() {
 
   drop._dropZoneInitialized = true;
 
-  drop.addEventListener('dragover', function(e) {
+  drop.addEventListener('dragover', function (e) {
     e.preventDefault();
     drop.classList.add('dragover');
   });
 
-  drop.addEventListener('dragleave', function() {
+  drop.addEventListener('dragleave', function () {
     drop.classList.remove('dragover');
   });
 
-  drop.addEventListener('drop', function(e) {
+  drop.addEventListener('drop', function (e) {
     e.preventDefault();
     drop.classList.remove('dragover');
     if (e.dataTransfer && e.dataTransfer.files) {
@@ -1323,7 +1689,6 @@ if (typeof document !== 'undefined') {
     initGalleryDropZone();
   }
 }
-
 
 // ── Authentic Story Highlights Dataset ───────────────────────────
 var DEFAULT_STORY_HIGHLIGHTS = [
@@ -1421,7 +1786,7 @@ var DEFAULT_STORY_HIGHLIGHTS = [
 ];
 
 // Story highlights runtime state (initialized from localStorage cache if present to prevent layout shift)
-var storyHighlights = (function() {
+var storyHighlights = (function () {
   if (typeof localStorage !== 'undefined') {
     try {
       var cached = localStorage.getItem('bb_story_highlights');
@@ -1455,7 +1820,9 @@ async function loadStoryHighlights() {
       if (Array.isArray(snapStories) && snapStories.length) {
         storyHighlights = snapStories;
         if (typeof localStorage !== 'undefined') {
-          try { localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights)); } catch (_) {}
+          try {
+            localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights));
+          } catch (_) {}
         }
         return storyHighlights;
       }
@@ -1465,7 +1832,8 @@ async function loadStoryHighlights() {
       try {
         var cfgRows = await client.get('bb_config?key=eq.bb_story_highlights&select=value');
         if (cfgRows && cfgRows.length && cfgRows[0].value) {
-          storyHighlights = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
+          storyHighlights =
+            typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
         }
       } catch (errCfg) {}
 
@@ -1474,8 +1842,12 @@ async function loadStoryHighlights() {
         try {
           var rows = await client.get('bb_stories?order=display_order.asc,created_at.asc');
           if (rows && rows.length) {
-            storyHighlights = rows.map(function(r) {
-              var items = Array.isArray(r.items) ? r.items : (typeof r.items === 'string' ? JSON.parse(r.items || '[]') : []);
+            storyHighlights = rows.map(function (r) {
+              var items = Array.isArray(r.items)
+                ? r.items
+                : typeof r.items === 'string'
+                  ? JSON.parse(r.items || '[]')
+                  : [];
               return {
                 id: r.id,
                 title: r.title,
@@ -1498,7 +1870,9 @@ async function loadStoryHighlights() {
   }
 
   if (typeof localStorage !== 'undefined') {
-    try { localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights)); } catch (_) {}
+    try {
+      localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights));
+    } catch (_) {}
   }
 
   if (typeof window !== 'undefined') {
@@ -1512,7 +1886,10 @@ async function loadStoryHighlights() {
   renderAdminStoryHighlights();
   if (typeof syncHighlightNotifications === 'function') {
     syncHighlightNotifications(storyHighlights);
-  } else if (typeof window !== 'undefined' && typeof window.syncHighlightNotifications === 'function') {
+  } else if (
+    typeof window !== 'undefined' &&
+    typeof window.syncHighlightNotifications === 'function'
+  ) {
     window.syncHighlightNotifications(storyHighlights);
   }
   return storyHighlights;
@@ -1526,7 +1903,9 @@ async function saveStoryHighlights(newList) {
     storyHighlights = newList;
   }
   if (typeof localStorage !== 'undefined') {
-    try { localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights)); } catch (_) {}
+    try {
+      localStorage.setItem('bb_story_highlights', JSON.stringify(storyHighlights));
+    } catch (_) {}
   }
   if (typeof window !== 'undefined') {
     window.storyHighlights = storyHighlights;
@@ -1539,24 +1918,34 @@ async function saveStoryHighlights(newList) {
     if (client) {
       if (typeof client.upsert === 'function') {
         try {
-          await client.upsert('bb_config', {
-            key: 'bb_story_highlights',
-            value: JSON.stringify(storyHighlights)
-          }, 'key');
+          await client.upsert(
+            'bb_config',
+            {
+              key: 'bb_story_highlights',
+              value: JSON.stringify(storyHighlights)
+            },
+            'key'
+          );
         } catch (e1) {}
       }
       if (typeof client.post === 'function' && storyHighlights.length) {
         try {
-          await Promise.all(storyHighlights.map(function(sh, i) {
-            return client.upsert('bb_stories', {
-              id: sh.id,
-              title: sh.title,
-              cover: sh.cover,
-              items: JSON.stringify(sh.items || []),
-              display_order: sh.order || (i + 1),
-              active: sh.active !== false
-            }, 'id');
-          }));
+          await Promise.all(
+            storyHighlights.map(function (sh, i) {
+              return client.upsert(
+                'bb_stories',
+                {
+                  id: sh.id,
+                  title: sh.title,
+                  cover: sh.cover,
+                  items: JSON.stringify(sh.items || []),
+                  display_order: sh.order || i + 1,
+                  active: sh.active !== false
+                },
+                'id'
+              );
+            })
+          );
         } catch (e2) {}
       }
     }
@@ -1574,12 +1963,16 @@ async function saveStoryHighlights(newList) {
  */
 function renderStoryHighlightsReel() {
   if (typeof document === 'undefined') return;
-  var containers = document.querySelectorAll('#gallery-story-highlights-reel, .story-highlights-reel');
+  var containers = document.querySelectorAll(
+    '#gallery-story-highlights-reel, .story-highlights-reel'
+  );
   if (!containers || !containers.length) return;
 
-  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  var activeHighlights = storyHighlights.filter(function (sh) {
+    return sh.active !== false;
+  });
 
-  containers.forEach(function(container) {
+  containers.forEach(function (container) {
     if (container.id === 'story-highlights-reel') return;
     if (!activeHighlights.length) {
       container.style.display = 'none';
@@ -1589,26 +1982,40 @@ function renderStoryHighlightsReel() {
     container.style.display = 'flex';
     var html = '';
 
-    activeHighlights.forEach(function(sh, idx) {
+    activeHighlights.forEach(function (sh, idx) {
       var coverUrl = sh.cover || (sh.items && sh.items[0] ? sh.items[0].url : 'assets/logo.png');
-      var safeCover = (typeof safeUrl === 'function') ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
-      var title = (typeof escapeHtml === 'function') ? escapeHtml(sh.title) : sh.title;
+      var safeCover =
+        typeof safeUrl === 'function' ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
+      var title = typeof escapeHtml === 'function' ? escapeHtml(sh.title) : sh.title;
 
-      html += '<button type="button" class="story-highlight-item" data-sh-idx="' + idx + '" title="Watch ' + title + ' Highlight" aria-label="Watch ' + title + ' Highlight">'
-        + '<div class="story-highlight-ring">'
-          + '<div class="story-highlight-avatar">'
-            + '<img src="' + safeCover + '" alt="' + title + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
-          + '</div>'
-        + '</div>'
-        + '<span class="story-highlight-label">' + title + '</span>'
-      + '</button>';
+      html +=
+        '<button type="button" class="story-highlight-item" data-sh-idx="' +
+        idx +
+        '" title="Watch ' +
+        title +
+        ' Highlight" aria-label="Watch ' +
+        title +
+        ' Highlight">' +
+        '<div class="story-highlight-ring">' +
+        '<div class="story-highlight-avatar">' +
+        '<img src="' +
+        safeCover +
+        '" alt="' +
+        title +
+        '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />' +
+        '</div>' +
+        '</div>' +
+        '<span class="story-highlight-label">' +
+        title +
+        '</span>' +
+        '</button>';
     });
 
     container.innerHTML = html;
 
     // Attach click listeners to launch story viewer
-    container.querySelectorAll('[data-sh-idx]').forEach(function(el) {
-      el.addEventListener('click', function() {
+    container.querySelectorAll('[data-sh-idx]').forEach(function (el) {
+      el.addEventListener('click', function () {
         var idx = parseInt(el.getAttribute('data-sh-idx'), 10);
         openStoryViewer(idx, 0);
       });
@@ -1619,12 +2026,12 @@ function renderStoryHighlightsReel() {
 // Auto-initialize reel immediately from default highlights if DOM is available
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       renderStoryHighlightsReel();
       renderAdminStoryHighlights();
     });
   } else {
-    setTimeout(function() {
+    setTimeout(function () {
       renderStoryHighlightsReel();
       renderAdminStoryHighlights();
     }, 0);
@@ -1636,7 +2043,9 @@ if (typeof document !== 'undefined') {
  */
 function openStoryViewer(highlightIdx, slideIdx) {
   if (typeof document === 'undefined') return;
-  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  var activeHighlights = storyHighlights.filter(function (sh) {
+    return sh.active !== false;
+  });
   if (!activeHighlights.length) return;
 
   var hIdx = Math.max(0, Math.min(highlightIdx, activeHighlights.length - 1));
@@ -1669,9 +2078,10 @@ function _cancelStoryTicker() {
 
 function _startStoryProgressTick() {
   _cancelStoryTicker();
-  _storySlideStartTime = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-    ? performance.now()
-    : Date.now();
+  _storySlideStartTime =
+    typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
   _storyPauseStart = 0;
   _isStoryPaused = false;
 
@@ -1689,18 +2099,25 @@ function _startStoryProgressTick() {
       return;
     }
 
-    var now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-      ? performance.now()
-      : Date.now();
+    var now =
+      typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
     var progress = 0;
     var videoEl = document.getElementById('story-viewer-video');
 
-    if (videoEl && videoEl.style.display !== 'none' && videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
+    if (
+      videoEl &&
+      videoEl.style.display !== 'none' &&
+      videoEl.duration &&
+      isFinite(videoEl.duration) &&
+      videoEl.duration > 0
+    ) {
       progress = videoEl.currentTime / videoEl.duration;
       _storySlideDuration = videoEl.duration * 1000;
     } else {
       var elapsed = now - _storySlideStartTime;
-      progress = _storySlideDuration > 0 ? (elapsed / _storySlideDuration) : 1;
+      progress = _storySlideDuration > 0 ? elapsed / _storySlideDuration : 1;
     }
 
     var pct = Math.min(100, Math.max(0, progress * 100));
@@ -1733,7 +2150,8 @@ function applyStoryProgressAnimation(durationMs, remainingMs) {
   var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
   if (!currentFill) return;
   if (durationMs) _storySlideDuration = durationMs;
-  var secs = ((remainingMs !== undefined && remainingMs !== null ? remainingMs : _storySlideDuration) / 1000);
+  var secs =
+    (remainingMs !== undefined && remainingMs !== null ? remainingMs : _storySlideDuration) / 1000;
   currentFill.style.transition = 'none';
   currentFill.style.width = '0%';
   if (typeof currentFill.offsetWidth !== 'undefined') {
@@ -1753,7 +2171,9 @@ async function loadDriveVideoBlob(fileId, _targetVideoEl) {
 
 function updateStorySlideView() {
   if (typeof document === 'undefined') return;
-  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  var activeHighlights = storyHighlights.filter(function (sh) {
+    return sh.active !== false;
+  });
   var curHighlight = activeHighlights[_currentStoryHighlightIdx];
   if (!curHighlight || !curHighlight.items || !curHighlight.items.length) {
     closeStoryViewer();
@@ -1771,7 +2191,9 @@ function updateStorySlideView() {
   var curSlide = curHighlight.items[_currentStorySlideIdx];
   var rawUrl = (curSlide.url || '').trim();
   var normUrl = normalizeMediaUrl(rawUrl, curSlide.type);
-  var driveMatch = rawUrl.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]+)/i);
+  var driveMatch = rawUrl.match(
+    /(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]+)/i
+  );
   var driveFileId = driveMatch ? driveMatch[1] : null;
 
   var isVid = isVideoMedia(normUrl, curSlide.type);
@@ -1780,9 +2202,10 @@ function updateStorySlideView() {
 
   // Set duration based on admin configuration or media type
   var defaultSec = isVid ? 30 : 5;
-  var slideDurationSec = (curSlide.duration && isFinite(curSlide.duration) && Number(curSlide.duration) > 0)
-    ? Number(curSlide.duration)
-    : defaultSec;
+  var slideDurationSec =
+    curSlide.duration && isFinite(curSlide.duration) && Number(curSlide.duration) > 0
+      ? Number(curSlide.duration)
+      : defaultSec;
   _storySlideDuration = slideDurationSec * 1000;
   _storyRemainingTime = _storySlideDuration;
 
@@ -1791,10 +2214,15 @@ function updateStorySlideView() {
   if (progressContainer) {
     var pBarsHtml = '';
     for (var i = 0; i < curHighlight.items.length; i++) {
-      var fillWidth = (i < _currentStorySlideIdx) ? '100%' : '0%';
-      pBarsHtml += '<div class="story-progress-bar">'
-        + '<div class="story-progress-fill" id="story-fill-' + i + '" style="width:' + fillWidth + ';transition:none;"></div>'
-      + '</div>';
+      var fillWidth = i < _currentStorySlideIdx ? '100%' : '0%';
+      pBarsHtml +=
+        '<div class="story-progress-bar">' +
+        '<div class="story-progress-fill" id="story-fill-' +
+        i +
+        '" style="width:' +
+        fillWidth +
+        ';transition:none;"></div>' +
+        '</div>';
     }
     progressContainer.innerHTML = pBarsHtml;
   }
@@ -1803,25 +2231,28 @@ function updateStorySlideView() {
   var avatarEl = document.getElementById('story-viewer-avatar');
   var titleEl = document.getElementById('story-viewer-title');
   var dateEl = document.getElementById('story-viewer-date');
-  var coverUrl = curHighlight.cover || (curHighlight.items[0] ? curHighlight.items[0].url : 'assets/logo.png');
-  var safeCover = (typeof safeUrl === 'function') ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
+  var coverUrl =
+    curHighlight.cover || (curHighlight.items[0] ? curHighlight.items[0].url : 'assets/logo.png');
+  var safeCover = typeof safeUrl === 'function' ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
 
   if (avatarEl) avatarEl.src = safeCover;
   if (titleEl) titleEl.textContent = curHighlight.title;
   if (dateEl) {
     var headerDateText = curSlide.date || '';
     if (curSlide.location) {
-      headerDateText = headerDateText ? (headerDateText + ' • ' + curSlide.location) : curSlide.location;
+      headerDateText = headerDateText
+        ? headerDateText + ' • ' + curSlide.location
+        : curSlide.location;
     }
     dateEl.textContent = headerDateText;
   }
 
   // 3. Media Viewport (Photo vs HTML5 Video vs Embedded Player)
-  var imgEl      = document.getElementById('story-viewer-img');
-  var videoEl    = document.getElementById('story-viewer-video');
-  var iframeEl   = document.getElementById('story-viewer-iframe');
-  var soundBtn   = document.getElementById('story-btn-sound');
-  var safeMediaUrl = (typeof safeUrl === 'function') ? safeUrl(normUrl, '') : normUrl;
+  var imgEl = document.getElementById('story-viewer-img');
+  var videoEl = document.getElementById('story-viewer-video');
+  var iframeEl = document.getElementById('story-viewer-iframe');
+  var soundBtn = document.getElementById('story-btn-sound');
+  var safeMediaUrl = typeof safeUrl === 'function' ? safeUrl(normUrl, '') : normUrl;
 
   var isYoutube = safeMediaUrl.indexOf('youtube') !== -1 || safeMediaUrl.indexOf('youtu.be') !== -1;
   var isVimeo = safeMediaUrl.indexOf('vimeo') !== -1;
@@ -1849,12 +2280,22 @@ function updateStorySlideView() {
         if (isDriveVideo) {
           autoplayUrl = 'https://drive.google.com/file/d/' + driveFileId + '/preview?autoplay=1';
         } else if (isYoutube) {
-          var yMatch = safeMediaUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i);
+          var yMatch = safeMediaUrl.match(
+            /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i
+          );
           var ytId = yMatch ? yMatch[1] : '';
-          autoplayUrl = 'https://www.youtube-nocookie.com/embed/' + ytId + '?autoplay=1&enablejsapi=1&rel=0&playsinline=1' + (_isStoryMuted ? '&mute=1' : '');
+          autoplayUrl =
+            'https://www.youtube-nocookie.com/embed/' +
+            ytId +
+            '?autoplay=1&enablejsapi=1&rel=0&playsinline=1' +
+            (_isStoryMuted ? '&mute=1' : '');
         } else if (isVimeo) {
           var vMatch = safeMediaUrl.match(/vimeo\.com\/(?:video\/)?([0-9]+)/i);
-          autoplayUrl = 'https://player.vimeo.com/video/' + (vMatch ? vMatch[1] : '') + '?autoplay=1' + (_isStoryMuted ? '&muted=1' : '');
+          autoplayUrl =
+            'https://player.vimeo.com/video/' +
+            (vMatch ? vMatch[1] : '') +
+            '?autoplay=1' +
+            (_isStoryMuted ? '&muted=1' : '');
         }
         iframeEl.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
         if (iframeEl.src !== autoplayUrl) {
@@ -1887,18 +2328,22 @@ function updateStorySlideView() {
         videoEl.onclick = toggleStoryPause;
         if (videoEl.src !== safeMediaUrl) {
           videoEl.src = safeMediaUrl;
-          try { videoEl.load(); } catch (_) {}
+          try {
+            videoEl.load();
+          } catch (_) {}
         }
-        try { videoEl.currentTime = 0; } catch (_) {}
+        try {
+          videoEl.currentTime = 0;
+        } catch (_) {}
 
-        videoEl.onloadedmetadata = function() {
+        videoEl.onloadedmetadata = function () {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
             _storySlideDuration = Math.round(videoEl.duration * 1000);
             _storyRemainingTime = _storySlideDuration;
           }
         };
 
-        videoEl.ontimeupdate = function() {
+        videoEl.ontimeupdate = function () {
           if (videoEl.duration && isFinite(videoEl.duration) && videoEl.duration > 0) {
             var pct = Math.min(100, (videoEl.currentTime / videoEl.duration) * 100);
             var currentFill = document.getElementById('story-fill-' + _currentStorySlideIdx);
@@ -1909,24 +2354,24 @@ function updateStorySlideView() {
           }
         };
 
-        videoEl.onended = function() {
+        videoEl.onended = function () {
           nextStorySlide();
         };
 
-        videoEl.onerror = function() {
+        videoEl.onerror = function () {
           console.warn('Video failed to load:', safeMediaUrl);
         };
 
-        var playPromise = (typeof videoEl.play === 'function') ? videoEl.play() : undefined;
+        var playPromise = typeof videoEl.play === 'function' ? videoEl.play() : undefined;
         if (playPromise !== undefined && typeof playPromise.catch === 'function') {
-          playPromise.catch(function(err) {
+          playPromise.catch(function (err) {
             console.warn('Browser autoplay unmuted restricted; falling back to muted:', err);
             videoEl.muted = true;
             videoEl.volume = 0;
             _isStoryMuted = true;
             updateSoundIcon(true);
             if (typeof videoEl.play === 'function') {
-              videoEl.play().catch(function() {});
+              videoEl.play().catch(function () {});
             }
           });
         }
@@ -1951,7 +2396,7 @@ function updateStorySlideView() {
       imgEl.style.display = 'block';
       if (driveFileId) {
         imgEl.src = 'https://lh3.googleusercontent.com/d/' + driveFileId;
-        imgEl.onerror = function() {
+        imgEl.onerror = function () {
           imgEl.src = 'https://drive.google.com/thumbnail?id=' + driveFileId + '&sz=w1600';
         };
       } else {
@@ -1967,7 +2412,7 @@ function updateStorySlideView() {
     var nextSlide = curHighlight.items[_currentStorySlideIdx + 1];
     if (nextSlide && !isVideoMedia(nextSlide.url, nextSlide.type) && typeof Image !== 'undefined') {
       var preImg = new Image();
-      preImg.src = (typeof safeUrl === 'function') ? safeUrl(nextSlide.url, '') : nextSlide.url;
+      preImg.src = typeof safeUrl === 'function' ? safeUrl(nextSlide.url, '') : nextSlide.url;
     }
   }
 
@@ -1979,10 +2424,14 @@ function updateStorySlideView() {
     if (curSlide.location || driveFileId) {
       pillEl.style.display = 'inline-flex';
       var locHtml = curSlide.location
-        ? '<span class="story-pill-tag story-pill-loc"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' + (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location) + '</span>'
+        ? '<span class="story-pill-tag story-pill-loc"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ' +
+          (typeof escapeHtml === 'function' ? escapeHtml(curSlide.location) : curSlide.location) +
+          '</span>'
         : '';
       var driveLinkHtml = driveFileId
-        ? '<a href="https://drive.google.com/file/d/' + encodeURIComponent(driveFileId) + '/view" target="_blank" rel="noopener noreferrer" class="story-pill-tag story-pill-link" title="Open in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Drive &nearr;</a>'
+        ? '<a href="https://drive.google.com/file/d/' +
+          encodeURIComponent(driveFileId) +
+          '/view" target="_blank" rel="noopener noreferrer" class="story-pill-tag story-pill-link" title="Open in Google Drive"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open Drive &nearr;</a>'
         : '';
       pillEl.innerHTML = locHtml + driveLinkHtml;
     } else {
@@ -2021,9 +2470,18 @@ function toggleStorySound(e) {
     if (iframeEl.contentWindow && typeof iframeEl.contentWindow.postMessage === 'function') {
       var ytCmd = _isStoryMuted ? 'mute' : 'unMute';
       try {
-        iframeEl.contentWindow.postMessage(JSON.stringify({ event: 'command', func: ytCmd, args: [] }), '*');
-        iframeEl.contentWindow.postMessage('{"event":"command","func":"' + ytCmd + '","args":""}', '*');
-        iframeEl.contentWindow.postMessage(JSON.stringify({ method: 'setVolume', value: _isStoryMuted ? 0 : 1 }), '*');
+        iframeEl.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: ytCmd, args: [] }),
+          '*'
+        );
+        iframeEl.contentWindow.postMessage(
+          '{"event":"command","func":"' + ytCmd + '","args":""}',
+          '*'
+        );
+        iframeEl.contentWindow.postMessage(
+          JSON.stringify({ method: 'setVolume', value: _isStoryMuted ? 0 : 1 }),
+          '*'
+        );
       } catch (_) {}
     }
   }
@@ -2041,9 +2499,11 @@ function updateSoundIcon(isMuted) {
   }
   if (!icon) return;
   if (isMuted) {
-    icon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>';
+    icon.innerHTML =
+      '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>';
   } else {
-    icon.innerHTML = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>';
+    icon.innerHTML =
+      '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>';
   }
 }
 
@@ -2058,7 +2518,8 @@ var _lastPauseToggleTime = 0;
 
 function showStoryCenterPulse(isPaused) {
   if (typeof document === 'undefined') return;
-  var wrap = document.getElementById('story-media-wrap') || document.querySelector('.story-viewer-card');
+  var wrap =
+    document.getElementById('story-media-wrap') || document.querySelector('.story-viewer-card');
   if (!wrap) return;
   var existing = wrap.querySelector('.story-center-pulse');
   if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
@@ -2069,14 +2530,16 @@ function showStoryCenterPulse(isPaused) {
     ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
     : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
   wrap.appendChild(pulse);
-  setTimeout(function() {
+  setTimeout(function () {
     if (pulse && pulse.parentNode) pulse.parentNode.removeChild(pulse);
   }, 480);
 }
 
 function nextStorySlide() {
   _cancelStoryTicker();
-  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  var activeHighlights = storyHighlights.filter(function (sh) {
+    return sh.active !== false;
+  });
   var curHighlight = activeHighlights[_currentStoryHighlightIdx];
   if (!curHighlight) {
     closeStoryViewer();
@@ -2100,7 +2563,9 @@ function nextStorySlide() {
 
 function prevStorySlide() {
   _cancelStoryTicker();
-  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  var activeHighlights = storyHighlights.filter(function (sh) {
+    return sh.active !== false;
+  });
   if (_currentStorySlideIdx > 0) {
     _currentStorySlideIdx--;
     updateStorySlideView();
@@ -2120,7 +2585,9 @@ function prevStorySlide() {
 
 function nextStoryHighlight() {
   _cancelStoryTicker();
-  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  var activeHighlights = storyHighlights.filter(function (sh) {
+    return sh.active !== false;
+  });
   if (!activeHighlights.length) {
     closeStoryViewer();
     return;
@@ -2136,7 +2603,9 @@ function nextStoryHighlight() {
 
 function prevStoryHighlight() {
   _cancelStoryTicker();
-  var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+  var activeHighlights = storyHighlights.filter(function (sh) {
+    return sh.active !== false;
+  });
   if (!activeHighlights.length) {
     closeStoryViewer();
     return;
@@ -2154,9 +2623,10 @@ function prevStoryHighlight() {
 function pauseStoryPlayback() {
   if (_isStoryPaused) return;
   _isStoryPaused = true;
-  _storyPauseStart = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-    ? performance.now()
-    : Date.now();
+  _storyPauseStart =
+    typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
 
   var videoEl = document.getElementById('story-viewer-video');
   if (videoEl && typeof videoEl.pause === 'function') {
@@ -2166,15 +2636,21 @@ function pauseStoryPlayback() {
   if (iframeEl && iframeEl.style.display !== 'none') {
     if (iframeEl.contentWindow && typeof iframeEl.contentWindow.postMessage === 'function') {
       try {
-        iframeEl.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        iframeEl.contentWindow.postMessage(
+          '{"event":"command","func":"pauseVideo","args":""}',
+          '*'
+        );
         iframeEl.contentWindow.postMessage(JSON.stringify({ method: 'pause' }), '*');
       } catch (_) {}
     }
 
-    var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
+    var activeHighlights = storyHighlights.filter(function (sh) {
+      return sh.active !== false;
+    });
     var curHighlight = activeHighlights[_currentStoryHighlightIdx];
-    var curSlide = curHighlight && curHighlight.items ? curHighlight.items[_currentStorySlideIdx] : null;
-    var rawUrl = curSlide ? (curSlide.url || '') : '';
+    var curSlide =
+      curHighlight && curHighlight.items ? curHighlight.items[_currentStorySlideIdx] : null;
+    var rawUrl = curSlide ? curSlide.url || '' : '';
     if (rawUrl.indexOf('drive.google.com') !== -1 || rawUrl.indexOf('docs.google.com') !== -1) {
       if (!iframeEl.dataset) iframeEl.dataset = {};
       if (iframeEl.src && !iframeEl.src.includes('about:blank')) {
@@ -2186,7 +2662,8 @@ function pauseStoryPlayback() {
 
   var pauseBtn = document.getElementById('story-btn-pause');
   if (pauseBtn) {
-    pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    pauseBtn.innerHTML =
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
     pauseBtn.title = 'Resume Highlight';
   }
 }
@@ -2194,9 +2671,10 @@ function pauseStoryPlayback() {
 function resumeStoryPlayback() {
   if (!_isStoryPaused) return;
   _isStoryPaused = false;
-  var now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-    ? performance.now()
-    : Date.now();
+  var now =
+    typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
   if (_storyPauseStart > 0) {
     var pausedDuration = now - _storyPauseStart;
     _storySlideStartTime += pausedDuration;
@@ -2205,16 +2683,22 @@ function resumeStoryPlayback() {
 
   var videoEl = document.getElementById('story-viewer-video');
   if (videoEl && videoEl.style.display !== 'none') {
-    if (typeof videoEl.play === 'function') videoEl.play().catch(function() {});
+    if (typeof videoEl.play === 'function') videoEl.play().catch(function () {});
   } else {
     var iframeEl = document.getElementById('story-viewer-iframe');
     if (iframeEl && iframeEl.style.display !== 'none') {
       if (iframeEl.dataset && iframeEl.dataset.pausedSrc) {
         iframeEl.src = iframeEl.dataset.pausedSrc;
         delete iframeEl.dataset.pausedSrc;
-      } else if (iframeEl.contentWindow && typeof iframeEl.contentWindow.postMessage === 'function') {
+      } else if (
+        iframeEl.contentWindow &&
+        typeof iframeEl.contentWindow.postMessage === 'function'
+      ) {
         try {
-          iframeEl.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+          iframeEl.contentWindow.postMessage(
+            '{"event":"command","func":"playVideo","args":""}',
+            '*'
+          );
           iframeEl.contentWindow.postMessage(JSON.stringify({ method: 'play' }), '*');
         } catch (_) {}
       }
@@ -2223,7 +2707,8 @@ function resumeStoryPlayback() {
 
   var pauseBtn = document.getElementById('story-btn-pause');
   if (pauseBtn) {
-    pauseBtn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    pauseBtn.innerHTML =
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     pauseBtn.title = 'Pause Highlight';
   }
 }
@@ -2292,7 +2777,7 @@ function attachStoryKeyListeners() {
   if (_storyKeyHandlerAttached || typeof document === 'undefined') return;
   _storyKeyHandlerAttached = true;
 
-  document.addEventListener('keydown', function(e) {
+  document.addEventListener('keydown', function (e) {
     var card = document.querySelector('.story-viewer-card');
     if (card) {
       card.style.transform = '';
@@ -2327,7 +2812,7 @@ function attachStoryKeyListeners() {
   });
 
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-    window.addEventListener('blur', function() {
+    window.addEventListener('blur', function () {
       var modal = document.getElementById('story-viewer-modal');
       if (!modal || modal.style.display !== 'flex') return;
       var iframeEl = document.getElementById('story-viewer-iframe');
@@ -2352,13 +2837,16 @@ var _lastTouchTapTime = 0;
 
 function attachStoryHoldListeners() {
   if (_storyHoldAttached || typeof document === 'undefined') return;
-  var card = document.querySelector('.story-viewer-card') || document.getElementById('story-media-wrap') || document.getElementById('story-viewer-modal');
+  var card =
+    document.querySelector('.story-viewer-card') ||
+    document.getElementById('story-media-wrap') ||
+    document.getElementById('story-viewer-modal');
   if (!card) return;
   _storyHoldAttached = true;
 
-    var soundBtn = document.getElementById('story-btn-sound');
+  var soundBtn = document.getElementById('story-btn-sound');
   if (soundBtn) {
-    soundBtn.onclick = function(e) {
+    soundBtn.onclick = function (e) {
       if (e) {
         if (typeof e.stopPropagation === 'function') e.stopPropagation();
         if (typeof e.preventDefault === 'function') e.preventDefault();
@@ -2368,7 +2856,7 @@ function attachStoryHoldListeners() {
   }
   var pauseBtn = document.getElementById('story-btn-pause');
   if (pauseBtn) {
-    pauseBtn.onclick = function(e) {
+    pauseBtn.onclick = function (e) {
       if (e) {
         if (typeof e.stopPropagation === 'function') e.stopPropagation();
         if (typeof e.preventDefault === 'function') e.preventDefault();
@@ -2378,22 +2866,28 @@ function attachStoryHoldListeners() {
   }
 
   // Desktop mouse hold-to-pause (holding > 200ms pauses; release resumes; click toggles pause)
-  card.addEventListener('mousedown', function(e) {
-    if (e.target && e.target.closest('button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill')) return;
+  card.addEventListener('mousedown', function (e) {
+    if (
+      e.target &&
+      e.target.closest(
+        'button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill'
+      )
+    )
+      return;
     clearTimeout(_storyHoldTimer);
-    _storyHoldTimer = setTimeout(function() {
+    _storyHoldTimer = setTimeout(function () {
       _storyWasHoldPaused = true;
       pauseStoryPlayback();
     }, 200);
   });
-  card.addEventListener('mouseup', function() {
+  card.addEventListener('mouseup', function () {
     clearTimeout(_storyHoldTimer);
     if (_storyWasHoldPaused) {
       _storyWasHoldPaused = false;
       resumeStoryPlayback();
     }
   });
-  card.addEventListener('mouseleave', function() {
+  card.addEventListener('mouseleave', function () {
     clearTimeout(_storyHoldTimer);
     if (_storyWasHoldPaused) {
       _storyWasHoldPaused = false;
@@ -2402,167 +2896,197 @@ function attachStoryHoldListeners() {
   });
 
   // Mobile touch gestures: direct manipulation interactive dragging & 3-zone tap
-  card.addEventListener('touchstart', function(e) {
-    if (!e.touches || !e.touches[0]) return;
-    var t = e.touches[0];
-    _storyTouchStartX = t.clientX;
-    _storyTouchStartY = t.clientY;
-    _storyTouchStartTime = Date.now();
-    _storyIsSwiping = false;
-    _storyWasHoldPaused = false;
+  card.addEventListener(
+    'touchstart',
+    function (e) {
+      if (!e.touches || !e.touches[0]) return;
+      var t = e.touches[0];
+      _storyTouchStartX = t.clientX;
+      _storyTouchStartY = t.clientY;
+      _storyTouchStartTime = Date.now();
+      _storyIsSwiping = false;
+      _storyWasHoldPaused = false;
 
-    if (e.target && e.target.closest('button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill')) {
-      return;
-    }
-
-    clearTimeout(_storyHoldTimer);
-    _storyHoldTimer = setTimeout(function() {
-      if (!_storyIsSwiping) {
-        _storyWasHoldPaused = true;
-        pauseStoryPlayback();
-      }
-    }, 220);
-  }, { passive: true });
-
-  card.addEventListener('touchmove', function(e) {
-    if (!e.touches || !e.touches[0]) return;
-    var t = e.touches[0];
-    var dx = t.clientX - _storyTouchStartX;
-    var dy = t.clientY - _storyTouchStartY;
-
-    if (!_storyIsSwiping) {
-      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.1) {
-        _storyIsSwiping = true;
-        clearTimeout(_storyHoldTimer);
-        if (_storyWasHoldPaused) {
-          resumeStoryPlayback();
-          _storyWasHoldPaused = false;
-        }
-      } else if (Math.abs(dy) > 15) {
+      if (
+        e.target &&
+        e.target.closest(
+          'button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill'
+        )
+      ) {
         return;
       }
-    }
 
-    if (_storyIsSwiping) {
-      var cardWidth = card.offsetWidth || window.innerWidth || 360;
-      var activeHighlights = storyHighlights.filter(function(sh) { return sh.active !== false; });
-      var isFirst = _currentStoryHighlightIdx <= 0;
-      var isLast = _currentStoryHighlightIdx >= activeHighlights.length - 1;
-
-      var currentDx = dx;
-      if ((isFirst && dx > 0) || (isLast && dx < 0)) {
-        currentDx = dx * 0.3; // Elastic resistance at highlight ends
-      }
-
-      var scale = Math.max(0.9, 1 - Math.abs(currentDx) / (cardWidth * 3.5));
-      var opacity = Math.max(0.65, 1 - Math.abs(currentDx) / (cardWidth * 2.2));
-      card.style.transition = 'none';
-      card.style.transform = 'translate3d(' + currentDx + 'px, 0, 0) scale(' + scale + ')';
-      card.style.opacity = opacity;
-    }
-  }, { passive: true });
-
-  card.addEventListener('touchend', function(e) {
-    clearTimeout(_storyHoldTimer);
-
-    if (_storyIsSwiping) {
-      var changedSwipe = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
-      var dxSwipe = changedSwipe ? (changedSwipe.clientX - _storyTouchStartX) : 0;
-      var dtSwipe = Date.now() - _storyTouchStartTime;
-      var cardWidth = card.offsetWidth || window.innerWidth || 360;
-      var velocity = Math.abs(dxSwipe) / Math.max(1, dtSwipe);
-
-      var isSwipeComplete = Math.abs(dxSwipe) > (cardWidth * 0.22) || (Math.abs(dxSwipe) > 35 && velocity > 0.3);
-
-      if (isSwipeComplete) {
-        if (dxSwipe < 0) {
-          // Slide smoothly out to the left
-          card.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.22s ease';
-          card.style.transform = 'translate3d(-105%, 0, 0) scale(0.9)';
-          card.style.opacity = '0';
-          setTimeout(function() {
-            card.style.transition = 'none';
-            card.style.transform = 'translate3d(40px, 0, 0) scale(0.96)';
-            card.style.opacity = '0';
-            nextStoryHighlight();
-            if (typeof requestAnimationFrame === 'function') {
-              requestAnimationFrame(function() {
-                card.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
-                card.style.transform = 'translate3d(0, 0, 0) scale(1)';
-                card.style.opacity = '1';
-              });
-            } else {
-              card.style.transform = 'translate3d(0, 0, 0) scale(1)';
-              card.style.opacity = '1';
-            }
-          }, 220);
-        } else {
-          // Slide smoothly out to the right
-          card.style.transition = 'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.22s ease';
-          card.style.transform = 'translate3d(105%, 0, 0) scale(0.9)';
-          card.style.opacity = '0';
-          setTimeout(function() {
-            card.style.transition = 'none';
-            card.style.transform = 'translate3d(-40px, 0, 0) scale(0.96)';
-            card.style.opacity = '0';
-            prevStoryHighlight();
-            if (typeof requestAnimationFrame === 'function') {
-              requestAnimationFrame(function() {
-                card.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
-                card.style.transform = 'translate3d(0, 0, 0) scale(1)';
-                card.style.opacity = '1';
-              });
-            } else {
-              card.style.transform = 'translate3d(0, 0, 0) scale(1)';
-              card.style.opacity = '1';
-            }
-          }, 220);
+      clearTimeout(_storyHoldTimer);
+      _storyHoldTimer = setTimeout(function () {
+        if (!_storyIsSwiping) {
+          _storyWasHoldPaused = true;
+          pauseStoryPlayback();
         }
-      } else {
-        // Snap back to center smoothly
-        card.style.transition = 'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
-        card.style.transform = 'translate3d(0, 0, 0) scale(1)';
-        card.style.opacity = '1';
+      }, 220);
+    },
+    { passive: true }
+  );
+
+  card.addEventListener(
+    'touchmove',
+    function (e) {
+      if (!e.touches || !e.touches[0]) return;
+      var t = e.touches[0];
+      var dx = t.clientX - _storyTouchStartX;
+      var dy = t.clientY - _storyTouchStartY;
+
+      if (!_storyIsSwiping) {
+        if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.1) {
+          _storyIsSwiping = true;
+          clearTimeout(_storyHoldTimer);
+          if (_storyWasHoldPaused) {
+            resumeStoryPlayback();
+            _storyWasHoldPaused = false;
+          }
+        } else if (Math.abs(dy) > 15) {
+          return;
+        }
       }
-      _storyIsSwiping = false;
-      return;
-    }
 
-    if (_storyWasHoldPaused) {
-      _storyWasHoldPaused = false;
-      resumeStoryPlayback();
-      return;
-    }
+      if (_storyIsSwiping) {
+        var cardWidth = card.offsetWidth || window.innerWidth || 360;
+        var activeHighlights = storyHighlights.filter(function (sh) {
+          return sh.active !== false;
+        });
+        var isFirst = _currentStoryHighlightIdx <= 0;
+        var isLast = _currentStoryHighlightIdx >= activeHighlights.length - 1;
 
-    if (e.target && e.target.closest('button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill')) {
-      return;
-    }
+        var currentDx = dx;
+        if ((isFirst && dx > 0) || (isLast && dx < 0)) {
+          currentDx = dx * 0.3; // Elastic resistance at highlight ends
+        }
 
-    var changed = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
-    if (!changed) return;
-
-    var dx = changed.clientX - _storyTouchStartX;
-    var dy = changed.clientY - _storyTouchStartY;
-    var dt = Date.now() - _storyTouchStartTime;
-
-    // Tap navigation: sides change slides, centre pauses/resumes video!
-    var isTap = Math.abs(dx) < 16 && Math.abs(dy) < 16 && dt < 350;
-    if (isTap) {
-      var box = card.getBoundingClientRect();
-      var tapRelX = changed.clientX - box.left;
-      var cardW = box.width || window.innerWidth || 360;
-      var tapRatio = tapRelX / cardW;
-
-      _lastTouchTapTime = Date.now();
-      if (tapRatio < 0.28) {
-        prevStorySlide(); // Tap left 28% -> Previous Slide
-      } else if (tapRatio > 0.72) {
-        nextStorySlide(); // Tap right 28% -> Next Slide
-      } else {
-        toggleStoryPause(); // Tap around centre area -> Pause / Resume Video
+        var scale = Math.max(0.9, 1 - Math.abs(currentDx) / (cardWidth * 3.5));
+        var opacity = Math.max(0.65, 1 - Math.abs(currentDx) / (cardWidth * 2.2));
+        card.style.transition = 'none';
+        card.style.transform = 'translate3d(' + currentDx + 'px, 0, 0) scale(' + scale + ')';
+        card.style.opacity = opacity;
       }
-    }
-  }, { passive: true });
+    },
+    { passive: true }
+  );
+
+  card.addEventListener(
+    'touchend',
+    function (e) {
+      clearTimeout(_storyHoldTimer);
+
+      if (_storyIsSwiping) {
+        var changedSwipe = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+        var dxSwipe = changedSwipe ? changedSwipe.clientX - _storyTouchStartX : 0;
+        var dtSwipe = Date.now() - _storyTouchStartTime;
+        var cardWidth = card.offsetWidth || window.innerWidth || 360;
+        var velocity = Math.abs(dxSwipe) / Math.max(1, dtSwipe);
+
+        var isSwipeComplete =
+          Math.abs(dxSwipe) > cardWidth * 0.22 || (Math.abs(dxSwipe) > 35 && velocity > 0.3);
+
+        if (isSwipeComplete) {
+          if (dxSwipe < 0) {
+            // Slide smoothly out to the left
+            card.style.transition =
+              'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.22s ease';
+            card.style.transform = 'translate3d(-105%, 0, 0) scale(0.9)';
+            card.style.opacity = '0';
+            setTimeout(function () {
+              card.style.transition = 'none';
+              card.style.transform = 'translate3d(40px, 0, 0) scale(0.96)';
+              card.style.opacity = '0';
+              nextStoryHighlight();
+              if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(function () {
+                  card.style.transition =
+                    'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+                  card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+                  card.style.opacity = '1';
+                });
+              } else {
+                card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+                card.style.opacity = '1';
+              }
+            }, 220);
+          } else {
+            // Slide smoothly out to the right
+            card.style.transition =
+              'transform 0.22s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.22s ease';
+            card.style.transform = 'translate3d(105%, 0, 0) scale(0.9)';
+            card.style.opacity = '0';
+            setTimeout(function () {
+              card.style.transition = 'none';
+              card.style.transform = 'translate3d(-40px, 0, 0) scale(0.96)';
+              card.style.opacity = '0';
+              prevStoryHighlight();
+              if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(function () {
+                  card.style.transition =
+                    'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+                  card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+                  card.style.opacity = '1';
+                });
+              } else {
+                card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+                card.style.opacity = '1';
+              }
+            }, 220);
+          }
+        } else {
+          // Snap back to center smoothly
+          card.style.transition =
+            'transform 0.24s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.24s ease';
+          card.style.transform = 'translate3d(0, 0, 0) scale(1)';
+          card.style.opacity = '1';
+        }
+        _storyIsSwiping = false;
+        return;
+      }
+
+      if (_storyWasHoldPaused) {
+        _storyWasHoldPaused = false;
+        resumeStoryPlayback();
+        return;
+      }
+
+      if (
+        e.target &&
+        e.target.closest(
+          'button, a, .story-btn-icon, .story-arrow-btn, .story-pill-tag, .story-caption-pill'
+        )
+      ) {
+        return;
+      }
+
+      var changed = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+      if (!changed) return;
+
+      var dx = changed.clientX - _storyTouchStartX;
+      var dy = changed.clientY - _storyTouchStartY;
+      var dt = Date.now() - _storyTouchStartTime;
+
+      // Tap navigation: sides change slides, centre pauses/resumes video!
+      var isTap = Math.abs(dx) < 16 && Math.abs(dy) < 16 && dt < 350;
+      if (isTap) {
+        var box = card.getBoundingClientRect();
+        var tapRelX = changed.clientX - box.left;
+        var cardW = box.width || window.innerWidth || 360;
+        var tapRatio = tapRelX / cardW;
+
+        _lastTouchTapTime = Date.now();
+        if (tapRatio < 0.28) {
+          prevStorySlide(); // Tap left 28% -> Previous Slide
+        } else if (tapRatio > 0.72) {
+          nextStorySlide(); // Tap right 28% -> Next Slide
+        } else {
+          toggleStoryPause(); // Tap around centre area -> Pause / Resume Video
+        }
+      }
+    },
+    { passive: true }
+  );
 }
 
 // ── Admin Story Highlights Management ────────────────────────────
@@ -2575,28 +3099,44 @@ function renderAdminStoryHighlights() {
   if (!list) return;
 
   if (!storyHighlights.length) {
-    list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;grid-column:1/-1;text-align:center;padding:14px;">No story highlights configured yet.</div>';
+    list.innerHTML =
+      '<div style="color:var(--text-muted);font-size:12px;grid-column:1/-1;text-align:center;padding:14px;">No story highlights configured yet.</div>';
     return;
   }
 
   var html = '';
-  storyHighlights.forEach(function(sh) {
+  storyHighlights.forEach(function (sh) {
     var coverUrl = sh.cover || (sh.items && sh.items[0] ? sh.items[0].url : 'assets/logo.png');
-    var safeCover = (typeof safeUrl === 'function') ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
+    var safeCover = typeof safeUrl === 'function' ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
     var slideCount = sh.items ? sh.items.length : 0;
-    var title = (typeof escapeHtml === 'function') ? escapeHtml(sh.title) : sh.title;
+    var title = typeof escapeHtml === 'function' ? escapeHtml(sh.title) : sh.title;
 
-    html += '<div class="story-admin-item">'
-      + '<div class="story-admin-cover"><img src="' + safeCover + '" alt="' + title + '" onerror="this.src=\'assets/logo.png\'" /></div>'
-      + '<div style="flex:1;min-width:0;">'
-        + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div>'
-        + '<div style="font-size:11px;color:var(--text-muted);">' + slideCount + ' slide' + (slideCount === 1 ? '' : 's') + '</div>'
-      + '</div>'
-      + '<div style="display:flex;gap:4px;">'
-        + '<button type="button" onclick="openEditStoryModal(\'' + sh.id + '\')" class="portal-btn portal-btn-secondary" style="padding:4px 8px;font-size:11px;" title="Edit Highlight">Edit</button>'
-        + '<button type="button" onclick="deleteStoryHighlight(\'' + sh.id + '\')" class="portal-btn" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 8px;font-size:11px;" title="Delete Highlight">&times;</button>'
-      + '</div>'
-    + '</div>';
+    html +=
+      '<div class="story-admin-item">' +
+      '<div class="story-admin-cover"><img src="' +
+      safeCover +
+      '" alt="' +
+      title +
+      '" onerror="this.src=\'assets/logo.png\'" /></div>' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+      title +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-muted);">' +
+      slideCount +
+      ' slide' +
+      (slideCount === 1 ? '' : 's') +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:4px;">' +
+      '<button type="button" onclick="openEditStoryModal(\'' +
+      sh.id +
+      '\')" class="portal-btn portal-btn-secondary" style="padding:4px 8px;font-size:11px;" title="Edit Highlight">Edit</button>' +
+      '<button type="button" onclick="deleteStoryHighlight(\'' +
+      sh.id +
+      '\')" class="portal-btn" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 8px;font-size:11px;" title="Delete Highlight">&times;</button>' +
+      '</div>' +
+      '</div>';
   });
 
   list.innerHTML = html;
@@ -2631,7 +3171,9 @@ function openCreateStoryModal() {
  */
 function openEditStoryModal(id) {
   if (typeof document === 'undefined') return;
-  var sh = storyHighlights.find(function(x) { return x.id === id; });
+  var sh = storyHighlights.find(function (x) {
+    return x.id === id;
+  });
   if (!sh) return;
 
   var idInp = document.getElementById('adm-story-id');
@@ -2648,8 +3190,15 @@ function openEditStoryModal(id) {
   if (slidesList) {
     slidesList.innerHTML = '';
     if (sh.items && sh.items.length) {
-      sh.items.forEach(function(item) {
-        addStorySlideRow(item.url || '', item.caption || '', item.date || '', item.location || '', item.type || 'auto', item.duration);
+      sh.items.forEach(function (item) {
+        addStorySlideRow(
+          item.url || '',
+          item.caption || '',
+          item.date || '',
+          item.location || '',
+          item.type || 'auto',
+          item.duration
+        );
       });
     } else {
       addStorySlideRow('', '', '', '', 'auto', 5);
@@ -2685,43 +3234,64 @@ function addStorySlideRow(url, caption, date, location, type, duration) {
   var currentRows = container.querySelectorAll('.adm-story-slide-row').length;
   var slideNum = currentRows + 1;
   var slideType = type || (isVideoMedia(url) ? 'video' : 'auto');
-  var defaultDur = (slideType === 'video') ? 30 : 5;
-  var slideDur = (duration && isFinite(duration) && Number(duration) > 0) ? Number(duration) : defaultDur;
+  var defaultDur = slideType === 'video' ? 30 : 5;
+  var slideDur =
+    duration && isFinite(duration) && Number(duration) > 0 ? Number(duration) : defaultDur;
 
   var div = document.createElement('div');
   div.className = 'adm-story-slide-row';
-  div.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:10px;position:relative;';
+  div.style.cssText =
+    'background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:10px;position:relative;';
 
-  div.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;">'
-    + '<span style="font-size:12px;font-weight:700;color:var(--accent);">Slide #' + slideNum + '</span>'
-    + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
-      + '<div style="display:inline-flex;align-items:center;gap:3px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:6px;padding:2px 6px;" title="Display duration in seconds">'
-        + '<span style="font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">Time:</span>'
-        + '<input type="number" class="form-input adm-slide-duration" min="1" max="600" step="1" value="' + slideDur + '" style="font-size:11px;padding:2px 4px;width:44px;text-align:center;border:none;background:transparent;color:var(--text-primary);" />'
-        + '<span style="font-size:10px;color:var(--text-muted);">s</span>'
-      + '</div>'
-      + '<select class="form-input adm-slide-type" style="font-size:11px;padding:3px 8px;width:auto;border-radius:6px;" onchange="handleSlideTypeChange(this)">'
-        + '<option value="auto"' + (slideType === 'auto' ? ' selected' : '') + '>Auto Detect</option>'
-        + '<option value="image"' + (slideType === 'image' ? ' selected' : '') + '>Photo</option>'
-        + '<option value="video"' + (slideType === 'video' ? ' selected' : '') + '>Video</option>'
-      + '</select>'
-      + '<label class="portal-btn portal-btn-secondary" style="padding:4px 9px;font-size:11px;cursor:pointer;margin:0;display:inline-flex;align-items:center;gap:4px;" title="Upload photo or video for this slide">'
-        + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>'
-        + '<span>Upload</span>'
-        + '<input type="file" accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.png,.jpg,.jpeg,.gif,.webp" style="display:none;" onchange="handleSlideFileUpload(this)" />'
-      + '</label>'
-      + '<button type="button" onclick="this.closest(\'.adm-story-slide-row\').remove()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;" title="Remove slide">&times;</button>'
-    + '</div>'
-  + '</div>'
-  + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">'
-    + '<input type="text" class="form-input adm-slide-url" placeholder="Photo/Video URL or Google Drive link" value="' + (url || '') + '" oninput="handleSlideUrlInput(this)" style="font-size:12px;padding:6px 10px;" />'
-    + '<input type="text" class="form-input adm-slide-date" placeholder="Date (e.g. 15 Jun 2026)" value="' + (date || '') + '" style="font-size:12px;padding:6px 10px;" />'
-  + '</div>'
-  + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
-    + '<input type="text" class="form-input adm-slide-caption" placeholder="Slide Caption / Remark" value="' + (caption || '') + '" style="font-size:12px;padding:6px 10px;" />'
-    + '<input type="text" class="form-input adm-slide-loc" placeholder="Location / Activity" value="' + (location || '') + '" style="font-size:12px;padding:6px 10px;" />'
-  + '</div>'
-  + '<div class="adm-slide-status" style="font-size:11px;margin-top:6px;color:var(--text-muted);display:none;"></div>';
+  div.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;">' +
+    '<span style="font-size:12px;font-weight:700;color:var(--accent);">Slide #' +
+    slideNum +
+    '</span>' +
+    '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+    '<div style="display:inline-flex;align-items:center;gap:3px;background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:6px;padding:2px 6px;" title="Display duration in seconds">' +
+    '<span style="font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;">Time:</span>' +
+    '<input type="number" class="form-input adm-slide-duration" min="1" max="600" step="1" value="' +
+    slideDur +
+    '" style="font-size:11px;padding:2px 4px;width:44px;text-align:center;border:none;background:transparent;color:var(--text-primary);" />' +
+    '<span style="font-size:10px;color:var(--text-muted);">s</span>' +
+    '</div>' +
+    '<select class="form-input adm-slide-type" style="font-size:11px;padding:3px 8px;width:auto;border-radius:6px;" onchange="handleSlideTypeChange(this)">' +
+    '<option value="auto"' +
+    (slideType === 'auto' ? ' selected' : '') +
+    '>Auto Detect</option>' +
+    '<option value="image"' +
+    (slideType === 'image' ? ' selected' : '') +
+    '>Photo</option>' +
+    '<option value="video"' +
+    (slideType === 'video' ? ' selected' : '') +
+    '>Video</option>' +
+    '</select>' +
+    '<label class="portal-btn portal-btn-secondary" style="padding:4px 9px;font-size:11px;cursor:pointer;margin:0;display:inline-flex;align-items:center;gap:4px;" title="Upload photo or video for this slide">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>' +
+    '<span>Upload</span>' +
+    '<input type="file" accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.png,.jpg,.jpeg,.gif,.webp" style="display:none;" onchange="handleSlideFileUpload(this)" />' +
+    '</label>' +
+    '<button type="button" onclick="this.closest(\'.adm-story-slide-row\').remove()" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:var(--red);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;" title="Remove slide">&times;</button>' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;">' +
+    '<input type="text" class="form-input adm-slide-url" placeholder="Photo/Video URL or Google Drive link" value="' +
+    (url || '') +
+    '" oninput="handleSlideUrlInput(this)" style="font-size:12px;padding:6px 10px;" />' +
+    '<input type="text" class="form-input adm-slide-date" placeholder="Date (e.g. 15 Jun 2026)" value="' +
+    (date || '') +
+    '" style="font-size:12px;padding:6px 10px;" />' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+    '<input type="text" class="form-input adm-slide-caption" placeholder="Slide Caption / Remark" value="' +
+    (caption || '') +
+    '" style="font-size:12px;padding:6px 10px;" />' +
+    '<input type="text" class="form-input adm-slide-loc" placeholder="Location / Activity" value="' +
+    (location || '') +
+    '" style="font-size:12px;padding:6px 10px;" />' +
+    '</div>' +
+    '<div class="adm-slide-status" style="font-size:11px;margin-top:6px;color:var(--text-muted);display:none;"></div>';
 
   container.appendChild(div);
 }
@@ -2775,7 +3345,12 @@ async function handleSlideFileUpload(input) {
         else if (res.type === 'image' && parseInt(durInp.value, 10) === 30) durInp.value = '5';
       }
       if (statusEl) {
-        statusEl.innerHTML = '<span style="color:var(--green);font-weight:600;">Uploaded: ' + (typeof escapeHtml === 'function' ? escapeHtml(file.name) : file.name) + ' (' + res.type.toUpperCase() + ')</span>';
+        statusEl.innerHTML =
+          '<span style="color:var(--green);font-weight:600;">Uploaded: ' +
+          (typeof escapeHtml === 'function' ? escapeHtml(file.name) : file.name) +
+          ' (' +
+          res.type.toUpperCase() +
+          ')</span>';
       }
       if (typeof showToast === 'function') {
         showToast('Uploaded ' + res.type + ' successfully!', 'success');
@@ -2784,7 +3359,10 @@ async function handleSlideFileUpload(input) {
   } catch (err) {
     console.error('Slide file upload failed:', err);
     if (statusEl) {
-      statusEl.innerHTML = '<span style="color:var(--red);">Upload failed: ' + (typeof escapeHtml === 'function' ? escapeHtml(err.message || 'Error') : 'Error') + '</span>';
+      statusEl.innerHTML =
+        '<span style="color:var(--red);">Upload failed: ' +
+        (typeof escapeHtml === 'function' ? escapeHtml(err.message || 'Error') : 'Error') +
+        '</span>';
     }
   }
 }
@@ -2807,12 +3385,16 @@ function handleSlideUrlInput(input) {
   }
 
   if (val.indexOf('drive.google.com') !== -1 || val.indexOf('docs.google.com') !== -1) {
-    var normDrive = normalizeMediaUrl(val, (typeSelect && typeSelect.value !== 'auto') ? typeSelect.value : 'video');
+    var normDrive = normalizeMediaUrl(
+      val,
+      typeSelect && typeSelect.value !== 'auto' ? typeSelect.value : 'video'
+    );
     input.value = normDrive;
     if (typeSelect && typeSelect.value === 'auto') typeSelect.value = 'video';
     if (statusEl) {
       statusEl.style.display = 'block';
-      statusEl.innerHTML = '<span style="color:#3b82f6;font-weight:600;">Google Drive embed streaming link ready.</span>';
+      statusEl.innerHTML =
+        '<span style="color:#3b82f6;font-weight:600;">Google Drive embed streaming link ready.</span>';
     }
   } else if (val.indexOf('youtube.com') !== -1 || val.indexOf('youtu.be') !== -1) {
     var normYt = normalizeMediaUrl(val, 'video');
@@ -2820,13 +3402,15 @@ function handleSlideUrlInput(input) {
     if (typeSelect) typeSelect.value = 'video';
     if (statusEl) {
       statusEl.style.display = 'block';
-      statusEl.innerHTML = '<span style="color:#ef4444;font-weight:600;">YouTube video embed stream ready.</span>';
+      statusEl.innerHTML =
+        '<span style="color:#ef4444;font-weight:600;">YouTube video embed stream ready.</span>';
     }
   } else if (isVideoMedia(val)) {
     if (typeSelect && typeSelect.value === 'auto') typeSelect.value = 'video';
     if (statusEl) {
       statusEl.style.display = 'block';
-      statusEl.innerHTML = '<span style="color:var(--accent);font-weight:600;">Direct video file (MP4/WebM/MOV) detected.</span>';
+      statusEl.innerHTML =
+        '<span style="color:var(--accent);font-weight:600;">Direct video file (MP4/WebM/MOV) detected.</span>';
     }
   } else {
     if (statusEl) statusEl.style.display = 'none';
@@ -2842,17 +3426,18 @@ async function saveStoryHighlightModal() {
   var rawTitle = ((document.getElementById('adm-story-title') || {}).value || '').trim();
   var rawCover = ((document.getElementById('adm-story-cover') || {}).value || '').trim();
 
-  var title = (typeof sanitizeText === 'function') ? sanitizeText(rawTitle, 80) : rawTitle;
-  var cover = (typeof safeUrl === 'function') ? safeUrl(rawCover, '') : rawCover;
+  var title = typeof sanitizeText === 'function' ? sanitizeText(rawTitle, 80) : rawTitle;
+  var cover = typeof safeUrl === 'function' ? safeUrl(rawCover, '') : rawCover;
 
   if (!title) {
-    if (typeof showToast === 'function') showToast('Please enter a story highlight title.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please enter a story highlight title.', 'warning');
     return;
   }
 
   var slides = [];
   var rows = document.querySelectorAll('.adm-story-slide-row');
-  rows.forEach(function(r) {
+  rows.forEach(function (r) {
     var urlInp = r.querySelector('.adm-slide-url');
     var capInp = r.querySelector('.adm-slide-caption');
     var dateInp = r.querySelector('.adm-slide-date');
@@ -2863,19 +3448,33 @@ async function saveStoryHighlightModal() {
     var u = (urlInp ? urlInp.value : '').trim();
     if (u) {
       var normU = normalizeMediaUrl(u);
-      var slideType = (typeInp && typeInp.value !== 'auto') ? typeInp.value : (isVideoMedia(normU) ? 'video' : 'image');
+      var slideType =
+        typeInp && typeInp.value !== 'auto'
+          ? typeInp.value
+          : isVideoMedia(normU)
+            ? 'video'
+            : 'image';
       var parsedDur = durInp ? parseInt(durInp.value, 10) : 0;
       var defaultDur = slideType === 'video' ? 30 : 5;
-      var slideDurationSec = (parsedDur > 0 && isFinite(parsedDur)) ? parsedDur : defaultDur;
+      var slideDurationSec = parsedDur > 0 && isFinite(parsedDur) ? parsedDur : defaultDur;
 
       slides.push({
         id: 's_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-        url: (typeof safeUrl === 'function') ? safeUrl(normU, '') : normU,
+        url: typeof safeUrl === 'function' ? safeUrl(normU, '') : normU,
         type: slideType,
         duration: slideDurationSec,
-        caption: (typeof sanitizeText === 'function') ? sanitizeText((capInp ? capInp.value : '').trim(), 140) : (capInp ? capInp.value : '').trim(),
-        date: (typeof sanitizeText === 'function') ? sanitizeText((dateInp ? dateInp.value : '').trim(), 50) : (dateInp ? dateInp.value : '').trim(),
-        location: (typeof sanitizeText === 'function') ? sanitizeText((locInp ? locInp.value : '').trim(), 60) : (locInp ? locInp.value : '').trim()
+        caption:
+          typeof sanitizeText === 'function'
+            ? sanitizeText((capInp ? capInp.value : '').trim(), 140)
+            : (capInp ? capInp.value : '').trim(),
+        date:
+          typeof sanitizeText === 'function'
+            ? sanitizeText((dateInp ? dateInp.value : '').trim(), 50)
+            : (dateInp ? dateInp.value : '').trim(),
+        location:
+          typeof sanitizeText === 'function'
+            ? sanitizeText((locInp ? locInp.value : '').trim(), 60)
+            : (locInp ? locInp.value : '').trim()
       });
     }
   });
@@ -2887,19 +3486,28 @@ async function saveStoryHighlightModal() {
       type: isVideoMedia(cover) ? 'video' : 'image',
       duration: isVideoMedia(cover) ? 30 : 5,
       caption: title,
-      date: new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }),
+      date: new Date().toLocaleDateString('en-MY', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      }),
       location: '1st Petaling Jaya'
     });
   }
 
-  var highlightId = id || ('story_' + Date.now());
-  var existingIdx = storyHighlights.findIndex(function(x) { return x.id === highlightId; });
+  var highlightId = id || 'story_' + Date.now();
+  var existingIdx = storyHighlights.findIndex(function (x) {
+    return x.id === highlightId;
+  });
 
   var highlightObj = {
     id: highlightId,
     title: title,
     cover: cover || slides[0].url,
-    order: (existingIdx >= 0) ? (storyHighlights[existingIdx].order || (existingIdx + 1)) : (storyHighlights.length + 1),
+    order:
+      existingIdx >= 0
+        ? storyHighlights[existingIdx].order || existingIdx + 1
+        : storyHighlights.length + 1,
     active: true,
     items: slides
   };
@@ -2922,17 +3530,24 @@ async function saveStoryHighlightModal() {
  * Deletes a Story Highlight by ID
  */
 async function deleteStoryHighlight(id) {
-  var target = storyHighlights.find(function(x) { return x.id === id; });
+  var target = storyHighlights.find(function (x) {
+    return x.id === id;
+  });
   if (!target) return;
 
   var confirmed = true;
   if (typeof showConfirmModal === 'function') {
-    confirmed = await showConfirmModal('Are you sure you want to delete the highlight "' + target.title + '"?', 'Delete Highlight');
+    confirmed = await showConfirmModal(
+      'Are you sure you want to delete the highlight "' + target.title + '"?',
+      'Delete Highlight'
+    );
   }
 
   if (!confirmed) return;
 
-  storyHighlights = storyHighlights.filter(function(x) { return x.id !== id; });
+  storyHighlights = storyHighlights.filter(function (x) {
+    return x.id !== id;
+  });
   await saveStoryHighlights();
 
   try {
@@ -2949,59 +3564,61 @@ async function deleteStoryHighlight(id) {
 
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 if (typeof window !== 'undefined') {
-  window.galleryImages          = galleryImages;
+  window.galleryImages = galleryImages;
   window.DEFAULT_GALLERY_IMAGES = DEFAULT_GALLERY_IMAGES;
-  window.storyHighlights        = storyHighlights;
-  window.normalizeMediaUrl      = normalizeMediaUrl;
-  window.isVideoMedia           = isVideoMedia;
-  window.compressGalleryPhoto  = compressGalleryPhoto;
-  window.uploadSingleMediaFile  = uploadSingleMediaFile;
-  window.filterGallery          = filterGallery;
-  window.toggleStorySound       = toggleStorySound;
-  window.handleSlideFileUpload  = handleSlideFileUpload;
-  window.handleSlideUrlInput    = handleSlideUrlInput;
+  window.storyHighlights = storyHighlights;
+  window.normalizeMediaUrl = normalizeMediaUrl;
+  window.isVideoMedia = isVideoMedia;
+  window.compressGalleryPhoto = compressGalleryPhoto;
+  window.uploadSingleMediaFile = uploadSingleMediaFile;
+  window.filterGallery = filterGallery;
+  window.toggleStorySound = toggleStorySound;
+  window.handleSlideFileUpload = handleSlideFileUpload;
+  window.handleSlideUrlInput = handleSlideUrlInput;
 
-  window.loadStoryHighlights    = loadStoryHighlights;
-  window.saveStoryHighlights    = saveStoryHighlights;
+  window.loadStoryHighlights = loadStoryHighlights;
+  window.saveStoryHighlights = saveStoryHighlights;
   window.renderStoryHighlightsReel = renderStoryHighlightsReel;
   window.renderAdminStoryHighlights = renderAdminStoryHighlights;
-  window.openStoryViewer        = openStoryViewer;
-  window.loadDriveVideoBlob     = loadDriveVideoBlob;
-  window.closeStoryViewer       = closeStoryViewer;
-  window.nextStorySlide         = nextStorySlide;
-  window.prevStorySlide         = prevStorySlide;
-  window.nextStoryHighlight     = nextStoryHighlight;
-  window.prevStoryHighlight     = prevStoryHighlight;
-  window.pauseStoryPlayback     = pauseStoryPlayback;
-  window.resumeStoryPlayback    = resumeStoryPlayback;
-  window.toggleStoryPause       = toggleStoryPause;
-  window.isStoryPaused          = isStoryPaused;
-  window.isStoryMuted           = isStoryMuted;
-  window.showStoryCenterPulse     = showStoryCenterPulse;
-  window.openCreateStoryModal   = openCreateStoryModal;
-  window.openEditStoryModal     = openEditStoryModal;
-  window.closeAdminStoryModal   = closeAdminStoryModal;
-  window.addStorySlideRow       = addStorySlideRow;
+  window.openStoryViewer = openStoryViewer;
+  window.loadDriveVideoBlob = loadDriveVideoBlob;
+  window.closeStoryViewer = closeStoryViewer;
+  window.nextStorySlide = nextStorySlide;
+  window.prevStorySlide = prevStorySlide;
+  window.nextStoryHighlight = nextStoryHighlight;
+  window.prevStoryHighlight = prevStoryHighlight;
+  window.pauseStoryPlayback = pauseStoryPlayback;
+  window.resumeStoryPlayback = resumeStoryPlayback;
+  window.toggleStoryPause = toggleStoryPause;
+  window.isStoryPaused = isStoryPaused;
+  window.isStoryMuted = isStoryMuted;
+  window.showStoryCenterPulse = showStoryCenterPulse;
+  window.openCreateStoryModal = openCreateStoryModal;
+  window.openEditStoryModal = openEditStoryModal;
+  window.closeAdminStoryModal = closeAdminStoryModal;
+  window.addStorySlideRow = addStorySlideRow;
   window.saveStoryHighlightModal = saveStoryHighlightModal;
-  window.deleteStoryHighlight   = deleteStoryHighlight;
-  window.handleSlideTypeChange  = handleSlideTypeChange;
+  window.deleteStoryHighlight = deleteStoryHighlight;
+  window.handleSlideTypeChange = handleSlideTypeChange;
   window.applyStoryProgressAnimation = applyStoryProgressAnimation;
-  window.startStoryTimer        = startStoryTimer;
-  window.getStorySlideDuration  = function() { return _storySlideDuration; };
+  window.startStoryTimer = startStoryTimer;
+  window.getStorySlideDuration = function () {
+    return _storySlideDuration;
+  };
 
-  window.loadGallery            = loadGallery;
-  window.renderGallery          = renderGallery;
-  window.openGalleryLightbox    = openGalleryLightbox;
-  window.closeGalleryLightbox   = closeGalleryLightbox;
-  window.nextGallerySlide       = nextGallerySlide;
-  window.prevGallerySlide       = prevGallerySlide;
-  window.goToGallerySlide       = goToGallerySlide;
-  window.uploadGalleryFiles     = uploadGalleryFiles;
-  window.handleGalleryUpload    = handleGalleryUpload;
-  window.deleteGalleryImage     = deleteGalleryImage;
-  window.initGalleryDropZone    = initGalleryDropZone;
+  window.loadGallery = loadGallery;
+  window.renderGallery = renderGallery;
+  window.openGalleryLightbox = openGalleryLightbox;
+  window.closeGalleryLightbox = closeGalleryLightbox;
+  window.nextGallerySlide = nextGallerySlide;
+  window.prevGallerySlide = prevGallerySlide;
+  window.goToGallerySlide = goToGallerySlide;
+  window.uploadGalleryFiles = uploadGalleryFiles;
+  window.handleGalleryUpload = handleGalleryUpload;
+  window.deleteGalleryImage = deleteGalleryImage;
+  window.initGalleryDropZone = initGalleryDropZone;
   window.getGalleryThumbnailUrl = getGalleryThumbnailUrl;
-  window.addGalleryMediaByUrl   = addGalleryMediaByUrl;
+  window.addGalleryMediaByUrl = addGalleryMediaByUrl;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────
@@ -3021,7 +3638,9 @@ if (typeof module !== 'undefined' && module.exports) {
     handleSlideTypeChange: handleSlideTypeChange,
     applyStoryProgressAnimation: applyStoryProgressAnimation,
     startStoryTimer: startStoryTimer,
-    getStorySlideDuration: function() { return _storySlideDuration; },
+    getStorySlideDuration: function () {
+      return _storySlideDuration;
+    },
 
     loadStoryHighlights: loadStoryHighlights,
     saveStoryHighlights: saveStoryHighlights,
@@ -3062,10 +3681,19 @@ if (typeof module !== 'undefined' && module.exports) {
     addGalleryMediaByUrl: addGalleryMediaByUrl
   };
 
-  Object.defineProperty(module.exports, '_storySlideDuration', { get: function() { return _storySlideDuration; }, configurable: true });
+  Object.defineProperty(module.exports, '_storySlideDuration', {
+    get: function () {
+      return _storySlideDuration;
+    },
+    configurable: true
+  });
   Object.defineProperty(module.exports, 'storyHighlights', {
-    get: function() { return storyHighlights; },
-    set: function(v) { storyHighlights = v; },
+    get: function () {
+      return storyHighlights;
+    },
+    set: function (v) {
+      storyHighlights = v;
+    },
     configurable: true,
     enumerable: true
   });

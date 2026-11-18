@@ -54,7 +54,8 @@ var DEFAULT_UNIFORM_SCHEDULE = {
   status: 'active',
   open_at: '',
   close_at: '',
-  paused_message: 'Uniform orders are currently paused by the company administration. Please check back later.'
+  paused_message:
+    'Uniform orders are currently paused by the company administration. Please check back later.'
 };
 var _uniformOrdersSchedule = {
   status: 'active',
@@ -86,7 +87,8 @@ function getSupa() {
   if (typeof window !== 'undefined' && window.supa) return window.supa;
   if (typeof global !== 'undefined' && global.supa) return global.supa;
   if (typeof getSupaClient === 'function') return getSupaClient();
-  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function')
+    return window.getSupaClient();
   if (typeof supa !== 'undefined' && supa) return supa;
   return null;
 }
@@ -97,8 +99,14 @@ function getSupa() {
  * @returns {string}
  */
 function getItemCategory(item) {
-  var category = item && typeof item.category === 'string' ? item.category.trim().toLowerCase() : '';
-  if (/^[a-z][a-z0-9_-]*$/.test(category) && category !== 'all' && !Object.hasOwn(Object.prototype, category)) return category;
+  var category =
+    item && typeof item.category === 'string' ? item.category.trim().toLowerCase() : '';
+  if (
+    /^[a-z][a-z0-9_-]*$/.test(category) &&
+    category !== 'all' &&
+    !Object.hasOwn(Object.prototype, category)
+  )
+    return category;
   var name = (((item && item.name) || '') + ' ' + ((item && item.key) || '')).toLowerCase();
   if (
     name.indexOf('shirt') !== -1 ||
@@ -129,12 +137,21 @@ function getItemCategory(item) {
  */
 function getItemSizes(item) {
   if (item && Array.isArray(item.sizes) && item.sizes.length) {
-    return Array.from(new Set(item.sizes.filter(function(size) { return typeof size === 'string' && size.trim(); })));
+    return Array.from(
+      new Set(
+        item.sizes.filter(function (size) {
+          return typeof size === 'string' && size.trim();
+        })
+      )
+    );
   }
   if (item && item.hasSize === 'shirt') return ['XS', 'S', 'M', 'L', 'XL', '2XL'];
   if (item && item.hasSize === 'trousers') return ['24', '26', '28', '30', '32', '34', '36'];
   if (item && item.hasSize === 'cap') return ['S', 'M', 'L'];
-  if (item && (item.hasSize === 'boots' || (item.name && item.name.toLowerCase().includes('boot')))) {
+  if (
+    item &&
+    (item.hasSize === 'boots' || (item.name && item.name.toLowerCase().includes('boot')))
+  ) {
     return ['UK 5', 'UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11'];
   }
   return [];
@@ -142,15 +159,23 @@ function getItemSizes(item) {
 
 function uniformPriceInSen(item) {
   var value = item.price ?? prices[item.key];
-  if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '') return null;
+  if ((typeof value !== 'number' && typeof value !== 'string') || String(value).trim() === '')
+    return null;
   var price = Number(value);
   var sen = Math.round(price * 100);
-  return price >= 0 && Number.isSafeInteger(sen) && sen <= 9999999999 && Math.abs(price * 100 - sen) < 0.000001 ? sen : null;
+  return price >= 0 &&
+    Number.isSafeInteger(sen) &&
+    sen <= 9999999999 &&
+    Math.abs(price * 100 - sen) < 0.000001
+    ? sen
+    : null;
 }
 
 function uniformQuantityLimit(item) {
   if (item.outOfStock === true) return 0;
-  return Number.isInteger(item.stock) ? Math.max(0, Math.min(item.stock, MAX_UNIFORM_QUANTITY)) : MAX_UNIFORM_QUANTITY;
+  return Number.isInteger(item.stock)
+    ? Math.max(0, Math.min(item.stock, MAX_UNIFORM_QUANTITY))
+    : MAX_UNIFORM_QUANTITY;
 }
 
 function canOrderUniformItem(item) {
@@ -158,11 +183,18 @@ function canOrderUniformItem(item) {
 }
 
 function getUniformCartLines() {
-  return uniformCart.length ? uniformCart : UNIFORM_ITEMS.filter(function(item) {
-    return itemQtys[item.key];
-  }).map(function(item) {
-    return { key: item.key, size: itemSizes[item.key], qty: Number(itemQtys[item.key]), customText: itemCustomTexts[item.key] };
-  });
+  return uniformCart.length
+    ? uniformCart
+    : UNIFORM_ITEMS.filter(function (item) {
+        return itemQtys[item.key];
+      }).map(function (item) {
+        return {
+          key: item.key,
+          size: itemSizes[item.key],
+          qty: Number(itemQtys[item.key]),
+          customText: itemCustomTexts[item.key]
+        };
+      });
 }
 
 function uniformLineError(item, line, quantity) {
@@ -172,8 +204,10 @@ function uniformLineError(item, line, quantity) {
   if (sizes.length && !sizes.includes(line.size)) return 'Invalid size selected for ' + item.name;
   var limit = uniformQuantityLimit(item);
   if (!limit) return item.name + ' is out of stock.';
-  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > limit) return 'Only ' + limit + ' units of ' + item.name + ' can be ordered.';
-  if (item.hasCustomText && !line.customText) return 'Please enter the custom details for ' + item.name + '.';
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > limit)
+    return 'Only ' + limit + ' units of ' + item.name + ' can be ordered.';
+  if (item.hasCustomText && !line.customText)
+    return 'Please enter the custom details for ' + item.name + '.';
   if (uniformPriceInSen(item) === null) return 'A price has not been set for ' + item.name + '.';
   return null;
 }
@@ -181,19 +215,35 @@ function uniformLineError(item, line, quantity) {
 function readUniformCart() {
   var totals = new Map();
   var totalSen = 0;
-  var lines = getUniformCartLines().map(function(line) {
-    totals.set(line.key, (totals.get(line.key) || 0) + line.qty);
-    return line;
-  }).map(function(line) {
-    var item = UNIFORM_ITEMS.find(function(product) { return product.key === line.key; });
-    var customText = line.customText ? sanitizeText(line.customText, 120) : '';
-    var error = uniformLineError(item, { size: line.size, customText: customText }, totals.get(line.key));
-    if (!Number.isSafeInteger(line.qty) || line.qty < 1) error = 'Please enter a whole quantity of at least one.';
-    if (error) throw new Error(error);
-    var sen = uniformPriceInSen(item);
-    totalSen += sen * line.qty;
-    return { key: item.key, name: item.name, size: line.size || null, qty: line.qty, custom_text: customText || null, price: sen / 100 };
-  });
+  var lines = getUniformCartLines()
+    .map(function (line) {
+      totals.set(line.key, (totals.get(line.key) || 0) + line.qty);
+      return line;
+    })
+    .map(function (line) {
+      var item = UNIFORM_ITEMS.find(function (product) {
+        return product.key === line.key;
+      });
+      var customText = line.customText ? sanitizeText(line.customText, 120) : '';
+      var error = uniformLineError(
+        item,
+        { size: line.size, customText: customText },
+        totals.get(line.key)
+      );
+      if (!Number.isSafeInteger(line.qty) || line.qty < 1)
+        error = 'Please enter a whole quantity of at least one.';
+      if (error) throw new Error(error);
+      var sen = uniformPriceInSen(item);
+      totalSen += sen * line.qty;
+      return {
+        key: item.key,
+        name: item.name,
+        size: line.size || null,
+        qty: line.qty,
+        custom_text: customText || null,
+        price: sen / 100
+      };
+    });
   if (!lines.length) throw new Error('Please add at least one item.');
   if (totalSen > 9999999999) throw new Error('The order total exceeds the allowed maximum.');
   return { lines: lines, total: totalSen / 100 };
@@ -330,7 +380,8 @@ async function loadPrices() {
   }
 
   if (typeof window !== 'undefined') window.UNIFORM_ITEMS = UNIFORM_ITEMS;
-  if (typeof document !== 'undefined' && document.getElementById('uniform-items')) renderOrderItems();
+  if (typeof document !== 'undefined' && document.getElementById('uniform-items'))
+    renderOrderItems();
 
   return prices;
 }
@@ -349,16 +400,22 @@ async function loadPrices() {
  * @returns {string}
  */
 function getProductInCartSummary(key) {
-  var matching = uniformCart.filter(function (ci) { return ci.key === key; });
+  var matching = uniformCart.filter(function (ci) {
+    return ci.key === key;
+  });
   if (!matching.length) return '';
-  var total = matching.reduce(function (s, ci) { return s + ci.qty; }, 0);
-  var sizeBreakdown = matching.map(function (ci) {
-    var parts = [];
-    if (ci.size) parts.push(ci.size);
-    if (ci.customText) parts.push('"' + ci.customText + '"');
-    var detail = parts.join(' · ');
-    return detail ? (ci.qty + '× ' + detail) : ci.qty;
-  }).join(', ');
+  var total = matching.reduce(function (s, ci) {
+    return s + ci.qty;
+  }, 0);
+  var sizeBreakdown = matching
+    .map(function (ci) {
+      var parts = [];
+      if (ci.size) parts.push(ci.size);
+      if (ci.customText) parts.push('"' + ci.customText + '"');
+      var detail = parts.join(' · ');
+      return detail ? ci.qty + '× ' + detail : ci.qty;
+    })
+    .join(', ');
   return '🛒 In Cart: ' + total + (sizeBreakdown ? ' (' + sizeBreakdown + ')' : '');
 }
 
@@ -396,8 +453,11 @@ function toggleProdCustomPrompt(checked) {
  */
 function stepCardQty(key, delta) {
   var current = itemStagedQtys[key] || 0;
-  var item = UNIFORM_ITEMS.find(function(product) { return product.key === key; });
-  if (_isSubmittingOrder || !canOrderUniformItem(item) || !Number.isSafeInteger(delta)) return current;
+  var item = UNIFORM_ITEMS.find(function (product) {
+    return product.key === key;
+  });
+  if (_isSubmittingOrder || !canOrderUniformItem(item) || !Number.isSafeInteger(delta))
+    return current;
   var next = Math.min(uniformQuantityLimit(item), Math.max(0, current + delta));
   itemStagedQtys[key] = next;
 
@@ -437,7 +497,9 @@ function stepCardQty(key, delta) {
 function confirmAddToCart(key) {
   var staged = itemStagedQtys[key] || 0;
   if (!staged || _isSubmittingOrder) return;
-  var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
+  var item = UNIFORM_ITEMS.find(function (i) {
+    return i.key === key;
+  });
   if (!item) return;
 
   var sizes = getItemSizes(item);
@@ -449,15 +511,17 @@ function confirmAddToCart(key) {
 
   var customText = '';
   if (item.hasCustomText) {
-    var rawText = (itemCustomTexts[key] || '');
+    var rawText = itemCustomTexts[key] || '';
     if (typeof document !== 'undefined') {
       var inp = document.getElementById(key + '-custom-text');
       if (inp && inp.value) rawText = inp.value;
     }
-    customText = (typeof sanitizeText === 'function' ? sanitizeText(rawText.trim(), 120) : rawText.trim());
+    customText =
+      typeof sanitizeText === 'function' ? sanitizeText(rawText.trim(), 120) : rawText.trim();
     if (!customText) {
       var fieldPrompt = item.customPrompt || 'custom details (e.g. Name or Badge)';
-      if (typeof showToast === 'function') showToast('Please enter ' + fieldPrompt + ' first!', 'warning');
+      if (typeof showToast === 'function')
+        showToast('Please enter ' + fieldPrompt + ' first!', 'warning');
       if (typeof document !== 'undefined') {
         var inpEl = document.getElementById(key + '-custom-text');
         if (inpEl && typeof inpEl.focus === 'function') inpEl.focus();
@@ -502,7 +566,9 @@ function confirmAddToCart(key) {
 }
 
 function selectUniformCardSize(itemKey, size, btn) {
-  var item = UNIFORM_ITEMS.find(function(product) { return product.key === itemKey; });
+  var item = UNIFORM_ITEMS.find(function (product) {
+    return product.key === itemKey;
+  });
   if (_isSubmittingOrder || !getItemSizes(item).includes(size)) return;
   itemSelectedSizes[itemKey] = size;
   itemSizes[itemKey] = size;
@@ -533,16 +599,24 @@ function selectUniformCardSize(itemKey, size, btn) {
  */
 function addUniformToCart(key, customSize, quantity, customText) {
   if (_isSubmittingOrder) return;
-  var item = UNIFORM_ITEMS.find(function (i) { return i.key === key; });
+  var item = UNIFORM_ITEMS.find(function (i) {
+    return i.key === key;
+  });
   if (!item) return;
 
   var sizes = getItemSizes(item);
-  var size = sizes.length ? (customSize || itemSelectedSizes[key] || itemSizes[key] || '') : '';
+  var size = sizes.length ? customSize || itemSelectedSizes[key] || itemSizes[key] || '' : '';
   var qtyToAdd = quantity === undefined ? 1 : Number(quantity);
   if (!Number.isSafeInteger(qtyToAdd) || qtyToAdd < 1) return;
-  customText = item.hasCustomText && typeof customText === 'string' ? sanitizeText(customText, 120) : '';
-  var currentQty = uniformCart.filter(function(line) { return line.key === key; })
-    .reduce(function(sum, line) { return sum + line.qty; }, 0);
+  customText =
+    item.hasCustomText && typeof customText === 'string' ? sanitizeText(customText, 120) : '';
+  var currentQty = uniformCart
+    .filter(function (line) {
+      return line.key === key;
+    })
+    .reduce(function (sum, line) {
+      return sum + line.qty;
+    }, 0);
   var error = uniformLineError(item, { size: size, customText: customText }, currentQty + qtyToAdd);
   if (error) {
     if (typeof showToast === 'function') showToast(error, 'warning');
@@ -550,7 +624,9 @@ function addUniformToCart(key, customSize, quantity, customText) {
   }
 
   var priceNum = uniformPriceInSen(item) / 100;
-  var existing = uniformCart.find(function (ci) { return ci.key === key && ci.size === size && ci.customText === customText; });
+  var existing = uniformCart.find(function (ci) {
+    return ci.key === key && ci.size === size && ci.customText === customText;
+  });
   if (existing) {
     existing.qty += qtyToAdd;
   } else {
@@ -566,7 +642,13 @@ function addUniformToCart(key, customSize, quantity, customText) {
   }
 
   // Synchronize legacy itemQtys and itemSizes for backward compatibility
-  itemQtys[key] = uniformCart.filter(function (ci) { return ci.key === key; }).reduce(function (s, ci) { return s + ci.qty; }, 0);
+  itemQtys[key] = uniformCart
+    .filter(function (ci) {
+      return ci.key === key;
+    })
+    .reduce(function (s, ci) {
+      return s + ci.qty;
+    }, 0);
   itemSizes[key] = size;
 
   // Visual button animation feedback
@@ -595,7 +677,11 @@ function addUniformToCart(key, customSize, quantity, customText) {
 
   updateTotal();
   if (typeof showToast === 'function') {
-    showToast('Added ' + item.name + (size ? ' (' + size + ')' : '') + ' to cart!', 'success', 1800);
+    showToast(
+      'Added ' + item.name + (size ? ' (' + size + ')' : '') + ' to cart!',
+      'success',
+      1800
+    );
   }
   return true;
 }
@@ -607,14 +693,23 @@ function addUniformToCart(key, customSize, quantity, customText) {
  */
 function updateCartItemQty(cartId, delta) {
   if (_isSubmittingOrder || !Number.isSafeInteger(delta)) return;
-  var itemIndex = uniformCart.findIndex(function (ci) { return ci.id === cartId; });
+  var itemIndex = uniformCart.findIndex(function (ci) {
+    return ci.id === cartId;
+  });
   if (itemIndex === -1) return;
 
   var ci = uniformCart[itemIndex];
   if (delta > 0) {
-    var product = UNIFORM_ITEMS.find(function(item) { return item.key === ci.key; });
-    var total = uniformCart.filter(function(line) { return line.key === ci.key; })
-      .reduce(function(sum, line) { return sum + line.qty; }, 0);
+    var product = UNIFORM_ITEMS.find(function (item) {
+      return item.key === ci.key;
+    });
+    var total = uniformCart
+      .filter(function (line) {
+        return line.key === ci.key;
+      })
+      .reduce(function (sum, line) {
+        return sum + line.qty;
+      }, 0);
     var error = uniformLineError(product, ci, total + delta);
     if (error) {
       if (typeof showToast === 'function') showToast(error, 'warning');
@@ -627,7 +722,13 @@ function updateCartItemQty(cartId, delta) {
     var removedKey = ci.key;
     uniformCart.splice(itemIndex, 1);
     // Sync legacy itemQtys
-    itemQtys[removedKey] = uniformCart.filter(function (x) { return x.key === removedKey; }).reduce(function (s, x) { return s + x.qty; }, 0);
+    itemQtys[removedKey] = uniformCart
+      .filter(function (x) {
+        return x.key === removedKey;
+      })
+      .reduce(function (s, x) {
+        return s + x.qty;
+      }, 0);
     if (itemQtys[removedKey] === 0) {
       delete itemSizes[removedKey];
       if (typeof document !== 'undefined') {
@@ -641,7 +742,13 @@ function updateCartItemQty(cartId, delta) {
       if (inCartEl2) inCartEl2.textContent = getProductInCartSummary(removedKey);
     }
   } else {
-    itemQtys[ci.key] = uniformCart.filter(function (x) { return x.key === ci.key; }).reduce(function (s, x) { return s + x.qty; }, 0);
+    itemQtys[ci.key] = uniformCart
+      .filter(function (x) {
+        return x.key === ci.key;
+      })
+      .reduce(function (s, x) {
+        return s + x.qty;
+      }, 0);
     if (typeof document !== 'undefined') {
       var inCartEl3 = document.getElementById(ci.key + '-in-cart');
       if (inCartEl3) inCartEl3.textContent = getProductInCartSummary(ci.key);
@@ -656,7 +763,9 @@ function updateCartItemQty(cartId, delta) {
  * @param {string} cartId
  */
 function removeUniformCartItem(cartId) {
-  var item = uniformCart.find(function (ci) { return ci.id === cartId; });
+  var item = uniformCart.find(function (ci) {
+    return ci.id === cartId;
+  });
   if (!item) return;
   updateCartItemQty(cartId, -item.qty);
 }
@@ -667,10 +776,12 @@ function removeUniformCartItem(cartId) {
 function clearUniformCart() {
   if (_isSubmittingOrder) return;
   uniformCart.length = 0;
-  Object.keys(itemStagedQtys).forEach(function (k) { delete itemStagedQtys[k]; });
-      UNIFORM_ITEMS.forEach(function (i) {
-        itemQtys[i.key] = 0;
-        delete itemSizes[i.key];
+  Object.keys(itemStagedQtys).forEach(function (k) {
+    delete itemStagedQtys[k];
+  });
+  UNIFORM_ITEMS.forEach(function (i) {
+    itemQtys[i.key] = 0;
+    delete itemSizes[i.key];
     if (typeof document !== 'undefined') {
       var el = document.getElementById(i.key + '-qty');
       if (el) el.textContent = '0';
@@ -709,45 +820,78 @@ function renderCartSection() {
     return;
   }
 
-  var totalCount = uniformCart.reduce(function (s, ci) { return s + ci.qty; }, 0);
+  var totalCount = uniformCart.reduce(function (s, ci) {
+    return s + ci.qty;
+  }, 0);
   var rowsHtml = '';
   uniformCart.forEach(function (ci) {
-    var product = UNIFORM_ITEMS.find(function(item) { return item.key === ci.key; });
+    var product = UNIFORM_ITEMS.find(function (item) {
+      return item.key === ci.key;
+    });
     var price = product ? uniformPriceInSen(product) : null;
-    var subtotal = price === null ? null : ci.qty * price / 100;
-    rowsHtml += '<div class="cart-row" data-cart-id="' + escapeHtml(ci.id) + '">' +
+    var subtotal = price === null ? null : (ci.qty * price) / 100;
+    rowsHtml +=
+      '<div class="cart-row" data-cart-id="' +
+      escapeHtml(ci.id) +
+      '">' +
       '<div class="cart-row-main">' +
-      '<div class="cart-row-title">' + escapeHtml(ci.name) + '</div>' +
+      '<div class="cart-row-title">' +
+      escapeHtml(ci.name) +
+      '</div>' +
       '<div class="cart-row-details">' +
       (ci.size ? '<span class="cart-row-size-pill">Size: ' + escapeHtml(ci.size) + '</span>' : '') +
-      (ci.customText ? '<span class="cart-row-size-pill" style="background:rgba(234,179,8,0.15);color:#f59e0b;border-color:rgba(234,179,8,0.3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(ci.customText) + '">Custom: ' + escapeHtml(ci.customText) + '</span>' : '') +
-      '<span class="cart-row-price">' + (price === null ? 'Price unavailable' : 'RM ' + (price / 100).toFixed(2) + ' each') + '</span>' +
+      (ci.customText
+        ? '<span class="cart-row-size-pill" style="background:rgba(234,179,8,0.15);color:#f59e0b;border-color:rgba(234,179,8,0.3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' +
+          escapeHtml(ci.customText) +
+          '">Custom: ' +
+          escapeHtml(ci.customText) +
+          '</span>'
+        : '') +
+      '<span class="cart-row-price">' +
+      (price === null ? 'Price unavailable' : 'RM ' + (price / 100).toFixed(2) + ' each') +
+      '</span>' +
       '</div>' +
       '</div>' +
       '<div class="cart-row-actions">' +
       '<div class="cart-row-stepper">' +
-      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', -1)" aria-label="Decrease quantity">&#8722;</button>' +
-      '<span class="cart-step-qty">' + ci.qty + '</span>' +
-      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' + escapeHtml(ci.id) + '\', 1)" aria-label="Increase quantity">+</button>' +
+      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' +
+      escapeHtml(ci.id) +
+      '\', -1)" aria-label="Decrease quantity">&#8722;</button>' +
+      '<span class="cart-step-qty">' +
+      ci.qty +
+      '</span>' +
+      '<button type="button" class="cart-step-btn" onclick="updateCartItemQty(\'' +
+      escapeHtml(ci.id) +
+      '\', 1)" aria-label="Increase quantity">+</button>' +
       '</div>' +
-      '<div class="cart-row-subtotal">' + (subtotal === null ? '—' : 'RM ' + subtotal.toFixed(2)) + '</div>' +
-      '<button type="button" class="cart-row-remove-btn" onclick="removeUniformCartItem(\'' + escapeHtml(ci.id) + '\')" title="Remove item" aria-label="Remove item">' +
+      '<div class="cart-row-subtotal">' +
+      (subtotal === null ? '—' : 'RM ' + subtotal.toFixed(2)) +
+      '</div>' +
+      '<button type="button" class="cart-row-remove-btn" onclick="removeUniformCartItem(\'' +
+      escapeHtml(ci.id) +
+      '\')" title="Remove item" aria-label="Remove item">' +
       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
       '</button>' +
       '</div>' +
       '</div>';
   });
 
-  container.innerHTML = '<div class="uniform-cart-card">' +
+  container.innerHTML =
+    '<div class="uniform-cart-card">' +
     '<div class="uniform-cart-header">' +
     '<div class="uniform-cart-title">' +
     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
     '<span>Your Cart</span>' +
-    '<span class="cart-pill-count">' + totalCount + (totalCount === 1 ? ' item' : ' items') + '</span>' +
+    '<span class="cart-pill-count">' +
+    totalCount +
+    (totalCount === 1 ? ' item' : ' items') +
+    '</span>' +
     '</div>' +
     '<button type="button" class="uniform-cart-clear-btn" onclick="clearUniformCart()">Clear All</button>' +
     '</div>' +
-    '<div class="uniform-cart-table">' + rowsHtml + '</div>' +
+    '<div class="uniform-cart-table">' +
+    rowsHtml +
+    '</div>' +
     '</div>';
   container.style.display = 'block';
 }
@@ -792,9 +936,11 @@ function validateOrderCart(catalog, qtys, sizes) {
 function updateTotal() {
   var totalSen = 0;
   var totalCount = 0;
-  getUniformCartLines().forEach(function(line) {
+  getUniformCartLines().forEach(function (line) {
     if (!Number.isSafeInteger(line.qty) || line.qty < 1) return;
-    var item = UNIFORM_ITEMS.find(function(product) { return product.key === line.key; });
+    var item = UNIFORM_ITEMS.find(function (product) {
+      return product.key === line.key;
+    });
     var sen = item ? uniformPriceInSen(item) : null;
     if (sen !== null) totalSen += line.qty * sen;
     totalCount += line.qty;
@@ -829,7 +975,9 @@ function updateTotal() {
  */
 function changeQty(key, delta) {
   if (_isSubmittingOrder || !Number.isSafeInteger(delta)) return;
-  var item = UNIFORM_ITEMS.find(function(product) { return product.key === key; });
+  var item = UNIFORM_ITEMS.find(function (product) {
+    return product.key === key;
+  });
   if (!item) return;
   var current = itemQtys[key] || 0;
   if (delta > 0) {
@@ -844,7 +992,12 @@ function changeQty(key, delta) {
       updateCartItemQty(line.id, -removed);
       remaining -= removed;
     }
-    if (!uniformCart.some(function(line) { return line.key === key; })) itemQtys[key] = 0;
+    if (
+      !uniformCart.some(function (line) {
+        return line.key === key;
+      })
+    )
+      itemQtys[key] = 0;
     updateTotal();
   }
   if (typeof document !== 'undefined') {
@@ -947,7 +1100,7 @@ async function loadPaymentInfo() {
  * @param {string} text
  */
 async function savePaymentInfo(text) {
-  if (!await canWriteUniformAdmin()) return false;
+  if (!(await canWriteUniformAdmin())) return false;
   return saveUniformSetting('bb_payment_info', text);
 }
 
@@ -955,14 +1108,20 @@ async function saveUniformSetting(key, value) {
   var client = getSupa();
   if (!client) return false;
   try {
-    if (typeof client.upsert === 'function') await client.upsert('bb_config', { key: key, value: value }, 'key');
+    if (typeof client.upsert === 'function')
+      await client.upsert('bb_config', { key: key, value: value }, 'key');
     else await client.req('POST', 'bb_config?on_conflict=key', { key: key, value: value });
-    if (typeof logAuditEvent === 'function') await logAuditEvent({
-      action: 'config.uniform_update', targetType: 'config', targetId: key, actorRole: 'officer_admin'
-    });
+    if (typeof logAuditEvent === 'function')
+      await logAuditEvent({
+        action: 'config.uniform_update',
+        targetType: 'config',
+        targetId: key,
+        actorRole: 'officer_admin'
+      });
     return true;
   } catch (_) {
-    if (typeof showToast === 'function') showToast('The uniform settings could not be saved.', 'error');
+    if (typeof showToast === 'function')
+      showToast('The uniform settings could not be saved.', 'error');
     return false;
   }
 }
@@ -1013,12 +1172,13 @@ async function loadUniformOrdersSchedule() {
  * @param {object} [scheduleData]
  */
 async function saveUniformOrdersSchedule(scheduleData) {
-  if (!await canWriteUniformAdmin()) return false;
+  if (!(await canWriteUniformAdmin())) return false;
   var payload = scheduleData || _uniformOrdersSchedule;
-  if (!await saveUniformSetting('bb_uniform_schedule', JSON.stringify(payload))) return false;
+  if (!(await saveUniformSetting('bb_uniform_schedule', JSON.stringify(payload)))) return false;
   _uniformOrdersSchedule = Object.assign({}, payload);
   var client = getSupa();
-  if (client && client.recordConfigSnapshot) client.recordConfigSnapshot('bb_uniform_schedule', payload);
+  if (client && client.recordConfigSnapshot)
+    client.recordConfigSnapshot('bb_uniform_schedule', payload);
   return true;
 }
 
@@ -1032,7 +1192,9 @@ function isUniformOrdersAcceptingResponses() {
     return {
       open: false,
       reason: 'paused',
-      message: s.paused_message || 'Uniform orders are currently paused by the company administration. Please check back later.'
+      message:
+        s.paused_message ||
+        'Uniform orders are currently paused by the company administration. Please check back later.'
     };
   }
   var now = Date.now();
@@ -1049,7 +1211,9 @@ function isUniformOrdersAcceptingResponses() {
       return {
         open: false,
         reason: 'scheduled_future',
-        message: s.paused_message || ('Uniform orders are scheduled to open on ' + openFormatted + '. Please check back then.')
+        message:
+          s.paused_message ||
+          'Uniform orders are scheduled to open on ' + openFormatted + '. Please check back then.'
       };
     }
   }
@@ -1059,7 +1223,9 @@ function isUniformOrdersAcceptingResponses() {
       return {
         open: false,
         reason: 'scheduled_past',
-        message: s.paused_message || 'Uniform orders are now closed. Please check back next term or contact the logistics officer.'
+        message:
+          s.paused_message ||
+          'Uniform orders are now closed. Please check back next term or contact the logistics officer.'
       };
     }
   }
@@ -1082,7 +1248,11 @@ async function saveAdminUniformOrdersSchedule() {
 
   var openAt = openInput ? openInput.value.trim() : '';
   var closeAt = closeInput ? closeInput.value.trim() : '';
-  var pausedMsg = msgInput ? (typeof sanitizeText === 'function' ? sanitizeText(msgInput.value, 500) : msgInput.value.trim()) : '';
+  var pausedMsg = msgInput
+    ? typeof sanitizeText === 'function'
+      ? sanitizeText(msgInput.value, 500)
+      : msgInput.value.trim()
+    : '';
 
   if (openAt && closeAt && new Date(openAt).getTime() >= new Date(closeAt).getTime()) {
     if (typeof showToast === 'function') {
@@ -1098,7 +1268,7 @@ async function saveAdminUniformOrdersSchedule() {
     paused_message: pausedMsg
   };
 
-  if (!await saveUniformOrdersSchedule(updatedSchedule)) return;
+  if (!(await saveUniformOrdersSchedule(updatedSchedule))) return;
   await renderUniformOrdersScheduleControls();
 
   if (typeof closeUniformScheduleModal === 'function') {
@@ -1116,12 +1286,18 @@ async function saveAdminUniformOrdersSchedule() {
 async function toggleUniformOrdersStatus() {
   await loadUniformOrdersSchedule();
   var newStatus = _uniformOrdersSchedule.status === 'paused' ? 'active' : 'paused';
-  if (!await saveUniformOrdersSchedule(Object.assign({}, _uniformOrdersSchedule, { status: newStatus }))) return;
+  if (
+    !(await saveUniformOrdersSchedule(
+      Object.assign({}, _uniformOrdersSchedule, { status: newStatus })
+    ))
+  )
+    return;
   await renderUniformOrdersScheduleControls();
 
   if (typeof showToast === 'function') {
     showToast(
-      'Uniform ordering is now ' + (newStatus === 'active' ? 'active (accepting orders)' : 'paused (closed to orders)'),
+      'Uniform ordering is now ' +
+        (newStatus === 'active' ? 'active (accepting orders)' : 'paused (closed to orders)'),
       newStatus === 'active' ? 'success' : 'warning'
     );
   }
@@ -1249,7 +1425,9 @@ async function populateOrderBar(ic) {
   if (!client || !client.get) return;
 
   try {
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,rank,squad');
+    var data = await client.get(
+      'bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,rank,squad'
+    );
     if (!data || !data.length) return;
     var m = data[0];
 
@@ -1261,7 +1439,8 @@ async function populateOrderBar(ic) {
 
       if (nameEl) nameEl.textContent = m.name;
       if (rankEl) rankEl.textContent = m.rank || '';
-      if (typeof sessionSet === 'function' && sessionGet('rank') !== (m.rank || '')) sessionSet('rank', m.rank || '', { localOnly: true });
+      if (typeof sessionSet === 'function' && sessionGet('rank') !== (m.rank || ''))
+        sessionSet('rank', m.rank || '', { localOnly: true });
       if (squadIl) squadIl.textContent = m.squad ? m.squad + ' Platoon \xb7' : '';
       if (squadEl) squadEl.textContent = m.squad ? m.squad + ' Platoon' : '\u2014';
 
@@ -1325,8 +1504,11 @@ function renderOrderItems(memberRank) {
         (isSel ? ' selected' : '') +
         '" data-size="' +
         escapeHtml(s) +
-        '" aria-pressed="' + isSel + '" onclick="selectUniformCardSize(\'' +
-        escapeHtml(item.key) + '\',this.dataset.size,this)">' +
+        '" aria-pressed="' +
+        isSel +
+        '" onclick="selectUniformCardSize(\'' +
+        escapeHtml(item.key) +
+        '\',this.dataset.size,this)">' +
         escapeHtml(s) +
         '</button>';
     });
@@ -1348,7 +1530,11 @@ function renderOrderItems(memberRank) {
     var limit = uniformQuantityLimit(item);
     var staged = Math.min(itemStagedQtys[item.key] || 0, limit);
     itemStagedQtys[item.key] = staged;
-    var priceLabel = !limit ? 'Out of stock' : price === null ? 'RM TBA' : 'RM ' + (price / 100).toFixed(2);
+    var priceLabel = !limit
+      ? 'Out of stock'
+      : price === null
+        ? 'RM TBA'
+        : 'RM ' + (price / 100).toFixed(2);
     var cat = getItemCategory(item);
     var catLabel =
       cat === 'apparel'
@@ -1386,7 +1572,9 @@ function renderOrderItems(memberRank) {
         escapeHtml(item.key) +
         '-custom-text-wrap" style="display:block;margin-top:8px;">' +
         '<div class="size-pills-label" style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">' +
-        '<span>' + escapeHtml(item.customPrompt || 'Specify details (e.g. Name, Badge):') + '</span>' +
+        '<span>' +
+        escapeHtml(item.customPrompt || 'Specify details (e.g. Name, Badge):') +
+        '</span>' +
         '<span style="color:var(--red);">*</span>' +
         '</div>' +
         '<input type="text" class="form-input form-input-sm product-custom-text-input" id="' +
@@ -1406,7 +1594,8 @@ function renderOrderItems(memberRank) {
 
     html +=
       '<div class="uniform-product-card uniform-item' +
-      (currentQty > 0 ? ' has-qty' : '') + (staged > 0 ? ' has-staged-qty' : '') +
+      (currentQty > 0 ? ' has-qty' : '') +
+      (staged > 0 ? ' has-staged-qty' : '') +
       '" id="ui-' +
       escapeHtml(item.key) +
       '" data-category="' +
@@ -1434,16 +1623,48 @@ function renderOrderItems(memberRank) {
       customWrap +
       '</div>' +
       '<div class="product-card-footer">' +
-      '<div class="product-card-in-cart" id="' + escapeHtml(item.key) + '-in-cart" style="display:' + (inCartText ? 'block' : 'none') + ';">' + escapeHtml(inCartText) + '</div>' +
+      '<div class="product-card-in-cart" id="' +
+      escapeHtml(item.key) +
+      '-in-cart" style="display:' +
+      (inCartText ? 'block' : 'none') +
+      ';">' +
+      escapeHtml(inCartText) +
+      '</div>' +
       '<div class="product-card-action-row">' +
       '<div class="product-card-stepper qty-ctrl">' +
-      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-minus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity"' + (staged ? '' : ' disabled style="opacity:0.4;"') + '>&#8722;</button>' +
-      '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">' + staged + '</div>' +
-      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-plus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity"' + (!limit || price === null ? ' disabled' : '') + '>+</button>' +
+      '<button type="button" class="stepper-btn qty-btn" id="' +
+      escapeHtml(item.key) +
+      '-minus-btn" onclick="stepCardQty(\'' +
+      escapeHtml(item.key) +
+      '\',-1)" aria-label="Decrease quantity"' +
+      (staged ? '' : ' disabled style="opacity:0.4;"') +
+      '>&#8722;</button>' +
+      '<div class="stepper-count qty-display" id="' +
+      escapeHtml(item.key) +
+      '-qty">' +
+      staged +
       '</div>' +
-      '<button type="button" class="add-to-cart-btn" id="' + escapeHtml(item.key) + '-add-btn" onclick="confirmAddToCart(\'' + escapeHtml(item.key) + '\')" style="display:' + (staged && price !== null ? 'inline-flex' : 'none') + ';">' +
+      '<button type="button" class="stepper-btn qty-btn" id="' +
+      escapeHtml(item.key) +
+      '-plus-btn" onclick="stepCardQty(\'' +
+      escapeHtml(item.key) +
+      '\',1)" aria-label="Increase quantity"' +
+      (!limit || price === null ? ' disabled' : '') +
+      '>+</button>' +
+      '</div>' +
+      '<button type="button" class="add-to-cart-btn" id="' +
+      escapeHtml(item.key) +
+      '-add-btn" onclick="confirmAddToCart(\'' +
+      escapeHtml(item.key) +
+      '\')" style="display:' +
+      (staged && price !== null ? 'inline-flex' : 'none') +
+      ';">' +
       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
-      '<span id="' + escapeHtml(item.key) + '-add-label">' + (staged ? 'Add ' + staged + ' to Cart' : 'Add to Cart') + '</span>' +
+      '<span id="' +
+      escapeHtml(item.key) +
+      '-add-label">' +
+      (staged ? 'Add ' + staged + ' to Cart' : 'Add to Cart') +
+      '</span>' +
       '</button>' +
       '</div>' +
       '</div>' +
@@ -1494,7 +1715,8 @@ function goToOrderReview() {
       escapeHtml(l.qty) +
       (l.size ? ' (' + escapeHtml(l.size) + ')' : '') +
       customLabel +
-      ' — RM ' + (Math.round(l.price * 100) * l.qty / 100).toFixed(2) +
+      ' — RM ' +
+      ((Math.round(l.price * 100) * l.qty) / 100).toFixed(2) +
       '</span></div>';
   });
 
@@ -1520,7 +1742,8 @@ function goToOrderReview() {
   // Show payment instructions with fallback
   var pib = document.getElementById('payment-info-box');
   var pit = document.getElementById('payment-info-text');
-  var activeInstructions = (_paymentInfo && _paymentInfo.trim()) ? _paymentInfo : DEFAULT_PAYMENT_INFO;
+  var activeInstructions =
+    _paymentInfo && _paymentInfo.trim() ? _paymentInfo : DEFAULT_PAYMENT_INFO;
   if (pib && pit) {
     pit.textContent = activeInstructions;
     pib.style.display = 'block';
@@ -1574,7 +1797,10 @@ async function compressReceiptImage(source, maxDimension, quality) {
 
   // Validate security (blocks SVG, HTML)
   if (typeof validateFileSecurity === 'function' && typeof source !== 'string') {
-    await validateFileSecurity(source, { allowedTypes: ['image/jpeg', 'image/png', 'image/webp'], bucket: 'receipts' });
+    await validateFileSecurity(source, {
+      allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      bucket: 'receipts'
+    });
   }
 
   // Headless / non-browser fallback
@@ -1695,7 +1921,10 @@ function previewTngScreenshot(input) {
       var ext = (file.name || '').split('.').pop().toLowerCase();
       if (ext === 'svg' || ext === 'html' || ext === 'htm') {
         if (typeof showToast === 'function') {
-          showToast('Payment receipt must be a JPG, PNG, or WebP image. SVG and HTML are prohibited.', 'error');
+          showToast(
+            'Payment receipt must be a JPG, PNG, or WebP image. SVG and HTML are prohibited.',
+            'error'
+          );
         }
         input.value = '';
         return;
@@ -1780,11 +2009,12 @@ async function submitOrder() {
   if (_isSubmittingOrder) return null;
   var availability = isUniformOrdersAcceptingResponses();
   if (!availability.open) {
-    if (typeof showToast === 'function') showToast(availability.message || 'Uniform ordering is currently closed.', 'warning');
+    if (typeof showToast === 'function')
+      showToast(availability.message || 'Uniform ordering is currently closed.', 'warning');
     return null;
   }
 
-  var memberId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : '';
+  var memberId = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : '';
   if (typeof memberId !== 'string' || !memberId.trim()) {
     if (typeof showToast === 'function') showToast('Please log in to submit an order.', 'warning');
     return null;
@@ -1798,118 +2028,189 @@ async function submitOrder() {
     return null;
   }
   var reviewed = typeof document !== 'undefined' ? document.getElementById('review-content') : null;
-  if (reviewed && reviewed.dataset.orderItems && reviewed.dataset.orderItems !== JSON.stringify(cart.lines)) {
+  if (
+    reviewed &&
+    reviewed.dataset.orderItems &&
+    reviewed.dataset.orderItems !== JSON.stringify(cart.lines)
+  ) {
     goToOrderReview();
-    if (typeof showToast === 'function') showToast('Your cart has changed. Review the updated order before confirming.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Your cart has changed. Review the updated order before confirming.', 'warning');
     return null;
   }
 
   var btn = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
-  var lockButton = typeof withSmartButtonLock === 'function' ? withSmartButtonLock : require('../core/loading.js').withSmartButtonLock;
+  var lockButton =
+    typeof withSmartButtonLock === 'function'
+      ? withSmartButtonLock
+      : require('../core/loading.js').withSmartButtonLock;
   _isSubmittingOrder = true;
   var captchaToken = '';
   try {
-    return await lockButton(btn, async function() {
-      var client = getSupa();
-      if (!client) throw new Error('Database client unavailable');
-      var notesRaw = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
-      var notes = typeof sanitizeHtml === 'function' ? sanitizeHtml(notesRaw) : escapeHtml(notesRaw);
-      var items = JSON.stringify(cart.lines);
-      if (_pendingUniformOrder && _pendingUniformOrder.ic !== memberId) _pendingUniformOrder = null;
-      if (_pendingUniformOrder && (_pendingUniformOrder.items !== items || _pendingUniformOrder.notes !== notes)) {
-        var previous = await client.get('bb_orders?id=eq.' + _pendingUniformOrder.id + '&ic=eq.' + encodeURIComponent(memberId) + '&select=order_number', { cache: false });
-        if (!Array.isArray(previous)) throw new Error('Order could not be confirmed');
-        var previousOrderNumber = _pendingUniformOrder.order_number;
-        _pendingUniformOrder = null;
-        if (previous.some(function(row) { return row.order_number === previousOrderNumber; })) {
-          if (typeof showToast === 'function') showToast('Order ' + previousOrderNumber + ' was already saved. Review your current cart before confirming another order.', 'warning');
-          if (typeof loadMemberOrders === 'function') loadMemberOrders();
+    return await lockButton(
+      btn,
+      async function () {
+        var client = getSupa();
+        if (!client) throw new Error('Database client unavailable');
+        var notesRaw = typeof reGetValue === 'function' ? reGetValue('order-notes') || '' : '';
+        var notes =
+          typeof sanitizeHtml === 'function' ? sanitizeHtml(notesRaw) : escapeHtml(notesRaw);
+        var items = JSON.stringify(cart.lines);
+        if (_pendingUniformOrder && _pendingUniformOrder.ic !== memberId)
+          _pendingUniformOrder = null;
+        if (
+          _pendingUniformOrder &&
+          (_pendingUniformOrder.items !== items || _pendingUniformOrder.notes !== notes)
+        ) {
+          var previous = await client.get(
+            'bb_orders?id=eq.' +
+              _pendingUniformOrder.id +
+              '&ic=eq.' +
+              encodeURIComponent(memberId) +
+              '&select=order_number',
+            { cache: false }
+          );
+          if (!Array.isArray(previous)) throw new Error('Order could not be confirmed');
+          var previousOrderNumber = _pendingUniformOrder.order_number;
+          _pendingUniformOrder = null;
+          if (
+            previous.some(function (row) {
+              return row.order_number === previousOrderNumber;
+            })
+          ) {
+            if (typeof showToast === 'function')
+              showToast(
+                'Order ' +
+                  previousOrderNumber +
+                  ' was already saved. Review your current cart before confirming another order.',
+                'warning'
+              );
+            if (typeof loadMemberOrders === 'function') loadMemberOrders();
+            return null;
+          }
+        }
+
+        captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('order') : '';
+        if (
+          !captchaToken ||
+          String(captchaToken).includes('_FALLBACK_') ||
+          typeof verifyTurnstileTokenServerSide !== 'function'
+        ) {
+          if (typeof showToast === 'function')
+            showToast(
+              'Please complete the security check before confirming your order.',
+              'warning'
+            );
           return null;
         }
-      }
-
-      captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('order') : '';
-      if (!captchaToken || String(captchaToken).includes('_FALLBACK_') || typeof verifyTurnstileTokenServerSide !== 'function') {
-        if (typeof showToast === 'function') showToast('Please complete the security check before confirming your order.', 'warning');
-        return null;
-      }
-      var captcha = await verifyTurnstileTokenServerSide(captchaToken, 'order');
-      if (!captcha || captcha.success !== true || (captcha.action && captcha.action !== 'order')) {
-        if (typeof showToast === 'function') showToast('Security verification failed. Please try again.', 'error');
-        return null;
-      }
-      if ((sessionGet('ic') || sessionGet('email')) !== memberId) return null;
-      if (!isUniformOrdersAcceptingResponses().open) {
-        if (typeof showToast === 'function') showToast('Uniform ordering has closed. Your cart is still available.', 'warning');
-        return null;
-      }
-      var currentCart = readUniformCart();
-      if (JSON.stringify(currentCart.lines) !== items) {
-        if (typeof showToast === 'function') showToast('The catalog changed. Edit and review your order again.', 'warning');
-        return null;
-      }
-
-      var wasPending = !!_pendingUniformOrder;
-      var orderId = wasPending ? _pendingUniformOrder.id : crypto.randomUUID();
-      var orderRecord = _pendingUniformOrder || {
-        id: orderId,
-        order_number: 'BB-' + orderId.replace(/-/g, '').slice(0, 16).toUpperCase(),
-        ic: memberId,
-        member_name: sessionGet('name') || memberId,
-        rank: sessionGet('rank') || '',
-        squad: sessionGet('squad') || '',
-        items: items,
-        total_amount: cart.total,
-        notes: notes,
-        status: 'pending',
-        created_at: new Date().toISOString()
-      };
-      _pendingUniformOrder = orderRecord;
-      var lookup = 'bb_orders?id=eq.' + orderId + '&ic=eq.' + encodeURIComponent(memberId) + '&select=order_number';
-      var saved = wasPending ? await client.get(lookup, { cache: false }) : [];
-      if (!Array.isArray(saved)) throw new Error('Order could not be confirmed');
-      if (!saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
-        try {
-          saved = typeof client.req === 'function'
-            ? await client.req('POST', 'bb_orders', orderRecord, null, { maxRetries: 0 })
-            : await client.post('bb_orders', orderRecord);
-        } catch (_) {
-          saved = await client.get(lookup, { cache: false });
+        var captcha = await verifyTurnstileTokenServerSide(captchaToken, 'order');
+        if (
+          !captcha ||
+          captcha.success !== true ||
+          (captcha.action && captcha.action !== 'order')
+        ) {
+          if (typeof showToast === 'function')
+            showToast('Security verification failed. Please try again.', 'error');
+          return null;
         }
-        if (!Array.isArray(saved) || !saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
-          throw new Error('Order could not be confirmed');
+        if ((sessionGet('ic') || sessionGet('email')) !== memberId) return null;
+        if (!isUniformOrdersAcceptingResponses().open) {
+          if (typeof showToast === 'function')
+            showToast('Uniform ordering has closed. Your cart is still available.', 'warning');
+          return null;
         }
-        syncOrderToGoogleSheetsArchive(orderRecord);
-      }
-      _pendingUniformOrder = null;
-      if ((sessionGet('ic') || sessionGet('email')) !== memberId) return orderRecord.order_number;
+        var currentCart = readUniformCart();
+        if (JSON.stringify(currentCart.lines) !== items) {
+          if (typeof showToast === 'function')
+            showToast('The catalog changed. Edit and review your order again.', 'warning');
+          return null;
+        }
 
-      uniformCart.length = 0;
-      [itemQtys, itemSizes, itemSelectedSizes, itemStagedQtys, itemCustomTexts].forEach(function(values) {
-        Object.keys(values).forEach(function(key) { delete values[key]; });
-      });
-      if (typeof document !== 'undefined') {
-        var review = document.getElementById('step-review');
-        if (review) review.style.display = 'none';
-        var number = document.getElementById('s-ordernum');
-        if (number) number.textContent = orderRecord.order_number;
-        var sticky = document.getElementById('sticky-checkout-bar');
-        if (sticky) sticky.style.display = 'none';
-        var success = document.getElementById('order-success');
-        if (success) {
-          success.style.display = 'block';
-          if (success.scrollIntoView) success.scrollIntoView({ behavior: 'smooth' });
+        var wasPending = !!_pendingUniformOrder;
+        var orderId = wasPending ? _pendingUniformOrder.id : crypto.randomUUID();
+        var orderRecord = _pendingUniformOrder || {
+          id: orderId,
+          order_number: 'BB-' + orderId.replace(/-/g, '').slice(0, 16).toUpperCase(),
+          ic: memberId,
+          member_name: sessionGet('name') || memberId,
+          rank: sessionGet('rank') || '',
+          squad: sessionGet('squad') || '',
+          items: items,
+          total_amount: cart.total,
+          notes: notes,
+          status: 'pending',
+          created_at: new Date().toISOString()
+        };
+        _pendingUniformOrder = orderRecord;
+        var lookup =
+          'bb_orders?id=eq.' +
+          orderId +
+          '&ic=eq.' +
+          encodeURIComponent(memberId) +
+          '&select=order_number';
+        var saved = wasPending ? await client.get(lookup, { cache: false }) : [];
+        if (!Array.isArray(saved)) throw new Error('Order could not be confirmed');
+        if (
+          !saved.some(function (row) {
+            return row.order_number === orderRecord.order_number;
+          })
+        ) {
+          try {
+            saved =
+              typeof client.req === 'function'
+                ? await client.req('POST', 'bb_orders', orderRecord, null, { maxRetries: 0 })
+                : await client.post('bb_orders', orderRecord);
+          } catch (_) {
+            saved = await client.get(lookup, { cache: false });
+          }
+          if (
+            !Array.isArray(saved) ||
+            !saved.some(function (row) {
+              return row.order_number === orderRecord.order_number;
+            })
+          ) {
+            throw new Error('Order could not be confirmed');
+          }
+          syncOrderToGoogleSheetsArchive(orderRecord);
         }
-        if (typeof reClearValue === 'function') reClearValue('order-notes');
-        renderOrderItems();
-        updateTotal();
-      }
-      if (typeof loadMemberOrders === 'function') loadMemberOrders();
-      return orderRecord.order_number;
-    }, { loadingText: 'Submitting...', srLabel: 'Submitting uniform order...' });
+        _pendingUniformOrder = null;
+        if ((sessionGet('ic') || sessionGet('email')) !== memberId) return orderRecord.order_number;
+
+        uniformCart.length = 0;
+        [itemQtys, itemSizes, itemSelectedSizes, itemStagedQtys, itemCustomTexts].forEach(
+          function (values) {
+            Object.keys(values).forEach(function (key) {
+              delete values[key];
+            });
+          }
+        );
+        if (typeof document !== 'undefined') {
+          var review = document.getElementById('step-review');
+          if (review) review.style.display = 'none';
+          var number = document.getElementById('s-ordernum');
+          if (number) number.textContent = orderRecord.order_number;
+          var sticky = document.getElementById('sticky-checkout-bar');
+          if (sticky) sticky.style.display = 'none';
+          var success = document.getElementById('order-success');
+          if (success) {
+            success.style.display = 'block';
+            if (success.scrollIntoView) success.scrollIntoView({ behavior: 'smooth' });
+          }
+          if (typeof reClearValue === 'function') reClearValue('order-notes');
+          renderOrderItems();
+          updateTotal();
+        }
+        if (typeof loadMemberOrders === 'function') loadMemberOrders();
+        return orderRecord.order_number;
+      },
+      { loadingText: 'Submitting...', srLabel: 'Submitting uniform order...' }
+    );
   } catch (_) {
     if (typeof showToast === 'function') {
-      showToast('The order could not be confirmed. Your cart is still available. Retry on this page or check your order history.', 'error');
+      showToast(
+        'The order could not be confirmed. Your cart is still available. Retry on this page or check your order history.',
+        'error'
+      );
     }
     return null;
   } finally {
@@ -1926,14 +2227,18 @@ function renderUniformOrderInline() {
   var container = document.getElementById('inline-form-view');
   if (!container) return;
 
-  var avail = typeof isUniformOrdersAcceptingResponses === 'function'
-    ? isUniformOrdersAcceptingResponses()
-    : { open: true };
+  var avail =
+    typeof isUniformOrdersAcceptingResponses === 'function'
+      ? isUniformOrdersAcceptingResponses()
+      : { open: true };
 
   if (!avail.open) {
-    var badgeText = avail.reason === 'scheduled_future'
-      ? 'Scheduled to Open'
-      : (avail.reason === 'scheduled_past' ? 'Orders Closed' : 'Orders Paused');
+    var badgeText =
+      avail.reason === 'scheduled_future'
+        ? 'Scheduled to Open'
+        : avail.reason === 'scheduled_past'
+          ? 'Orders Closed'
+          : 'Orders Paused';
     container.innerHTML =
       '<div class="dark-card" style="text-align:center;padding:40px 24px;">' +
       '<button onclick="backToFormsHub()" style="display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--text-secondary);font-family:var(--font-headline);font-size:13px;cursor:pointer;padding:0;margin-bottom:20px;">\u2039 Back to Forms</button>' +
@@ -1941,7 +2246,9 @@ function renderUniformOrderInline() {
       '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
       '</div>' +
       '<div class="page-title" style="margin-bottom:6px;">Uniform Order Form</div>' +
-      '<div style="font-size:15px;color:#ffffff;font-weight:600;margin-bottom:16px;">' + badgeText + '</div>' +
+      '<div style="font-size:15px;color:#ffffff;font-weight:600;margin-bottom:16px;">' +
+      badgeText +
+      '</div>' +
       '<div style="font-size:14px;color:var(--text-secondary);line-height:1.75;max-width:480px;margin:0 auto 24px;white-space:pre-wrap;">' +
       (typeof escapeHtml === 'function' ? escapeHtml(avail.message) : avail.message) +
       '</div>' +
@@ -2060,7 +2367,7 @@ async function adminSavePaymentInfo() {
   if (typeof document === 'undefined') return;
   var el = document.getElementById('payment-info-editor');
   var text = el ? el.value.trim() : '';
-  if (!await savePaymentInfo(text)) return;
+  if (!(await savePaymentInfo(text))) return;
   _paymentInfo = text;
   if (typeof showToast === 'function') {
     showToast('Payment info saved! Members will see it on the order review page.', 'success');
@@ -2083,15 +2390,26 @@ function parseUniformOrderItems(value) {
 }
 
 function storedUniformOrderLines(value) {
-  return Object.entries(parseUniformOrderItems(value)).flatMap(function(entry) {
+  return Object.entries(parseUniformOrderItems(value)).flatMap(function (entry) {
     var line = entry[1];
     if (!line || line.qty === undefined) return [];
     var qty = Number(line.qty);
     if (!Number.isSafeInteger(qty) || qty < 1) return [];
     var key = line.key || entry[0].split('__')[0];
-    var product = UNIFORM_ITEMS.find(function(item) { return item.key === key; });
+    var product = UNIFORM_ITEMS.find(function (item) {
+      return item.key === key;
+    });
     var price = uniformPriceInSen({ key: key, price: line.price ?? product?.price });
-    return [{ key: key, name: line.name || product?.name || key, qty: qty, size: line.size, custom_text: line.custom_text || line.customText, price: (price ?? 0) / 100 }];
+    return [
+      {
+        key: key,
+        name: line.name || product?.name || key,
+        qty: qty,
+        size: line.size,
+        custom_text: line.custom_text || line.customText,
+        price: (price ?? 0) / 100
+      }
+    ];
   });
 }
 
@@ -2106,7 +2424,12 @@ function orderArchiveRecord(order) {
     rank: order.rank,
     squad: order.squad,
     items: lines,
-    total_price: order.total_amount ?? order.total_price ?? lines.reduce(function(sum, line) { return sum + Math.round(line.price * 100) * line.qty; }, 0) / 100,
+    total_price:
+      order.total_amount ??
+      order.total_price ??
+      lines.reduce(function (sum, line) {
+        return sum + Math.round(line.price * 100) * line.qty;
+      }, 0) / 100,
     notes: order.notes,
     status: order.status,
     created_at: order.created_at
@@ -2114,7 +2437,8 @@ function orderArchiveRecord(order) {
 }
 
 function isUniformOrder(order) {
-  if ((order.order_number || '').startsWith('FORM-') || order.payment_method === 'form_submission') return false;
+  if ((order.order_number || '').startsWith('FORM-') || order.payment_method === 'form_submission')
+    return false;
   try {
     var items = parseUniformOrderItems(order.items);
     return !items.form_name && !items.form_id && !items.answers;
@@ -2124,7 +2448,9 @@ function isUniformOrder(order) {
 }
 
 function getUniformStatusOptions(status) {
-  return Object.hasOwn(UNIFORM_ORDER_TRANSITIONS, status) ? [status].concat(UNIFORM_ORDER_TRANSITIONS[status]) : [];
+  return Object.hasOwn(UNIFORM_ORDER_TRANSITIONS, status)
+    ? [status].concat(UNIFORM_ORDER_TRANSITIONS[status])
+    : [];
 }
 
 /**
@@ -2135,7 +2461,10 @@ async function loadOrdersSheetsArchiveUrl() {
   var client = getSupa();
   if (!client || !client.get) return '';
   try {
-    var snap = (typeof client.getConfigSnapshot === 'function') ? client.getConfigSnapshot('bb_orders_sheets_url') : null;
+    var snap =
+      typeof client.getConfigSnapshot === 'function'
+        ? client.getConfigSnapshot('bb_orders_sheets_url')
+        : null;
     if (snap && typeof snap === 'string') {
       _ordersSheetsArchiveUrl = snap;
       return snap;
@@ -2159,12 +2488,13 @@ async function loadOrdersSheetsArchiveUrl() {
  * @param {string} url
  */
 async function saveOrdersSheetsArchiveUrl(url) {
-  if (!await canWriteUniformAdmin()) return false;
+  if (!(await canWriteUniformAdmin())) return false;
   var cleanUrl = typeof url === 'string' ? url.trim() : '';
-  if (!await saveUniformSetting('bb_orders_sheets_url', cleanUrl)) return false;
+  if (!(await saveUniformSetting('bb_orders_sheets_url', cleanUrl))) return false;
   _ordersSheetsArchiveUrl = cleanUrl;
   var client = getSupa();
-  if (client && client.recordConfigSnapshot) client.recordConfigSnapshot('bb_orders_sheets_url', cleanUrl);
+  if (client && client.recordConfigSnapshot)
+    client.recordConfigSnapshot('bb_orders_sheets_url', cleanUrl);
   return true;
 }
 
@@ -2173,7 +2503,7 @@ async function saveOrdersSheetsArchiveUrl(url) {
  */
 var UNIFORM_ORDERS_APPS_SCRIPT_CODE = [
   '/**',
-  ' * 1st Petaling Jaya Boys\' Brigade - Uniform Orders Google Sheets Sync & Archive',
+  " * 1st Petaling Jaya Boys' Brigade - Uniform Orders Google Sheets Sync & Archive",
   ' *',
   ' * Manages two sheets automatically:',
   ' * 1. "Order Tracker": Live tracking sheet updated on status updates and cancellations.',
@@ -2356,7 +2686,7 @@ async function syncOrderToGoogleSheetsArchive(orderRecord) {
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(function(err) {
+      }).catch(function (err) {
         console.warn('Google Sheets archive sync fetch warning:', err);
       });
     }
@@ -2388,7 +2718,7 @@ async function syncOrderStatusToGoogleSheet(orderNum, status) {
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(function(err) {
+      }).catch(function (err) {
         console.warn('Google Sheets status sync network warning:', err);
       });
     }
@@ -2424,63 +2754,64 @@ async function configureAdminOrdersSheetUrl() {
 
   modal.innerHTML =
     '<div class="portal-modal-header" style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--border-subtle);">' +
-      '<div style="display:flex;align-items:center;gap:10px;">' +
-        '<div style="width:36px;height:36px;border-radius:8px;background:var(--accent-soft, rgba(217,119,6,0.15));border:1px solid var(--accent-border, rgba(217,119,6,0.3));display:flex;align-items:center;justify-content:center;color:var(--brand-gold);">' +
-          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
-        '</div>' +
-        '<div>' +
-          '<h3 style="font-family:var(--font-headline);font-size:16px;margin:0;color:var(--text-primary);">Uniform Orders Google Sheets Sync & Backup</h3>' +
-          '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Automatic live synchronization for Order Tracker and Order Archives</div>' +
-        '</div>' +
-      '</div>' +
-      statusBadge +
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<div style="width:36px;height:36px;border-radius:8px;background:var(--accent-soft, rgba(217,119,6,0.15));border:1px solid var(--accent-border, rgba(217,119,6,0.3));display:flex;align-items:center;justify-content:center;color:var(--brand-gold);">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+    '</div>' +
+    '<div>' +
+    '<h3 style="font-family:var(--font-headline);font-size:16px;margin:0;color:var(--text-primary);">Uniform Orders Google Sheets Sync & Backup</h3>' +
+    '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Automatic live synchronization for Order Tracker and Order Archives</div>' +
+    '</div>' +
+    '</div>' +
+    statusBadge +
     '</div>' +
     '<div class="portal-modal-body" style="padding:14px 0;display:flex;flex-direction:column;gap:16px;">' +
-      '<div>' +
-        '<label style="display:block;font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Google Sheets Web App URL (Webhook)</label>' +
-        '<div style="display:flex;gap:8px;">' +
-          '<input type="url" id="admin-orders-sheet-url-input" class="form-input" value="' + (typeof escapeHtml === 'function' ? escapeHtml(currentUrl || '') : (currentUrl || '')) + '" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;font-size:12px;padding:8px 10px;height:38px;">' +
-          '<button type="button" id="admin-orders-save-url-btn" class="portal-btn portal-btn-primary" style="font-size:12px;padding:8px 14px;height:38px;white-space:nowrap;">Save</button>' +
-        '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">When configured, any order status updates or deletions in the portal will sync automatically to your Google Sheet in real time.</div>' +
-      '</div>' +
-
-      '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">' +
-          '<div style="font-weight:700;font-size:12px;color:var(--text-primary);">Manual Sync Test</div>' +
-          '<button type="button" id="admin-orders-manual-sync-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:5px 10px;height:30px;display:inline-flex;align-items:center;gap:5px;">' +
-            '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Sync All Current Records Now' +
-          '</button>' +
-        '</div>' +
-        '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
-          'Automatically populates both sheets: <strong>Order Tracker</strong> (live status changes) and <strong>Order Archives</strong> (permanent append-only backup without status).' +
-        '</div>' +
-      '</div>' +
-
-      '<div>' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-          '<label style="font-size:12px;font-weight:700;color:var(--text-primary);">📋 Google Apps Script Code</label>' +
-          '<button type="button" id="admin-orders-copy-script-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:4px 10px;height:28px;display:inline-flex;align-items:center;gap:4px;">' +
-            '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Script Code' +
-          '</button>' +
-        '</div>' +
-        '<div style="background:#0f172a;color:#f8fafc;border:1px solid var(--border-card);border-radius:8px;padding:12px;font-family:var(--font-body);font-variant-numeric:tabular-nums;font-size:11px;max-height:180px;overflow-y:auto;white-space:pre;line-height:1.4;">' +
-          (typeof escapeHtml === 'function' ? escapeHtml(UNIFORM_ORDERS_APPS_SCRIPT_CODE) : UNIFORM_ORDERS_APPS_SCRIPT_CODE) +
-        '</div>' +
-      '</div>' +
-
-      '<div style="font-size:11px;color:var(--text-secondary);line-height:1.6;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;">' +
-        '<strong style="color:var(--text-primary);">Setup Instructions:</strong><br>' +
-        '1. Open your target Google Sheet.<br>' +
-        '2. In the menu, go to <strong>Extensions > Apps Script</strong>.<br>' +
-        '3. Delete any placeholder code and paste the code above.<br>' +
-        '4. Click <strong>Deploy > New deployment</strong>, select type <strong>Web app</strong>.<br>' +
-        '5. Set <em>Execute as:</em> <strong>Me</strong> and <em>Who has access:</em> <strong>Anyone</strong>.<br>' +
-        '6. Click Deploy, authorize access, copy the <strong>Web App URL</strong> and paste it into the field above.' +
-      '</div>' +
+    '<div>' +
+    '<label style="display:block;font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Google Sheets Web App URL (Webhook)</label>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<input type="url" id="admin-orders-sheet-url-input" class="form-input" value="' +
+    (typeof escapeHtml === 'function' ? escapeHtml(currentUrl || '') : currentUrl || '') +
+    '" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;font-size:12px;padding:8px 10px;height:38px;">' +
+    '<button type="button" id="admin-orders-save-url-btn" class="portal-btn portal-btn-primary" style="font-size:12px;padding:8px 14px;height:38px;white-space:nowrap;">Save</button>' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">When configured, any order status updates or deletions in the portal will sync automatically to your Google Sheet in real time.</div>' +
+    '</div>' +
+    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">' +
+    '<div style="font-weight:700;font-size:12px;color:var(--text-primary);">Manual Sync Test</div>' +
+    '<button type="button" id="admin-orders-manual-sync-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:5px 10px;height:30px;display:inline-flex;align-items:center;gap:5px;">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Sync All Current Records Now' +
+    '</button>' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
+    'Automatically populates both sheets: <strong>Order Tracker</strong> (live status changes) and <strong>Order Archives</strong> (permanent append-only backup without status).' +
+    '</div>' +
+    '</div>' +
+    '<div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
+    '<label style="font-size:12px;font-weight:700;color:var(--text-primary);">📋 Google Apps Script Code</label>' +
+    '<button type="button" id="admin-orders-copy-script-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:4px 10px;height:28px;display:inline-flex;align-items:center;gap:4px;">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Script Code' +
+    '</button>' +
+    '</div>' +
+    '<div style="background:#0f172a;color:#f8fafc;border:1px solid var(--border-card);border-radius:8px;padding:12px;font-family:var(--font-body);font-variant-numeric:tabular-nums;font-size:11px;max-height:180px;overflow-y:auto;white-space:pre;line-height:1.4;">' +
+    (typeof escapeHtml === 'function'
+      ? escapeHtml(UNIFORM_ORDERS_APPS_SCRIPT_CODE)
+      : UNIFORM_ORDERS_APPS_SCRIPT_CODE) +
+    '</div>' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--text-secondary);line-height:1.6;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;">' +
+    '<strong style="color:var(--text-primary);">Setup Instructions:</strong><br>' +
+    '1. Open your target Google Sheet.<br>' +
+    '2. In the menu, go to <strong>Extensions > Apps Script</strong>.<br>' +
+    '3. Delete any placeholder code and paste the code above.<br>' +
+    '4. Click <strong>Deploy > New deployment</strong>, select type <strong>Web app</strong>.<br>' +
+    '5. Set <em>Execute as:</em> <strong>Me</strong> and <em>Who has access:</em> <strong>Anyone</strong>.<br>' +
+    '6. Click Deploy, authorize access, copy the <strong>Web App URL</strong> and paste it into the field above.' +
+    '</div>' +
     '</div>' +
     '<div class="portal-modal-actions" style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid var(--border-subtle);">' +
-      '<button type="button" class="portal-btn portal-btn-secondary" id="admin-orders-close-modal-btn">Close</button>' +
+    '<button type="button" class="portal-btn portal-btn-secondary" id="admin-orders-close-modal-btn">Close</button>' +
     '</div>';
 
   overlay.appendChild(modal);
@@ -2491,18 +2822,19 @@ async function configureAdminOrdersSheetUrl() {
   }
   var closeBtn = modal.querySelector('#admin-orders-close-modal-btn');
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  overlay.addEventListener('click', function(e) {
+  overlay.addEventListener('click', function (e) {
     if (e.target === overlay) closeModal();
   });
 
   var saveBtn = modal.querySelector('#admin-orders-save-url-btn');
   var urlInput = modal.querySelector('#admin-orders-sheet-url-input');
   if (saveBtn && urlInput) {
-    saveBtn.addEventListener('click', async function() {
+    saveBtn.addEventListener('click', async function () {
       var val = (urlInput.value || '').trim();
       var ok = await saveOrdersSheetsArchiveUrl(val);
       if (ok) {
-        if (typeof showToast === 'function') showToast('Google Sheets sync URL saved successfully!', 'success');
+        if (typeof showToast === 'function')
+          showToast('Google Sheets sync URL saved successfully!', 'success');
         closeModal();
       } else {
         if (typeof showToast === 'function') showToast('Failed to save URL to database.', 'error');
@@ -2512,24 +2844,37 @@ async function configureAdminOrdersSheetUrl() {
 
   var copyBtn = modal.querySelector('#admin-orders-copy-script-btn');
   if (copyBtn) {
-    copyBtn.addEventListener('click', function() {
-      if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(UNIFORM_ORDERS_APPS_SCRIPT_CODE).then(function() {
-          copyBtn.innerHTML = '✓ Copied!';
-          if (typeof showToast === 'function') showToast('Google Apps Script code copied to clipboard!', 'success');
-          setTimeout(function() {
-            copyBtn.innerHTML = '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Script Code';
-          }, 3000);
-        }).catch(function() {
-          if (typeof showToast === 'function') showToast('Could not copy automatically. Please select and copy manually.', 'warning');
-        });
+    copyBtn.addEventListener('click', function () {
+      if (
+        typeof navigator !== 'undefined' &&
+        navigator.clipboard &&
+        navigator.clipboard.writeText
+      ) {
+        navigator.clipboard
+          .writeText(UNIFORM_ORDERS_APPS_SCRIPT_CODE)
+          .then(function () {
+            copyBtn.innerHTML = '✓ Copied!';
+            if (typeof showToast === 'function')
+              showToast('Google Apps Script code copied to clipboard!', 'success');
+            setTimeout(function () {
+              copyBtn.innerHTML =
+                '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Script Code';
+            }, 3000);
+          })
+          .catch(function () {
+            if (typeof showToast === 'function')
+              showToast(
+                'Could not copy automatically. Please select and copy manually.',
+                'warning'
+              );
+          });
       }
     });
   }
 
   var manualSyncBtn = modal.querySelector('#admin-orders-manual-sync-btn');
   if (manualSyncBtn) {
-    manualSyncBtn.addEventListener('click', function() {
+    manualSyncBtn.addEventListener('click', function () {
       syncAdminOrdersToGoogleSheet();
     });
   }
@@ -2568,7 +2913,12 @@ async function syncAdminOrdersToGoogleSheet() {
     });
 
     if (typeof showToast === 'function') {
-      showToast('Sync request sent for ' + _cachedAdminOrdersList.length + ' orders. Confirm the result in Google Sheets.', 'info');
+      showToast(
+        'Sync request sent for ' +
+          _cachedAdminOrdersList.length +
+          ' orders. Confirm the result in Google Sheets.',
+        'info'
+      );
     }
   } catch (err) {
     console.error('syncAdminOrdersToGoogleSheet error:', err);
@@ -2586,15 +2936,29 @@ async function syncAdminOrdersToGoogleSheet() {
 function exportAdminOrdersToCsv(ordersToExport) {
   var list = ordersToExport || _cachedAdminOrdersList || [];
   if (!list.length) {
-    if (typeof showToast === 'function') showToast('No order records available to export.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('No order records available to export.', 'warning');
     return;
   }
 
   var monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December'
   ];
-  var filterMonthLabel = _adminOrdersMonthFilter !== '' ? monthNames[parseInt(_adminOrdersMonthFilter, 10)] : 'All Months';
+  var filterMonthLabel =
+    _adminOrdersMonthFilter !== ''
+      ? monthNames[parseInt(_adminOrdersMonthFilter, 10)]
+      : 'All Months';
 
   function escapeXml(str) {
     if (str === null || str === undefined) return '';
@@ -2632,10 +2996,10 @@ function exportAdminOrdersToCsv(ordersToExport) {
     } catch (_) {}
   });
 
-  Object.entries(itemMap).forEach(function(entry) {
+  Object.entries(itemMap).forEach(function (entry) {
     var name = entry[0];
     var sizes = entry[1];
-    Object.entries(sizes).forEach(function(sEntry) {
+    Object.entries(sizes).forEach(function (sEntry) {
       var sz = sEntry[0];
       var data = sEntry[1];
       prepRows.push({
@@ -2649,17 +3013,32 @@ function exportAdminOrdersToCsv(ordersToExport) {
   });
 
   // Sheet 1: Items Ordered (<Month>)
-  var sheet1Title = ('Items Ordered (' + filterMonthLabel + ')').slice(0, 31).replace(/[:\\\/\?\*\[\]]/g, '');
+  var sheet1Title = ('Items Ordered (' + filterMonthLabel + ')')
+    .slice(0, 31)
+    .replace(/[:\\\/\?\*\[\]]/g, '');
 
   var sheet1Headers = [
-    'Order Number', 'Member Name', 'Rank', 'Squad', 'Items Ordered', 'Total Price (RM)', 'Status', 'Order Date', 'Notes'
+    'Order Number',
+    'Member Name',
+    'Rank',
+    'Squad',
+    'Items Ordered',
+    'Total Price (RM)',
+    'Status',
+    'Order Date',
+    'Notes'
   ];
 
-  var s1RowsXml = '<Row ss:StyleID="Header">' +
-    sheet1Headers.map(function(h) { return '<Cell><Data ss:Type="String">' + escapeXml(h) + '</Data></Cell>'; }).join('') +
-  '</Row>';
+  var s1RowsXml =
+    '<Row ss:StyleID="Header">' +
+    sheet1Headers
+      .map(function (h) {
+        return '<Cell><Data ss:Type="String">' + escapeXml(h) + '</Data></Cell>';
+      })
+      .join('') +
+    '</Row>';
 
-  list.forEach(function(o) {
+  list.forEach(function (o) {
     var itemsFormatted = [];
     var totalPrice = 0;
     try {
@@ -2669,50 +3048,93 @@ function exportAdminOrdersToCsv(ordersToExport) {
       });
     } catch (_) {}
 
-    var dateStr = o.created_at ? new Date(o.created_at).toLocaleDateString('en-MY', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    }) : '';
+    var dateStr = o.created_at
+      ? new Date(o.created_at).toLocaleDateString('en-MY', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        })
+      : '';
 
-    s1RowsXml += '<Row>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(o.order_number || '') + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(o.member_name || o.ic || '') + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(o.rank || '') + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(o.squad ? (o.squad + ' Platoon') : '') + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(itemsFormatted.join('; ')) + '</Data></Cell>' +
-      '<Cell><Data ss:Type="Number">' + totalPrice.toFixed(2) + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml((o.status || 'pending').toUpperCase()) + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(dateStr) + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(o.notes || '') + '</Data></Cell>' +
-    '</Row>';
+    s1RowsXml +=
+      '<Row>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(o.order_number || '') +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(o.member_name || o.ic || '') +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(o.rank || '') +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(o.squad ? o.squad + ' Platoon' : '') +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(itemsFormatted.join('; ')) +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="Number">' +
+      totalPrice.toFixed(2) +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml((o.status || 'pending').toUpperCase()) +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(dateStr) +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(o.notes || '') +
+      '</Data></Cell>' +
+      '</Row>';
   });
 
   // Sheet 2: Items to Prepare
   var s2Headers = ['Item', 'Size', 'Count', 'Value'];
-  var s2RowsXml = '<Row ss:StyleID="Header">' +
-    s2Headers.map(function(h) { return '<Cell><Data ss:Type="String">' + escapeXml(h) + '</Data></Cell>'; }).join('') +
-  '</Row>';
-
-  prepRows.forEach(function(r) {
-    s2RowsXml += '<Row>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(r.item) + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">' + escapeXml(r.size) + '</Data></Cell>' +
-      '<Cell><Data ss:Type="Number">' + r.count + '</Data></Cell>' +
-      '<Cell><Data ss:Type="String">RM ' + r.value.toFixed(2) + '</Data></Cell>' +
+  var s2RowsXml =
+    '<Row ss:StyleID="Header">' +
+    s2Headers
+      .map(function (h) {
+        return '<Cell><Data ss:Type="String">' + escapeXml(h) + '</Data></Cell>';
+      })
+      .join('') +
     '</Row>';
+
+  prepRows.forEach(function (r) {
+    s2RowsXml +=
+      '<Row>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(r.item) +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' +
+      escapeXml(r.size) +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="Number">' +
+      r.count +
+      '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">RM ' +
+      r.value.toFixed(2) +
+      '</Data></Cell>' +
+      '</Row>';
   });
 
   // Footer row without merging: Column A has items list, Column B is empty, Column C has Total Items, Column D has Total Value
-  s2RowsXml += '<Row ss:StyleID="Footer">' +
-    '<Cell><Data ss:Type="String">' + escapeXml(prepMergedList.join(', ')) + '</Data></Cell>' +
+  s2RowsXml +=
+    '<Row ss:StyleID="Footer">' +
+    '<Cell><Data ss:Type="String">' +
+    escapeXml(prepMergedList.join(', ')) +
+    '</Data></Cell>' +
     '<Cell><Data ss:Type="String"></Data></Cell>' +
-    '<Cell><Data ss:Type="String">Total Items: ' + totalPrepItems + ' items</Data></Cell>' +
-    '<Cell><Data ss:Type="String">Total Value: RM ' + totalPrepValue.toFixed(2) + '</Data></Cell>' +
-  '</Row>';
+    '<Cell><Data ss:Type="String">Total Items: ' +
+    totalPrepItems +
+    ' items</Data></Cell>' +
+    '<Cell><Data ss:Type="String">Total Value: RM ' +
+    totalPrepValue.toFixed(2) +
+    '</Data></Cell>' +
+    '</Row>';
 
   // Build full 2-sheet SpreadsheetML XML
-  var xmlContent = '<?xml version="1.0"?>\r\n' +
+  var xmlContent =
+    '<?xml version="1.0"?>\r\n' +
     '<?mso-application progid="Excel.Sheet"?>\r\n' +
     '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\r\n' +
     ' xmlns:o="urn:schemas-microsoft-com:office:office"\r\n' +
@@ -2739,14 +3161,18 @@ function exportAdminOrdersToCsv(ordersToExport) {
     '   <Alignment ss:Vertical="Center"/>\r\n' +
     '  </Style>\r\n' +
     ' </Styles>\r\n' +
-    ' <Worksheet ss:Name="' + escapeXml(sheet1Title) + '">\r\n' +
+    ' <Worksheet ss:Name="' +
+    escapeXml(sheet1Title) +
+    '">\r\n' +
     '  <Table ss:DefaultColumnWidth="120">\r\n' +
-    s1RowsXml + '\r\n' +
+    s1RowsXml +
+    '\r\n' +
     '  </Table>\r\n' +
     ' </Worksheet>\r\n' +
     ' <Worksheet ss:Name="Items to Prepare">\r\n' +
     '  <Table ss:DefaultColumnWidth="120">\r\n' +
-    s2RowsXml + '\r\n' +
+    s2RowsXml +
+    '\r\n' +
     '  </Table>\r\n' +
     ' </Worksheet>\r\n' +
     '</Workbook>';
@@ -2754,13 +3180,16 @@ function exportAdminOrdersToCsv(ordersToExport) {
   var blob = new Blob([xmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  var fileMonthLabel = _adminOrdersMonthFilter !== '' ? ('_' + filterMonthLabel) : '_All';
+  var fileMonthLabel = _adminOrdersMonthFilter !== '' ? '_' + filterMonthLabel : '_All';
   a.href = url;
-  a.download = 'BB_Uniform_Orders' + fileMonthLabel + '_' + new Date().toISOString().slice(0, 10) + '.xls';
+  a.download =
+    'BB_Uniform_Orders' + fileMonthLabel + '_' + new Date().toISOString().slice(0, 10) + '.xls';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 1000);
 
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
@@ -2773,7 +3202,10 @@ function exportAdminOrdersToCsv(ordersToExport) {
   }
 
   if (typeof showToast === 'function') {
-    showToast('✓ Exported 2-sheet workbook (Items Ordered & Items to Prepare) for Google Sheets / Excel!', 'success');
+    showToast(
+      '✓ Exported 2-sheet workbook (Items Ordered & Items to Prepare) for Google Sheets / Excel!',
+      'success'
+    );
   }
 }
 
@@ -2789,142 +3221,226 @@ function exportAdminOrdersToCsv(ordersToExport) {
  * @param {Object} [sizeValues] - Per-size monetary value breakdown
  * @returns {string} HTML string
  */
-function renderOrdersPreparationSummaryHtml(itemCounts, sizeBreakdown, totalItems, totalRevenue, filterLabel, orderCount, viewMode, sizeValues) {
+function renderOrdersPreparationSummaryHtml(
+  itemCounts,
+  sizeBreakdown,
+  totalItems,
+  totalRevenue,
+  filterLabel,
+  orderCount,
+  viewMode,
+  sizeValues
+) {
   var mode = viewMode || 'cards';
-  var itemEntries = Object.entries(itemCounts || {}).sort(function(a, b) { return b[1] - a[1]; });
+  var itemEntries = Object.entries(itemCounts || {}).sort(function (a, b) {
+    return b[1] - a[1];
+  });
 
   var bodyHtml = '';
 
   if (!itemEntries.length) {
-    bodyHtml = '<div style="font-size:12px;color:var(--text-muted);margin-top:8px;">No uniform items to prepare for this period.</div>';
+    bodyHtml =
+      '<div style="font-size:12px;color:var(--text-muted);margin-top:8px;">No uniform items to prepare for this period.</div>';
   } else if (mode === 'table') {
     var tableRows = '';
-    itemEntries.forEach(function(entry) {
+    itemEntries.forEach(function (entry) {
       var name = entry[0];
-      var sizes = (sizeBreakdown && sizeBreakdown[name]) ? sizeBreakdown[name] : null;
-      var vals = (sizeValues && sizeValues[name]) ? sizeValues[name] : null;
+      var sizes = sizeBreakdown && sizeBreakdown[name] ? sizeBreakdown[name] : null;
+      var vals = sizeValues && sizeValues[name] ? sizeValues[name] : null;
 
       if (sizes && Object.keys(sizes).length > 0) {
-        Object.entries(sizes).forEach(function(s) {
+        Object.entries(sizes).forEach(function (s) {
           var sz = s[0];
           var count = s[1];
           var val = vals && vals[sz] !== undefined ? vals[sz] : 0;
           tableRows +=
             '<tr>' +
-              '<td style="font-weight:600;color:var(--text-primary);padding:8px 12px;">' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '</td>' +
-              '<td style="color:var(--text-secondary);padding:8px 12px;">' + (sz === 'Standard' ? '—' : (typeof escapeHtml === 'function' ? escapeHtml(sz) : sz)) + '</td>' +
-              '<td style="text-align:center;font-weight:600;color:var(--text-primary);padding:8px 12px;">' + count + '</td>' +
-              '<td style="text-align:right;font-weight:700;color:var(--brand-gold);padding:8px 12px;white-space:nowrap;">RM ' + Number(val).toFixed(2) + '</td>' +
+            '<td style="font-weight:600;color:var(--text-primary);padding:8px 12px;">' +
+            (typeof escapeHtml === 'function' ? escapeHtml(name) : name) +
+            '</td>' +
+            '<td style="color:var(--text-secondary);padding:8px 12px;">' +
+            (sz === 'Standard' ? '—' : typeof escapeHtml === 'function' ? escapeHtml(sz) : sz) +
+            '</td>' +
+            '<td style="text-align:center;font-weight:600;color:var(--text-primary);padding:8px 12px;">' +
+            count +
+            '</td>' +
+            '<td style="text-align:right;font-weight:700;color:var(--brand-gold);padding:8px 12px;white-space:nowrap;">RM ' +
+            Number(val).toFixed(2) +
+            '</td>' +
             '</tr>';
         });
       } else {
         var countSingle = entry[1];
-        var valSingle = (vals && vals['Standard'] !== undefined) ? vals['Standard'] : 0;
+        var valSingle = vals && vals['Standard'] !== undefined ? vals['Standard'] : 0;
         tableRows +=
           '<tr>' +
-            '<td style="font-weight:600;color:var(--text-primary);padding:8px 12px;">' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + '</td>' +
-            '<td style="color:var(--text-secondary);padding:8px 12px;">—</td>' +
-            '<td style="text-align:center;font-weight:600;color:var(--text-primary);padding:8px 12px;">' + countSingle + '</td>' +
-            '<td style="text-align:right;font-weight:700;color:var(--brand-gold);padding:8px 12px;white-space:nowrap;">RM ' + Number(valSingle).toFixed(2) + '</td>' +
+          '<td style="font-weight:600;color:var(--text-primary);padding:8px 12px;">' +
+          (typeof escapeHtml === 'function' ? escapeHtml(name) : name) +
+          '</td>' +
+          '<td style="color:var(--text-secondary);padding:8px 12px;">—</td>' +
+          '<td style="text-align:center;font-weight:600;color:var(--text-primary);padding:8px 12px;">' +
+          countSingle +
+          '</td>' +
+          '<td style="text-align:right;font-weight:700;color:var(--brand-gold);padding:8px 12px;white-space:nowrap;">RM ' +
+          Number(valSingle).toFixed(2) +
+          '</td>' +
           '</tr>';
       }
     });
 
     bodyHtml =
       '<div class="table-wrapper" style="margin-top:12px;border:1px solid var(--border-card);border-radius:8px;overflow:hidden;">' +
-        '<table class="orders-spreadsheet-table" style="margin:0;width:100%;">' +
-          '<thead>' +
-            '<tr style="background:var(--bg-card-subtle);">' +
-              '<th style="padding:8px 12px;font-size:12px;text-align:left;">Item</th>' +
-              '<th style="padding:8px 12px;font-size:12px;text-align:left;">Size</th>' +
-              '<th style="padding:8px 12px;font-size:12px;text-align:center;">Count</th>' +
-              '<th style="padding:8px 12px;font-size:12px;text-align:right;">Value</th>' +
-            '</tr>' +
-          '</thead>' +
-          '<tbody>' +
-            tableRows +
-          '</tbody>' +
-          '<tfoot>' +
-            '<tr style="font-weight:700;background:var(--bg-card-subtle);border-top:2px solid var(--border-card);">' +
-              '<td style="padding:10px 12px;"></td>' +
-              '<td style="padding:10px 12px;"></td>' +
-              '<td style="padding:10px 12px;text-align:center;color:var(--brand-gold);white-space:nowrap;">Total Items: ' + totalItems + ' items</td>' +
-              '<td style="padding:10px 12px;text-align:right;color:var(--brand-gold);white-space:nowrap;">Total Value: RM ' + (typeof totalRevenue === 'number' ? totalRevenue.toFixed(2) : '0.00') + '</td>' +
-            '</tr>' +
-          '</tfoot>' +
-        '</table>' +
+      '<table class="orders-spreadsheet-table" style="margin:0;width:100%;">' +
+      '<thead>' +
+      '<tr style="background:var(--bg-card-subtle);">' +
+      '<th style="padding:8px 12px;font-size:12px;text-align:left;">Item</th>' +
+      '<th style="padding:8px 12px;font-size:12px;text-align:left;">Size</th>' +
+      '<th style="padding:8px 12px;font-size:12px;text-align:center;">Count</th>' +
+      '<th style="padding:8px 12px;font-size:12px;text-align:right;">Value</th>' +
+      '</tr>' +
+      '</thead>' +
+      '<tbody>' +
+      tableRows +
+      '</tbody>' +
+      '<tfoot>' +
+      '<tr style="font-weight:700;background:var(--bg-card-subtle);border-top:2px solid var(--border-card);">' +
+      '<td style="padding:10px 12px;"></td>' +
+      '<td style="padding:10px 12px;"></td>' +
+      '<td style="padding:10px 12px;text-align:center;color:var(--brand-gold);white-space:nowrap;">Total Items: ' +
+      totalItems +
+      ' items</td>' +
+      '<td style="padding:10px 12px;text-align:right;color:var(--brand-gold);white-space:nowrap;">Total Value: RM ' +
+      (typeof totalRevenue === 'number' ? totalRevenue.toFixed(2) : '0.00') +
+      '</td>' +
+      '</tr>' +
+      '</tfoot>' +
+      '</table>' +
       '</div>';
   } else {
     // Card view: same layout and ui, but no pill box (e.g. Boots: 6 items (UK 9: 4 | UK 8: 1, etc))
-    bodyHtml = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;">' +
-      itemEntries.map(function(entry) {
-        var name = entry[0];
-        var count = entry[1];
-        var sizes = (sizeBreakdown && sizeBreakdown[name]) ? sizeBreakdown[name] : null;
-        var sizeDetail = '';
-        if (sizes) {
-          var sizeParts = Object.entries(sizes).map(function(s) {
-            return s[0] + ': ' + s[1];
-          });
-          if (sizeParts.length) {
-            sizeDetail = ' <span style="font-weight:400;color:var(--text-secondary);font-size:12px;">(' + (typeof escapeHtml === 'function' ? escapeHtml(sizeParts.join(' | ')) : sizeParts.join(' | ')) + ')</span>';
+    bodyHtml =
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;">' +
+      itemEntries
+        .map(function (entry) {
+          var name = entry[0];
+          var count = entry[1];
+          var sizes = sizeBreakdown && sizeBreakdown[name] ? sizeBreakdown[name] : null;
+          var sizeDetail = '';
+          if (sizes) {
+            var sizeParts = Object.entries(sizes).map(function (s) {
+              return s[0] + ': ' + s[1];
+            });
+            if (sizeParts.length) {
+              sizeDetail =
+                ' <span style="font-weight:400;color:var(--text-secondary);font-size:12px;">(' +
+                (typeof escapeHtml === 'function'
+                  ? escapeHtml(sizeParts.join(' | '))
+                  : sizeParts.join(' | ')) +
+                ')</span>';
+            }
           }
-        }
-        return '<div class="uniform-prep-chip" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:8px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">' +
-          '<strong style="color:var(--text-primary);">' + (typeof escapeHtml === 'function' ? escapeHtml(name) : name) + ': ' + count + ' item' + (count === 1 ? '' : 's') + '</strong>' +
-          sizeDetail +
-        '</div>';
-      }).join('') +
-    '</div>';
+          return (
+            '<div class="uniform-prep-chip" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:8px;padding:8px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px;">' +
+            '<strong style="color:var(--text-primary);">' +
+            (typeof escapeHtml === 'function' ? escapeHtml(name) : name) +
+            ': ' +
+            count +
+            ' item' +
+            (count === 1 ? '' : 's') +
+            '</strong>' +
+            sizeDetail +
+            '</div>'
+          );
+        })
+        .join('') +
+      '</div>';
   }
 
-  return '<div class="uniform-preparation-summary-card">' +
+  return (
+    '<div class="uniform-preparation-summary-card">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--border-subtle);padding-bottom:10px;">' +
-      '<div style="display:flex;align-items:center;gap:8px;">' +
-        '<div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft, rgba(217,119,6,0.15));border:1px solid var(--accent-border, rgba(217,119,6,0.3));display:flex;align-items:center;justify-content:center;color:var(--brand-gold);">' +
-          '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' +
-        '</div>' +
-        '<div>' +
-          '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' +
-            'Items to Prepare Summary (' + (typeof escapeHtml === 'function' ? escapeHtml(filterLabel) : filterLabel) + ')' +
-          '</div>' +
-          '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;">' +
-            'Aggregated totals across ' + orderCount + ' order' + (orderCount === 1 ? '' : 's') +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-      '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' +
-        '<div style="font-size:12px;color:var(--text-secondary);">' +
-          'Total Quantity: <strong style="color:var(--text-primary);font-size:14px;">' + totalItems + ' items</strong>' +
-        '</div>' +
-        '<div style="font-size:12px;color:var(--text-secondary);">' +
-          'Total Value: <strong style="color:var(--brand-gold);font-size:14px;">RM ' + (typeof totalRevenue === 'number' ? totalRevenue.toFixed(2) : '0.00') + '</strong>' +
-        '</div>' +
-      '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft, rgba(217,119,6,0.15));border:1px solid var(--accent-border, rgba(217,119,6,0.3));display:flex;align-items:center;justify-content:center;color:var(--brand-gold);">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>' +
+    '</div>' +
+    '<div>' +
+    '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' +
+    'Items to Prepare Summary (' +
+    (typeof escapeHtml === 'function' ? escapeHtml(filterLabel) : filterLabel) +
+    ')' +
+    '</div>' +
+    '<div style="font-size:11px;color:var(--text-secondary);margin-top:1px;">' +
+    'Aggregated totals across ' +
+    orderCount +
+    ' order' +
+    (orderCount === 1 ? '' : 's') +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' +
+    '<div style="font-size:12px;color:var(--text-secondary);">' +
+    'Total Quantity: <strong style="color:var(--text-primary);font-size:14px;">' +
+    totalItems +
+    ' items</strong>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);">' +
+    'Total Value: <strong style="color:var(--brand-gold);font-size:14px;">RM ' +
+    (typeof totalRevenue === 'number' ? totalRevenue.toFixed(2) : '0.00') +
+    '</strong>' +
+    '</div>' +
+    '</div>' +
     '</div>' +
     bodyHtml +
-  '</div>';
+    '</div>'
+  );
 }
 
 async function renderAdminOrders(forceRefresh) {
-  if (typeof window !== 'undefined' && typeof window.hasAdminModuleAccess === 'function' && !window.hasAdminModuleAccess('uniform')) return;
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.hasAdminModuleAccess === 'function' &&
+    !window.hasAdminModuleAccess('uniform')
+  )
+    return;
   if (typeof document === 'undefined') return;
   var search = ((document.getElementById('admin-order-search') || {}).value || '').toLowerCase();
-  var statusFilter = ((document.getElementById('admin-order-form-filter') || {}).value || '').toLowerCase();
+  var statusFilter = (
+    (document.getElementById('admin-order-form-filter') || {}).value || ''
+  ).toLowerCase();
   var list = document.getElementById('admin-orders-list');
   if (!list) return;
 
-  list.innerHTML = (typeof renderSkeletonTable === 'function') ? renderSkeletonTable(6, 6) : '<div class="skeleton-shimmer" style="height:180px;border-radius:8px;"></div>';
+  list.innerHTML =
+    typeof renderSkeletonTable === 'function'
+      ? renderSkeletonTable(6, 6)
+      : '<div class="skeleton-shimmer" style="height:180px;border-radius:8px;"></div>';
   var client = getSupa();
 
   try {
     if (!client || !client.get) throw new Error('Database client unavailable');
     var now = Date.now();
     var orders;
-    if (!forceRefresh && _cachedAdminOrders && (now - _cachedAdminOrdersTime < ADMIN_ORDERS_CACHE_TTL)) {
+    if (
+      !forceRefresh &&
+      _cachedAdminOrders &&
+      now - _cachedAdminOrdersTime < ADMIN_ORDERS_CACHE_TTL
+    ) {
       orders = _cachedAdminOrders;
     } else {
-      orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,total_amount&order=created_at.desc', { cache: !forceRefresh });
+      var adminToken = resolveOrdersAdminToken();
+      if (client && typeof client.rpc === 'function' && adminToken) {
+        var rpcRes = await client.rpc('rpc_admin_get_orders', { p_token: adminToken });
+        if (rpcRes && rpcRes.success && Array.isArray(rpcRes.orders)) {
+          orders = rpcRes.orders;
+        } else {
+          orders = [];
+        }
+      } else if (client.get) {
+        orders = await client.get(
+          'bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,total_amount&order=created_at.desc&limit=50',
+          { cache: !forceRefresh }
+        );
+      }
       if (Array.isArray(orders)) {
         _cachedAdminOrders = orders;
         _cachedAdminOrdersTime = now;
@@ -2961,24 +3477,49 @@ async function renderAdminOrders(forceRefresh) {
       cancelled: '#ef4444'
     };
     var monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
 
     // Build the Admin Orders Control Toolbar (View Switcher, Month Filter, CSV Export, Sheets Sync)
-    var monthOptionsHtml = '<option value="">All Months</option>' +
-      monthNames.map(function(m, idx) {
-        return '<option value="' + idx + '"' + (_adminOrdersMonthFilter === String(idx) ? ' selected' : '') + '>' + m + '</option>';
-      }).join('');
+    var monthOptionsHtml =
+      '<option value="">All Months</option>' +
+      monthNames
+        .map(function (m, idx) {
+          return (
+            '<option value="' +
+            idx +
+            '"' +
+            (_adminOrdersMonthFilter === String(idx) ? ' selected' : '') +
+            '>' +
+            m +
+            '</option>'
+          );
+        })
+        .join('');
 
     var toolbarHtml =
       '<div class="admin-orders-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:12px 14px;">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
       '<div style="display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--border-card);background:var(--bg-card-subtle);">' +
-      '<button type="button" class="orders-view-btn' + (_adminOrdersViewMode === 'table' ? ' active-view-btn' : '') + '" data-set-view="table" title="Spreadsheet Table View" style="border:none;border-radius:0;">' +
+      '<button type="button" class="orders-view-btn' +
+      (_adminOrdersViewMode === 'table' ? ' active-view-btn' : '') +
+      '" data-set-view="table" title="Spreadsheet Table View" style="border:none;border-radius:0;">' +
       '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg> Table View' +
       '</button>' +
-      '<button type="button" class="orders-view-btn' + (_adminOrdersViewMode === 'cards' ? ' active-view-btn' : '') + '" data-set-view="cards" title="Cards View" style="border:none;border-radius:0;">' +
+      '<button type="button" class="orders-view-btn' +
+      (_adminOrdersViewMode === 'cards' ? ' active-view-btn' : '') +
+      '" data-set-view="cards" title="Cards View" style="border:none;border-radius:0;">' +
       '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Cards View' +
       '</button>' +
       '</div>' +
@@ -3025,7 +3566,10 @@ async function renderAdminOrders(forceRefresh) {
       } catch (_) {}
     });
 
-    var filterMonthLabel = _adminOrdersMonthFilter !== '' ? monthNames[parseInt(_adminOrdersMonthFilter, 10)] : 'All Months';
+    var filterMonthLabel =
+      _adminOrdersMonthFilter !== ''
+        ? monthNames[parseInt(_adminOrdersMonthFilter, 10)]
+        : 'All Months';
 
     var summaryHtml = renderOrdersPreparationSummaryHtml(
       itemPreparationCounts,
@@ -3039,7 +3583,8 @@ async function renderAdminOrders(forceRefresh) {
     );
 
     if (!filtered.length) {
-      list.innerHTML = toolbarHtml +
+      list.innerHTML =
+        toolbarHtml +
         '<div style="color:var(--text-muted);text-align:center;padding:32px 20px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;">No uniform order records found for the selected month or search filter.</div>' +
         summaryHtml;
       attachToolbarEvents(list);
@@ -3058,8 +3603,18 @@ async function renderAdminOrders(forceRefresh) {
           var itemParts = [];
           storedUniformOrderLines(o.items).forEach(function (v) {
             total += v.qty * v.price;
-            var customBadge = v.custom_text ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' + escapeHtml(v.custom_text) + '</span>' : '';
-            itemParts.push(escapeHtml(v.name) + ' ×' + escapeHtml(v.qty) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + customBadge);
+            var customBadge = v.custom_text
+              ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' +
+                escapeHtml(v.custom_text) +
+                '</span>'
+              : '';
+            itemParts.push(
+              escapeHtml(v.name) +
+                ' ×' +
+                escapeHtml(v.qty) +
+                (v.size ? ' (' + escapeHtml(v.size) + ')' : '') +
+                customBadge
+            );
           });
           itemsDisplay = itemParts.join('<br>');
         } catch (_) {}
@@ -3075,9 +3630,19 @@ async function renderAdminOrders(forceRefresh) {
           : '—';
 
         var statusOptions = getUniformStatusOptions(status);
-        var statusSelectOptions = (statusOptions.length ? statusOptions : ['']).map(function(s) {
-          return '<option value="' + s + '"' + (s === status ? ' selected' : '') + '>' + s.toUpperCase() + '</option>';
-        }).join('');
+        var statusSelectOptions = (statusOptions.length ? statusOptions : [''])
+          .map(function (s) {
+            return (
+              '<option value="' +
+              s +
+              '"' +
+              (s === status ? ' selected' : '') +
+              '>' +
+              s.toUpperCase() +
+              '</option>'
+            );
+          })
+          .join('');
 
         rowsHtml +=
           '<tr>' +
@@ -3085,19 +3650,42 @@ async function renderAdminOrders(forceRefresh) {
           escapeHtml(o.order_number) +
           '</td>' +
           '<td>' +
-          '<div style="font-weight:600;color:var(--text-primary);">' + escapeHtml(o.member_name || o.ic) + '</div>' +
-          '<div style="font-size:11px;color:var(--text-secondary);">' + escapeHtml(o.rank || '') + (o.squad ? ' · ' + escapeHtml(o.squad) + ' Platoon' : '') + '</div>' +
+          '<div style="font-weight:600;color:var(--text-primary);">' +
+          escapeHtml(o.member_name || o.ic) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text-secondary);">' +
+          escapeHtml(o.rank || '') +
+          (o.squad ? ' · ' + escapeHtml(o.squad) + ' Platoon' : '') +
+          '</div>' +
           '</td>' +
-          '<td style="font-size:12px;line-height:1.6;color:var(--text-secondary);">' + (itemsDisplay || '—') + '</td>' +
-          '<td style="font-weight:700;color:var(--brand-gold);white-space:nowrap;">RM ' + total.toFixed(2) + '</td>' +
-          '<td style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">' + created + '</td>' +
+          '<td style="font-size:12px;line-height:1.6;color:var(--text-secondary);">' +
+          (itemsDisplay || '—') +
+          '</td>' +
+          '<td style="font-weight:700;color:var(--brand-gold);white-space:nowrap;">RM ' +
+          total.toFixed(2) +
+          '</td>' +
+          '<td style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">' +
+          created +
+          '</td>' +
           '<td>' +
-          '<select data-order-num="' + escapeHtml(o.order_number) + '" aria-label="Order status" class="admin-table-status-select"' + (statusOptions.length < 2 ? ' disabled' : '') + ' style="font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid ' + sc + '66;background:' + sc + '22;color:' + sc + ';cursor:pointer;font-family:var(--font-headline);">' +
+          '<select data-order-num="' +
+          escapeHtml(o.order_number) +
+          '" aria-label="Order status" class="admin-table-status-select"' +
+          (statusOptions.length < 2 ? ' disabled' : '') +
+          ' style="font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid ' +
+          sc +
+          '66;background:' +
+          sc +
+          '22;color:' +
+          sc +
+          ';cursor:pointer;font-family:var(--font-headline);">' +
           statusSelectOptions +
           '</select>' +
           '</td>' +
           '<td style="text-align:right;white-space:nowrap;">' +
-          '<button data-del-sub="' + escapeHtml(o.order_number) + '" title="Delete this order record" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:var(--red);padding:5px 9px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' +
+          '<button data-del-sub="' +
+          escapeHtml(o.order_number) +
+          '" title="Delete this order record" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:var(--red);padding:5px 9px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' +
           '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete' +
           '</button>' +
           '</td>' +
@@ -3107,10 +3695,22 @@ async function renderAdminOrders(forceRefresh) {
       var tfootHtml =
         '<tfoot>' +
         '<tr style="font-weight:700;background:var(--bg-card-subtle);border-top:2px solid var(--border-card);">' +
-        '<td colspan="2" style="color:var(--text-primary);padding:10px 12px;">Total Items to Prepare (' + escapeHtml(filterMonthLabel) + '):</td>' +
-        '<td style="color:var(--brand-gold);padding:10px 12px;font-weight:700;">' + totalPreparationItems + ' item' + (totalPreparationItems === 1 ? '' : 's') + '</td>' +
-        '<td style="color:var(--brand-gold);padding:10px 12px;white-space:nowrap;font-weight:700;">RM ' + totalOrderRevenue.toFixed(2) + '</td>' +
-        '<td colspan="3" style="color:var(--text-muted);font-size:11px;padding:10px 12px;">Across ' + filtered.length + ' order' + (filtered.length === 1 ? '' : 's') + '</td>' +
+        '<td colspan="2" style="color:var(--text-primary);padding:10px 12px;">Total Items to Prepare (' +
+        escapeHtml(filterMonthLabel) +
+        '):</td>' +
+        '<td style="color:var(--brand-gold);padding:10px 12px;font-weight:700;">' +
+        totalPreparationItems +
+        ' item' +
+        (totalPreparationItems === 1 ? '' : 's') +
+        '</td>' +
+        '<td style="color:var(--brand-gold);padding:10px 12px;white-space:nowrap;font-weight:700;">RM ' +
+        totalOrderRevenue.toFixed(2) +
+        '</td>' +
+        '<td colspan="3" style="color:var(--text-muted);font-size:11px;padding:10px 12px;">Across ' +
+        filtered.length +
+        ' order' +
+        (filtered.length === 1 ? '' : 's') +
+        '</td>' +
         '</tr>' +
         '</tfoot>';
 
@@ -3143,7 +3743,11 @@ async function renderAdminOrders(forceRefresh) {
         try {
           storedUniformOrderLines(o.items).forEach(function (v) {
             total += v.qty * v.price;
-            var customBadge = v.custom_text ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' + escapeHtml(v.custom_text) + '</span>' : '';
+            var customBadge = v.custom_text
+              ? ' <span style="display:inline-block;background:rgba(234,179,8,0.15);color:#f59e0b;border:1px solid rgba(234,179,8,0.3);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Custom: ' +
+                escapeHtml(v.custom_text) +
+                '</span>'
+              : '';
             itemsDisplay +=
               '<div style="font-size:12px;color:var(--text-secondary);">' +
               escapeHtml(v.name) +
@@ -3165,24 +3769,28 @@ async function renderAdminOrders(forceRefresh) {
             })
           : '';
 
-        var btns = getUniformStatusOptions(status).map(function (s) {
-          var active = s === status;
-          return (
-            '<button data-order-num="' +
-            escapeHtml(o.order_number) +
-            '" data-order-status="' +
-            s +
-            '"' + (active ? ' disabled' : '') + ' style="padding:3px 10px;border:1.5px solid ' +
-            (active ? SC[s] : 'var(--border-card)') +
-            ';border-radius:6px;background:' +
-            (active ? SC[s] + '22' : 'transparent') +
-            ';color:' +
-            (active ? SC[s] : 'var(--text-secondary)') +
-            ";font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-headline);\">" +
-            s +
-            '</button>'
-          );
-        }).join('');
+        var btns = getUniformStatusOptions(status)
+          .map(function (s) {
+            var active = s === status;
+            return (
+              '<button data-order-num="' +
+              escapeHtml(o.order_number) +
+              '" data-order-status="' +
+              s +
+              '"' +
+              (active ? ' disabled' : '') +
+              ' style="padding:3px 10px;border:1.5px solid ' +
+              (active ? SC[s] : 'var(--border-card)') +
+              ';border-radius:6px;background:' +
+              (active ? SC[s] + '22' : 'transparent') +
+              ';color:' +
+              (active ? SC[s] : 'var(--text-secondary)') +
+              ';font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-headline);">' +
+              s +
+              '</button>'
+            );
+          })
+          .join('');
 
         cardsHtml +=
           '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">' +
@@ -3204,10 +3812,12 @@ async function renderAdminOrders(forceRefresh) {
           sc +
           ';border:1px solid ' +
           sc +
-          "44;font-family:var(--font-headline);margin-bottom:4px;\">" +
+          '44;font-family:var(--font-headline);margin-bottom:4px;">' +
           escapeHtml(status.toUpperCase()) +
           '</div>' +
-          '<div style="font-size:12px;font-weight:700;color:var(--brand-gold);">RM ' + total.toFixed(2) + '</div>' +
+          '<div style="font-size:12px;font-weight:700;color:var(--brand-gold);">RM ' +
+          total.toFixed(2) +
+          '</div>' +
           '</div></div>' +
           '<div style="margin-bottom:4px;">' +
           itemsDisplay +
@@ -3233,8 +3843,11 @@ async function renderAdminOrders(forceRefresh) {
     // Bind status button clicks
     list.querySelectorAll('[data-order-status]').forEach(function (btn) {
       btn.addEventListener('click', async function () {
-        await withSmartButtonLock(btn, function() {
-          return updateOrderStatus(btn.getAttribute('data-order-num'), btn.getAttribute('data-order-status'));
+        await withSmartButtonLock(btn, function () {
+          return updateOrderStatus(
+            btn.getAttribute('data-order-num'),
+            btn.getAttribute('data-order-status')
+          );
         });
         await renderAdminOrders(true);
       });
@@ -3255,23 +3868,25 @@ async function renderAdminOrders(forceRefresh) {
         var orderNum = btn.getAttribute('data-del-sub');
         var ok =
           typeof showConfirmModal === 'function'
-            ? await showConfirmModal('Delete order ' + orderNum + '? In Google Sheets, this order will be automatically marked as CANCELLED in Order Tracker, while permanently preserved in Order Archives.', 'Delete Uniform Order', { isDestructive: true, confirmText: 'Delete' })
+            ? await showConfirmModal(
+                'Delete order ' +
+                  orderNum +
+                  '? In Google Sheets, this order will be automatically marked as CANCELLED in Order Tracker, while permanently preserved in Order Archives.',
+                'Delete Uniform Order',
+                { isDestructive: true, confirmText: 'Delete' }
+              )
             : true;
-        if (!ok || !await canWriteUniformAdmin()) return;
+        if (!ok || !(await canWriteUniformAdmin())) return;
 
-        client
-          .delete(
-            'bb_orders?order_number=eq.' + encodeURIComponent(orderNum)
-          )
-          .then(function () {
-            syncOrderStatusToGoogleSheet(orderNum, 'CANCELLED');
-            _cachedAdminOrders = null;
-            renderAdminOrders(true);
-            if (typeof showToast === 'function') showToast('Order record deleted.', 'info');
-          })
-          .catch(function (e) {
-            if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
-          });
+        try {
+          await deleteOrder(orderNum);
+          syncOrderStatusToGoogleSheet(orderNum, 'CANCELLED');
+          _cachedAdminOrders = null;
+          renderAdminOrders(true);
+          if (typeof showToast === 'function') showToast('Order record deleted.', 'info');
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Failed: ' + e.message, 'error');
+        }
       });
     });
   } catch (e) {
@@ -3295,8 +3910,8 @@ function attachToolbarEvents(container) {
   if (!container) return;
 
   // View Mode toggles
-  container.querySelectorAll('[data-set-view]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  container.querySelectorAll('[data-set-view]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       var view = btn.getAttribute('data-set-view');
       _adminOrdersViewMode = view;
       renderAdminOrders();
@@ -3306,7 +3921,7 @@ function attachToolbarEvents(container) {
   // Month filter dropdown
   var monthSelect = container.querySelector('.admin-month-select');
   if (monthSelect) {
-    monthSelect.addEventListener('change', function() {
+    monthSelect.addEventListener('change', function () {
       _adminOrdersMonthFilter = monthSelect.value;
       renderAdminOrders();
     });
@@ -3315,7 +3930,7 @@ function attachToolbarEvents(container) {
   // Export to CSV button
   var exportBtn = container.querySelector('[data-export-csv]');
   if (exportBtn) {
-    exportBtn.addEventListener('click', function() {
+    exportBtn.addEventListener('click', function () {
       exportAdminOrdersToCsv(_cachedAdminOrdersList);
     });
   }
@@ -3323,10 +3938,44 @@ function attachToolbarEvents(container) {
   // Configure Google Sheet URL & View Apps Script Code button
   var configBtn = container.querySelector('[data-config-sheets]');
   if (configBtn) {
-    configBtn.addEventListener('click', function() {
+    configBtn.addEventListener('click', function () {
       configureAdminOrdersSheetUrl();
     });
   }
+}
+
+/* global getAdminSessionToken */
+function resolveOrdersAdminToken() {
+  if (typeof getAdminSessionToken === 'function') return getAdminSessionToken() || '';
+  if (typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function')
+    return window.getAdminSessionToken() || '';
+  if (typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function')
+    return global.getAdminSessionToken() || '';
+  return '';
+}
+
+/**
+ * Deletes an order from Supabase
+ * @param {string} orderNum
+ * @returns {Promise<boolean>}
+ */
+async function deleteOrder(orderNum) {
+  var client = getSupa();
+  if (!client || typeof client.rpc !== 'function') {
+    throw new Error('Order deletion service unavailable.');
+  }
+  var adminToken = resolveOrdersAdminToken();
+  if (!adminToken) {
+    throw new Error('Administrator session required to delete order.');
+  }
+  var rpcRes = await client.rpc('rpc_admin_delete_order', {
+    p_token: adminToken,
+    p_order_number: orderNum
+  });
+  if (!rpcRes || !rpcRes.success) {
+    throw new Error((rpcRes && rpcRes.error) || 'Failed to delete order.');
+  }
+  return true;
 }
 
 /**
@@ -3335,22 +3984,31 @@ function attachToolbarEvents(container) {
  * @param {string} status
  */
 async function updateOrderStatus(orderNum, status) {
-  if (!await canWriteUniformAdmin()) return false;
+  if (!(await canWriteUniformAdmin())) return false;
   return changeUniformOrderStatus(orderNum, status, null);
 }
 
 async function canWriteUniformAdmin() {
-  return typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && await window.authorizeAdminMutation('uniform');
+  return (
+    typeof window !== 'undefined' &&
+    typeof window.authorizeAdminMutation === 'function' &&
+    (await window.authorizeAdminMutation('uniform'))
+  );
 }
 
 async function cancelUniformOrder(orderNum) {
-  var memberId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : null;
+  var memberId = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
   if (!memberId) return false;
   return changeUniformOrderStatus(orderNum, 'cancelled', memberId);
 }
 
 async function changeUniformOrderStatus(orderNum, status, memberId) {
-  if (typeof orderNum !== 'string' || !orderNum || !Object.hasOwn(UNIFORM_ORDER_TRANSITIONS, status)) return false;
+  if (
+    typeof orderNum !== 'string' ||
+    !orderNum ||
+    !Object.hasOwn(UNIFORM_ORDER_TRANSITIONS, status)
+  )
+    return false;
   var client = getSupa();
   if (!client) return false;
   var path = 'bb_orders?order_number=eq.' + encodeURIComponent(orderNum);
@@ -3360,24 +4018,57 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
     var rows = await client.get(path + '&select=order_number,status,items', { cache: false });
     var order = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
     var current = order && order.status;
-    if (!order || !isUniformOrder(order) || (memberId && current !== 'pending') || !getUniformStatusOptions(current).includes(status) || current === status) {
-      if (typeof showToast === 'function') showToast('This order cannot move to that status.', 'warning');
+    if (
+      !order ||
+      !isUniformOrder(order) ||
+      (memberId && current !== 'pending') ||
+      !getUniformStatusOptions(current).includes(status) ||
+      current === status
+    ) {
+      if (typeof showToast === 'function')
+        showToast('This order cannot move to that status.', 'warning');
       return false;
     }
     if (memberId && (sessionGet('ic') || sessionGet('email')) !== memberId) return false;
-    if (!memberId && typeof window.hasAdminModuleAccess === 'function' && !window.hasAdminModuleAccess('uniform')) return false;
-    var updatePath = path + '&status=eq.' + encodeURIComponent(current);
-    var changed = typeof client.req === 'function'
-      ? await client.req('PATCH', updatePath, { status: status }, { Prefer: 'return=representation' }, { maxRetries: 0 })
-      : await client.patch(updatePath, { status: status });
-    if (!Array.isArray(changed) || changed.length !== 1) {
-      if (typeof showToast === 'function') showToast('The order changed. Refresh and try again.', 'warning');
+    if (
+      !memberId &&
+      typeof window.hasAdminModuleAccess === 'function' &&
+      !window.hasAdminModuleAccess('uniform')
+    )
+      return false;
+    if (typeof client.rpc !== 'function') return false;
+
+    var rpcRes = null;
+    if (memberId) {
+      var memberToken =
+        typeof sessionGet === 'function'
+          ? sessionGet('session_token') || sessionGet('member_token') || ''
+          : '';
+      if (!memberToken) return false;
+      rpcRes = await client.rpc('rpc_member_cancel_own_order', {
+        p_token: memberToken,
+        p_order_number: orderNum
+      });
+    } else {
+      var adminToken = resolveOrdersAdminToken();
+      if (!adminToken) return false;
+      rpcRes = await client.rpc('rpc_admin_update_order_status', {
+        p_token: adminToken,
+        p_order_number: orderNum,
+        p_status: status,
+        p_expected_status: current
+      });
+    }
+    if (!rpcRes || !rpcRes.success) {
+      if (typeof showToast === 'function')
+        showToast('The order changed. Refresh and try again.', 'warning');
       return false;
     }
     _cachedAdminOrders = null;
     // Auto-sync updated status to Google Sheets Order Tracker
     syncOrderStatusToGoogleSheet(orderNum, status);
-    if (typeof showToast === 'function') showToast('Order status updated to ' + status + '.', 'success');
+    if (typeof showToast === 'function')
+      showToast('Order status updated to ' + status + '.', 'success');
     if (typeof logAuditEvent === 'function') {
       await logAuditEvent({
         action: 'order.status_update',
@@ -3422,7 +4113,8 @@ function renderAdminProducts() {
 
   var countBadge = document.querySelector('.adm-products-count-badge');
   if (countBadge) {
-    countBadge.textContent = UNIFORM_ITEMS.length + (UNIFORM_ITEMS.length === 1 ? ' item' : ' items');
+    countBadge.textContent =
+      UNIFORM_ITEMS.length + (UNIFORM_ITEMS.length === 1 ? ' item' : ' items');
   }
 
   if (!UNIFORM_ITEMS.length) {
@@ -3439,14 +4131,21 @@ function renderAdminProducts() {
       var sizes = getItemSizes(item);
       var sizeButtons = '';
       sizes.forEach(function (s) {
-        sizeButtons += '<span class="size-pill" style="pointer-events:none;">' + escapeHtml(s) + '</span>';
+        sizeButtons +=
+          '<span class="size-pill" style="pointer-events:none;">' + escapeHtml(s) + '</span>';
       });
 
       var safeProdImg = item.image
-        ? (typeof safeUrl === 'function' ? safeUrl(item.image, '') : item.image)
+        ? typeof safeUrl === 'function'
+          ? safeUrl(item.image, '')
+          : item.image
         : '';
       var imgHtml = safeProdImg
-        ? '<img src="' + escapeHtml(safeProdImg) + '" alt="' + escapeHtml(item.name) + '" loading="lazy"/>'
+        ? '<img src="' +
+          escapeHtml(safeProdImg) +
+          '" alt="' +
+          escapeHtml(item.name) +
+          '" loading="lazy"/>'
         : getItemIcon(item);
 
       var priceNum = parseFloat(item.price) || prices[item.key] || 0;
@@ -3510,7 +4209,9 @@ function renderAdminProducts() {
     html += '<div class="admin-products-list-view">';
     UNIFORM_ITEMS.forEach(function (item, idx) {
       var safeProdImg = item.image
-        ? (typeof safeUrl === 'function' ? safeUrl(item.image, '') : item.image)
+        ? typeof safeUrl === 'function'
+          ? safeUrl(item.image, '')
+          : item.image
         : '';
       var imgHtml = safeProdImg
         ? '<img src="' +
@@ -3574,7 +4275,9 @@ function renderAdminProducts() {
 
     card.addEventListener('dragend', function () {
       card.classList.remove('dragging');
-      dragItems.forEach(function (c) { c.classList.remove('drag-over'); });
+      dragItems.forEach(function (c) {
+        c.classList.remove('drag-over');
+      });
       _draggedProdIndex = null;
     });
 
@@ -3622,7 +4325,7 @@ function renderAdminProducts() {
  * @param {number} toIndex
  */
 async function reorderUniformProducts(fromIndex, toIndex) {
-  if (!await canWriteUniformAdmin()) return false;
+  if (!(await canWriteUniformAdmin())) return false;
   if (
     fromIndex < 0 ||
     fromIndex >= UNIFORM_ITEMS.length ||
@@ -3763,7 +4466,7 @@ async function saveProduct() {
   _isSavingProduct = true;
 
   try {
-    if (!await canWriteUniformAdmin()) return false;
+    if (!(await canWriteUniformAdmin())) return false;
     var rawName = ((document.getElementById('prod-name') || {}).value || '').trim();
     var name = typeof sanitizeText === 'function' ? sanitizeText(rawName, 100) : rawName;
     var priceVal = (document.getElementById('prod-price') || {}).value;
@@ -3786,7 +4489,8 @@ async function saveProduct() {
     var hasCustomText = customCb ? !!customCb.checked : false;
     var customPromptEl = document.querySelector('.prod-custom-prompt-input');
     var rawCustomPrompt = customPromptEl ? customPromptEl.value.trim() : '';
-    var customPrompt = typeof sanitizeText === 'function' ? sanitizeText(rawCustomPrompt, 80) : rawCustomPrompt;
+    var customPrompt =
+      typeof sanitizeText === 'function' ? sanitizeText(rawCustomPrompt, 80) : rawCustomPrompt;
 
     if (!name) {
       if (typeof showToast === 'function') showToast('Please enter a product name.', 'warning');
@@ -3926,7 +4630,7 @@ async function deleteCurrentProduct() {
  * @param {string} key
  */
 async function deleteProduct(key) {
-  if (!await canWriteUniformAdmin()) return false;
+  if (!(await canWriteUniformAdmin())) return false;
   var item = UNIFORM_ITEMS.find(function (i) {
     return i.key === key;
   });
@@ -3934,7 +4638,7 @@ async function deleteProduct(key) {
     typeof showConfirmModal === 'function'
       ? await showConfirmModal('Delete "' + (item ? item.name : key) + '"?', 'Delete Product')
       : true;
-  if (!ok || !await canWriteUniformAdmin()) return false;
+  if (!ok || !(await canWriteUniformAdmin())) return false;
 
   var idx = UNIFORM_ITEMS.findIndex(function (i) {
     return i.key === key;
@@ -3964,17 +4668,17 @@ async function deleteProduct(key) {
 // ── Global Window Exports ──────────────────────────────────────────────────
 if (typeof window !== 'undefined') {
   window.DEFAULT_UNIFORM_ITEMS = DEFAULT_UNIFORM_ITEMS;
-  window.UNIFORM_ITEMS        = UNIFORM_ITEMS;
-    window.uniformCart          = uniformCart;
-    window.addUniformToCart     = addUniformToCart;
-    window.updateCartItemQty    = updateCartItemQty;
-    window.removeUniformCartItem = removeUniformCartItem;
-    window.clearUniformCart     = clearUniformCart;
-    window.scrollToCartSection  = scrollToCartSection;
-    window.selectUniformCardSize = selectUniformCardSize;
-  window.stepCardQty          = stepCardQty;
-  window.confirmAddToCart     = confirmAddToCart;
-  window.itemStagedQtys       = itemStagedQtys;
+  window.UNIFORM_ITEMS = UNIFORM_ITEMS;
+  window.uniformCart = uniformCart;
+  window.addUniformToCart = addUniformToCart;
+  window.updateCartItemQty = updateCartItemQty;
+  window.removeUniformCartItem = removeUniformCartItem;
+  window.clearUniformCart = clearUniformCart;
+  window.scrollToCartSection = scrollToCartSection;
+  window.selectUniformCardSize = selectUniformCardSize;
+  window.stepCardQty = stepCardQty;
+  window.confirmAddToCart = confirmAddToCart;
+  window.itemStagedQtys = itemStagedQtys;
   window.DEFAULT_PAYMENT_INFO = DEFAULT_PAYMENT_INFO;
   window.prices = prices;
   window.itemQtys = itemQtys;
@@ -4024,6 +4728,7 @@ if (typeof window !== 'undefined') {
   window.adminSavePaymentInfo = adminSavePaymentInfo;
   window.renderAdminOrders = renderAdminOrders;
   window.updateOrderStatus = updateOrderStatus;
+  window.deleteOrder = deleteOrder;
   window.cancelUniformOrder = cancelUniformOrder;
   window.exportAdminOrdersToCsv = exportAdminOrdersToCsv;
   window.syncAdminOrdersToGoogleSheet = syncAdminOrdersToGoogleSheet;
@@ -4055,15 +4760,15 @@ if (typeof window !== 'undefined') {
 // ── Node.js Module Exports ──────────────────────────────────────────────────
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-  uniformCart,
-  addUniformToCart,
-  updateCartItemQty,
-  removeUniformCartItem,
-  clearUniformCart,
-  selectUniformCardSize,
-  stepCardQty,
-  confirmAddToCart,
-  itemStagedQtys,
+    uniformCart,
+    addUniformToCart,
+    updateCartItemQty,
+    removeUniformCartItem,
+    clearUniformCart,
+    selectUniformCardSize,
+    stepCardQty,
+    confirmAddToCart,
+    itemStagedQtys,
     DEFAULT_UNIFORM_ITEMS: DEFAULT_UNIFORM_ITEMS,
     UNIFORM_ITEMS: UNIFORM_ITEMS,
     DEFAULT_PAYMENT_INFO: DEFAULT_PAYMENT_INFO,
@@ -4117,6 +4822,7 @@ if (typeof module !== 'undefined' && module.exports) {
     adminSavePaymentInfo: adminSavePaymentInfo,
     renderAdminOrders: renderAdminOrders,
     updateOrderStatus: updateOrderStatus,
+    deleteOrder: deleteOrder,
     cancelUniformOrder: cancelUniformOrder,
     exportAdminOrdersToCsv: exportAdminOrdersToCsv,
     syncAdminOrdersToGoogleSheet: syncAdminOrdersToGoogleSheet,

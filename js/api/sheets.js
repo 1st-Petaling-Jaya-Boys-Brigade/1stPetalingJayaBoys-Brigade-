@@ -8,20 +8,51 @@
  */
 
 var MASTER_SHEET_CONFIG_KEY = 'bb_master_sheet_config';
-var MASTER_ATTENDANCE_KEY   = 'bb_master_attendance';
+var MASTER_ATTENDANCE_KEY = 'bb_master_attendance';
 
 // Sensitive PII substrings that must NEVER be returned to the portal or stored
 var SENSITIVE_PII_KEYS = [
-  'ic', 'mykad', 'nric', 'phone', 'contact', 'tel', 'hp', 'mobile',
-  'parent', 'parentname', 'parentcontact', 'guardian', 'address', 'homeaddress',
-  'email', 'dob', 'birth', 'dateofbirth', 'medical', 'allergies', 'fee', 'fees',
-  'bank', 'account', 'password', 'pin', 'emergency'
+  'ic',
+  'mykad',
+  'nric',
+  'phone',
+  'contact',
+  'tel',
+  'hp',
+  'mobile',
+  'parent',
+  'parentname',
+  'parentcontact',
+  'guardian',
+  'address',
+  'homeaddress',
+  'email',
+  'dob',
+  'birth',
+  'dateofbirth',
+  'medical',
+  'allergies',
+  'fee',
+  'fees',
+  'bank',
+  'account',
+  'password',
+  'pin',
+  'emergency'
 ];
 
 // Whitelist of allowable member attendance & performance fields
 var MEMBER_ALLOWLIST_KEYS = [
-  'name', 'rank', 'platoon', 'squad', 'isBandMember', 'bandSection',
-  'paradeAttendance', 'bandAttendance', 'points', 'lastUpdated'
+  'name',
+  'rank',
+  'platoon',
+  'squad',
+  'isBandMember',
+  'bandSection',
+  'paradeAttendance',
+  'bandAttendance',
+  'points',
+  'lastUpdated'
 ];
 
 // ── Security Helpers ──────────────────────────────────────────────
@@ -55,7 +86,7 @@ function timingSafeEqualToken(a, b) {
   if (a.length !== b.length) return false;
   var mismatch = 0;
   for (var i = 0; i < a.length; i++) {
-    mismatch |= (a.charCodeAt(i) ^ b.charCodeAt(i));
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return mismatch === 0;
 }
@@ -90,28 +121,46 @@ function sanitizeMasterMemberRecord(rawMember) {
     isBandMember: rawMember.isBandMember === true,
     bandSection: typeof rawMember.bandSection === 'string' ? rawMember.bandSection.trim() : '',
     paradeAttendance: {
-      percentage: (rawMember.paradeAttendance && Number.isFinite(rawMember.paradeAttendance.percentage))
-        ? Math.min(100, Math.max(0, rawMember.paradeAttendance.percentage))
-        : 0
+      percentage:
+        rawMember.paradeAttendance && Number.isFinite(rawMember.paradeAttendance.percentage)
+          ? Math.min(100, Math.max(0, rawMember.paradeAttendance.percentage))
+          : 0
     },
     bandAttendance: {
-      percentage: (rawMember.bandAttendance && Number.isFinite(rawMember.bandAttendance.percentage))
-        ? Math.min(100, Math.max(0, rawMember.bandAttendance.percentage))
-        : 0
+      percentage:
+        rawMember.bandAttendance && Number.isFinite(rawMember.bandAttendance.percentage)
+          ? Math.min(100, Math.max(0, rawMember.bandAttendance.percentage))
+          : 0
     },
     points: {
-      uniform: (rawMember.points && Number.isFinite(rawMember.points.uniform)) ? rawMember.points.uniform : 0,
-      uniformAvg: (rawMember.points && Number.isFinite(rawMember.points.uniformAvg)) ? rawMember.points.uniformAvg : 0,
-      paradeAtt: (rawMember.points && Number.isFinite(rawMember.points.paradeAtt)) ? rawMember.points.paradeAtt : 0,
-      bandAtt: (rawMember.points && Number.isFinite(rawMember.points.bandAtt)) ? rawMember.points.bandAtt : 0,
-      total: (rawMember.points && Number.isFinite(rawMember.points.total)) ? rawMember.points.total : 0
+      uniform:
+        rawMember.points && Number.isFinite(rawMember.points.uniform)
+          ? rawMember.points.uniform
+          : 0,
+      uniformAvg:
+        rawMember.points && Number.isFinite(rawMember.points.uniformAvg)
+          ? rawMember.points.uniformAvg
+          : 0,
+      paradeAtt:
+        rawMember.points && Number.isFinite(rawMember.points.paradeAtt)
+          ? rawMember.points.paradeAtt
+          : 0,
+      bandAtt:
+        rawMember.points && Number.isFinite(rawMember.points.bandAtt)
+          ? rawMember.points.bandAtt
+          : 0,
+      total:
+        rawMember.points && Number.isFinite(rawMember.points.total) ? rawMember.points.total : 0
     },
-    lastUpdated: typeof rawMember.lastUpdated === 'string' && Number.isFinite(Date.parse(rawMember.lastUpdated))
-      ? rawMember.lastUpdated : null
+    lastUpdated:
+      typeof rawMember.lastUpdated === 'string' &&
+      Number.isFinite(Date.parse(rawMember.lastUpdated))
+        ? rawMember.lastUpdated
+        : null
   };
 
   // Explicitly ensure no sensitive PII keys are passed through
-  SENSITIVE_PII_KEYS.forEach(function(k) {
+  SENSITIVE_PII_KEYS.forEach(function (k) {
     if (k in clean) delete clean[k];
   });
 
@@ -125,12 +174,19 @@ function sanitizeMasterMemberRecord(rawMember) {
  * @returns {Object|null}
  */
 function sanitizeMasterAttendancePayload(payload) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
-      !payload.members || typeof payload.members !== 'object' || Array.isArray(payload.members)) return null;
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload) ||
+    !payload.members ||
+    typeof payload.members !== 'object' ||
+    Array.isArray(payload.members)
+  )
+    return null;
 
   var cleanMembers = Object.create(null);
   if (payload.members && typeof payload.members === 'object') {
-    Object.keys(payload.members).forEach(function(key) {
+    Object.keys(payload.members).forEach(function (key) {
       // Do not process non-member or suspicious keys
       var cleanRecord = sanitizeMasterMemberRecord(payload.members[key]);
       if (cleanRecord) {
@@ -144,9 +200,13 @@ function sanitizeMasterAttendancePayload(payload) {
 
   var cleanSquads = Object.create(null);
   if (payload.squads && typeof payload.squads === 'object') {
-    Object.keys(payload.squads).forEach(function(sqKey) {
+    Object.keys(payload.squads).forEach(function (sqKey) {
       var sq = payload.squads[sqKey];
-      if (sq && typeof sq === 'object' && /^(alpha|papa|zulu|hotel)\s*[0-9]+$/i.test(sqKey.trim())) {
+      if (
+        sq &&
+        typeof sq === 'object' &&
+        /^(alpha|papa|zulu|hotel)\s*[0-9]+$/i.test(sqKey.trim())
+      ) {
         cleanSquads[sqKey] = {
           name: typeof sq.name === 'string' ? sq.name.trim() : sqKey,
           points: Number.isFinite(sq.points) ? sq.points : 0,
@@ -159,7 +219,7 @@ function sanitizeMasterAttendancePayload(payload) {
 
   var cleanPlatoons = Object.create(null);
   if (payload.platoons && typeof payload.platoons === 'object') {
-    Object.keys(payload.platoons).forEach(function(pltKey) {
+    Object.keys(payload.platoons).forEach(function (pltKey) {
       var plt = payload.platoons[pltKey];
       if (plt && typeof plt === 'object' && /^(alpha|papa|zulu|hotel)$/i.test(pltKey)) {
         cleanPlatoons[pltKey] = {
@@ -174,11 +234,18 @@ function sanitizeMasterAttendancePayload(payload) {
   }
 
   return {
-    lastSynced: typeof payload.lastSynced === 'string' && Number.isFinite(Date.parse(payload.lastSynced))
-      ? payload.lastSynced : null,
+    lastSynced:
+      typeof payload.lastSynced === 'string' && Number.isFinite(Date.parse(payload.lastSynced))
+        ? payload.lastSynced
+        : null,
     sheetTitle: typeof payload.sheetTitle === 'string' ? payload.sheetTitle : 'Master Attendance',
     scannedSheets: Array.isArray(payload.scannedSheets)
-      ? payload.scannedSheets.filter(function(name) { return typeof name === 'string'; }).slice(0, 25) : [],
+      ? payload.scannedSheets
+          .filter(function (name) {
+            return typeof name === 'string';
+          })
+          .slice(0, 25)
+      : [],
     members: cleanMembers,
     squads: cleanSquads,
     platoons: cleanPlatoons,
@@ -196,7 +263,16 @@ function sanitizeMasterAttendancePayload(payload) {
  * @returns {Promise<{sheetId: string, scriptUrl: string, syncToken: string, autoSync: boolean, piiFiltered: boolean}>}
  */
 async function loadMasterSheetConfig() {
-  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
+  var client =
+    typeof getSupaClient === 'function'
+      ? getSupaClient()
+      : typeof window !== 'undefined' && window.getSupaClient
+        ? window.getSupaClient()
+        : typeof supa !== 'undefined'
+          ? supa
+          : typeof window !== 'undefined'
+            ? window.supa
+            : null;
   var cfg = {
     sheetId: '',
     scriptUrl: '',
@@ -210,7 +286,7 @@ async function loadMasterSheetConfig() {
       var r = await client.get('bb_config?key=eq.' + MASTER_SHEET_CONFIG_KEY + '&select=value');
       if (r && r.length) {
         var rawVal = r[0].value;
-        var parsed = typeof rawVal === 'string' ? JSON.parse(rawVal || '{}') : (rawVal || {});
+        var parsed = typeof rawVal === 'string' ? JSON.parse(rawVal || '{}') : rawVal || {};
         cfg = Object.assign(cfg, parsed);
       }
     } catch (e) {
@@ -242,7 +318,11 @@ async function loadMasterSheetConfig() {
  * @returns {Promise<Object>}
  */
 async function saveMasterSheetConfig(cfgOverride) {
-  if (typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.authorizeAdminMutation === 'function' &&
+    !(await window.authorizeAdminMutation('attendance'))
+  ) {
     throw new Error('Authorized admin access is required.');
   }
   var sid = '';
@@ -269,7 +349,16 @@ async function saveMasterSheetConfig(cfgOverride) {
         lastUpdated: new Date().toISOString()
       };
 
-  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
+  var client =
+    typeof getSupaClient === 'function'
+      ? getSupaClient()
+      : typeof window !== 'undefined' && window.getSupaClient
+        ? window.getSupaClient()
+        : typeof supa !== 'undefined'
+          ? supa
+          : typeof window !== 'undefined'
+            ? window.supa
+            : null;
   if (!client) throw new Error('Master Sheet configuration service is unavailable.');
   if (cfg.scriptUrl) cfg.scriptUrl = attendanceWebhookUrl(cfg.scriptUrl);
   try {
@@ -287,7 +376,7 @@ async function saveMasterSheetConfig(cfgOverride) {
       targetType: 'config',
       targetId: 'bb_master_sheet_config',
       actorRole: 'officer_admin',
-      details: { sheetId: (cfg && cfg.sheetId) ? '[CONFIGURED]' : 'default' }
+      details: { sheetId: cfg && cfg.sheetId ? '[CONFIGURED]' : 'default' }
     });
   }
   if (typeof showToast === 'function') {
@@ -301,12 +390,21 @@ async function saveMasterSheetConfig(cfgOverride) {
 
 function attendanceWebhookUrl(value) {
   var url;
-  try { url = new URL(value); } catch (_) {
+  try {
+    url = new URL(value);
+  } catch (_) {
     throw new Error('Use the deployed HTTPS Google Apps Script Web App URL.');
   }
-  if (url.protocol !== 'https:' || url.hostname !== 'script.google.com' ||
-      url.port || url.username || url.password || url.search || url.hash ||
-      !/^\/macros\/s\/[\w-]+\/exec$/.test(url.pathname)) {
+  if (
+    url.protocol !== 'https:' ||
+    url.hostname !== 'script.google.com' ||
+    url.port ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    !/^\/macros\/s\/[\w-]+\/exec$/.test(url.pathname)
+  ) {
     throw new Error('Use the deployed HTTPS Google Apps Script Web App URL.');
   }
   return url.href;
@@ -314,7 +412,8 @@ function attendanceWebhookUrl(value) {
 
 async function requestAttendanceWebhook(url, token, payload, retryRead) {
   var endpoint = attendanceWebhookUrl(url);
-  if (typeof token !== 'string' || !token.trim()) throw new Error('Master Sheet sync token is required.');
+  if (typeof token !== 'string' || !token.trim())
+    throw new Error('Master Sheet sync token is required.');
 
   for (var attempt = 0; ; attempt++) {
     var signal = AbortSignal.timeout(4000);
@@ -336,15 +435,22 @@ async function requestAttendanceWebhook(url, token, payload, retryRead) {
     }
 
     var status = res && (res.ok ? Number(data && data.status) : res.status);
-    var temporary = !res || signal.aborted || status === 429 || [500, 502, 503, 504].includes(status);
+    var temporary =
+      !res || signal.aborted || status === 429 || [500, 502, 503, 504].includes(status);
     if (retryRead && temporary && attempt < 2) {
-      await new Promise(function(resolve) { setTimeout(resolve, 250 * Math.pow(2, attempt)); });
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 250 * Math.pow(2, attempt));
+      });
       continue;
     }
-    if (status === 401 || status === 403) throw new Error('Google Sheets sync rejected: Unauthorized or invalid sync token.');
-    if (!res || signal.aborted) throw new Error('Google Sheets sync failed: Network connection error or timeout.');
-    if (!res.ok || status >= 400) throw new Error('Google Sheets sync failed with HTTP status ' + status + '.');
-    if (!data || typeof data !== 'object' || data.error) throw new Error('Google Sheets rejected the attendance request.');
+    if (status === 401 || status === 403)
+      throw new Error('Google Sheets sync rejected: Unauthorized or invalid sync token.');
+    if (!res || signal.aborted)
+      throw new Error('Google Sheets sync failed: Network connection error or timeout.');
+    if (!res.ok || status >= 400)
+      throw new Error('Google Sheets sync failed with HTTP status ' + status + '.');
+    if (!data || typeof data !== 'object' || data.error)
+      throw new Error('Google Sheets rejected the attendance request.');
     return data;
   }
 }
@@ -386,31 +492,44 @@ async function syncToSheets(recordsOrOptions, scriptUrl, syncToken) {
   if (!Array.isArray(options.records) || !options.records.length) {
     throw new Error('At least one attendance record is required.');
   }
-  var records = options.records.map(function(record) {
-    if (!record || typeof record.name !== 'string' || !record.name.trim() || record.name.length > 100) {
+  var records = options.records.map(function (record) {
+    if (
+      !record ||
+      typeof record.name !== 'string' ||
+      !record.name.trim() ||
+      record.name.length > 100
+    ) {
       throw new Error('Every attendance record requires a member name.');
     }
     var clean = { name: record.name.trim() };
-    if (typeof record.present === 'boolean' || record.present === 0 || record.present === 1) clean.present = record.present;
+    if (typeof record.present === 'boolean' || record.present === 0 || record.present === 1)
+      clean.present = record.present;
     if (typeof record.late === 'boolean') clean.late = record.late;
     if (typeof record.excused === 'boolean') clean.excused = record.excused;
     return clean;
   });
   var payload = { action: 'syncAttendance', records: records };
-  if (typeof options.sheetId === 'string' && /^[\w-]+$/.test(options.sheetId)) payload.sheetId = options.sheetId;
+  if (typeof options.sheetId === 'string' && /^[\w-]+$/.test(options.sheetId))
+    payload.sheetId = options.sheetId;
   if (options.weekDate) {
     var weekDate = new Date(options.weekDate);
-    if (typeof options.weekDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(options.weekDate) ||
-        !Number.isFinite(weekDate.getTime()) || weekDate.toISOString().slice(0, 10) !== options.weekDate) {
+    if (
+      typeof options.weekDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(options.weekDate) ||
+      !Number.isFinite(weekDate.getTime()) ||
+      weekDate.toISOString().slice(0, 10) !== options.weekDate
+    ) {
       throw new Error('Invalid attendance week date.');
     }
     payload.weekDate = options.weekDate;
   }
-  if (typeof options.weekLabel === 'string' && /^Week \d{1,2}$/i.test(options.weekLabel)) payload.weekLabel = options.weekLabel;
+  if (typeof options.weekLabel === 'string' && /^Week \d{1,2}$/i.test(options.weekLabel))
+    payload.weekLabel = options.weekLabel;
 
   // A failed write response may arrive after the sheet was updated.
   var responseData = await requestAttendanceWebhook(targetUrl, token, payload, false);
-  if (responseData.success !== true) throw new Error('Google Sheets did not confirm the attendance write.');
+  if (responseData.success !== true)
+    throw new Error('Google Sheets did not confirm the attendance write.');
 
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
@@ -438,7 +557,11 @@ var syncAttendanceToSheets = syncToSheets;
  * @returns {Promise<Object>}
  */
 async function fetchMasterAttendanceFromGAS(scriptUrl, syncToken) {
-  if (typeof window !== 'undefined' && typeof window.authorizeAdminMutation === 'function' && !await window.authorizeAdminMutation('attendance')) {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.authorizeAdminMutation === 'function' &&
+    !(await window.authorizeAdminMutation('attendance'))
+  ) {
     throw new Error('Authorized admin access is required.');
   }
   var cfg = null;
@@ -449,17 +572,33 @@ async function fetchMasterAttendanceFromGAS(scriptUrl, syncToken) {
   }
 
   if (!scriptUrl) {
-    throw new Error('Google Apps Script Web App URL is not configured. Please enter the Web App URL in the Admin Console.');
+    throw new Error(
+      'Google Apps Script Web App URL is not configured. Please enter the Web App URL in the Admin Console.'
+    );
   }
 
-  var rawData = await requestAttendanceWebhook(scriptUrl, syncToken, { action: 'getAttendance' }, true);
+  var rawData = await requestAttendanceWebhook(
+    scriptUrl,
+    syncToken,
+    { action: 'getAttendance' },
+    true
+  );
   var sanitizedData = sanitizeMasterAttendancePayload(rawData);
   if (!sanitizedData || !sanitizedData.lastSynced || !Object.keys(sanitizedData.members).length) {
     throw new Error('The Master Sheet returned no valid attendance records.');
   }
 
   // Publish only a complete snapshot. Keep the previous snapshot if saving fails.
-  var client = (typeof getSupaClient === 'function') ? getSupaClient() : ((typeof window !== 'undefined' && window.getSupaClient) ? window.getSupaClient() : (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null)));
+  var client =
+    typeof getSupaClient === 'function'
+      ? getSupaClient()
+      : typeof window !== 'undefined' && window.getSupaClient
+        ? window.getSupaClient()
+        : typeof supa !== 'undefined'
+          ? supa
+          : typeof window !== 'undefined'
+            ? window.supa
+            : null;
   if (!client) throw new Error('The attendance database is unavailable.');
   try {
     await client.req('POST', 'bb_config?on_conflict=key', {
@@ -490,10 +629,12 @@ async function fetchMasterAttendanceFromGAS(scriptUrl, syncToken) {
  */
 function getGoogleAppsScriptTemplate(supaUrl, supaKey, syncToken) {
   var url = supaUrl || 'https://mjfclxcklkbgsivvvlfe.supabase.co';
-  var key = supaKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
+  var key =
+    supaKey ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZmNseGNrbGtiZ3NpdnZ2bGZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxODUyMDYsImV4cCI6MjA4OTc2MTIwNn0.ZYsaHnPJ1LXrk4iYP5pYgNKjyksXPsK8ZxkXPFeEcOM';
   var token = syncToken || generateSecureSyncToken();
   function scriptString(value) {
-    return String(value).replace(/['\\\u0000-\u001f\u2028\u2029]/g, function(character) {
+    return String(value).replace(/['\\\u0000-\u001f\u2028\u2029]/g, function (character) {
       return '\\u' + character.charCodeAt(0).toString(16).padStart(4, '0');
     });
   }
@@ -556,7 +697,7 @@ function handleIncomingApiRequest(e) {
       if (bodyObj && typeof bodyObj === 'object') {
         Object.assign(p, bodyObj);
       }
-    } catch (_) {}
+    } catch (_) { /* ignore */ }
   }
   var reqToken = String(p.token || p.key || p.secret || '').trim();
   var expectedToken = PropertiesService.getScriptProperties().getProperty('SYNC_TOKEN') || SYNC_TOKEN;
@@ -1317,21 +1458,21 @@ function normalizeMemberKey(name) {
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 if (typeof window !== 'undefined') {
   window.MASTER_SHEET_CONFIG_KEY = MASTER_SHEET_CONFIG_KEY;
-  window.MASTER_ATTENDANCE_KEY   = MASTER_ATTENDANCE_KEY;
-  window.SENSITIVE_PII_KEYS      = SENSITIVE_PII_KEYS;
-  window.MEMBER_ALLOWLIST_KEYS   = MEMBER_ALLOWLIST_KEYS;
+  window.MASTER_ATTENDANCE_KEY = MASTER_ATTENDANCE_KEY;
+  window.SENSITIVE_PII_KEYS = SENSITIVE_PII_KEYS;
+  window.MEMBER_ALLOWLIST_KEYS = MEMBER_ALLOWLIST_KEYS;
 
-  window.generateSecureSyncToken          = generateSecureSyncToken;
-  window.timingSafeEqualToken             = timingSafeEqualToken;
-  window.verifySyncToken                  = verifySyncToken;
-  window.sanitizeMasterMemberRecord       = sanitizeMasterMemberRecord;
-  window.sanitizeMasterAttendancePayload  = sanitizeMasterAttendancePayload;
-  window.loadMasterSheetConfig            = loadMasterSheetConfig;
-  window.saveMasterSheetConfig            = saveMasterSheetConfig;
-  window.syncToSheets                     = syncToSheets;
-  window.syncAttendanceToSheets           = syncAttendanceToSheets;
-  window.fetchMasterAttendanceFromGAS     = fetchMasterAttendanceFromGAS;
-  window.getGoogleAppsScriptTemplate      = getGoogleAppsScriptTemplate;
+  window.generateSecureSyncToken = generateSecureSyncToken;
+  window.timingSafeEqualToken = timingSafeEqualToken;
+  window.verifySyncToken = verifySyncToken;
+  window.sanitizeMasterMemberRecord = sanitizeMasterMemberRecord;
+  window.sanitizeMasterAttendancePayload = sanitizeMasterAttendancePayload;
+  window.loadMasterSheetConfig = loadMasterSheetConfig;
+  window.saveMasterSheetConfig = saveMasterSheetConfig;
+  window.syncToSheets = syncToSheets;
+  window.syncAttendanceToSheets = syncAttendanceToSheets;
+  window.fetchMasterAttendanceFromGAS = fetchMasterAttendanceFromGAS;
+  window.getGoogleAppsScriptTemplate = getGoogleAppsScriptTemplate;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────

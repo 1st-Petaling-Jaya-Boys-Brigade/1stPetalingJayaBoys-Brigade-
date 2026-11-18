@@ -6,14 +6,14 @@
  * emoji reactions, and admin post/edit/delete operations.
  */
 
-/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator */
+/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, getAdminSessionToken */
 
 // ── Default Fallback Announcements (Zero-Blank Offline Resilience) ────────
 var DEFAULT_ANNOUNCEMENTS = [
   {
     id: 'ann-default-welcome',
-    title: 'Welcome to the 1st Petaling Jaya Boys\' Brigade Portal',
-    body: '<p>Welcome all members, recruits, parents, and officers to the official 1stPJ Boys\' Brigade Portal, which serves as an all-in-one hub for parade and calendar schedules, badge tracking, uniform store, forms, company announcements and more.</p>',
+    title: "Welcome to the 1st Petaling Jaya Boys' Brigade Portal",
+    body: "<p>Welcome all members, recruits, parents, and officers to the official 1stPJ Boys' Brigade Portal, which serves as an all-in-one hub for parade and calendar schedules, badge tracking, uniform store, forms, company announcements and more.</p>",
     created_at: '2026-11-01T00:00:00.000Z',
     author: 'Captain',
     category: 'General',
@@ -24,7 +24,7 @@ var DEFAULT_ANNOUNCEMENTS = [
 ];
 
 // ── State ──────────────────────────────────────────────────────────────────
-var announcements = (function() {
+var announcements = (function () {
   if (typeof localStorage !== 'undefined') {
     try {
       var cached = localStorage.getItem('bb_announcements_cache');
@@ -36,6 +36,12 @@ var announcements = (function() {
   }
   return JSON.parse(JSON.stringify(DEFAULT_ANNOUNCEMENTS));
 })();
+
+var DEFAULT_ANNOUNCEMENTS_PAGE_SIZE = 20;
+var _announcementsPage = 1;
+var _announcementsHasMore = false;
+var _isLoadingMoreAnnouncements = false;
+var annPinnedMap = {};
 
 // ── Curated WhatsApp Emoji Reaction Allowlist ───────────────────────────
 // The 9 official WhatsApp emojis for member reactions
@@ -67,9 +73,29 @@ function renderWhatsappEmoji(emoji, size) {
   size = size || 18;
   var path = WHATSAPP_EMOJI_MAP[emoji];
   if (!path) {
-    return '<span class="wa-emoji-char" style="font-size:' + size + 'px;line-height:1;display:inline-block;vertical-align:middle;">' + emoji + '</span>';
+    return (
+      '<span class="wa-emoji-char" style="font-size:' +
+      size +
+      'px;line-height:1;display:inline-block;vertical-align:middle;">' +
+      emoji +
+      '</span>'
+    );
   }
-  return '<img src="' + path + '" alt="' + emoji + '" class="wa-emoji" width="' + size + '" height="' + size + '" style="width:' + size + 'px;height:' + size + 'px;display:inline-block;vertical-align:middle;object-fit:contain;pointer-events:none;" loading="lazy" />';
+  return (
+    '<img src="' +
+    path +
+    '" alt="' +
+    emoji +
+    '" class="wa-emoji" width="' +
+    size +
+    '" height="' +
+    size +
+    '" style="width:' +
+    size +
+    'px;height:' +
+    size +
+    'px;display:inline-block;vertical-align:middle;object-fit:contain;pointer-events:none;" loading="lazy" />'
+  );
 }
 
 /**
@@ -78,7 +104,14 @@ function renderWhatsappEmoji(emoji, size) {
  * @returns {Object} { name, email, ic, rank, platoon, photo_url }
  */
 function resolveReactedMember(userId) {
-  if (!userId) return { name: 'Unknown Member', displayName: 'Unknown Member', rank: 'Member', platoon: 'General Section', photo_url: '' };
+  if (!userId)
+    return {
+      name: 'Unknown Member',
+      displayName: 'Unknown Member',
+      rank: 'Member',
+      platoon: 'General Section',
+      photo_url: ''
+    };
 
   if (typeof resolveMemberDirectoryInfo === 'function') {
     var info = resolveMemberDirectoryInfo(userId);
@@ -102,10 +135,13 @@ function resolveReactedMember(userId) {
         var arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
           var cleanId = String(userId).toLowerCase().trim();
-          var found = arr.find(function(m) {
-            return m && ((m.ic && String(m.ic).toLowerCase().trim() === cleanId) ||
-                         (m.email && String(m.email).toLowerCase().trim() === cleanId) ||
-                         (m.name && String(m.name).toLowerCase().trim() === cleanId));
+          var found = arr.find(function (m) {
+            return (
+              m &&
+              ((m.ic && String(m.ic).toLowerCase().trim() === cleanId) ||
+                (m.email && String(m.email).toLowerCase().trim() === cleanId) ||
+                (m.name && String(m.name).toLowerCase().trim() === cleanId))
+            );
           });
           if (found) {
             return {
@@ -163,13 +199,13 @@ function setAnnReactionPreset(preset) {
   var chips = document.querySelectorAll('.ann-reaction-chip');
   if (!chips || !chips.length) return;
 
-  chips.forEach(function(chip) {
+  chips.forEach(function (chip) {
     var em = chip.getAttribute('data-emoji');
     var shouldActivate = false;
     if (preset === 'all') {
       shouldActivate = true;
     } else if (preset === 'poll') {
-      shouldActivate = (em === '✅' || em === '❌');
+      shouldActivate = em === '✅' || em === '❌';
     } else if (preset === 'none' || preset === 'clear') {
       shouldActivate = false;
     }
@@ -191,9 +227,42 @@ function setAnnReactionPreset(preset) {
 }
 
 var ANN_EMOJIS = [
-  '📢', '📌', '✅', '❌', '⚠️', '🎉', '🏆', '📅', '🕐', '📝', '👥', '🎖️',
-  '⭐', '🔴', '🟡', '🟢', '🔵', '💡', '🔔', '📋', '🏅', '👔', '🛒', '📦',
-  '🙏', '💪', '🔥', '❤️', '👍', '👎', '✊', '🫡', '😊', '😄', '🥳', '🤝'
+  '📢',
+  '📌',
+  '✅',
+  '❌',
+  '⚠️',
+  '🎉',
+  '🏆',
+  '📅',
+  '🕐',
+  '📝',
+  '👥',
+  '🎖️',
+  '⭐',
+  '🔴',
+  '🟡',
+  '🟢',
+  '🔵',
+  '💡',
+  '🔔',
+  '📋',
+  '🏅',
+  '👔',
+  '🛒',
+  '📦',
+  '🙏',
+  '💪',
+  '🔥',
+  '❤️',
+  '👍',
+  '👎',
+  '✊',
+  '🫡',
+  '😊',
+  '😄',
+  '🥳',
+  '🤝'
 ];
 
 var _annSavedRange = null;
@@ -205,18 +274,23 @@ function handleAnnouncementImageSelect(event) {
   if (!event || !event.target || !event.target.files || !event.target.files[0]) return;
   var file = event.target.files[0];
   if (!file.type.startsWith('image/')) {
-    if (typeof showToast === 'function') showToast('Please select a valid image file (PNG, JPG, WebP, GIF).', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please select a valid image file (PNG, JPG, WebP, GIF).', 'warning');
     return;
   }
   if (file.size > 15 * 1024 * 1024) {
-    if (typeof showToast === 'function') showToast('Image file size exceeds 15MB limit.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Image file size exceeds 15MB limit.', 'warning');
     return;
   }
 
   var reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = function (e) {
     var dataUrl = e.target.result;
-    var sizeStr = (file.size < 1024 * 1024) ? Math.round(file.size / 1024) + ' KB' : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
+    var sizeStr =
+      file.size < 1024 * 1024
+        ? Math.round(file.size / 1024) + ' KB'
+        : (file.size / (1024 * 1024)).toFixed(1) + ' MB';
     _stagedAnnouncementImage = {
       file: file,
       dataUrl: dataUrl,
@@ -235,9 +309,10 @@ function handleAnnouncementImageUrlInput(val) {
     clearAnnouncementInfographic();
     return;
   }
-  var valid = (typeof safeUrl === 'function') ? safeUrl(raw, '') : raw;
+  var valid = typeof safeUrl === 'function' ? safeUrl(raw, '') : raw;
   if (!valid) {
-    if (typeof showToast === 'function') showToast('Please enter a valid HTTP/HTTPS image URL.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please enter a valid HTTP/HTTPS image URL.', 'warning');
     return;
   }
   _stagedAnnouncementImage = {
@@ -270,13 +345,23 @@ function updateAnnouncementInfographicPreview() {
 async function syncAnnouncementImageConfig(annId, imgUrl) {
   if (!annId || !imgUrl) return;
   try {
-    var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+    var client =
+      typeof supa !== 'undefined' ? supa : typeof window !== 'undefined' ? window.supa : null;
     if (client && typeof client.get === 'function') {
       var rows = await client.get('bb_config?key=eq.bb_announcements_images&select=value');
-      var map = (rows && rows.length && rows[0].value) ? (typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value) : {};
+      var map =
+        rows && rows.length && rows[0].value
+          ? typeof rows[0].value === 'string'
+            ? JSON.parse(rows[0].value)
+            : rows[0].value
+          : {};
       map[annId] = imgUrl;
       if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', { key: 'bb_announcements_images', value: JSON.stringify(map) }, 'key');
+        await client.upsert(
+          'bb_config',
+          { key: 'bb_announcements_images', value: JSON.stringify(map) },
+          'key'
+        );
       }
     }
   } catch (_) {}
@@ -285,7 +370,8 @@ async function syncAnnouncementImageConfig(annId, imgUrl) {
 async function syncAnnouncementPinConfig(annId, isPinned) {
   if (!annId) return;
   try {
-    var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+    var client =
+      typeof supa !== 'undefined' ? supa : typeof window !== 'undefined' ? window.supa : null;
     if (client && typeof client.get === 'function') {
       var map = {};
       if (typeof client.safeConfigGet === 'function') {
@@ -303,7 +389,11 @@ async function syncAnnouncementPinConfig(annId, isPinned) {
         delete map[annId];
       }
       if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', { key: 'bb_announcements_pinned', value: JSON.stringify(map) }, 'key');
+        await client.upsert(
+          'bb_config',
+          { key: 'bb_announcements_pinned', value: JSON.stringify(map) },
+          'key'
+        );
         return true;
       }
     }
@@ -313,13 +403,16 @@ async function syncAnnouncementPinConfig(annId, isPinned) {
 async function syncAnnouncementAllowedReactionsConfig(annId, allowedList) {
   if (!annId) return;
   try {
-    var client = (typeof supa !== 'undefined') ? supa : (typeof window !== 'undefined' ? window.supa : null);
+    var client =
+      typeof supa !== 'undefined' ? supa : typeof window !== 'undefined' ? window.supa : null;
     if (client && typeof client.get === 'function') {
       var map = {};
       if (typeof client.safeConfigGet === 'function') {
         map = await client.safeConfigGet('bb_announcements_allowed_reactions', {});
       } else {
-        var rows = await client.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value');
+        var rows = await client.get(
+          'bb_config?key=eq.bb_announcements_allowed_reactions&select=value'
+        );
         if (rows && rows.length && rows[0].value) {
           map = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
         }
@@ -331,7 +424,11 @@ async function syncAnnouncementAllowedReactionsConfig(annId, allowedList) {
         delete map[annId];
       }
       if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', { key: 'bb_announcements_allowed_reactions', value: JSON.stringify(map) }, 'key');
+        await client.upsert(
+          'bb_config',
+          { key: 'bb_announcements_allowed_reactions', value: JSON.stringify(map) },
+          'key'
+        );
       }
     }
   } catch (_) {}
@@ -344,12 +441,18 @@ async function handleAnnouncementImageError(imgEl, optUrl) {
   if (!targetUrl) return;
 
   if (targetUrl.includes('/storage/v1/object/')) {
-    var sm = targetUrl.match(/\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/([^?#]+)/i);
+    var sm = targetUrl.match(
+      /\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/([^?#]+)/i
+    );
     if (sm) {
       var sBucket = sm[1];
       var sPath = decodeURIComponent(sm[2]);
-      var client = (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
-      var base = (client && (client.SUPA_URL || client.baseUrl)) || (typeof window !== 'undefined' && window.SUPA_URL) || '';
+      var client =
+        typeof supa !== 'undefined' ? supa : typeof window !== 'undefined' ? window.supa : null;
+      var base =
+        (client && (client.SUPA_URL || client.baseUrl)) ||
+        (typeof window !== 'undefined' && window.SUPA_URL) ||
+        '';
 
       // 1. Try permanent public storage endpoint
       if (base) {
@@ -377,8 +480,10 @@ async function handleAnnouncementImageError(imgEl, optUrl) {
   imgEl.style.display = 'none';
   if (imgEl.parentElement && imgEl.parentElement.classList.contains('ann-infographic-container')) {
     var placeholder = document.createElement('div');
-    placeholder.style.cssText = 'padding:14px;background:var(--surface-tint);border-radius:8px;font-size:12px;color:var(--text-muted);text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;';
-    placeholder.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Attachment preview unavailable</span>';
+    placeholder.style.cssText =
+      'padding:14px;background:var(--surface-tint);border-radius:8px;font-size:12px;color:var(--text-muted);text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;';
+    placeholder.innerHTML =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Attachment preview unavailable</span>';
     imgEl.parentElement.appendChild(placeholder);
   }
 }
@@ -393,7 +498,6 @@ function clearAnnouncementInfographic() {
   var urlInput = document.querySelector('.ann-infographic-url-input');
   if (urlInput) urlInput.value = '';
 }
-
 
 // ── Security: HTML Sanitizer for Announcements ──────────────────────────────
 /**
@@ -422,22 +526,86 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
   var parser = new DOMParser();
   var doc = parser.parseFromString(dirtyHtml, 'text/html');
   var ALLOWED_TAGS = [
-    'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE',
-    'P', 'BR', 'HR', 'UL', 'OL', 'LI', 'SPAN', 'FONT',
-    'DIV', 'A', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE',
-    'CODE', 'PRE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'IMG'
+    'B',
+    'STRONG',
+    'I',
+    'EM',
+    'U',
+    'S',
+    'STRIKE',
+    'P',
+    'BR',
+    'HR',
+    'UL',
+    'OL',
+    'LI',
+    'SPAN',
+    'FONT',
+    'DIV',
+    'A',
+    'H1',
+    'H2',
+    'H3',
+    'H4',
+    'H5',
+    'H6',
+    'BLOCKQUOTE',
+    'CODE',
+    'PRE',
+    'TABLE',
+    'THEAD',
+    'TBODY',
+    'TR',
+    'TH',
+    'TD',
+    'IMG'
   ];
-  var ALLOWED_ATTRS = ['style', 'color', 'size', 'href', 'target', 'rel', 'class', 'align', 'src', 'alt', 'title', 'width', 'height', 'loading', 'type', 'checked', 'disabled'];
+  var ALLOWED_ATTRS = [
+    'style',
+    'color',
+    'size',
+    'href',
+    'target',
+    'rel',
+    'class',
+    'align',
+    'src',
+    'alt',
+    'title',
+    'width',
+    'height',
+    'loading',
+    'type',
+    'checked',
+    'disabled'
+  ];
 
   function clean(node) {
     var children = Array.from(node.childNodes);
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
-      if (child.nodeType === 1) { // Element node
+      if (child.nodeType === 1) {
+        // Element node
         var tagName = child.tagName.toUpperCase();
-        var isChecklistInput = tagName === 'INPUT' && (child.getAttribute('type') || '').toLowerCase() === 'checkbox';
+        var isChecklistInput =
+          tagName === 'INPUT' && (child.getAttribute('type') || '').toLowerCase() === 'checkbox';
         if (ALLOWED_TAGS.indexOf(tagName) === -1 && !isChecklistInput) {
-          if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT', 'BUTTON', 'SVG', 'LINK', 'META', 'BASE'].indexOf(tagName) !== -1) {
+          if (
+            [
+              'SCRIPT',
+              'STYLE',
+              'IFRAME',
+              'OBJECT',
+              'EMBED',
+              'FORM',
+              'INPUT',
+              'BUTTON',
+              'SVG',
+              'LINK',
+              'META',
+              'BASE'
+            ].indexOf(tagName) !== -1
+          ) {
             node.removeChild(child);
             continue;
           } else {
@@ -456,7 +624,11 @@ function sanitizeAnnouncementHtml(dirtyHtml) {
             child.removeAttribute(attr.name);
           } else if (attrName === 'href') {
             var val = (attr.value || '').trim().toLowerCase();
-            if (val.startsWith('javascript:') || val.startsWith('data:') || val.startsWith('vbscript:')) {
+            if (
+              val.startsWith('javascript:') ||
+              val.startsWith('data:') ||
+              val.startsWith('vbscript:')
+            ) {
               child.removeAttribute(attr.name);
             } else {
               child.setAttribute('target', '_blank');
@@ -506,40 +678,53 @@ async function loadAnnouncements() {
       if (cachedAnnStr) {
         var parsedLocalAnn = JSON.parse(cachedAnnStr);
         if (Array.isArray(parsedLocalAnn) && parsedLocalAnn.length > 0) {
-          parsedLocalAnn.forEach(function(item) { announcements.push(item); });
+          parsedLocalAnn.forEach(function (item) {
+            announcements.push(item);
+          });
           renderAnnouncements();
         }
       }
     } catch (_) {}
   }
 
-  var list = (typeof document !== 'undefined') ? document.getElementById('announcements-list') : null;
-  var loader = (list && typeof createSmartLoader === 'function' && announcements.length === 0)
-    ? createSmartLoader({
-        container: list,
-        renderSkeleton: function() {
-          return typeof renderSkeletonCard === 'function' ? renderSkeletonCard(2, 'announcement') : '';
-        },
-        srLabel: 'Loading announcements...'
-      })
-    : null;
+  var list = typeof document !== 'undefined' ? document.getElementById('announcements-list') : null;
+  var loader =
+    list && typeof createSmartLoader === 'function' && announcements.length === 0
+      ? createSmartLoader({
+          container: list,
+          renderSkeleton: function () {
+            return typeof renderSkeletonCard === 'function'
+              ? renderSkeletonCard(2, 'announcement')
+              : '';
+          },
+          srLabel: 'Loading announcements...'
+        })
+      : null;
 
-  var fetchFn = async function(signal) {
+  var fetchFn = async function (signal) {
     if (typeof supa !== 'undefined' && supa.get) {
       var annImageMap = {};
-      var annPinnedMap = {};
+      annPinnedMap = {};
       var annAllowedMap = {};
       var options = { force: true, cache: false, signal: signal };
-      var cfgPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_images', {}, options)
-        : supa.get('bb_config?key=eq.bb_announcements_images&select=value', options);
-      var pinPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_pinned', {}, options)
-        : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value', options);
-      var allowedPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_allowed_reactions', {}, options)
-        : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value', options);
-      var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*', options);
+      var cfgPromise =
+        typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function'
+          ? supa.safeConfigGet('bb_announcements_images', {}, options)
+          : supa.get('bb_config?key=eq.bb_announcements_images&select=value', options);
+      var pinPromise =
+        typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function'
+          ? supa.safeConfigGet('bb_announcements_pinned', {}, options)
+          : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value', options);
+      var allowedPromise =
+        typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function'
+          ? supa.safeConfigGet('bb_announcements_allowed_reactions', {}, options)
+          : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value', options);
+      var annPromise = supa.get(
+        'bb_announcements?order=created_at.desc&limit=' +
+          DEFAULT_ANNOUNCEMENTS_PAGE_SIZE +
+          '&select=*',
+        options
+      );
 
       var results = await Promise.allSettled([cfgPromise, pinPromise, allowedPromise, annPromise]);
       if (signal?.aborted) return;
@@ -547,7 +732,8 @@ async function loadAnnouncements() {
         var cfgVal = results[0].value;
         if (Array.isArray(cfgVal) && cfgVal.length && cfgVal[0].value) {
           try {
-            annImageMap = typeof cfgVal[0].value === 'string' ? JSON.parse(cfgVal[0].value) : cfgVal[0].value;
+            annImageMap =
+              typeof cfgVal[0].value === 'string' ? JSON.parse(cfgVal[0].value) : cfgVal[0].value;
           } catch (_) {}
         } else if (typeof cfgVal === 'object') {
           annImageMap = cfgVal;
@@ -557,7 +743,8 @@ async function loadAnnouncements() {
         var pinVal = results[1].value;
         if (Array.isArray(pinVal) && pinVal.length && pinVal[0].value) {
           try {
-            annPinnedMap = typeof pinVal[0].value === 'string' ? JSON.parse(pinVal[0].value) : pinVal[0].value;
+            annPinnedMap =
+              typeof pinVal[0].value === 'string' ? JSON.parse(pinVal[0].value) : pinVal[0].value;
           } catch (_) {}
         } else if (typeof pinVal === 'object') {
           annPinnedMap = pinVal;
@@ -567,18 +754,26 @@ async function loadAnnouncements() {
         var allowedVal = results[2].value;
         if (Array.isArray(allowedVal) && allowedVal.length && allowedVal[0].value) {
           try {
-            annAllowedMap = typeof allowedVal[0].value === 'string' ? JSON.parse(allowedVal[0].value) : allowedVal[0].value;
+            annAllowedMap =
+              typeof allowedVal[0].value === 'string'
+                ? JSON.parse(allowedVal[0].value)
+                : allowedVal[0].value;
           } catch (_) {}
         } else if (typeof allowedVal === 'object') {
           annAllowedMap = allowedVal;
         }
       }
 
-      var rows = (results[3].status === 'fulfilled' && Array.isArray(results[3].value)) ? results[3].value : null;
+      var rows =
+        results[3].status === 'fulfilled' && Array.isArray(results[3].value)
+          ? results[3].value
+          : null;
       if (results[3].status !== 'fulfilled' && announcements.length === 0) {
         // Network or server timeout: preserve cached or fallback data
         if (version === _announcementLoadVersion && !_announcementDeletes.size) {
-          DEFAULT_ANNOUNCEMENTS.forEach(function(item) { announcements.push(JSON.parse(JSON.stringify(item))); });
+          DEFAULT_ANNOUNCEMENTS.forEach(function (item) {
+            announcements.push(JSON.parse(JSON.stringify(item)));
+          });
         }
       }
       if (rows && rows.length > 0) {
@@ -603,7 +798,9 @@ async function loadAnnouncements() {
             }
           }
 
-          r.is_pinned = Boolean(r.is_pinned ?? (r.pinned || (annPinnedMap && r.id && annPinnedMap[r.id])));
+          r.is_pinned = Boolean(
+            r.is_pinned ?? (r.pinned || (annPinnedMap && r.id && annPinnedMap[r.id]))
+          );
 
           // Resilient allowed reactions recovery: bb_config map -> column -> reactions._allowed
           var resolvedAllowed = null;
@@ -622,13 +819,20 @@ async function loadAnnouncements() {
           }
 
           // Resilient 3-tier infographic recovery: column -> bb_config map -> embedded body marker
-          var cfgImg = (annImageMap && r.id && annImageMap[r.id]) ? annImageMap[r.id] : null;
-          var bodyMatch = (r.body || '').match(/data-infographic-url=["']([^"']+)["']/i) || (r.body || '').match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
-          var resolvedImg = r.image_url || cfgImg || (bodyMatch ? (bodyMatch[1] || bodyMatch[2]) : null);
+          var cfgImg = annImageMap && r.id && annImageMap[r.id] ? annImageMap[r.id] : null;
+          var bodyMatch =
+            (r.body || '').match(/data-infographic-url=["']([^"']+)["']/i) ||
+            (r.body || '').match(
+              /<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i
+            );
+          var resolvedImg =
+            r.image_url || cfgImg || (bodyMatch ? bodyMatch[1] || bodyMatch[2] : null);
           if (resolvedImg) {
             // Live signed URL refresh if image is stored in Supabase storage
             if (resolvedImg.includes('/storage/v1/object/')) {
-              var sm = resolvedImg.match(/\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/([^?#]+)/i);
+              var sm = resolvedImg.match(
+                /\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/([^?#]+)/i
+              );
               if (sm) {
                 var sBucket = sm[1];
                 var sPath = decodeURIComponent(sm[2]);
@@ -648,6 +852,7 @@ async function loadAnnouncements() {
         }
         if (version !== _announcementLoadVersion) return;
         announcements.splice(0, announcements.length, ...nextAnnouncements);
+        _announcementsHasMore = Boolean(rows && rows.length >= DEFAULT_ANNOUNCEMENTS_PAGE_SIZE);
         try {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
@@ -683,10 +888,14 @@ async function loadAnnouncements() {
   renderAnnouncements();
   if (typeof syncAnnouncementNotifications === 'function') {
     syncAnnouncementNotifications(announcements);
-  } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
+  } else if (
+    typeof window !== 'undefined' &&
+    typeof window.syncAnnouncementNotifications === 'function'
+  ) {
     window.syncAnnouncementNotifications(announcements);
   }
-  var adminList = (typeof document !== 'undefined') ? document.getElementById('admin-ann-list') : null;
+  var adminList =
+    typeof document !== 'undefined' ? document.getElementById('admin-ann-list') : null;
   if (adminList) {
     renderAdminAnnList();
   }
@@ -702,11 +911,12 @@ function renderAnnouncements() {
   if (!list) return;
 
   if (!announcements.length) {
-    list.innerHTML = '<div class="empty-state-card" style="text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
-      + '<div style="font-size:28px;margin-bottom:8px;">📢</div>'
-      + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No Company Announcements</div>'
-      + '<div style="font-size:13px;max-width:340px;margin:0 auto;line-height:1.5;">Check back soon for upcoming parade notices, badge classes, and company news.</div>'
-      + '</div>';
+    list.innerHTML =
+      '<div class="empty-state-card" style="text-align:center;padding:36px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">' +
+      '<div style="font-size:28px;margin-bottom:8px;">📢</div>' +
+      '<div style="font-family:var(--font-headline);font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No Company Announcements</div>' +
+      '<div style="font-size:13px;max-width:340px;margin:0 auto;line-height:1.5;">Check back soon for upcoming parade notices, badge classes, and company news.</div>' +
+      '</div>';
     return;
   }
 
@@ -715,102 +925,154 @@ function renderAnnouncements() {
     currentUserId = sessionGet('ic') || sessionGet('email') || '';
   }
 
-  var indexedItems = announcements.map(function(item, idx) {
+  var indexedItems = announcements.map(function (item, idx) {
     return { item: item, realIdx: idx };
   });
 
-  indexedItems.sort(function(a, b) {
+  indexedItems.sort(function (a, b) {
     var aPinned = Boolean(a.item.is_pinned ?? a.item.pinned);
     var bPinned = Boolean(b.item.is_pinned ?? b.item.pinned);
     if (aPinned !== bPinned) {
       return aPinned ? -1 : 1;
     }
-    return b.realIdx - a.realIdx;
+    var aTime = a.item.created_at ? new Date(a.item.created_at).getTime() : 0;
+    var bTime = b.item.created_at ? new Date(b.item.created_at).getTime() : 0;
+    if (aTime && bTime && aTime !== bTime) {
+      return bTime - aTime;
+    }
+    return a.realIdx - b.realIdx;
   });
 
   var html = '';
-  indexedItems.forEach(function(entry) {
+  indexedItems.forEach(function (entry) {
     var a = entry.item;
     var realIdx = entry.realIdx;
     var isPinned = Boolean(a.is_pinned ?? a.pinned);
     var sanitizedBody = sanitizeAnnouncementHtml(a.body || '');
-    var formattedBody = sanitizedBody.split(/(<[^>]+>)/g).map(function(part, index) {
-      return index % 2 ? part : formatAnnouncementMentions(part);
-    }).join('');
+    var formattedBody = sanitizedBody
+      .split(/(<[^>]+>)/g)
+      .map(function (part, index) {
+        return index % 2 ? part : formatAnnouncementMentions(part);
+      })
+      .join('');
     var reactions = a.reactions || {};
 
     // Build reaction buttons
-    var allowed = (a && Array.isArray(a.allowed_reactions))
-      ? a.allowed_reactions
-      : ((a && a.reactions && Array.isArray(a.reactions._allowed))
-        ? a.reactions._allowed
-        : ALL_REACTION_EMOJIS);
+    var allowed =
+      a && Array.isArray(a.allowed_reactions)
+        ? a.allowed_reactions
+        : a && a.reactions && Array.isArray(a.reactions._allowed)
+          ? a.reactions._allowed
+          : ALL_REACTION_EMOJIS;
 
     var reactHtml = '';
     if (allowed.length > 0) {
-      reactHtml = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">';
-      allowed.filter(function(emoji) { return ALL_REACTION_EMOJIS.includes(emoji) || SAFE_REACTION_EMOJIS.includes(emoji); }).forEach(function(emoji) {
-        var who = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
-        var count = who.length;
-        var mine = currentUserId && who.indexOf(currentUserId) !== -1;
-        var whoNames = who.map(function(uid) {
-          var m = resolveReactedMember(uid);
-          return m.name;
-        }).join(', ');
-        var tip = count > 0 ? ('Reacted by: ' + whoNames) : ('React ' + emoji);
+      reactHtml =
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">';
+      allowed
+        .filter(function (emoji) {
+          return ALL_REACTION_EMOJIS.includes(emoji) || SAFE_REACTION_EMOJIS.includes(emoji);
+        })
+        .forEach(function (emoji) {
+          var who = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+          var count = who.length;
+          var mine = currentUserId && who.indexOf(currentUserId) !== -1;
+          var whoNames = who
+            .map(function (uid) {
+              var m = resolveReactedMember(uid);
+              return m.name;
+            })
+            .join(', ');
+          var tip = count > 0 ? 'Reacted by: ' + whoNames : 'React ' + emoji;
 
-        reactHtml += '<button type="button" data-react="' + realIdx + '" data-emoji="' + emoji + '" '
-          + 'aria-label="React ' + emoji + '" title="' + (typeof escapeHtml === 'function' ? escapeHtml(tip) : tip) + '" '
-          + 'style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;border:1.5px solid '
-          + (mine ? 'var(--gold)' : 'var(--border-subtle)') + ';background:'
-          + (mine ? 'rgba(200,150,30,0.15)' : 'var(--bg-card-subtle)') + ';cursor:pointer;transition:all 0.15s;">'
-          + renderWhatsappEmoji(emoji, 18)
-          + (count > 0 ? '<span style="font-size:12px;font-weight:700;color:' + (mine ? 'var(--gold)' : 'var(--text-secondary)') + ';">' + count + '</span>' : '')
-          + '</button>';
-      });
+          reactHtml +=
+            '<button type="button" data-react="' +
+            realIdx +
+            '" data-emoji="' +
+            emoji +
+            '" ' +
+            'aria-label="React ' +
+            emoji +
+            '" title="' +
+            (typeof escapeHtml === 'function' ? escapeHtml(tip) : tip) +
+            '" ' +
+            'style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;border:1.5px solid ' +
+            (mine ? 'var(--gold)' : 'var(--border-subtle)') +
+            ';background:' +
+            (mine ? 'rgba(200,150,30,0.15)' : 'var(--bg-card-subtle)') +
+            ';cursor:pointer;transition:all 0.15s;">' +
+            renderWhatsappEmoji(emoji, 18) +
+            (count > 0
+              ? '<span style="font-size:12px;font-weight:700;color:' +
+                (mine ? 'var(--gold)' : 'var(--text-secondary)') +
+                ';">' +
+                count +
+                '</span>'
+              : '') +
+            '</button>';
+        });
 
-      var canViewReactions = (typeof isSuperAdmin === 'function' && isSuperAdmin())
-        || (typeof isAdmin === 'function' && isAdmin())
-        || (typeof isPortalCreator === 'function' && isPortalCreator());
+      var canViewReactions =
+        (typeof isSuperAdmin === 'function' && isSuperAdmin()) ||
+        (typeof isAdmin === 'function' && isAdmin()) ||
+        (typeof isPortalCreator === 'function' && isPortalCreator());
 
       var totalReactions = 0;
-      Object.keys(reactions).forEach(function(k) {
+      Object.keys(reactions).forEach(function (k) {
         if (k !== '_allowed' && Array.isArray(reactions[k])) totalReactions += reactions[k].length;
       });
 
       if (canViewReactions) {
-        reactHtml += '<button type="button" class="ann-view-reactions-btn" onclick="openAnnouncementReactionsModal(' + realIdx + ')" '
-          + 'title="View members who reacted to this announcement" '
-          + 'style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;border:1px solid var(--border-card);background:var(--bg-card-subtle);color:var(--text-secondary);font-size:11.5px;cursor:pointer;font-weight:600;transition:all 0.15s;">'
-          + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
-          + '<span>Reactions (' + totalReactions + ')</span>'
-          + '</button>';
+        reactHtml +=
+          '<button type="button" class="ann-view-reactions-btn" onclick="openAnnouncementReactionsModal(' +
+          realIdx +
+          ')" ' +
+          'title="View members who reacted to this announcement" ' +
+          'style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;border:1px solid var(--border-card);background:var(--bg-card-subtle);color:var(--text-secondary);font-size:11.5px;cursor:pointer;font-weight:600;transition:all 0.15s;">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' +
+          '<span>Reactions (' +
+          totalReactions +
+          ')</span>' +
+          '</button>';
       }
 
       reactHtml += '</div>';
     }
 
-    var safeTitle = formatAnnouncementMentions((typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || ''));
-    var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
+    var safeTitle = formatAnnouncementMentions(
+      typeof escapeHtml === 'function' ? escapeHtml(a.title || '') : a.title || ''
+    );
+    var safeDate = typeof escapeHtml === 'function' ? escapeHtml(a.date || '') : a.date || '';
 
     // Prominent large infographic banner ( / Infographics)
     var infographicHtml = '';
     var imgUrl = a.image_url || '';
     if (!imgUrl && sanitizedBody) {
-      var imgMatch = sanitizedBody.match(/data-infographic-url=["']([^"']+)["']/i) || sanitizedBody.match(/<img[^>]+src=["']([^"']+)["']/i);
+      var imgMatch =
+        sanitizedBody.match(/data-infographic-url=["']([^"']+)["']/i) ||
+        sanitizedBody.match(/<img[^>]+src=["']([^"']+)["']/i);
       if (imgMatch && imgMatch[1]) {
         imgUrl = imgMatch[1];
       }
     }
     if (imgUrl) {
-      var safeImgUrl = (typeof safeUrl === 'function') ? safeUrl(imgUrl, '') : imgUrl;
+      var safeImgUrl = typeof safeUrl === 'function' ? safeUrl(imgUrl, '') : imgUrl;
       if (safeImgUrl) {
-        infographicHtml = '<div class="ann-infographic-container" data-ann-img-idx="' + realIdx + '" title="Click to enlarge infographic">'
-          + '<img class="ann-infographic-img" src="' + safeImgUrl + '" alt="' + safeTitle + '" loading="lazy" data-original-url="' + safeImgUrl + '" onerror="handleAnnouncementImageError(this)" />'
-          + '<div class="ann-infographic-zoom-overlay">'
-          + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>'
-          + '<span>Click to enlarge</span>'
-          + '</div></div>';
+        infographicHtml =
+          '<div class="ann-infographic-container" data-ann-img-idx="' +
+          realIdx +
+          '" title="Click to enlarge infographic">' +
+          '<img class="ann-infographic-img" src="' +
+          safeImgUrl +
+          '" alt="' +
+          safeTitle +
+          '" loading="lazy" data-original-url="' +
+          safeImgUrl +
+          '" onerror="handleAnnouncementImageError(this)" />' +
+          '<div class="ann-infographic-zoom-overlay">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>' +
+          '<span>Click to enlarge</span>' +
+          '</div></div>';
       }
     }
 
@@ -818,21 +1080,40 @@ function renderAnnouncements() {
       ? '<div class="ann-pinned-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg><span>Pinned Announcement</span></div>'
       : '';
 
-    html += '<div class="announcement-item' + (isPinned ? ' is-pinned' : '') + '" id="ann-item-' + realIdx + '">'
-      + pinnedBadgeHtml
-      + '<div class="ann-date">' + safeDate + '</div>'
-      + '<div class="ann-title">' + safeTitle + '</div>'
-      + infographicHtml
-      + '<div class="ann-body">' + formattedBody + '</div>'
-      + reactHtml
-      + '</div>';
+    html +=
+      '<div class="announcement-item' +
+      (isPinned ? ' is-pinned' : '') +
+      '" id="ann-item-' +
+      realIdx +
+      '">' +
+      pinnedBadgeHtml +
+      '<div class="ann-date">' +
+      safeDate +
+      '</div>' +
+      '<div class="ann-title">' +
+      safeTitle +
+      '</div>' +
+      infographicHtml +
+      '<div class="ann-body">' +
+      formattedBody +
+      '</div>' +
+      reactHtml +
+      '</div>';
   });
+
+  if (_announcementsHasMore) {
+    html +=
+      '<div id="announcements-load-more-wrap" style="text-align:center;margin:20px 0 10px;">' +
+      '<button type="button" class="btn btn-secondary btn-sm" id="btn-load-more-announcements" onclick="loadMoreAnnouncements()">' +
+      (_isLoadingMoreAnnouncements ? 'Loading...' : 'Load More Announcements') +
+      '</button></div>';
+  }
 
   list.innerHTML = html;
 
   // Click listener for full large infographic zoom lightbox
-  list.querySelectorAll('[data-ann-img-idx]').forEach(function(wrap) {
-    wrap.addEventListener('click', function() {
+  list.querySelectorAll('[data-ann-img-idx]').forEach(function (wrap) {
+    wrap.addEventListener('click', function () {
       var idx = parseInt(wrap.getAttribute('data-ann-img-idx'), 10);
       var item = announcements[idx];
       var imgEl = wrap.querySelector('.ann-infographic-img');
@@ -845,14 +1126,78 @@ function renderAnnouncements() {
   });
 
   // Attach reaction listeners
-  list.querySelectorAll('[data-react]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  list.querySelectorAll('[data-react]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       var idx = parseInt(btn.getAttribute('data-react'), 10);
       var emoji = btn.getAttribute('data-emoji');
       toggleReaction(idx, emoji);
     });
   });
 }
+
+async function loadMoreAnnouncements() {
+  if (_isLoadingMoreAnnouncements || !_announcementsHasMore) return;
+  _isLoadingMoreAnnouncements = true;
+  var btn = document.getElementById('btn-load-more-announcements');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Loading...';
+  }
+  try {
+    var offset = announcements.length;
+    var rows = await supa.get(
+      'bb_announcements?order=created_at.desc&limit=' +
+        DEFAULT_ANNOUNCEMENTS_PAGE_SIZE +
+        '&offset=' +
+        offset +
+        '&select=*'
+    );
+    if (Array.isArray(rows) && rows.length > 0) {
+      rows.forEach(function (r) {
+        if (!r || !r.id) return;
+        if (
+          !_announcementDeletes.has(r.id) &&
+          !announcements.some(function (x) {
+            return x.id === r.id;
+          })
+        ) {
+          if (typeof r.reactions === 'string') {
+            try {
+              r.reactions = JSON.parse(r.reactions);
+            } catch (_) {
+              r.reactions = {};
+            }
+          }
+          if (!r.reactions || typeof r.reactions !== 'object') r.reactions = {};
+          if (typeof r.allowed_reactions === 'string') {
+            try {
+              r.allowed_reactions = JSON.parse(r.allowed_reactions);
+            } catch (_) {
+              r.allowed_reactions = null;
+            }
+          }
+          r.is_pinned = Boolean(
+            r.is_pinned ?? (r.pinned || (annPinnedMap && r.id && annPinnedMap[r.id]))
+          );
+          announcements.push(r);
+        }
+      });
+      _announcementsHasMore = rows.length >= DEFAULT_ANNOUNCEMENTS_PAGE_SIZE;
+      try {
+        if (typeof localStorage !== 'undefined')
+          localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
+      } catch (_) {}
+    } else {
+      _announcementsHasMore = false;
+    }
+  } catch (e) {
+    console.warn('loadMoreAnnouncements error:', e);
+  } finally {
+    _isLoadingMoreAnnouncements = false;
+    renderAnnouncements();
+  }
+}
+if (typeof window !== 'undefined') window.loadMoreAnnouncements = loadMoreAnnouncements;
 
 // ── Reaction Management ────────────────────────────────────────────────────
 var _isSubmittingAnnouncement = false;
@@ -862,8 +1207,12 @@ var _announcementLoadVersion = 0;
 
 function canManageAnnouncements() {
   try {
-    return typeof window !== 'undefined' && typeof window.verifyAdminSessionSync === 'function' &&
-      window.verifyAdminSessionSync() && (!window.RBAC || window.RBAC.hasModulePermission('announcements'));
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.verifyAdminSessionSync === 'function' &&
+      window.verifyAdminSessionSync() &&
+      (!window.RBAC || window.RBAC.hasModulePermission('announcements'))
+    );
   } catch (_) {
     return false;
   }
@@ -880,10 +1229,21 @@ function refreshAnnouncementViews() {
 async function publishAnnouncementChange(action) {
   try {
     if (typeof supa !== 'undefined' && supa.upsert) {
-      await supa.upsert('bb_config', { key: 'bb_announcements', value: JSON.stringify({ last_updated: new Date().toISOString() }) }, 'key');
+      await supa.upsert(
+        'bb_config',
+        {
+          key: 'bb_announcements',
+          value: JSON.stringify({ last_updated: new Date().toISOString() })
+        },
+        'key'
+      );
     }
   } catch (_) {}
-  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+  if (
+    typeof window !== 'undefined' &&
+    window.PortalRealtime &&
+    typeof window.PortalRealtime.broadcast === 'function'
+  ) {
     window.PortalRealtime.broadcast('announcements', action);
   }
 }
@@ -923,11 +1283,12 @@ async function toggleReaction(annIdx, emoji) {
   }
 
   // Check announcement specific allowed reactions
-  var allowed = (a && Array.isArray(a.allowed_reactions))
-    ? a.allowed_reactions
-    : ((a && a.reactions && Array.isArray(a.reactions._allowed))
-      ? a.reactions._allowed
-      : ALL_REACTION_EMOJIS);
+  var allowed =
+    a && Array.isArray(a.allowed_reactions)
+      ? a.allowed_reactions
+      : a && a.reactions && Array.isArray(a.reactions._allowed)
+        ? a.reactions._allowed
+        : ALL_REACTION_EMOJIS;
 
   if (allowed.indexOf(emoji) === -1) {
     delete _reactionInFlight[flightKey];
@@ -962,7 +1323,9 @@ async function toggleReaction(annIdx, emoji) {
   // Persist to Supabase
   try {
     if (typeof supa !== 'undefined' && supa.patch && a.id) {
-      await supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), { reactions: a.reactions });
+      await supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), {
+        reactions: a.reactions
+      });
       await publishAnnouncementChange('reaction');
     }
   } catch (e) {
@@ -1000,41 +1363,53 @@ function renderAdminAnnList() {
   if (!container) return;
 
   if (!announcements.length) {
-    container.innerHTML = '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:10px;">No announcements yet.</div>';
+    container.innerHTML =
+      '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:10px;">No announcements yet.</div>';
     return;
   }
 
-  var html = '<div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;letter-spacing:1px;">EXISTING ANNOUNCEMENTS (' + announcements.length + ')</div>';
+  var html =
+    '<div style="font-family:var(--font-headline);font-size:13px;font-weight:600;color:var(--text-muted);margin-bottom:8px;letter-spacing:1px;">EXISTING ANNOUNCEMENTS (' +
+    announcements.length +
+    ')</div>';
 
-  var indexedItems = announcements.map(function(item, idx) {
+  var indexedItems = announcements.map(function (item, idx) {
     return { item: item, realIdx: idx };
   });
 
-  indexedItems.sort(function(a, b) {
+  indexedItems.sort(function (a, b) {
     var aPinned = Boolean(a.item.is_pinned ?? a.item.pinned);
     var bPinned = Boolean(b.item.is_pinned ?? b.item.pinned);
     if (aPinned !== bPinned) {
       return aPinned ? -1 : 1;
     }
-    return b.realIdx - a.realIdx;
+    var aTime = a.item.created_at ? new Date(a.item.created_at).getTime() : 0;
+    var bTime = b.item.created_at ? new Date(b.item.created_at).getTime() : 0;
+    if (aTime && bTime && aTime !== bTime) {
+      return bTime - aTime;
+    }
+    return a.realIdx - b.realIdx;
   });
 
-  indexedItems.forEach(function(entry) {
+  indexedItems.forEach(function (entry) {
     var a = entry.item;
     var i = entry.realIdx;
     var isPinned = Boolean(a.is_pinned ?? a.pinned);
-    var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || '');
-    var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
+    var safeTitle = typeof escapeHtml === 'function' ? escapeHtml(a.title || '') : a.title || '';
+    var safeDate = typeof escapeHtml === 'function' ? escapeHtml(a.date || '') : a.date || '';
 
     var totalReactions = 0;
     var reactionsSummary = '';
     if (a.reactions && typeof a.reactions === 'object') {
-      ALL_REACTION_EMOJIS.forEach(function(em) {
+      ALL_REACTION_EMOJIS.forEach(function (em) {
         if (Array.isArray(a.reactions[em]) && a.reactions[em].length > 0) {
           totalReactions += a.reactions[em].length;
-          reactionsSummary += '<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px;font-size:11px;color:var(--text-secondary);">'
-            + renderWhatsappEmoji(em, 14) + ' ' + a.reactions[em].length
-            + '</span>';
+          reactionsSummary +=
+            '<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px;font-size:11px;color:var(--text-secondary);">' +
+            renderWhatsappEmoji(em, 14) +
+            ' ' +
+            a.reactions[em].length +
+            '</span>';
         }
       });
     }
@@ -1043,44 +1418,81 @@ function renderAdminAnnList() {
       ? 'background:rgba(234,179,8,0.18);border:1px solid rgba(234,179,8,0.5);color:var(--accent);padding:4px 9px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:4px;'
       : 'background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);padding:4px 9px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;';
 
-    html += '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3.5px solid ' + (isPinned ? 'var(--accent)' : 'var(--border-card)') + ';">'
-      + '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'
-      + '<div style="flex:1;min-width:0;">'
-        + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">'
-          + (isPinned ? '<span style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(234,179,8,0.15);padding:2px 7px;border-radius:10px;border:1px solid rgba(234,179,8,0.3);letter-spacing:0.3px;">PINNED</span>' : '')
-          + '<span style="font-family:var(--font-headline);font-size:14px;color:var(--text-primary);font-weight:600;">' + safeTitle + '</span>'
-        + '</div>'
-        + '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' + safeDate + '</div>'
-        + (reactionsSummary ? ('<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' + reactionsSummary + '</div>') : '')
-      + '</div>'
-      + '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">'
-      + '<button type="button" data-pin-ann="' + i + '" title="' + (isPinned ? 'Unpin announcement' : 'Pin announcement to top') + '" style="' + pinBtnStyle + '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg><span>' + (isPinned ? 'Pinned' : 'Pin') + '</span></button>'
-      + '<button type="button" data-view-reactions="' + i + '" title="View Who Reacted (' + totalReactions + ')" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--gold);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>' + totalReactions + '</span></button>'
-      + '<button type="button" data-edit-ann="' + i + '"' + (a.id ? ' data-ann-id="' + (typeof escapeHtml === 'function' ? escapeHtml(String(a.id)) : String(a.id)) + '"' : '') + ' title="Edit Announcement" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>'
-      + '<button type="button" data-del-ann="' + i + '" title="Delete Announcement" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>'
-      + '</div></div>'
-      + '</div>';
+    html +=
+      '<div style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:10px;padding:12px;margin-bottom:8px;border-left:3.5px solid ' +
+      (isPinned ? 'var(--accent)' : 'var(--border-card)') +
+      ';">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">' +
+      '<div style="flex:1;min-width:0;">' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px;">' +
+      (isPinned
+        ? '<span style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(234,179,8,0.15);padding:2px 7px;border-radius:10px;border:1px solid rgba(234,179,8,0.3);letter-spacing:0.3px;">PINNED</span>'
+        : '') +
+      '<span style="font-family:var(--font-headline);font-size:14px;color:var(--text-primary);font-weight:600;">' +
+      safeTitle +
+      '</span>' +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">' +
+      safeDate +
+      '</div>' +
+      (reactionsSummary
+        ? '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' +
+          reactionsSummary +
+          '</div>'
+        : '') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;">' +
+      '<button type="button" data-pin-ann="' +
+      i +
+      '" title="' +
+      (isPinned ? 'Unpin announcement' : 'Pin announcement to top') +
+      '" style="' +
+      pinBtnStyle +
+      '"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg><span>' +
+      (isPinned ? 'Pinned' : 'Pin') +
+      '</span></button>' +
+      '<button type="button" data-view-reactions="' +
+      i +
+      '" title="View Who Reacted (' +
+      totalReactions +
+      ')" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--gold);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span>' +
+      totalReactions +
+      '</span></button>' +
+      '<button type="button" data-edit-ann="' +
+      i +
+      '"' +
+      (a.id
+        ? ' data-ann-id="' +
+          (typeof escapeHtml === 'function' ? escapeHtml(String(a.id)) : String(a.id)) +
+          '"'
+        : '') +
+      ' title="Edit Announcement" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-primary);padding:4px 10px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
+      '<button type="button" data-del-ann="' +
+      i +
+      '" title="Delete Announcement" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:4px 8px;border-radius:7px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
+      '</div></div>' +
+      '</div>';
   });
 
   container.innerHTML = html;
 
-  container.querySelectorAll('[data-pin-ann]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  container.querySelectorAll('[data-pin-ann]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       togglePinAnnouncement(parseInt(btn.getAttribute('data-pin-ann'), 10));
     });
   });
-  container.querySelectorAll('[data-del-ann]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  container.querySelectorAll('[data-del-ann]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       deleteAnnouncement(parseInt(btn.getAttribute('data-del-ann'), 10));
     });
   });
-  container.querySelectorAll('[data-view-reactions]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  container.querySelectorAll('[data-view-reactions]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       openAnnouncementReactionsModal(parseInt(btn.getAttribute('data-view-reactions'), 10));
     });
   });
-  container.querySelectorAll('[data-edit-ann]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
+  container.querySelectorAll('[data-edit-ann]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
       var annId = btn.getAttribute('data-ann-id');
       var idx = parseInt(btn.getAttribute('data-edit-ann'), 10);
       openEditAnnouncement(annId || idx);
@@ -1099,23 +1511,35 @@ async function togglePinAnnouncement(idx) {
   var newPinnedState = !(a.is_pinned ?? a.pinned);
   try {
     try {
-      await supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), { is_pinned: newPinnedState });
+      await supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), {
+        is_pinned: newPinnedState
+      });
     } catch (err) {
-      if (!isAnnouncementSchemaError(err) || !await syncAnnouncementPinConfig(a.id, newPinnedState)) throw err;
+      if (
+        !isAnnouncementSchemaError(err) ||
+        !(await syncAnnouncementPinConfig(a.id, newPinnedState))
+      )
+        throw err;
     }
     _announcementLoadVersion++;
-    var current = announcements.find(function(item) { return item.id === a.id; });
+    var current = announcements.find(function (item) {
+      return item.id === a.id;
+    });
     if (current) current.is_pinned = newPinnedState;
     refreshAnnouncementViews();
   } catch (_) {
-    if (typeof showToast === 'function') showToast('Could not update the pinned status.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Could not update the pinned status.', 'warning');
     return;
   }
 
   await publishAnnouncementChange('pin');
 
   if (typeof showToast === 'function') {
-    showToast(newPinnedState ? '📌 Announcement pinned to top of feed!' : 'Announcement unpinned.', 'info');
+    showToast(
+      newPinnedState ? '📌 Announcement pinned to top of feed!' : 'Announcement unpinned.',
+      'info'
+    );
   }
 }
 
@@ -1128,7 +1552,9 @@ function openEditAnnouncement(idxOrId) {
   if (typeof idxOrId === 'number' && announcements[idxOrId]) {
     a = announcements[idxOrId];
   } else if (typeof idxOrId === 'string') {
-    a = announcements.find(function(item) { return item && String(item.id) === String(idxOrId); });
+    a = announcements.find(function (item) {
+      return item && String(item.id) === String(idxOrId);
+    });
     if (!a && !isNaN(parseInt(idxOrId, 10)) && announcements[parseInt(idxOrId, 10)]) {
       a = announcements[parseInt(idxOrId, 10)];
     }
@@ -1143,14 +1569,16 @@ function openEditAnnouncement(idxOrId) {
   var bi = document.getElementById('ann-body-input');
   if (bi) bi.innerHTML = sanitizeAnnouncementHtml(a.body || '');
 
-  var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
+  var pinCheck =
+    typeof document !== 'undefined' ? document.querySelector('.ann-pinned-check') : null;
   if (pinCheck) {
     pinCheck.checked = !!(a.is_pinned || a.pinned);
   }
 
   var btn = document.getElementById('ann-post-btn');
   if (btn) {
-    btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Changes';
+    btn.innerHTML =
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Changes';
     btn.setAttribute('data-edit-idx', String(realIdx));
     if (a.id) {
       btn.setAttribute('data-edit-id', String(a.id));
@@ -1160,13 +1588,16 @@ function openEditAnnouncement(idxOrId) {
   }
 
   // Restore allowed reaction chips state
-  var allowed = (a && Array.isArray(a.allowed_reactions))
-    ? a.allowed_reactions
-    : ((a && a.reactions && Array.isArray(a.reactions._allowed)) ? a.reactions._allowed : ALL_REACTION_EMOJIS);
+  var allowed =
+    a && Array.isArray(a.allowed_reactions)
+      ? a.allowed_reactions
+      : a && a.reactions && Array.isArray(a.reactions._allowed)
+        ? a.reactions._allowed
+        : ALL_REACTION_EMOJIS;
 
   if (typeof document !== 'undefined') {
     var chips = document.querySelectorAll('.ann-reaction-chip');
-    chips.forEach(function(chip) {
+    chips.forEach(function (chip) {
       var em = chip.getAttribute('data-emoji');
       if (allowed.indexOf(em) !== -1) {
         chip.classList.add('active');
@@ -1187,7 +1618,11 @@ function openEditAnnouncement(idxOrId) {
   if (ti && typeof ti.scrollIntoView === 'function') ti.scrollIntoView({ behavior: 'smooth' });
   var existingImg = a.image_url;
   if (!existingImg && a.body) {
-    var editMatch = a.body.match(/data-infographic-url=["']([^"']+)["']/i) || a.body.match(/<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i);
+    var editMatch =
+      a.body.match(/data-infographic-url=["']([^"']+)["']/i) ||
+      a.body.match(
+        /<img[^>]+(?:class=["'][^"']*ann-embedded-infographic[^"']*["'])[^>]*src=["']([^"']+)["']/i
+      );
     if (editMatch) existingImg = editMatch[1] || editMatch[2];
   }
   if (existingImg) {
@@ -1215,19 +1650,20 @@ function cancelEditAnnouncement() {
   var bi = document.getElementById('ann-body-input');
   if (bi) bi.innerHTML = '';
 
-  var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
+  var pinCheck =
+    typeof document !== 'undefined' ? document.querySelector('.ann-pinned-check') : null;
   if (pinCheck) pinCheck.checked = false;
 
   var btn = document.getElementById('ann-post-btn');
   if (btn) {
-    btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
+    btn.innerHTML =
+      '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
     btn.removeAttribute('data-edit-idx');
     btn.removeAttribute('data-edit-id');
   }
   clearAnnouncementInfographic();
   setAnnReactionPreset('all');
 }
-
 
 /**
  * Broadcasts an announcement notification email to all active registered members via Google Apps Script Mailer.
@@ -1256,7 +1692,9 @@ async function broadcastAnnouncementEmail(ann) {
     for (var i = 0; i < members.length; i++) {
       var m = members[i];
       if (m.department === 'deleted' || m.department === 'archived_deleted') continue;
-      var em = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : '')).trim().toLowerCase();
+      var em = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : ''))
+        .trim()
+        .toLowerCase();
       if (em && em.indexOf('@') !== -1 && !emailMap[em]) {
         emailMap[em] = true;
         validEmails.push(em);
@@ -1278,7 +1716,10 @@ async function broadcastAnnouncementEmail(ann) {
         sheetRows = await client.get('bb_config?key=eq.bb_att_sheet&select=value');
       }
       if (sheetRows && sheetRows.length && sheetRows[0].value) {
-        var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
+        var parsed =
+          typeof sheetRows[0].value === 'string'
+            ? JSON.parse(sheetRows[0].value)
+            : sheetRows[0].value;
         scriptUrl = parsed.scriptUrl || '';
         syncToken = parsed.syncToken || syncToken;
       }
@@ -1289,28 +1730,42 @@ async function broadcastAnnouncementEmail(ann) {
       return false;
     }
 
-    var portalUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
-      ? (window.location.origin + window.location.pathname)
-      : 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
+    var portalUrl =
+      typeof window !== 'undefined' && window.location && window.location.origin
+        ? window.location.origin + window.location.pathname
+        : 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
 
-    var plainSnippet = (ann.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    var plainSnippet = (ann.body || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (plainSnippet.length > 280) plainSnippet = plainSnippet.substring(0, 277) + '...';
 
-    var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
+    var url =
+      scriptUrl +
+      (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
       'action=broadcastAnnouncement' +
-      '&title=' + encodeURIComponent(ann.title || 'New Announcement') +
-      '&date=' + encodeURIComponent(ann.date || '') +
-      '&summary=' + encodeURIComponent(plainSnippet) +
-      '&portalUrl=' + encodeURIComponent(portalUrl) +
-      '&recipients=' + encodeURIComponent(validEmails.join(',')) +
+      '&title=' +
+      encodeURIComponent(ann.title || 'New Announcement') +
+      '&date=' +
+      encodeURIComponent(ann.date || '') +
+      '&summary=' +
+      encodeURIComponent(plainSnippet) +
+      '&portalUrl=' +
+      encodeURIComponent(portalUrl) +
+      '&recipients=' +
+      encodeURIComponent(validEmails.join(',')) +
       (syncToken ? '&token=' + encodeURIComponent(syncToken) : '');
 
-    await fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function(err) {
+    await fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function (err) {
       console.warn('Announcement email dispatch notice:', err);
     });
 
     if (typeof showToast === 'function') {
-      showToast('Announcement posted & emailed to ' + validEmails.length + ' registered members!', 'success');
+      showToast(
+        'Announcement posted & emailed to ' + validEmails.length + ' registered members!',
+        'success'
+      );
     }
     return true;
   } catch (err) {
@@ -1323,8 +1778,8 @@ async function writeAnnouncementWithSchemaFallback(write, payload) {
   try {
     return await write(payload);
   } catch (err) {
-    if (!isAnnouncementSchemaError(err) ||
-        !('is_pinned' in payload || 'image_url' in payload)) throw err;
+    if (!isAnnouncementSchemaError(err) || !('is_pinned' in payload || 'image_url' in payload))
+      throw err;
     var legacy = Object.assign({}, payload);
     delete legacy.is_pinned;
     delete legacy.image_url;
@@ -1333,7 +1788,9 @@ async function writeAnnouncementWithSchemaFallback(write, payload) {
 }
 
 function isAnnouncementSchemaError(err) {
-  return /PGRST204|42703|could not find.+column|column.+does not exist/i.test(err && (err.code || err.message) || '');
+  return /PGRST204|42703|could not find.+column|column.+does not exist/i.test(
+    (err && (err.code || err.message)) || ''
+  );
 }
 
 /**
@@ -1344,14 +1801,14 @@ async function addAnnouncement() {
   if (_isSubmittingAnnouncement) return;
   _isSubmittingAnnouncement = true;
   var titleEl = document.getElementById('ann-title-input');
-  var bodyEl  = document.getElementById('ann-body-input');
-  var btn     = document.getElementById('ann-post-btn');
+  var bodyEl = document.getElementById('ann-body-input');
+  var btn = document.getElementById('ann-post-btn');
 
   var rawTitle = (titleEl ? titleEl.value : '').trim();
-  var title    = (typeof sanitizeInput === 'function') ? sanitizeInput(rawTitle, 200) : rawTitle;
-  var rawBody  = (bodyEl ? bodyEl.innerHTML : '').trim();
-  var editId   = btn ? btn.getAttribute('data-edit-id') : null;
-  var editIdx  = btn ? parseInt(btn.getAttribute('data-edit-idx') || '-1', 10) : -1;
+  var title = typeof sanitizeInput === 'function' ? sanitizeInput(rawTitle, 200) : rawTitle;
+  var rawBody = (bodyEl ? bodyEl.innerHTML : '').trim();
+  var editId = btn ? btn.getAttribute('data-edit-id') : null;
+  var editIdx = btn ? parseInt(btn.getAttribute('data-edit-idx') || '-1', 10) : -1;
 
   if (!title || !rawBody || rawBody === '<br>' || rawBody === '<div><br></div>') {
     _isSubmittingAnnouncement = false;
@@ -1362,17 +1819,20 @@ async function addAnnouncement() {
   }
 
   var sanitizedBody = sanitizeAnnouncementHtml(rawBody);
-  var dateStr = new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+  var dateStr = new Date()
+    .toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
+    .toUpperCase();
 
   // Collect selected allowed reactions
   var selectedAllowed = [];
   if (typeof document !== 'undefined') {
     var allChips = document.querySelectorAll('.ann-reaction-chip');
     if (allChips && allChips.length > 0) {
-      allChips.forEach(function(c) {
-        var isAct = (c.classList && typeof c.classList.contains === 'function')
-          ? c.classList.contains('active')
-          : (c.className && c.className.indexOf('active') !== -1);
+      allChips.forEach(function (c) {
+        var isAct =
+          c.classList && typeof c.classList.contains === 'function'
+            ? c.classList.contains('active')
+            : c.className && c.className.indexOf('active') !== -1;
         if (isAct) {
           var em = c.getAttribute('data-emoji');
           if (em) selectedAllowed.push(em);
@@ -1410,34 +1870,50 @@ async function addAnnouncement() {
     // Embed resilient hidden marker inside body to survive without migration 017
     if (infographicUrl) {
       var safeInfographic = escapeHtml(infographicUrl);
-      var markerTag = '<img src="' + safeInfographic + '" class="ann-embedded-infographic" style="display:none;" data-infographic-url="' + safeInfographic + '" alt="Announcement Infographic" />';
+      var markerTag =
+        '<img src="' +
+        safeInfographic +
+        '" class="ann-embedded-infographic" style="display:none;" data-infographic-url="' +
+        safeInfographic +
+        '" alt="Announcement Infographic" />';
       if (!sanitizedBody.includes('ann-embedded-infographic')) {
         sanitizedBody += markerTag;
       }
     } else if (!_stagedAnnouncementImage) {
-      sanitizedBody = sanitizedBody.replace(/<img[^>]*class=["'][^"']*ann-embedded-infographic[^"']*["'][^>]*>/gi, '');
+      sanitizedBody = sanitizedBody.replace(
+        /<img[^>]*class=["'][^"']*ann-embedded-infographic[^"']*["'][^>]*>/gi,
+        ''
+      );
     }
 
-    var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
+    var pinCheck =
+      typeof document !== 'undefined' ? document.querySelector('.ann-pinned-check') : null;
     var isPinned = pinCheck ? !!pinCheck.checked : false;
 
     var targetAnn = null;
     if (editId) {
-      targetAnn = announcements.find(function(item) { return item && String(item.id) === String(editId); });
+      targetAnn = announcements.find(function (item) {
+        return item && String(item.id) === String(editId);
+      });
     }
     if (!targetAnn && !editId && editIdx >= 0 && editIdx < announcements.length) {
       targetAnn = announcements[editIdx];
     }
 
-    if ((editId || editIdx >= 0) && !targetAnn) throw new Error('The announcement is no longer available.');
-    if (!canManageAnnouncements() || typeof supa === 'undefined' || !(targetAnn ? supa.patch : supa.post)) {
+    if ((editId || editIdx >= 0) && !targetAnn)
+      throw new Error('The announcement is no longer available.');
+    if (
+      !canManageAnnouncements() ||
+      typeof supa === 'undefined' ||
+      !(targetAnn ? supa.patch : supa.post)
+    ) {
       throw new Error('The announcement service is unavailable.');
     }
 
     if (targetAnn) {
       var a = Object.assign({}, targetAnn, { reactions: Object.assign({}, targetAnn.reactions) });
       a.title = title;
-      a.body  = sanitizedBody;
+      a.body = sanitizedBody;
       a.is_pinned = isPinned;
       a.allowed_reactions = selectedAllowed.slice();
       if (!a.reactions || typeof a.reactions !== 'object') a.reactions = {};
@@ -1446,11 +1922,19 @@ async function addAnnouncement() {
       else if (!_stagedAnnouncementImage) a.image_url = null;
 
       if (!a.id) throw new Error('The announcement has no saved record.');
-      var patchPayload = { title: a.title, body: a.body, reactions: a.reactions, is_pinned: isPinned, image_url: a.image_url };
-      await writeAnnouncementWithSchemaFallback(function(payload) {
+      var patchPayload = {
+        title: a.title,
+        body: a.body,
+        reactions: a.reactions,
+        is_pinned: isPinned,
+        image_url: a.image_url
+      };
+      await writeAnnouncementWithSchemaFallback(function (payload) {
         return supa.patch('bb_announcements?id=eq.' + encodeURIComponent(a.id), payload);
       }, patchPayload);
-      var current = announcements.find(function(item) { return item.id === a.id; });
+      var current = announcements.find(function (item) {
+        return item.id === a.id;
+      });
       if (current) Object.assign(current, a);
       if (a.id) {
         await syncAnnouncementPinConfig(a.id, isPinned);
@@ -1460,7 +1944,8 @@ async function addAnnouncement() {
         await syncAnnouncementImageConfig(a.id, infographicUrl);
       }
       if (btn) {
-        btn.innerHTML = '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
+        btn.innerHTML =
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Post Announcement';
         btn.removeAttribute('data-edit-idx');
         btn.removeAttribute('data-edit-id');
       }
@@ -1481,14 +1966,20 @@ async function addAnnouncement() {
       }
       if (typeof supa !== 'undefined' && supa.post) {
         var createdAnnId = null;
-        var row = await writeAnnouncementWithSchemaFallback(function(payload) {
+        var row = await writeAnnouncementWithSchemaFallback(function (payload) {
           return supa.post('bb_announcements', payload);
         }, newRecord);
-        if (!Array.isArray(row) || !row[0] || !row[0].id) throw new Error('Could not confirm the saved announcement.');
+        if (!Array.isArray(row) || !row[0] || !row[0].id)
+          throw new Error('Could not confirm the saved announcement.');
         createdAnnId = row[0].id;
-        var created = Object.assign({}, row[0], { allowed_reactions: selectedAllowed, is_pinned: isPinned });
+        var created = Object.assign({}, row[0], {
+          allowed_reactions: selectedAllowed,
+          is_pinned: isPinned
+        });
         if (infographicUrl) created.image_url = infographicUrl;
-        var existing = announcements.find(function(item) { return item.id === createdAnnId; });
+        var existing = announcements.find(function (item) {
+          return item.id === createdAnnId;
+        });
         if (existing) Object.assign(existing, created);
         else announcements.push(created);
         if (infographicUrl) await syncAnnouncementImageConfig(createdAnnId, infographicUrl);
@@ -1513,19 +2004,25 @@ async function addAnnouncement() {
     clearAnnouncementInfographic();
     setAnnReactionPreset('all');
     if (titleEl) titleEl.value = '';
-    if (bodyEl)  bodyEl.innerHTML = '';
+    if (bodyEl) bodyEl.innerHTML = '';
     if (pinCheck) pinCheck.checked = false;
     _announcementLoadVersion++;
     refreshAnnouncementViews();
     await publishAnnouncementChange('save');
     if (typeof syncAnnouncementNotifications === 'function') {
       syncAnnouncementNotifications(announcements);
-    } else if (typeof window !== 'undefined' && typeof window.syncAnnouncementNotifications === 'function') {
+    } else if (
+      typeof window !== 'undefined' &&
+      typeof window.syncAnnouncementNotifications === 'function'
+    ) {
       window.syncAnnouncementNotifications(announcements);
     }
     if (typeof syncAllPortalNotifications === 'function') {
       syncAllPortalNotifications();
-    } else if (typeof window !== 'undefined' && typeof window.syncAllPortalNotifications === 'function') {
+    } else if (
+      typeof window !== 'undefined' &&
+      typeof window.syncAllPortalNotifications === 'function'
+    ) {
       window.syncAllPortalNotifications();
     }
   } catch (e) {
@@ -1552,9 +2049,14 @@ async function deleteAnnouncement(idx) {
   _announcementDeletes.add(key);
   var removed = false;
   try {
-    var confirmed = await showConfirmModal('Are you sure you want to delete "' + (a.title || 'this announcement') + '"?', 'Delete Announcement');
+    var confirmed = await showConfirmModal(
+      'Are you sure you want to delete "' + (a.title || 'this announcement') + '"?',
+      'Delete Announcement'
+    );
     if (!confirmed || !canManageAnnouncements()) return;
-    var rowIndex = announcements.findIndex(function(item) { return a.id ? item.id === a.id : item === a; });
+    var rowIndex = announcements.findIndex(function (item) {
+      return a.id ? item.id === a.id : item === a;
+    });
     if (rowIndex === -1) return;
     a = announcements[rowIndex];
     announcements.splice(rowIndex, 1);
@@ -1564,24 +2066,58 @@ async function deleteAnnouncement(idx) {
     renderAnnouncements();
     renderAdminAnnList();
 
-    if (!a.id || typeof supa === 'undefined' || !supa.delete) throw new Error('The announcement service is unavailable.');
-    await supa.delete('bb_announcements?id=eq.' + encodeURIComponent(a.id));
+    if (!a.id || typeof supa === 'undefined')
+      throw new Error('The announcement service is unavailable.');
+    var adminToken =
+      (typeof getAdminSessionToken === 'function' ? getAdminSessionToken() : '') ||
+      (typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function'
+        ? window.getAdminSessionToken()
+        : '') ||
+      (typeof global !== 'undefined' && typeof global.getAdminSessionToken === 'function'
+        ? global.getAdminSessionToken()
+        : '');
+    if (!adminToken || typeof supa.rpc !== 'function') {
+      throw new Error('Administrator session required to delete announcement.');
+    }
+    var rpcDel = await supa.rpc('rpc_admin_delete_announcement', {
+      p_token: adminToken,
+      p_id: String(a.id)
+    });
+    if (!rpcDel || !rpcDel.success)
+      throw new Error((rpcDel && rpcDel.error) || 'Failed to delete announcement.');
     removed = false;
     _announcementLoadVersion++;
     refreshAnnouncementViews();
-    await Promise.all([syncAnnouncementPinConfig(a.id, false), syncAnnouncementAllowedReactionsConfig(a.id, null)]);
+    await Promise.all([
+      syncAnnouncementPinConfig(a.id, false),
+      syncAnnouncementAllowedReactionsConfig(a.id, null)
+    ]);
     await publishAnnouncementChange('delete');
     if (typeof logAuditEvent === 'function') {
-      logAuditEvent({ action: 'announcement.delete', targetType: 'announcement', targetId: String(a.id), actorRole: 'officer_admin' });
+      logAuditEvent({
+        action: 'announcement.delete',
+        targetType: 'announcement',
+        targetId: String(a.id),
+        actorRole: 'officer_admin'
+      });
     }
     if (typeof showToast === 'function') showToast('Announcement deleted.', 'success');
   } catch (_) {
-    if (removed && !announcements.some(function(item) { return item.id === a.id; })) {
+    if (
+      removed &&
+      !announcements.some(function (item) {
+        return item.id === a.id;
+      })
+    ) {
       _announcementLoadVersion++;
       announcements.splice(Math.min(idx, announcements.length), 0, a);
       refreshAnnouncementViews();
     }
-    if (typeof showToast === 'function') showToast('Could not confirm the deletion. Refresh the announcements before trying again.', 'error');
+    if (typeof showToast === 'function')
+      showToast(
+        'Could not confirm the deletion. Refresh the announcements before trying again.',
+        'error'
+      );
   } finally {
     _announcementDeletes.delete(key);
   }
@@ -1638,7 +2174,11 @@ function annColor(col) {
 function annInsertLine() {
   annRestoreRange();
   if (typeof document !== 'undefined') {
-    document.execCommand('insertHTML', false, '<hr style="border:none;border-top:1px solid var(--border-card);margin:10px 0;"/>');
+    document.execCommand(
+      'insertHTML',
+      false,
+      '<hr style="border:none;border-top:1px solid var(--border-card);margin:10px 0;"/>'
+    );
   }
 }
 
@@ -1651,12 +2191,19 @@ function toggleAnnEmoji() {
     if (!picker.innerHTML) {
       picker.style.display = 'flex';
       var html = '';
-      ANN_EMOJIS.forEach(function(e) {
-        html += '<button type="button" data-emoji="' + e + '" aria-label="Emoji ' + e + '" style="background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;border-radius:6px;padding:0;line-height:1;transition:background 0.15s;">' + e + '</button>';
+      ANN_EMOJIS.forEach(function (e) {
+        html +=
+          '<button type="button" data-emoji="' +
+          e +
+          '" aria-label="Emoji ' +
+          e +
+          '" style="background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;border-radius:6px;padding:0;line-height:1;transition:background 0.15s;">' +
+          e +
+          '</button>';
       });
       picker.innerHTML = html;
-      picker.querySelectorAll('[data-emoji]').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+      picker.querySelectorAll('[data-emoji]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
           annRestoreRange();
           if (typeof document !== 'undefined') {
             document.execCommand('insertText', false, btn.getAttribute('data-emoji'));
@@ -1670,10 +2217,14 @@ function toggleAnnEmoji() {
     }
 
     // Dismiss on outside click
-    setTimeout(function() {
+    setTimeout(function () {
       if (typeof document === 'undefined') return;
       document.addEventListener('click', function closeEmoji(e) {
-        if (!picker.contains(e.target) && e.target.id !== 'ann-emoji-btn' && !e.target.closest('#ann-emoji-btn')) {
+        if (
+          !picker.contains(e.target) &&
+          e.target.id !== 'ann-emoji-btn' &&
+          !e.target.closest('#ann-emoji-btn')
+        ) {
           picker.style.display = 'none';
           document.removeEventListener('click', closeEmoji);
         }
@@ -1686,12 +2237,11 @@ function toggleAnnEmoji() {
 
 // Attach range saving listeners on contenteditable editor
 if (typeof document !== 'undefined') {
-  document.addEventListener('mouseup', function(e) {
+  document.addEventListener('mouseup', function (e) {
     var editor = document.getElementById('ann-body-input');
     if (editor && editor.contains(e.target)) annSaveRange();
   });
 }
-
 
 /**
  * Opens a modal displaying all members who have reacted to an announcement
@@ -1708,23 +2258,28 @@ function openAnnouncementReactionsModal(annIdx, activeTabEmoji) {
   var emojiCounts = {};
   var allEntries = [];
 
-  ALL_REACTION_EMOJIS.forEach(function(em) {
+  ALL_REACTION_EMOJIS.forEach(function (em) {
     var who = Array.isArray(reactions[em]) ? reactions[em] : [];
     if (who.length > 0) {
       emojiCounts[em] = who.length;
       totalCount += who.length;
-      who.forEach(function(uid) {
+      who.forEach(function (uid) {
         allEntries.push({ emoji: em, userId: uid });
       });
     }
   });
 
   // Also include any other emojis in reactions if present
-  Object.keys(reactions).forEach(function(k) {
-    if (k !== '_allowed' && ALL_REACTION_EMOJIS.indexOf(k) === -1 && Array.isArray(reactions[k]) && reactions[k].length > 0) {
+  Object.keys(reactions).forEach(function (k) {
+    if (
+      k !== '_allowed' &&
+      ALL_REACTION_EMOJIS.indexOf(k) === -1 &&
+      Array.isArray(reactions[k]) &&
+      reactions[k].length > 0
+    ) {
       emojiCounts[k] = reactions[k].length;
       totalCount += reactions[k].length;
-      reactions[k].forEach(function(uid) {
+      reactions[k].forEach(function (uid) {
         allEntries.push({ emoji: k, userId: uid });
       });
     }
@@ -1738,76 +2293,128 @@ function openAnnouncementReactionsModal(annIdx, activeTabEmoji) {
     document.body.appendChild(modal);
   }
 
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn 0.2s ease;';
+  modal.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn 0.2s ease;';
 
   function renderModalBody(selectedTab) {
     selectedTab = selectedTab || 'all';
 
-    var filteredEntries = (selectedTab === 'all')
-      ? allEntries
-      : allEntries.filter(function(e) { return e.emoji === selectedTab; });
+    var filteredEntries =
+      selectedTab === 'all'
+        ? allEntries
+        : allEntries.filter(function (e) {
+            return e.emoji === selectedTab;
+          });
 
-    var tabButtonsHtml = '<button type="button" class="ann-modal-tab-btn ' + (selectedTab === 'all' ? 'active' : '') + '" data-tab="all" style="padding:6px 12px;border-radius:20px;border:1px solid ' + (selectedTab === 'all' ? 'var(--gold)' : 'var(--border-subtle)') + ';background:' + (selectedTab === 'all' ? 'rgba(200,150,30,0.18)' : 'var(--bg-card-subtle)') + ';color:' + (selectedTab === 'all' ? 'var(--gold)' : 'var(--text-secondary)') + ';font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">'
-      + '<span>All</span> <span style="opacity:0.85;font-size:11px;">' + totalCount + '</span></button>';
+    var tabButtonsHtml =
+      '<button type="button" class="ann-modal-tab-btn ' +
+      (selectedTab === 'all' ? 'active' : '') +
+      '" data-tab="all" style="padding:6px 12px;border-radius:20px;border:1px solid ' +
+      (selectedTab === 'all' ? 'var(--gold)' : 'var(--border-subtle)') +
+      ';background:' +
+      (selectedTab === 'all' ? 'rgba(200,150,30,0.18)' : 'var(--bg-card-subtle)') +
+      ';color:' +
+      (selectedTab === 'all' ? 'var(--gold)' : 'var(--text-secondary)') +
+      ';font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">' +
+      '<span>All</span> <span style="opacity:0.85;font-size:11px;">' +
+      totalCount +
+      '</span></button>';
 
-    Object.keys(emojiCounts).forEach(function(em) {
-      var isTabActive = (selectedTab === em);
-      tabButtonsHtml += '<button type="button" class="ann-modal-tab-btn ' + (isTabActive ? 'active' : '') + '" data-tab="' + em + '" style="padding:6px 12px;border-radius:20px;border:1px solid ' + (isTabActive ? 'var(--gold)' : 'var(--border-subtle)') + ';background:' + (isTabActive ? 'rgba(200,150,30,0.18)' : 'var(--bg-card-subtle)') + ';color:' + (isTabActive ? 'var(--gold)' : 'var(--text-secondary)') + ';font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">'
-        + renderWhatsappEmoji(em, 16) + ' <span>' + emojiCounts[em] + '</span></button>';
+    Object.keys(emojiCounts).forEach(function (em) {
+      var isTabActive = selectedTab === em;
+      tabButtonsHtml +=
+        '<button type="button" class="ann-modal-tab-btn ' +
+        (isTabActive ? 'active' : '') +
+        '" data-tab="' +
+        em +
+        '" style="padding:6px 12px;border-radius:20px;border:1px solid ' +
+        (isTabActive ? 'var(--gold)' : 'var(--border-subtle)') +
+        ';background:' +
+        (isTabActive ? 'rgba(200,150,30,0.18)' : 'var(--bg-card-subtle)') +
+        ';color:' +
+        (isTabActive ? 'var(--gold)' : 'var(--text-secondary)') +
+        ';font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">' +
+        renderWhatsappEmoji(em, 16) +
+        ' <span>' +
+        emojiCounts[em] +
+        '</span></button>';
     });
 
     var rowsHtml = '';
     if (filteredEntries.length === 0) {
-      rowsHtml = '<div style="text-align:center;padding:36px 16px;color:var(--text-muted);font-size:13px;">'
-        + '<div style="font-size:24px;margin-bottom:8px;">💬</div>'
-        + 'No members have reacted to this announcement yet.'
-        + '</div>';
+      rowsHtml =
+        '<div style="text-align:center;padding:36px 16px;color:var(--text-muted);font-size:13px;">' +
+        '<div style="font-size:24px;margin-bottom:8px;">💬</div>' +
+        'No members have reacted to this announcement yet.' +
+        '</div>';
     } else {
-      filteredEntries.forEach(function(entry) {
+      filteredEntries.forEach(function (entry) {
         var m = resolveReactedMember(entry.userId);
         var avatarHtml = '';
         if (typeof getUniversalMemberAvatarHtml === 'function') {
           avatarHtml = getUniversalMemberAvatarHtml(m.name, m.email, 36);
         } else {
-          avatarHtml = '<div style="width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + (m.name.charAt(0).toUpperCase()) + '</div>';
+          avatarHtml =
+            '<div style="width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' +
+            m.name.charAt(0).toUpperCase() +
+            '</div>';
         }
 
-        rowsHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:var(--bg-card-subtle);margin-bottom:8px;border:1px solid var(--border-subtle);">'
-          + '<div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">'
-            + '<div style="flex-shrink:0;">' + avatarHtml + '</div>'
-            + '<div style="min-width:0;flex:1;">'
-              + '<div style="font-size:13.5px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(m.name) : m.name) + '</div>'
-              + '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">' + (typeof escapeHtml === 'function' ? escapeHtml((m.rank || 'Member') + ' • ' + (m.platoon || 'General Section')) : ((m.rank || 'Member') + ' • ' + (m.platoon || 'General Section'))) + '</div>'
-            + '</div>'
-          + '</div>'
-          + '<div style="flex-shrink:0;margin-left:12px;display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border-subtle);">'
-            + renderWhatsappEmoji(entry.emoji, 20)
-          + '</div>'
-        + '</div>';
+        rowsHtml +=
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;background:var(--bg-card-subtle);margin-bottom:8px;border:1px solid var(--border-subtle);">' +
+          '<div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">' +
+          '<div style="flex-shrink:0;">' +
+          avatarHtml +
+          '</div>' +
+          '<div style="min-width:0;flex:1;">' +
+          '<div style="font-size:13.5px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+          (typeof escapeHtml === 'function' ? escapeHtml(m.name) : m.name) +
+          '</div>' +
+          '<div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">' +
+          (typeof escapeHtml === 'function'
+            ? escapeHtml((m.rank || 'Member') + ' • ' + (m.platoon || 'General Section'))
+            : (m.rank || 'Member') + ' • ' + (m.platoon || 'General Section')) +
+          '</div>' +
+          '</div>' +
+          '</div>' +
+          '<div style="flex-shrink:0;margin-left:12px;display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border-subtle);">' +
+          renderWhatsappEmoji(entry.emoji, 20) +
+          '</div>' +
+          '</div>';
       });
     }
 
-    var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(a.title || 'Announcement') : (a.title || 'Announcement');
+    var safeTitle =
+      typeof escapeHtml === 'function'
+        ? escapeHtml(a.title || 'Announcement')
+        : a.title || 'Announcement';
 
-    modal.innerHTML = '<div class="ann-reactions-modal-dialog" role="dialog" aria-modal="true" style="background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);border-radius:16px;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;position:relative;">'
-      + '<div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;gap:12px;">'
-        + '<div>'
-          + '<div style="font-size:16px;font-weight:800;color:var(--text-primary);letter-spacing:-0.2px;">Announcement Reactions</div>'
-          + '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeTitle + '</div>'
-        + '</div>'
-        + '<button type="button" class="ann-reactions-close-btn" onclick="closeAnnouncementReactionsModal()" title="Close" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-secondary);width:30px;height:30px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;">&times;</button>'
-      + '</div>'
-      + (totalCount > 0 ? ('<div style="padding:12px 20px;border-bottom:1px solid var(--border-subtle);display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;">' + tabButtonsHtml + '</div>') : '')
-      + '<div style="padding:16px 20px;overflow-y:auto;flex:1;max-height:420px;">'
-        + rowsHtml
-      + '</div>'
-      + '<div style="padding:12px 20px;border-top:1px solid var(--border-subtle);display:flex;justify-content:flex-end;">'
-        + '<button type="button" onclick="closeAnnouncementReactionsModal()" class="portal-btn" style="padding:6px 16px;font-size:12.5px;font-weight:600;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-primary);cursor:pointer;">Close</button>'
-      + '</div>'
-    + '</div>';
+    modal.innerHTML =
+      '<div class="ann-reactions-modal-dialog" role="dialog" aria-modal="true" style="background:var(--bg-card);border:1px solid var(--border-card);box-shadow:var(--shadow-elevated);border-radius:16px;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;position:relative;">' +
+      '<div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
+      '<div>' +
+      '<div style="font-size:16px;font-weight:800;color:var(--text-primary);letter-spacing:-0.2px;">Announcement Reactions</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+      safeTitle +
+      '</div>' +
+      '</div>' +
+      '<button type="button" class="ann-reactions-close-btn" onclick="closeAnnouncementReactionsModal()" title="Close" style="background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-secondary);width:30px;height:30px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;">&times;</button>' +
+      '</div>' +
+      (totalCount > 0
+        ? '<div style="padding:12px 20px;border-bottom:1px solid var(--border-subtle);display:flex;gap:8px;overflow-x:auto;scrollbar-width:thin;">' +
+          tabButtonsHtml +
+          '</div>'
+        : '') +
+      '<div style="padding:16px 20px;overflow-y:auto;flex:1;max-height:420px;">' +
+      rowsHtml +
+      '</div>' +
+      '<div style="padding:12px 20px;border-top:1px solid var(--border-subtle);display:flex;justify-content:flex-end;">' +
+      '<button type="button" onclick="closeAnnouncementReactionsModal()" class="portal-btn" style="padding:6px 16px;font-size:12.5px;font-weight:600;border-radius:8px;background:var(--bg-card-subtle);border:1px solid var(--border-subtle);color:var(--text-primary);cursor:pointer;">Close</button>' +
+      '</div>' +
+      '</div>';
 
-    modal.querySelectorAll('.ann-modal-tab-btn').forEach(function(tBtn) {
-      tBtn.addEventListener('click', function() {
+    modal.querySelectorAll('.ann-modal-tab-btn').forEach(function (tBtn) {
+      tBtn.addEventListener('click', function () {
         var tabKey = tBtn.getAttribute('data-tab');
         renderModalBody(tabKey);
       });
@@ -1816,7 +2423,7 @@ function openAnnouncementReactionsModal(annIdx, activeTabEmoji) {
 
   renderModalBody(activeTabEmoji || 'all');
 
-  modal.onclick = function(e) {
+  modal.onclick = function (e) {
     if (e.target === modal) {
       closeAnnouncementReactionsModal();
     }
@@ -1857,7 +2464,12 @@ function getAnnouncementMentionCandidates(query) {
   var presetGroups = [
     { name: 'all', label: '@all', role: 'Group', desc: 'All Company Members' },
     // Departments
-    { name: 'Secretariat', label: '@Secretariat', role: 'Department', desc: 'Secretariat Department' },
+    {
+      name: 'Secretariat',
+      label: '@Secretariat',
+      role: 'Department',
+      desc: 'Secretariat Department'
+    },
     { name: 'Logistics', label: '@Logistics', role: 'Department', desc: 'Logistics Department' },
     { name: 'Media', label: '@Media', role: 'Department', desc: 'Media Department' },
     { name: 'HQ', label: '@HQ', role: 'Department', desc: 'HQ Management' },
@@ -1882,7 +2494,7 @@ function getAnnouncementMentionCandidates(query) {
     { name: 'juniors', label: '@juniors', role: 'Section', desc: 'Junior Section Members' }
   ];
 
-  presetGroups.forEach(function(g) {
+  presetGroups.forEach(function (g) {
     if (!q || g.name.toLowerCase().indexOf(q) !== -1 || g.label.toLowerCase().indexOf(q) !== -1) {
       candidates.push(g);
     }
@@ -1904,13 +2516,13 @@ function getAnnouncementMentionCandidates(query) {
     if (typeof localStorage !== 'undefined') {
       var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
       if (Array.isArray(cached)) {
-        cached.forEach(function(m) {
+        cached.forEach(function (m) {
           if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
             memberMap[m.name.trim()] = {
               name: m.name.trim(),
               label: '@' + m.name.trim(),
               role: m.rank || 'Member',
-              desc: (m.rank || 'Member') + (m.department ? (' · ' + m.department) : '')
+              desc: (m.rank || 'Member') + (m.department ? ' · ' + m.department : '')
             };
           }
         });
@@ -1919,24 +2531,26 @@ function getAnnouncementMentionCandidates(query) {
   } catch (_) {}
 
   if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
+    _cachedDepartmentMembers.forEach(function (m) {
       if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
         memberMap[m.name.trim()] = {
           name: m.name.trim(),
           label: '@' + m.name.trim(),
           role: m.department || m.rank || 'Member',
-          desc: (m.rank || 'Member') + (m.department ? (' · ' + m.department) : '')
+          desc: (m.rank || 'Member') + (m.department ? ' · ' + m.department : '')
         };
       }
     });
   }
 
-  Object.keys(memberMap).sort().forEach(function(k) {
-    var m = memberMap[k];
-    if (!q || m.name.toLowerCase().indexOf(q) !== -1 || m.label.toLowerCase().indexOf(q) !== -1) {
-      candidates.push(m);
-    }
-  });
+  Object.keys(memberMap)
+    .sort()
+    .forEach(function (k) {
+      var m = memberMap[k];
+      if (!q || m.name.toLowerCase().indexOf(q) !== -1 || m.label.toLowerCase().indexOf(q) !== -1) {
+        candidates.push(m);
+      }
+    });
 
   return candidates;
 }
@@ -1944,7 +2558,8 @@ function getAnnouncementMentionCandidates(query) {
 function _safeMentionToken(str) {
   if (!str) return '';
   if (typeof escapeHtml === 'function') return escapeHtml(str);
-  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function') return window.escapeHtml(str);
+  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function')
+    return window.escapeHtml(str);
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -1961,11 +2576,28 @@ function _safeMentionToken(str) {
 function formatAnnouncementMentions(text) {
   if (!text) return '';
   var groups = [
-    'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers',
-    'super admins', 'super admin', 'admins', 'admin',
-    'P1', 'P2', 'A1', 'A2', 'Z1', 'Z2',
-    'Papa', 'Alpha', 'Zulu',
-    'seniors', 'juniors', 'creator', 'all'
+    'Secretariat',
+    'Logistics',
+    'Media',
+    'HQ',
+    'Officers',
+    'super admins',
+    'super admin',
+    'admins',
+    'admin',
+    'P1',
+    'P2',
+    'A1',
+    'A2',
+    'Z1',
+    'Z2',
+    'Papa',
+    'Alpha',
+    'Zulu',
+    'seniors',
+    'juniors',
+    'creator',
+    'all'
   ];
   var candidates = groups.slice();
 
@@ -1975,7 +2607,7 @@ function formatAnnouncementMentions(text) {
     if (typeof localStorage !== 'undefined') {
       var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
       if (Array.isArray(cached)) {
-        cached.forEach(function(m) {
+        cached.forEach(function (m) {
           if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
         });
       }
@@ -1983,50 +2615,63 @@ function formatAnnouncementMentions(text) {
   } catch (_) {}
 
   if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
+    _cachedDepartmentMembers.forEach(function (m) {
       if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
     });
   }
 
   var seen = {};
   var unique = [];
-  candidates.forEach(function(name) {
+  candidates.forEach(function (name) {
     var k = name.toLowerCase();
     if (!seen[k]) {
       seen[k] = true;
       unique.push(name);
     }
   });
-  unique.sort(function(a, b) { return b.length - a.length; });
+  unique.sort(function (a, b) {
+    return b.length - a.length;
+  });
 
   var out = text;
-  unique.forEach(function(name) {
+  unique.forEach(function (name) {
     if (!name) return;
-    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
+    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function (ch) {
+      return '\\' + ch;
+    });
     var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
-    out = out.replace(rx, function(match, prefix, matchedName) {
+    out = out.replace(rx, function (match, prefix, matchedName) {
       var safe = _safeMentionToken(matchedName);
       return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
     });
   });
 
   // Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
+  out = out.replace(
+    /(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g,
+    function (match, prefix, mName) {
+      var safe = _safeMentionToken(mName);
+      return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
+    }
+  );
 
   // Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
+  out = out.replace(
+    /(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g,
+    function (match, prefix, mName) {
+      var safe = _safeMentionToken(mName);
+      return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
+    }
+  );
 
   // Fallback for single-word mentions (e.g. @group)
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
+  out = out.replace(
+    /(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g,
+    function (match, prefix, mName) {
+      var safe = _safeMentionToken(mName);
+      return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
+    }
+  );
 
   return out;
 }
@@ -2034,7 +2679,16 @@ function formatAnnouncementMentions(text) {
 /**
  * Checks if user is mentioned in an announcement
  */
-function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, mySquad, myPlatoon, mySection) {
+function isUserMentionedInAnnouncement(
+  text,
+  myName,
+  myEmail,
+  myDept,
+  myRank,
+  mySquad,
+  myPlatoon,
+  mySection
+) {
   if (!text) return false;
   var cleanText = String(text)
     .replace(/&nbsp;/g, ' ')
@@ -2048,7 +2702,9 @@ function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, my
   if (myName) {
     var myNameLower = myName.toLowerCase().trim();
     if (lower.indexOf('@' + myNameLower) !== -1) return true;
-    var nameParts = myNameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
+    var nameParts = myNameLower.split(/\s+/).filter(function (p) {
+      return p.length >= 3;
+    });
     for (var i = 0; i < nameParts.length; i++) {
       var rx = new RegExp('(?:^|\\W)@' + nameParts[i] + '\\b', 'i');
       if (rx.test(lower)) return true;
@@ -2067,46 +2723,94 @@ function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, my
   }
 
   // 3. Departments: Secretariat, Logistics, Media, HQ, Officers
-  var deptStr = (myDept || (typeof sessionGet === 'function' ? sessionGet('department') : '') || '').toLowerCase().trim();
+  var deptStr = (myDept || (typeof sessionGet === 'function' ? sessionGet('department') : '') || '')
+    .toLowerCase()
+    .trim();
   if (deptStr) {
     if (lower.indexOf('@' + deptStr) !== -1) return true;
     if (deptStr.indexOf('secretariat') !== -1 && lower.indexOf('@secretariat') !== -1) return true;
     if (deptStr.indexOf('logistics') !== -1 && lower.indexOf('@logistics') !== -1) return true;
     if (deptStr.indexOf('media') !== -1 && lower.indexOf('@media') !== -1) return true;
     if (deptStr.indexOf('hq') !== -1 && lower.indexOf('@hq') !== -1) return true;
-    if ((deptStr === 'officers' || deptStr === 'officer') && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+    if ((deptStr === 'officers' || deptStr === 'officer') && /(?:^|\W)@officers?\b/i.test(lower))
+      return true;
   }
-  var rankStr = (myRank || (typeof sessionGet === 'function' ? sessionGet('rank') : '') || '');
-  var isOfficerRank = rankStr && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(rankStr) !== -1;
+  var rankStr = myRank || (typeof sessionGet === 'function' ? sessionGet('rank') : '') || '';
+  var isOfficerRank =
+    rankStr &&
+    [
+      'Officer',
+      'Lieutenant',
+      'Captain',
+      'Honarary Captain',
+      'Honorary Captain',
+      'Chaplain',
+      'Warrant Officer',
+      'Instructor',
+      'Staff Sergeant'
+    ].indexOf(rankStr) !== -1;
   if (isOfficerRank && /(?:^|\W)@officers?\b/i.test(lower)) return true;
 
   // 4. Squads: P1, P2, A1, A2, Z1, Z2
-  var squadStr = (mySquad || (typeof sessionGet === 'function' ? sessionGet('squad') : '') || '').toLowerCase().trim();
+  var squadStr = (mySquad || (typeof sessionGet === 'function' ? sessionGet('squad') : '') || '')
+    .toLowerCase()
+    .trim();
   if (squadStr) {
     if (lower.indexOf('@' + squadStr) !== -1) return true;
     var normSquad = squadStr.replace(/[^a-z0-9]/g, '');
-    if (normSquad === 'p1' || normSquad === 'papa1' || (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('1') !== -1)) {
+    if (
+      normSquad === 'p1' ||
+      normSquad === 'papa1' ||
+      (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('1') !== -1)
+    ) {
       if (/(?:^|\W)@p1\b/i.test(lower)) return true;
     }
-    if (normSquad === 'p2' || normSquad === 'papa2' || (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('2') !== -1)) {
+    if (
+      normSquad === 'p2' ||
+      normSquad === 'papa2' ||
+      (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('2') !== -1)
+    ) {
       if (/(?:^|\W)@p2\b/i.test(lower)) return true;
     }
-    if (normSquad === 'a1' || normSquad === 'alpha1' || (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('1') !== -1)) {
+    if (
+      normSquad === 'a1' ||
+      normSquad === 'alpha1' ||
+      (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('1') !== -1)
+    ) {
       if (/(?:^|\W)@a1\b/i.test(lower)) return true;
     }
-    if (normSquad === 'a2' || normSquad === 'alpha2' || (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('2') !== -1)) {
+    if (
+      normSquad === 'a2' ||
+      normSquad === 'alpha2' ||
+      (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('2') !== -1)
+    ) {
       if (/(?:^|\W)@a2\b/i.test(lower)) return true;
     }
-    if (normSquad === 'z1' || normSquad === 'zulu1' || (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('1') !== -1)) {
+    if (
+      normSquad === 'z1' ||
+      normSquad === 'zulu1' ||
+      (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('1') !== -1)
+    ) {
       if (/(?:^|\W)@z1\b/i.test(lower)) return true;
     }
-    if (normSquad === 'z2' || normSquad === 'zulu2' || (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('2') !== -1)) {
+    if (
+      normSquad === 'z2' ||
+      normSquad === 'zulu2' ||
+      (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('2') !== -1)
+    ) {
       if (/(?:^|\W)@z2\b/i.test(lower)) return true;
     }
   }
 
   // 5. Platoons: Papa, Alpha, Zulu
-  var platoonStr = (myPlatoon || (typeof sessionGet === 'function' ? sessionGet('platoon') : '') || squadStr || '').toLowerCase().trim();
+  var platoonStr = (
+    myPlatoon ||
+    (typeof sessionGet === 'function' ? sessionGet('platoon') : '') ||
+    squadStr ||
+    ''
+  )
+    .toLowerCase()
+    .trim();
   if (platoonStr) {
     if (platoonStr.indexOf('papa') !== -1 && /(?:^|\W)@papa\b/i.test(lower)) return true;
     if (platoonStr.indexOf('alpha') !== -1 && /(?:^|\W)@alpha\b/i.test(lower)) return true;
@@ -2114,7 +2818,9 @@ function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, my
   }
 
   // 6. Section groups: seniors, juniors
-  var secStr = (mySection || (typeof sessionGet === 'function' ? sessionGet('section') : '') || '').toLowerCase().trim();
+  var secStr = (mySection || (typeof sessionGet === 'function' ? sessionGet('section') : '') || '')
+    .toLowerCase()
+    .trim();
   if (secStr.indexOf('senior') !== -1 || isOfficerRank) {
     if (/(?:^|\W)@seniors?\b/i.test(lower)) return true;
   }
@@ -2123,14 +2829,19 @@ function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, my
   }
 
   // 7. Creator: @creator
-  var isCreator = (typeof isPortalCreator === 'function')
-    ? isPortalCreator(myName, myEmail)
-    : (/jeshua\s+koh/i.test(myName) || (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1));
+  var isCreator =
+    typeof isPortalCreator === 'function'
+      ? isPortalCreator(myName, myEmail)
+      : /jeshua\s+koh/i.test(myName) ||
+        (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1);
   if (isCreator && /(?:^|\W)@creator\b/i.test(lower)) return true;
 
   // 8. Super Admins: @super admins / @super admin
-  var isSuper = (typeof isSuperAdmin === 'function' && isSuperAdmin())
-    || (typeof window !== 'undefined' && typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
+  var isSuper =
+    (typeof isSuperAdmin === 'function' && isSuperAdmin()) ||
+    (typeof window !== 'undefined' &&
+      typeof window.isSuperAdmin === 'function' &&
+      window.isSuperAdmin());
   if (!isSuper && typeof sessionGet === 'function') {
     var sRole = (sessionGet('role') || '').toLowerCase();
     if (sRole === 'superadmin' || sRole === 'super admin') isSuper = true;
@@ -2138,8 +2849,10 @@ function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, my
   if (isSuper && /(?:^|\W)@(super\s*admins?)\b/i.test(lower)) return true;
 
   // 9. Admins: @admins / @admin
-  var isAdminUser = isSuper || (typeof isAdmin === 'function' && isAdmin())
-    || (typeof window !== 'undefined' && typeof window.isAdmin === 'function' && window.isAdmin());
+  var isAdminUser =
+    isSuper ||
+    (typeof isAdmin === 'function' && isAdmin()) ||
+    (typeof window !== 'undefined' && typeof window.isAdmin === 'function' && window.isAdmin());
   if (!isAdminUser && typeof sessionGet === 'function') {
     var aRole = (sessionGet('role') || '').toLowerCase();
     if (aRole === 'admin' || aRole === 'superadmin') isAdminUser = true;
@@ -2177,26 +2890,55 @@ function showAnnouncementMentionDropdown(el, query) {
   _activeAnnMentionIndex = 0;
 
   if (!candidates.length) {
-    dropdown.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);font-style:italic;">No matching announcement groups or members</div>';
+    dropdown.innerHTML =
+      '<div style="padding:10px 14px;font-size:12px;color:var(--text-muted);font-style:italic;">No matching announcement groups or members</div>';
     dropdown.style.display = 'block';
     return;
   }
 
   var html = '';
-  candidates.slice(0, 8).forEach(function(c, i) {
-    var iconHtml = '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">@</span>';
-    if (c.role !== 'Group' && c.role !== 'Department' && c.role !== 'Squad' && c.role !== 'Platoon' && c.role !== 'Role' && c.role !== 'Section') {
-      iconHtml = '<span style="width:24px;height:24px;border-radius:50%;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' + (c.name ? c.name.charAt(0).toUpperCase() : 'M') + '</span>';
+  candidates.slice(0, 8).forEach(function (c, i) {
+    var iconHtml =
+      '<span style="width:24px;height:24px;border-radius:6px;background:rgba(217,163,35,0.2);color:var(--brand-gold,#f5c542);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">@</span>';
+    if (
+      c.role !== 'Group' &&
+      c.role !== 'Department' &&
+      c.role !== 'Squad' &&
+      c.role !== 'Platoon' &&
+      c.role !== 'Role' &&
+      c.role !== 'Section'
+    ) {
+      iconHtml =
+        '<span style="width:24px;height:24px;border-radius:50%;background:#047857;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">' +
+        (c.name ? c.name.charAt(0).toUpperCase() : 'M') +
+        '</span>';
     }
 
-    html += '<div class="tb-mention-item' + (i === 0 ? ' active' : '') + '" data-idx="' + i + '" onpointerdown="selectAnnouncementMentionCandidate(' + i + ', event)" ontouchstart="selectAnnouncementMentionCandidate(' + i + ', event)" onmousedown="selectAnnouncementMentionCandidate(' + i + ', event)">'
-      + iconHtml
-      + '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">'
-        + '<div class="tb-mention-name">' + (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) + '</div>'
-        + '<div style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (typeof escapeHtml === 'function' ? escapeHtml(c.desc || '') : (c.desc || '')) + '</div>'
-      + '</div>'
-      + '<span class="tb-mention-type">' + (typeof escapeHtml === 'function' ? escapeHtml(c.role || 'Member') : (c.role || 'Member')) + '</span>'
-      + '</div>';
+    html +=
+      '<div class="tb-mention-item' +
+      (i === 0 ? ' active' : '') +
+      '" data-idx="' +
+      i +
+      '" onpointerdown="selectAnnouncementMentionCandidate(' +
+      i +
+      ', event)" ontouchstart="selectAnnouncementMentionCandidate(' +
+      i +
+      ', event)" onmousedown="selectAnnouncementMentionCandidate(' +
+      i +
+      ', event)">' +
+      iconHtml +
+      '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">' +
+      '<div class="tb-mention-name">' +
+      (typeof escapeHtml === 'function' ? escapeHtml(c.name) : c.name) +
+      '</div>' +
+      '<div style="font-size:10.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+      (typeof escapeHtml === 'function' ? escapeHtml(c.desc || '') : c.desc || '') +
+      '</div>' +
+      '</div>' +
+      '<span class="tb-mention-type">' +
+      (typeof escapeHtml === 'function' ? escapeHtml(c.role || 'Member') : c.role || 'Member') +
+      '</span>' +
+      '</div>';
   });
 
   dropdown.innerHTML = html;
@@ -2206,7 +2948,9 @@ function showAnnouncementMentionDropdown(el, query) {
 function hideAnnouncementMentionDropdown() {
   if (typeof document === 'undefined') return;
   var dropdowns = document.querySelectorAll('.ann-mentions-dropdown');
-  dropdowns.forEach(function(d) { d.style.display = 'none'; });
+  dropdowns.forEach(function (d) {
+    d.style.display = 'none';
+  });
   _currentAnnMentionCandidates = [];
   _activeAnnMentionIndex = 0;
 }
@@ -2216,7 +2960,7 @@ function handleAnnouncementMentionInput(el) {
   _activeAnnMentionTarget = el;
 
   var text = '';
-  var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+  var sel = typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null;
   if (sel && sel.focusNode) {
     var nodeText = sel.focusNode.textContent || '';
     var offset = sel.focusOffset || 0;
@@ -2239,19 +2983,24 @@ function handleAnnouncementMentionInput(el) {
 
 function handleAnnouncementMentionKeyDown(e, el) {
   var dropdown = el && el.parentNode ? el.parentNode.querySelector('.ann-mentions-dropdown') : null;
-  var isDropdownOpen = dropdown && dropdown.style.display !== 'none' && _currentAnnMentionCandidates.length > 0;
+  var isDropdownOpen =
+    dropdown && dropdown.style.display !== 'none' && _currentAnnMentionCandidates.length > 0;
 
   if (isDropdownOpen) {
     var items = dropdown.querySelectorAll('.tb-mention-item');
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       _activeAnnMentionIndex = (_activeAnnMentionIndex + 1) % items.length;
-      items.forEach(function(item, i) { item.classList.toggle('active', i === _activeAnnMentionIndex); });
+      items.forEach(function (item, i) {
+        item.classList.toggle('active', i === _activeAnnMentionIndex);
+      });
       return;
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       _activeAnnMentionIndex = (_activeAnnMentionIndex - 1 + items.length) % items.length;
-      items.forEach(function(item, i) { item.classList.toggle('active', i === _activeAnnMentionIndex); });
+      items.forEach(function (item, i) {
+        item.classList.toggle('active', i === _activeAnnMentionIndex);
+      });
       return;
     } else if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
@@ -2268,13 +3017,21 @@ function handleAnnouncementMentionKeyDown(e, el) {
 function selectAnnouncementMentionCandidate(idx, event) {
   if (event && event.preventDefault) event.preventDefault();
   var candidate = _currentAnnMentionCandidates[idx];
-  if (!candidate) { hideAnnouncementMentionDropdown(); return; }
+  if (!candidate) {
+    hideAnnouncementMentionDropdown();
+    return;
+  }
 
-  var input = _activeAnnMentionTarget || (typeof document !== 'undefined' ? document.getElementById('ann-body-input') : null);
-  if (!input) { hideAnnouncementMentionDropdown(); return; }
+  var input =
+    _activeAnnMentionTarget ||
+    (typeof document !== 'undefined' ? document.getElementById('ann-body-input') : null);
+  if (!input) {
+    hideAnnouncementMentionDropdown();
+    return;
+  }
 
   if (input.isContentEditable || input.getAttribute('contenteditable') === 'true') {
-    var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+    var sel = typeof window !== 'undefined' && window.getSelection ? window.getSelection() : null;
     if (sel && sel.focusNode) {
       var node = sel.focusNode;
       var nodeText = node.textContent || '';
@@ -2308,11 +3065,13 @@ function selectAnnouncementMentionCandidate(idx, event) {
       }
     } else {
       var curText = input.innerText || input.textContent || '';
-      input.innerHTML = formatAnnouncementMentions(escapeHtml(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ')));
+      input.innerHTML = formatAnnouncementMentions(
+        escapeHtml(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' '))
+      );
     }
   } else {
     var val = input.value || '';
-    var cursor = (typeof input.selectionStart === 'number') ? input.selectionStart : val.length;
+    var cursor = typeof input.selectionStart === 'number' ? input.selectionStart : val.length;
     var b = val.slice(0, cursor);
     var a = val.slice(cursor);
     var nb = b.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ');
@@ -2324,55 +3083,54 @@ function selectAnnouncementMentionCandidate(idx, event) {
   hideAnnouncementMentionDropdown();
 }
 
-
 if (typeof window !== 'undefined') {
-  window.announcements            = announcements;
-  window.SAFE_REACTION_EMOJIS     = SAFE_REACTION_EMOJIS;
-  window.REACT_EMOJIS             = REACT_EMOJIS;
-  window.ANN_EMOJIS               = ANN_EMOJIS;
+  window.announcements = announcements;
+  window.SAFE_REACTION_EMOJIS = SAFE_REACTION_EMOJIS;
+  window.REACT_EMOJIS = REACT_EMOJIS;
+  window.ANN_EMOJIS = ANN_EMOJIS;
   window.sanitizeAnnouncementHtml = sanitizeAnnouncementHtml;
-  window.loadAnnouncements        = loadAnnouncements;
-  window.renderAnnouncements      = renderAnnouncements;
-  window.toggleReaction           = toggleReaction;
-  window.renderAdminAnnList       = renderAdminAnnList;
-  window.openEditAnnouncement     = openEditAnnouncement;
-  window.cancelEditAnnouncement   = cancelEditAnnouncement;
-  window.addAnnouncement          = addAnnouncement;
-  window.saveAnnouncement         = addAnnouncement;
-  window.deleteAnnouncement       = deleteAnnouncement;
+  window.loadAnnouncements = loadAnnouncements;
+  window.renderAnnouncements = renderAnnouncements;
+  window.toggleReaction = toggleReaction;
+  window.renderAdminAnnList = renderAdminAnnList;
+  window.openEditAnnouncement = openEditAnnouncement;
+  window.cancelEditAnnouncement = cancelEditAnnouncement;
+  window.addAnnouncement = addAnnouncement;
+  window.saveAnnouncement = addAnnouncement;
+  window.deleteAnnouncement = deleteAnnouncement;
   window.broadcastAnnouncementEmail = broadcastAnnouncementEmail;
-  window.annSaveRange             = annSaveRange;
-  window.annRestoreRange          = annRestoreRange;
-  window.annFmt                   = annFmt;
-  window.annFontSize              = annFontSize;
-  window.annColor                 = annColor;
-  window.annInsertLine            = annInsertLine;
-  window.toggleAnnEmoji           = toggleAnnEmoji;
-  window.handleAnnouncementImageSelect    = handleAnnouncementImageSelect;
-  window.handleAnnouncementImageUrlInput  = handleAnnouncementImageUrlInput;
+  window.annSaveRange = annSaveRange;
+  window.annRestoreRange = annRestoreRange;
+  window.annFmt = annFmt;
+  window.annFontSize = annFontSize;
+  window.annColor = annColor;
+  window.annInsertLine = annInsertLine;
+  window.toggleAnnEmoji = toggleAnnEmoji;
+  window.handleAnnouncementImageSelect = handleAnnouncementImageSelect;
+  window.handleAnnouncementImageUrlInput = handleAnnouncementImageUrlInput;
   window.updateAnnouncementInfographicPreview = updateAnnouncementInfographicPreview;
-  window.clearAnnouncementInfographic     = clearAnnouncementInfographic;
-  window.handleAnnouncementImageError     = handleAnnouncementImageError;
+  window.clearAnnouncementInfographic = clearAnnouncementInfographic;
+  window.handleAnnouncementImageError = handleAnnouncementImageError;
   window.getAnnouncementMentionCandidates = getAnnouncementMentionCandidates;
-  window.formatAnnouncementMentions       = formatAnnouncementMentions;
-  window.isUserMentionedInAnnouncement    = isUserMentionedInAnnouncement;
-  window.showAnnouncementMentionDropdown  = showAnnouncementMentionDropdown;
-  window.hideAnnouncementMentionDropdown  = hideAnnouncementMentionDropdown;
-  window.handleAnnouncementMentionInput   = handleAnnouncementMentionInput;
+  window.formatAnnouncementMentions = formatAnnouncementMentions;
+  window.isUserMentionedInAnnouncement = isUserMentionedInAnnouncement;
+  window.showAnnouncementMentionDropdown = showAnnouncementMentionDropdown;
+  window.hideAnnouncementMentionDropdown = hideAnnouncementMentionDropdown;
+  window.handleAnnouncementMentionInput = handleAnnouncementMentionInput;
   window.handleAnnouncementMentionKeyDown = handleAnnouncementMentionKeyDown;
   window.selectAnnouncementMentionCandidate = selectAnnouncementMentionCandidate;
-  window.ALL_REACTION_EMOJIS            = ALL_REACTION_EMOJIS;
-  window.WHATSAPP_EMOJI_MAP             = WHATSAPP_EMOJI_MAP;
-  window.renderWhatsappEmoji            = renderWhatsappEmoji;
-  window.resolveReactedMember           = resolveReactedMember;
-  window.toggleAnnReactionChip          = toggleAnnReactionChip;
-  window.setAnnReactionPreset           = setAnnReactionPreset;
-  window.togglePinAnnouncement          = togglePinAnnouncement;
-  window.syncAnnouncementPinConfig      = syncAnnouncementPinConfig;
-  window.syncAnnouncementImageConfig    = syncAnnouncementImageConfig;
+  window.ALL_REACTION_EMOJIS = ALL_REACTION_EMOJIS;
+  window.WHATSAPP_EMOJI_MAP = WHATSAPP_EMOJI_MAP;
+  window.renderWhatsappEmoji = renderWhatsappEmoji;
+  window.resolveReactedMember = resolveReactedMember;
+  window.toggleAnnReactionChip = toggleAnnReactionChip;
+  window.setAnnReactionPreset = setAnnReactionPreset;
+  window.togglePinAnnouncement = togglePinAnnouncement;
+  window.syncAnnouncementPinConfig = syncAnnouncementPinConfig;
+  window.syncAnnouncementImageConfig = syncAnnouncementImageConfig;
   window.syncAnnouncementAllowedReactionsConfig = syncAnnouncementAllowedReactionsConfig;
   window.openAnnouncementReactionsModal = openAnnouncementReactionsModal;
-  window.closeAnnouncementReactionsModal= closeAnnouncementReactionsModal;
+  window.closeAnnouncementReactionsModal = closeAnnouncementReactionsModal;
 }
 
 // ── Node.js Module Exports ──────────────────────────────────────────────────

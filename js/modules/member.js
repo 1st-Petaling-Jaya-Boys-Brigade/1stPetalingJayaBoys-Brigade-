@@ -14,7 +14,8 @@ function getSupa() {
   if (typeof window !== 'undefined' && window.supa) return window.supa;
   if (typeof global !== 'undefined' && global.supa) return global.supa;
   if (typeof getSupaClient === 'function') return getSupaClient();
-  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+  if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function')
+    return window.getSupaClient();
   if (typeof supa !== 'undefined' && supa) return supa;
   return null;
 }
@@ -26,11 +27,11 @@ function getSupabaseClient() {
 // ── Auth View Toggles ────────────────────────────────────────────────────────
 
 function showAuthMode(mode) {
-  ['login', 'forgot', 'register'].forEach(function(m) {
+  ['login', 'forgot', 'register'].forEach(function (m) {
     var el = document.getElementById('auth-' + m);
-    if (el) el.style.display = (m === mode) ? 'block' : 'none';
+    if (el) el.style.display = m === mode ? 'block' : 'none';
   });
-  ['login', 'register'].forEach(function(btnMode) {
+  ['login', 'register'].forEach(function (btnMode) {
     var btn = document.getElementById('btn-' + btnMode);
     if (btn) btn.classList.toggle('active', btnMode === mode);
   });
@@ -41,10 +42,10 @@ function showAuthMode(mode) {
     showForgotStep(1);
   }
   if (typeof renderTurnstileWidget === 'function') {
-    setTimeout(function() {
+    setTimeout(function () {
       var container = document.querySelector('#auth-' + mode + ' .cf-turnstile-container');
       if (container) {
-        var actionName = (mode === 'forgot') ? 'forgot_password' : mode;
+        var actionName = mode === 'forgot' ? 'forgot_password' : mode;
         renderTurnstileWidget(container, actionName);
       }
     }, 50);
@@ -57,15 +58,19 @@ function togglePassVis(inputId, btnId) {
   if (!inp) return;
   if (inp.type === 'password') {
     inp.type = 'text';
-    if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
+    if (btn)
+      btn.innerHTML =
+        '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>';
   } else {
     inp.type = 'password';
-    if (btn) btn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    if (btn)
+      btn.innerHTML =
+        '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
   }
 }
 
 function goToMemberTab() {
-  var btn = (typeof document !== 'undefined') ? document.getElementById('tab-member') : null;
+  var btn = typeof document !== 'undefined' ? document.getElementById('tab-member') : null;
   if (typeof switchTab === 'function') {
     switchTab('member', btn);
   } else if (typeof window !== 'undefined' && typeof window.switchTab === 'function') {
@@ -83,16 +88,9 @@ var MEMBERS_JUNIORS_RANKS = [
   'Chief Junior Leader'
 ];
 
-var MEMBERS_SENIOR_RANKS = [
-  'Recruit',
-  'Private'
-];
+var MEMBERS_SENIOR_RANKS = ['Recruit', 'Private'];
 
-var NCO_RANKS = [
-  'Lance Corporal',
-  'Corporal',
-  'Sergeant'
-];
+var NCO_RANKS = ['Lance Corporal', 'Corporal', 'Sergeant'];
 
 var OFFICER_RANKS = [
   'Captain',
@@ -104,7 +102,9 @@ var OFFICER_RANKS = [
 ];
 
 function normalizeSection(section) {
-  var s = String(section || '').trim().toLowerCase();
+  var s = String(section || '')
+    .trim()
+    .toLowerCase();
   if (!s) return '';
   if (s.indexOf('officer') !== -1 || s.indexOf('staff') !== -1) return 'officer';
   if (s.indexOf('pre-junior') !== -1) return 'junior';
@@ -139,7 +139,12 @@ function getRanksForSection(section) {
 function populateRankOptions(selectEl, section, selectedRank, placeholderText, allowExtraRank) {
   if (!selectEl) return;
   var s = normalizeSection(section);
-  var placeholder = placeholderText !== undefined ? placeholderText : (s ? 'Select rank...' : 'Select section first...');
+  var placeholder =
+    placeholderText !== undefined
+      ? placeholderText
+      : s
+        ? 'Select rank...'
+        : 'Select section first...';
 
   selectEl.innerHTML = '';
 
@@ -170,11 +175,15 @@ function populateRankOptions(selectEl, section, selectedRank, placeholderText, a
   var found = false;
 
   if (s === 'junior') {
-    MEMBERS_JUNIORS_RANKS.forEach(function(r) {
+    MEMBERS_JUNIORS_RANKS.forEach(function (r) {
       var o = document.createElement('option');
       o.value = r;
       o.textContent = r;
-      if (selectedRank && (selectedRank === r || (r === 'Assistance Junior Leader' && selectedRank === 'Assistant Junior Leader'))) {
+      if (
+        selectedRank &&
+        (selectedRank === r ||
+          (r === 'Assistance Junior Leader' && selectedRank === 'Assistant Junior Leader'))
+      ) {
         o.selected = true;
         found = true;
       }
@@ -183,7 +192,7 @@ function populateRankOptions(selectEl, section, selectedRank, placeholderText, a
   } else if (s === 'senior') {
     var srGroup = document.createElement('optgroup');
     srGroup.label = 'Senior Ranks';
-    MEMBERS_SENIOR_RANKS.forEach(function(r) {
+    MEMBERS_SENIOR_RANKS.forEach(function (r) {
       var o = document.createElement('option');
       o.value = r;
       o.textContent = r;
@@ -197,7 +206,7 @@ function populateRankOptions(selectEl, section, selectedRank, placeholderText, a
 
     var ncoGroup = document.createElement('optgroup');
     ncoGroup.label = 'NCO Ranks';
-    NCO_RANKS.forEach(function(r) {
+    NCO_RANKS.forEach(function (r) {
       var o = document.createElement('option');
       o.value = r;
       o.textContent = r;
@@ -209,11 +218,14 @@ function populateRankOptions(selectEl, section, selectedRank, placeholderText, a
     });
     selectEl.appendChild(ncoGroup);
   } else if (s === 'officer') {
-    OFFICER_RANKS.forEach(function(r) {
+    OFFICER_RANKS.forEach(function (r) {
       var o = document.createElement('option');
       o.value = r;
       o.textContent = r;
-      if (selectedRank && (selectedRank === r || (r === 'Honarary Captain' && selectedRank === 'Honorary Captain'))) {
+      if (
+        selectedRank &&
+        (selectedRank === r || (r === 'Honarary Captain' && selectedRank === 'Honorary Captain'))
+      ) {
         o.selected = true;
         found = true;
       }
@@ -235,22 +247,49 @@ var JUNIOR_SQUADS = ['1', '2', '3', '4', '5'];
 function formatPlatoonOrSquad(squad, section) {
   if (!squad) return '';
   var s = String(squad).trim();
-  if (!s || s === 'No platoon' || s === 'No Platoon' || s === 'None' || s === '—' || s === 'No platoon/squad' || s === 'No Platoon/Squad' || s === 'No squad' || s === 'No Squad') return '';
-  var sec = (typeof normalizeSection === 'function') ? normalizeSection(section) : String(section || '').trim().toLowerCase();
-  var isJunior = sec === 'junior' || sec === 'pre-junior' || /^[1-5]$/.test(s) || /^squad\s*[1-5]$/i.test(s);
+  if (
+    !s ||
+    s === 'No platoon' ||
+    s === 'No Platoon' ||
+    s === 'None' ||
+    s === '—' ||
+    s === 'No platoon/squad' ||
+    s === 'No Platoon/Squad' ||
+    s === 'No squad' ||
+    s === 'No Squad'
+  )
+    return '';
+  var sec =
+    typeof normalizeSection === 'function'
+      ? normalizeSection(section)
+      : String(section || '')
+          .trim()
+          .toLowerCase();
+  var isJunior =
+    sec === 'junior' || sec === 'pre-junior' || /^[1-5]$/.test(s) || /^squad\s*[1-5]$/i.test(s);
   if (isJunior) {
-    return /^squad/i.test(s) ? s : ('Squad ' + s);
+    return /^squad/i.test(s) ? s : 'Squad ' + s;
   }
   if (sec === 'officer') return '';
-  return /platoon$/i.test(s) ? s : (s + ' Platoon');
+  return /platoon$/i.test(s) ? s : s + ' Platoon';
 }
 
 function populateSquadOptions(selectEl, section, selectedSquad, placeholderText, allowExtra) {
   if (!selectEl) return;
-  var s = (typeof normalizeSection === 'function') ? normalizeSection(section) : String(section || '').trim().toLowerCase();
-  var defaultPlaceholder = s === 'officer'
-    ? 'No platoon/squad (Officer)'
-    : (s === 'junior' ? 'Select squad...' : (s === 'senior' ? 'Select platoon...' : 'Select section first...'));
+  var s =
+    typeof normalizeSection === 'function'
+      ? normalizeSection(section)
+      : String(section || '')
+          .trim()
+          .toLowerCase();
+  var defaultPlaceholder =
+    s === 'officer'
+      ? 'No platoon/squad (Officer)'
+      : s === 'junior'
+        ? 'Select squad...'
+        : s === 'senior'
+          ? 'Select platoon...'
+          : 'Select section first...';
   var placeholder = placeholderText !== undefined ? placeholderText : defaultPlaceholder;
 
   selectEl.innerHTML = '';
@@ -293,22 +332,29 @@ function populateSquadOptions(selectEl, section, selectedSquad, placeholderText,
   var selectedNum = normSelected.replace(/^squad\s*/i, '');
 
   if (s === 'junior') {
-    JUNIOR_SQUADS.forEach(function(sq) {
+    JUNIOR_SQUADS.forEach(function (sq) {
       var o = document.createElement('option');
       o.value = sq;
       o.textContent = sq;
-      if (normSelected && (normSelected === sq || selectedNum === sq || normSelected.toLowerCase() === ('squad ' + sq))) {
+      if (
+        normSelected &&
+        (normSelected === sq || selectedNum === sq || normSelected.toLowerCase() === 'squad ' + sq)
+      ) {
         o.selected = true;
         found = true;
       }
       selectEl.appendChild(o);
     });
   } else if (s === 'senior') {
-    SENIOR_PLATOONS.forEach(function(plt) {
+    SENIOR_PLATOONS.forEach(function (plt) {
       var o = document.createElement('option');
       o.value = plt;
       o.textContent = plt;
-      if (normSelected && (normSelected.toLowerCase() === plt.toLowerCase() || normSelected.toLowerCase() === (plt.toLowerCase() + ' platoon'))) {
+      if (
+        normSelected &&
+        (normSelected.toLowerCase() === plt.toLowerCase() ||
+          normSelected.toLowerCase() === plt.toLowerCase() + ' platoon')
+      ) {
         o.selected = true;
         found = true;
       }
@@ -329,14 +375,15 @@ function populateSquadOptions(selectEl, section, selectedSquad, placeholderText,
 
 function isMinorSection(section, age) {
   if (!section && (age === undefined || age === null || age === '')) return false;
-  var s = String(section || '').trim().toLowerCase();
+  var s = String(section || '')
+    .trim()
+    .toLowerCase();
   if (s === 'officer') return false;
   if (s === 'pre-junior' || s === 'junior') return true;
   var numAge = parseInt(age, 10);
   if (!isNaN(numAge) && numAge > 0 && numAge <= 11) return true;
   return false;
 }
-
 
 function handleRegRankChange() {
   if (typeof document === 'undefined') return;
@@ -345,11 +392,14 @@ function handleRegRankChange() {
   if (!rankEl || !secEl) return;
   var r = rankEl.value;
   if (!r) return;
-  var secRankFn = (typeof getSectionForRank === 'function')
-    ? getSectionForRank
-    : (typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
+  var secRankFn =
+    typeof getSectionForRank === 'function'
+      ? getSectionForRank
+      : typeof global !== 'undefined' && typeof global.getSectionForRank === 'function'
         ? global.getSectionForRank
-        : (typeof window !== 'undefined' && typeof window.getSectionForRank === 'function' ? window.getSectionForRank : null));
+        : typeof window !== 'undefined' && typeof window.getSectionForRank === 'function'
+          ? window.getSectionForRank
+          : null;
   if (typeof secRankFn === 'function') {
     var inferred = secRankFn(r);
     if (inferred && secEl.value !== inferred) {
@@ -365,18 +415,27 @@ function handleSectionChange() {
   var ageEl = document.getElementById('reg-age');
   var rankEl = document.getElementById('reg-rank');
   var squadEl = document.getElementById('reg-squad');
-  var box   = document.getElementById('parent-consent-box');
+  var box = document.getElementById('parent-consent-box');
 
   var section = secEl ? secEl.value : '';
-  var age     = ageEl ? ageEl.value : '';
+  var age = ageEl ? ageEl.value : '';
 
   if (rankEl) {
     var curRank = rankEl.value;
-    populateRankOptions(rankEl, section, curRank, section ? 'Select rank...' : 'Select section first...', false);
+    populateRankOptions(
+      rankEl,
+      section,
+      curRank,
+      section ? 'Select rank...' : 'Select section first...',
+      false
+    );
   }
 
   if (squadEl) {
-    var isOff = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'officer';
+    var isOff =
+      (typeof normalizeSection === 'function'
+        ? normalizeSection(section)
+        : String(section).toLowerCase()) === 'officer';
     if (isOff) {
       squadEl.innerHTML = '<option value="" selected>No platoon/squad (Officer)</option>';
       squadEl.value = '';
@@ -437,7 +496,9 @@ async function fetchMemberConsent(email, memberObj) {
     var client = getSupa();
     if (client && typeof client.get === 'function') {
       var consentKey = 'bb_consent_' + String(email).replace(/[^a-zA-Z0-9_-]/g, '_');
-      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(consentKey) + '&select=value');
+      var rows = await client.get(
+        'bb_config?key=eq.' + encodeURIComponent(consentKey) + '&select=value'
+      );
       if (rows && rows.length && rows[0].value) {
         var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
         return parsed;
@@ -445,7 +506,10 @@ async function fetchMemberConsent(email, memberObj) {
     }
   } catch (e) {}
 
-  if (typeof sessionGet === 'function' && (sessionGet('email') === email || sessionGet('ic') === email)) {
+  if (
+    typeof sessionGet === 'function' &&
+    (sessionGet('email') === email || sessionGet('ic') === email)
+  ) {
     var pName = sessionGet('parent_name');
     var pContact = sessionGet('parent_contact');
     var pSigned = sessionGet('parental_consent_signed');
@@ -470,7 +534,7 @@ async function fetchMemberConsent(email, memberObj) {
  * @param {boolean} newConsent
  */
 async function updateMemberMediaConsent(newConsent) {
-  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
+  var id = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
   if (!id) return;
   try {
     var client = getSupa();
@@ -479,8 +543,11 @@ async function updateMemberMediaConsent(newConsent) {
     if (!client || typeof client.patch !== 'function') {
       throw new Error('Member service unavailable');
     }
-    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { media_consent: consentVal });
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
+    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), {
+      media_consent: consentVal
+    });
+    if (!updated || (Array.isArray(updated) && updated.length === 0))
+      throw new Error('Member record unavailable');
 
     // Update active session state
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
@@ -492,8 +559,18 @@ async function updateMemberMediaConsent(newConsent) {
     if (client && typeof client.upsert === 'function') {
       try {
         var consentKey = 'bb_consent_' + id.replace(/[^a-zA-Z0-9_-]/g, '_');
-        var rows = (typeof client.get === 'function') ? await client.get('bb_config?key=eq.' + encodeURIComponent(consentKey) + '&select=value') : null;
-        var audit = (rows && rows.length && rows[0].value) ? (typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value) : { email: id };
+        var rows =
+          typeof client.get === 'function'
+            ? await client.get(
+                'bb_config?key=eq.' + encodeURIComponent(consentKey) + '&select=value'
+              )
+            : null;
+        var audit =
+          rows && rows.length && rows[0].value
+            ? typeof rows[0].value === 'string'
+              ? JSON.parse(rows[0].value)
+              : rows[0].value
+            : { email: id };
         audit.media_consent = consentVal;
         audit.media_consent_updated_at = new Date().toISOString();
         audit.governance = 'COPPA/PDPA-2010';
@@ -507,7 +584,9 @@ async function updateMemberMediaConsent(newConsent) {
       }
     }
 
-    var feedbackMsg = consentVal ? 'Media Release updated: Opted-in to official photos.' : 'Media Release updated: Marked as Media Private (No Photos).';
+    var feedbackMsg = consentVal
+      ? 'Media Release updated: Opted-in to official photos.'
+      : 'Media Release updated: Marked as Media Private (No Photos).';
     if (typeof showToast === 'function') {
       showToast(feedbackMsg, 'success');
     }
@@ -537,7 +616,9 @@ var _emailCheckTimeout = null;
 var _isFamilyRegistration = false;
 var _familyAccounts = [];
 var _stagedRegistration = null;
-try { sessionStorage.removeItem('bb_staged_reg'); } catch (_) {}
+try {
+  sessionStorage.removeItem('bb_staged_reg');
+} catch (_) {}
 
 /**
  * Searches for all active member accounts associated with an email address.
@@ -555,30 +636,44 @@ async function findMembersByEmail(rawEmail) {
 
   var cfgKey = 'bb_family_' + email.replace(/[^a-zA-Z0-9]/g, '_');
 
+  var SAFE_MEMBER_COLS =
+    'id,name,email,ic,role,rank,platoon,squad,section,att_section,age,department,photo_url,points,parade_attendance,band_attendance,uniform_points,parade_points,band_points,joined_date,created_at';
+
   // Parallelize member discovery queries (exact ic, email column, prefix wildcard, and family config)
   try {
     var results = await Promise.allSettled([
-      client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*'),
-      client.get('bb_members?email=eq.' + encodeURIComponent(email) + '&select=*'),
-      client.get('bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=*'),
+      client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=' + SAFE_MEMBER_COLS),
+      client.get(
+        'bb_members?email=eq.' + encodeURIComponent(email) + '&select=' + SAFE_MEMBER_COLS
+      ),
+      client.get(
+        'bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=' + SAFE_MEMBER_COLS
+      ),
       client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value')
     ]);
 
     if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) {
-      results[0].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
+      results[0].value.forEach(function (r) {
+        if (r && r.ic) memberMap.set(r.ic, r);
+      });
     }
     if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
-      results[1].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
+      results[1].value.forEach(function (r) {
+        if (r && r.ic) memberMap.set(r.ic, r);
+      });
     }
     if (results[2].status === 'fulfilled' && Array.isArray(results[2].value)) {
-      results[2].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
+      results[2].value.forEach(function (r) {
+        if (r && r.ic) memberMap.set(r.ic, r);
+      });
     }
 
     // Process family records
     if (results[3].status === 'fulfilled') {
       var cfgRows = results[3].value;
       if (cfgRows && cfgRows.length && cfgRows[0].value) {
-        var famData = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
+        var famData =
+          typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
         if (famData && Array.isArray(famData.members)) {
           var missingIcs = [];
           for (var i = 0; i < famData.members.length; i++) {
@@ -586,10 +681,14 @@ async function findMembersByEmail(rawEmail) {
             if (fIc && !memberMap.has(fIc)) missingIcs.push(fIc);
           }
           if (missingIcs.length > 0) {
-            var famResults = await Promise.allSettled(missingIcs.map(function(id) {
-              return client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
-            }));
-            famResults.forEach(function(res, idx) {
+            var famResults = await Promise.allSettled(
+              missingIcs.map(function (id) {
+                return client.get(
+                  'bb_members?ic=eq.' + encodeURIComponent(id) + '&select=' + SAFE_MEMBER_COLS
+                );
+              })
+            );
+            famResults.forEach(function (res, idx) {
               if (res.status === 'fulfilled' && Array.isArray(res.value) && res.value.length > 0) {
                 memberMap.set(missingIcs[idx], res.value[0]);
               }
@@ -602,7 +701,7 @@ async function findMembersByEmail(rawEmail) {
 
   // Filter out deleted members
   var active = [];
-  memberMap.forEach(function(m) {
+  memberMap.forEach(function (m) {
     if (m.department !== 'deleted' && m.department !== 'archived_deleted') {
       active.push(m);
     }
@@ -611,9 +710,26 @@ async function findMembersByEmail(rawEmail) {
   return active;
 }
 
+function generateSecureSixDigitOtp() {
+  var cryptoObj =
+    typeof window !== 'undefined' && window.crypto
+      ? window.crypto
+      : typeof crypto !== 'undefined'
+        ? crypto
+        : null;
+  if (!cryptoObj || typeof cryptoObj.getRandomValues !== 'function') {
+    throw new Error('Cryptographically secure random number generator unavailable');
+  }
+  var u32Arr = new Uint32Array(1);
+  do {
+    cryptoObj.getRandomValues(u32Arr);
+  } while (u32Arr[0] >= 4294800000); // 4294800000 = 4772 * 900000
+  return String(100000 + (u32Arr[0] % 900000));
+}
+
 /**
  * Dispatches a 6-digit registration verification code via the Google Apps Script Webhook.
- * Stores OTP payload in sessionStorage and bb_config for verification.
+ * Stores OTP payload in sessionStorage for verification.
  * @param {string} email
  * @param {string} name
  * @param {string} code
@@ -633,27 +749,7 @@ async function dispatchVerificationEmail(email, name, code) {
     sessionStorage.setItem('bb_reg_otp_' + cleanEmail, JSON.stringify(otpPayload));
   } catch (e) {}
 
-  // 2. Save in bb_config for persistent verification across devices
-  try {
-    var client = getSupa();
-    if (client) {
-      var cfgKey = 'bb_reg_otp_' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_');
-      try {
-        await client.req('POST', 'bb_config?on_conflict=key', {
-          key: cfgKey,
-          value: JSON.stringify(otpPayload)
-        });
-      } catch (postErr) {
-        try {
-          await client.patch('bb_config?key=eq.' + encodeURIComponent(cfgKey), {
-            value: JSON.stringify(otpPayload)
-          });
-        } catch (patchErr) {}
-      }
-    }
-  } catch (e) {}
-
-  // 3. Dispatch email via Google Apps Script Webhook
+  // 2. Dispatch email via Google Apps Script Webhook
   var hasMailer = false;
   try {
     var scriptUrl = '';
@@ -664,38 +760,61 @@ async function dispatchVerificationEmail(email, name, code) {
     }
     if (!scriptUrl) {
       var supaClient = getSupa();
-      if (supaClient && typeof supaClient.get === 'function') {
-        var sheetRows = await supaClient.get('bb_config?key=eq.bb_master_sheet_config&select=value');
-        if (!sheetRows || !sheetRows.length) {
-          sheetRows = await supaClient.get('bb_config?key=eq.bb_att_sheet&select=value');
-        }
-        if (sheetRows && sheetRows.length && sheetRows[0].value) {
-          var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
-          scriptUrl = parsed.scriptUrl || '';
-          syncToken = parsed.syncToken || syncToken;
+      if (supaClient && typeof supaClient.rpc === 'function') {
+        try {
+          var mailerRes = await supaClient.rpc('rpc_get_mailer_url');
+          if (mailerRes && mailerRes.script_url) {
+            scriptUrl = mailerRes.script_url;
+          }
+        } catch (mErr) {}
+      }
+      if (!scriptUrl && supaClient && typeof supaClient.get === 'function') {
+        var mailerRows = await supaClient.get('bb_config?key=eq.bb_mailer_script_url&select=value');
+        if (mailerRows && mailerRows.length && mailerRows[0].value) {
+          scriptUrl = mailerRows[0].value;
+        } else {
+          var sheetRows = await supaClient.get(
+            'bb_config?key=eq.bb_master_sheet_config&select=value'
+          );
+          if (!sheetRows || !sheetRows.length) {
+            sheetRows = await supaClient.get('bb_config?key=eq.bb_att_sheet&select=value');
+          }
+          if (sheetRows && sheetRows.length && sheetRows[0].value) {
+            var parsed =
+              typeof sheetRows[0].value === 'string'
+                ? JSON.parse(sheetRows[0].value)
+                : sheetRows[0].value;
+            scriptUrl = parsed.scriptUrl || '';
+            syncToken = parsed.syncToken || syncToken;
+          }
         }
       }
     }
 
     if (scriptUrl && scriptUrl.trim().length > 0) {
       hasMailer = true;
-      var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
+      var url =
+        scriptUrl +
+        (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
         'action=sendVerificationEmail' +
-        '&email=' + encodeURIComponent(cleanEmail) +
-        '&code=' + encodeURIComponent(code) +
-        '&name=' + encodeURIComponent(recipientName) +
+        '&email=' +
+        encodeURIComponent(cleanEmail) +
+        '&code=' +
+        encodeURIComponent(code) +
+        '&name=' +
+        encodeURIComponent(recipientName) +
         (syncToken ? '&token=' + encodeURIComponent(syncToken) : '');
 
-      fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function() {});
+      fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function () {});
     }
   } catch (scriptErr) {
     console.warn('Apps Script mail dispatch note:', scriptErr);
   }
 
-
-
   // Privacy-safe masked verification audit log (zero plaintext code or unmasked PII in console)
-  var maskedEmail = cleanEmail ? cleanEmail.replace(/^([^@]{1,3})[^@]*(@.*)$/, '$1***$2') : 'unknown';
+  var maskedEmail = cleanEmail
+    ? cleanEmail.replace(/^([^@]{1,3})[^@]*(@.*)$/, '$1***$2')
+    : 'unknown';
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
       action: 'auth.verification_code_generated',
@@ -725,7 +844,7 @@ function handleRegEmailInput() {
     return;
   }
 
-  _emailCheckTimeout = setTimeout(async function() {
+  _emailCheckTimeout = setTimeout(async function () {
     try {
       var accounts = await findMembersByEmail(email);
       if (accounts && accounts.length > 0) {
@@ -745,11 +864,21 @@ function handleRegEmailInput() {
 
 function showFamilyDetectedUI(accounts) {
   var banner = document.getElementById('reg-family-detected-banner');
-  var names = accounts.map(function(a) { return a.name; }).filter(Boolean).join(', ');
+  var names = accounts
+    .map(function (a) {
+      return a.name;
+    })
+    .filter(Boolean)
+    .join(', ');
 
   if (!banner) {
     var emailInp = document.getElementById('reg-email');
-    var emailGroup = emailInp && emailInp.closest ? emailInp.closest('.form-group') : (emailInp ? emailInp.parentElement : null);
+    var emailGroup =
+      emailInp && emailInp.closest
+        ? emailInp.closest('.form-group')
+        : emailInp
+          ? emailInp.parentElement
+          : null;
     if (emailGroup && emailGroup.parentNode) {
       banner = document.createElement('div');
       banner.id = 'reg-family-detected-banner';
@@ -762,30 +891,40 @@ function showFamilyDetectedUI(accounts) {
     banner.style.display = 'block';
     banner.innerHTML =
       '<div class="reg-family-header">' +
-        '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
-        '<span>Family Account Detected</span>' +
+      '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+      '<span>Family Account Detected</span>' +
       '</div>' +
       '<p class="reg-family-desc">' +
-        'This email is already linked to <strong>' + escapeHtml(names) + '</strong>.<br>' +
-        'To add this new member to your family account, please enter your existing account password.' +
+      'This email is already linked to <strong>' +
+      escapeHtml(names) +
+      '</strong>.<br>' +
+      'To add this new member to your family account, please enter your existing account password.' +
       '</p>';
   }
 
   // Update password input label and placeholder
   var passLabel = document.querySelector('label[for="reg-pass"]');
   var passInp = document.getElementById('reg-pass');
-  if (passLabel) passLabel.innerHTML = 'Existing Family Password <span style="color:var(--accent);font-weight:normal;font-size:12px;">(Required to link member)</span>';
+  if (passLabel)
+    passLabel.innerHTML =
+      'Existing Family Password <span style="color:var(--accent);font-weight:normal;font-size:12px;">(Required to link member)</span>';
   if (passInp) passInp.placeholder = 'Enter existing family account password';
 
   // Hide pass2 row since confirm password is not needed when verifying existing password
   var pass2Inp = document.getElementById('reg-pass2');
-  var pass2Group = pass2Inp && pass2Inp.closest ? pass2Inp.closest('.form-group') : (pass2Inp ? pass2Inp.parentElement : null);
+  var pass2Group =
+    pass2Inp && pass2Inp.closest
+      ? pass2Inp.closest('.form-group')
+      : pass2Inp
+        ? pass2Inp.parentElement
+        : null;
   if (pass2Group) pass2Group.style.display = 'none';
 
   // Update submit button text
   var submitBtn = document.querySelector('#auth-register button[type="submit"]');
   if (submitBtn) {
-    submitBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Add Member to Family Account';
+    submitBtn.innerHTML =
+      '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Add Member to Family Account';
   }
 }
 
@@ -801,13 +940,81 @@ function resetFamilyBanner() {
   if (passInp) passInp.placeholder = 'Create password (min 6 chars)';
 
   var pass2Inp = document.getElementById('reg-pass2');
-  var pass2Group = pass2Inp && pass2Inp.closest ? pass2Inp.closest('.form-group') : (pass2Inp ? pass2Inp.parentElement : null);
+  var pass2Group =
+    pass2Inp && pass2Inp.closest
+      ? pass2Inp.closest('.form-group')
+      : pass2Inp
+        ? pass2Inp.parentElement
+        : null;
   if (pass2Group) pass2Group.style.display = 'block';
 
   var submitBtn = document.querySelector('#auth-register button[type="submit"]');
   if (submitBtn) {
-    submitBtn.innerHTML = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Create Account';
+    submitBtn.innerHTML =
+      '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> Create Account';
   }
+}
+
+function clearFieldValidation(el) {
+  if (!el) return;
+  if (el.classList && typeof el.classList.remove === 'function') {
+    el.classList.remove('is-invalid');
+  }
+  if (typeof el.removeAttribute === 'function') {
+    el.removeAttribute('aria-invalid');
+  }
+  var group = typeof el.closest === 'function' ? el.closest('.form-group') : el.parentNode || null;
+  if (group && typeof group.querySelectorAll === 'function') {
+    var errs = group.querySelectorAll('.field-error');
+    errs.forEach(function (err) {
+      if (err && typeof err.remove === 'function') {
+        err.remove();
+      } else if (err && err.parentNode && typeof err.parentNode.removeChild === 'function') {
+        err.parentNode.removeChild(err);
+      }
+    });
+  }
+}
+
+function setFieldValidation(el, errorMsg) {
+  if (!el) return;
+  if (el.classList && typeof el.classList.add === 'function') {
+    el.classList.add('is-invalid');
+  }
+  if (typeof el.setAttribute === 'function') {
+    el.setAttribute('aria-invalid', 'true');
+  }
+  var group = typeof el.closest === 'function' ? el.closest('.form-group') : el.parentNode || null;
+  if (group && typeof document !== 'undefined') {
+    var existing =
+      typeof group.querySelector === 'function' ? group.querySelector('.field-error') : null;
+    if (!existing) {
+      existing = document.createElement('div');
+      existing.className = 'field-error';
+      existing.setAttribute('role', 'alert');
+      if (el.nextSibling && typeof group.insertBefore === 'function') {
+        group.insertBefore(existing, el.nextSibling);
+      } else if (typeof group.appendChild === 'function') {
+        group.appendChild(existing);
+      }
+    }
+    if (existing) {
+      existing.textContent = errorMsg;
+    }
+  }
+  if (!el._boundValidationClear && typeof el.addEventListener === 'function') {
+    el._boundValidationClear = true;
+    var onInputClear = function () {
+      clearFieldValidation(el);
+    };
+    el.addEventListener('input', onInputClear);
+    el.addEventListener('change', onInputClear);
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.clearFieldValidation = clearFieldValidation;
+  window.setFieldValidation = setFieldValidation;
 }
 
 var _isRegisteringMember = false;
@@ -820,81 +1027,127 @@ async function registerMember() {
   var hpEl = document.getElementById('reg-honeypot');
   if (hpEl && hpEl.value && hpEl.value.trim().length > 0) {
     console.warn('Bot registration blocked by honeypot');
-    await new Promise(function(r) { setTimeout(r, 600); });
-    if (typeof showToast === 'function') showToast('Registration submitted successfully.', 'success');
+    await new Promise(function (r) {
+      setTimeout(r, 600);
+    });
+    if (typeof showToast === 'function')
+      showToast('Registration submitted successfully.', 'success');
     return;
+  }
+
+  // Clear previous validation feedback
+  var formInputs = [
+    document.getElementById('reg-fullname'),
+    document.getElementById('reg-email') || document.getElementById('reg-ic'),
+    document.getElementById('reg-section'),
+    document.getElementById('reg-age'),
+    document.getElementById('reg-rank'),
+    document.getElementById('reg-squad'),
+    document.getElementById('reg-pass'),
+    document.getElementById('reg-pass2'),
+    document.getElementById('reg-parent-name'),
+    document.getElementById('reg-parent-contact'),
+    document.getElementById('reg-parent-consent')
+  ].filter(Boolean);
+  formInputs.forEach(clearFieldValidation);
+  if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
+    document.querySelectorAll('.field-error').forEach(function (e) {
+      if (e && typeof e.remove === 'function') e.remove();
+      else if (e && e.parentNode && typeof e.parentNode.removeChild === 'function')
+        e.parentNode.removeChild(e);
+    });
+  }
+
+  var firstInvalidEl = null;
+  var firstInvalidMsg = '';
+
+  function markInvalid(el, msg) {
+    if (!el) return;
+    setFieldValidation(el, msg);
+    if (!firstInvalidEl) {
+      firstInvalidEl = el;
+      firstInvalidMsg = msg;
+    }
   }
 
   var rawName = ((document.getElementById('reg-fullname') || {}).value || '').trim();
-  var name    = (typeof sanitizeText === 'function') ? sanitizeText(rawName, 100) : rawName;
+  var name = typeof sanitizeText === 'function' ? sanitizeText(rawName, 100) : rawName;
   var emailEl = document.getElementById('reg-email') || document.getElementById('reg-ic') || {};
-  var email   = (emailEl.value || '').trim().toLowerCase();
+  var email = (emailEl.value || '').trim().toLowerCase();
   var section = ((document.getElementById('reg-section') || {}).value || '').trim();
-  var ageRaw  = ((document.getElementById('reg-age') || {}).value || '').trim();
-  var rank    = ((document.getElementById('reg-rank') || {}).value || '').trim();
-  var squad   = ((document.getElementById('reg-squad') || {}).value || '').trim();
-  var pass    = (document.getElementById('reg-pass') || {}).value || '';
-  var pass2   = (document.getElementById('reg-pass2') || {}).value || '';
+  var ageRaw = ((document.getElementById('reg-age') || {}).value || '').trim();
+  var rank = ((document.getElementById('reg-rank') || {}).value || '').trim();
+  var squad = ((document.getElementById('reg-squad') || {}).value || '').trim();
+  var pass = (document.getElementById('reg-pass') || {}).value || '';
+  var pass2 = (document.getElementById('reg-pass2') || {}).value || '';
 
+  var nEl = document.getElementById('reg-fullname');
   if (!name) {
-    if (typeof showToast === 'function') showToast('Please enter your full name.', 'warning');
-    var nEl = document.getElementById('reg-fullname');
-    if (nEl && nEl.focus) nEl.focus();
-    return;
+    markInvalid(nEl, 'Please enter your full name.');
+  } else {
+    var nameTokens = name.split(/\s+/).filter(function (w) {
+      return w.length >= 2;
+    });
+    if (nameTokens.length < 2) {
+      markInvalid(nEl, 'Please enter your full name (at least first name and surname).');
+    }
   }
-  var nameTokens = name.split(/\s+/).filter(function(w) { return w.length >= 2; });
-  if (nameTokens.length < 2) {
-    if (typeof showToast === 'function') showToast('Please enter your full name (at least first name and surname).', 'warning');
-    var nEl2 = document.getElementById('reg-fullname');
-    if (nEl2 && nEl2.focus) nEl2.focus();
-    return;
-  }
+
+  var emEl = document.getElementById('reg-email') || document.getElementById('reg-ic');
   if (!email || !EMAIL_REGEX.test(email)) {
-    if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning');
-    var emEl = document.getElementById('reg-email') || document.getElementById('reg-ic');
-    if (emEl && emEl.focus) emEl.focus();
-    return;
+    markInvalid(emEl, 'Please enter a valid email address.');
   }
+
+  var sEl = document.getElementById('reg-section');
   if (!section) {
-    if (typeof showToast === 'function') showToast('Please select your section (Junior, Senior, or Officer).', 'warning');
-    var sEl = document.getElementById('reg-section');
-    if (sEl && sEl.focus) sEl.focus();
-    return;
+    markInvalid(sEl, 'Please select your section (Junior, Senior, or Officer).');
   }
 
   var parsedAge = parseInt(ageRaw, 10);
+  var aEl = document.getElementById('reg-age');
   if (!ageRaw || isNaN(parsedAge) || parsedAge < 5 || parsedAge > 100) {
-    if (typeof showToast === 'function') showToast('Please enter a valid age (between 5 and 100).', 'warning');
-    var aEl = document.getElementById('reg-age');
-    if (aEl && aEl.focus) aEl.focus();
-    return;
+    markInvalid(aEl, 'Please enter a valid age (between 5 and 100).');
   }
-  if (!rank)  {
-    if (typeof showToast === 'function') showToast('Please select your rank.', 'warning');
-    var rEl = document.getElementById('reg-rank');
-    if (rEl && rEl.focus) rEl.focus();
-    return;
+
+  var rEl = document.getElementById('reg-rank');
+  if (!rank) {
+    markInvalid(rEl, 'Please select your rank.');
   }
-  var isOfficerSec = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'officer';
+
+  var isOfficerSec =
+    (typeof normalizeSection === 'function'
+      ? normalizeSection(section)
+      : String(section).toLowerCase()) === 'officer';
+  var sqEl = document.getElementById('reg-squad');
   if (!isOfficerSec && !squad) {
-    var isJr = (typeof normalizeSection === 'function' ? normalizeSection(section) : String(section).toLowerCase()) === 'junior';
-    if (typeof showToast === 'function') showToast(isJr ? 'Please select your squad.' : 'Please select your platoon/squad.', 'warning');
-    var sqEl = document.getElementById('reg-squad');
-    if (sqEl && sqEl.focus) sqEl.focus();
-    return;
+    var isJr =
+      (typeof normalizeSection === 'function'
+        ? normalizeSection(section)
+        : String(section).toLowerCase()) === 'junior';
+    markInvalid(sqEl, isJr ? 'Please select your squad.' : 'Please select your platoon/squad.');
   }
   if (isOfficerSec) {
     squad = '';
   }
-  if (pass.length < 6) {
-    if (typeof showToast === 'function') showToast('Password must be at least 6 characters.', 'warning');
-    var pEl = document.getElementById('reg-pass');
-    if (pEl && pEl.focus) pEl.focus();
-    return;
+
+  var pEl = document.getElementById('reg-pass');
+  var pEl2 = document.getElementById('reg-pass2');
+  var pass2Group = pEl2
+    ? typeof pEl2.closest === 'function'
+      ? pEl2.closest('.form-group')
+      : pEl2.parentElement
+    : null;
+  var pass2Visible = !pass2Group || pass2Group.style.display !== 'none';
+  if (!pass || pass.length < 6) {
+    markInvalid(pEl, 'Password must be at least 6 characters.');
+  } else if (pass2Visible && !pass2) {
+    markInvalid(pEl2, 'Please confirm your password.');
+  } else if (pass2Visible && pass !== pass2) {
+    markInvalid(pEl2, 'Passwords do not match.');
   }
 
   // Child Safety Governance & Verifiable Parental Consent ( / COPPA & PDPA 2010)
-  var isMinor = isMinorSection(section, parsedAge);
+  var isMinor = typeof isMinorSection === 'function' ? isMinorSection(section, parsedAge) : false;
   var parentName = '';
   var parentContact = '';
   var parentConsent = false;
@@ -902,32 +1155,57 @@ async function registerMember() {
   var consentTimestamp = null;
 
   if (isMinor) {
-    var rawParentName    = ((document.getElementById('reg-parent-name') || {}).value || '').trim();
-    var rawParentContact = ((document.getElementById('reg-parent-contact') || {}).value || '').trim();
-    var pConsentEl       = document.getElementById('reg-parent-consent');
-    var pMediaEl         = document.getElementById('reg-media-consent');
+    var rawParentName = ((document.getElementById('reg-parent-name') || {}).value || '').trim();
+    var rawParentContact = (
+      (document.getElementById('reg-parent-contact') || {}).value || ''
+    ).trim();
+    var pConsentEl = document.getElementById('reg-parent-consent');
+    var pMediaEl = document.getElementById('reg-media-consent');
 
-    parentName    = (typeof sanitizeText === 'function') ? sanitizeText(rawParentName, 100) : rawParentName;
-    parentContact = (typeof sanitizeInput === 'function') ? sanitizeInput(rawParentContact, 100) : rawParentContact;
+    parentName =
+      typeof sanitizeText === 'function' ? sanitizeText(rawParentName, 100) : rawParentName;
+    parentContact =
+      typeof sanitizeInput === 'function' ? sanitizeInput(rawParentContact, 100) : rawParentContact;
     parentConsent = pConsentEl ? !!pConsentEl.checked : false;
-    mediaConsent  = pMediaEl ? !!pMediaEl.checked : false;
+    mediaConsent = pMediaEl ? !!pMediaEl.checked : false;
+
+    var pnEl = document.getElementById('reg-parent-name');
+    var pcEl = document.getElementById('reg-parent-contact');
+    var pcbEl = document.getElementById('reg-parent-consent');
 
     if (!parentName) {
-      if (typeof showToast === 'function') showToast('Parent or Legal Guardian Name is required for Pre-Junior and Junior members.', 'warning');
-      return;
+      markInvalid(
+        pnEl,
+        'Parent or Legal Guardian Name is required for Pre-Junior and Junior members.'
+      );
     }
     if (!parentContact) {
-      if (typeof showToast === 'function') showToast('Parent or Legal Guardian Contact (Phone or Email) is required for Pre-Junior and Junior members.', 'warning');
-      return;
+      markInvalid(
+        pcEl,
+        'Parent or Legal Guardian Contact (Phone or Email) is required for Pre-Junior and Junior members.'
+      );
     }
     if (!parentConsent) {
-      if (typeof showToast === 'function') showToast('Verified Parental or Legal Guardian Consent is strictly required to register members under 12 years old.', 'warning');
-      return;
+      markInvalid(
+        pcbEl,
+        'Verified Parental or Legal Guardian Consent is strictly required to register members under 12 years old.'
+      );
     }
     consentTimestamp = new Date().toISOString();
   }
 
-  var regBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-register button[type="submit"]') : null;
+  if (firstInvalidEl) {
+    if (typeof showToast === 'function') showToast(firstInvalidMsg, 'warning');
+    if (firstInvalidEl && typeof firstInvalidEl.focus === 'function') {
+      firstInvalidEl.focus();
+    }
+    return;
+  }
+
+  var regBtn =
+    typeof document !== 'undefined'
+      ? document.querySelector('#auth-register button[type="submit"]')
+      : null;
   _isRegisteringMember = true;
   if (typeof setButtonLoading === 'function' && regBtn) {
     setButtonLoading(regBtn, true, 'Processing...', 'Verifying registration details...');
@@ -936,13 +1214,28 @@ async function registerMember() {
   try {
     // 0a. Blocked Email Verification (bb_blocked_emails)
     var isBlocked = false;
-    var supaCli = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+    var supaCli =
+      typeof supa !== 'undefined'
+        ? supa
+        : typeof getSupabaseClient === 'function'
+          ? getSupabaseClient()
+          : null;
     if (supaCli && typeof supaCli.get === 'function') {
       try {
         var blkRows = await supaCli.get('bb_config?key=eq.bb_blocked_emails&select=value');
         if (Array.isArray(blkRows) && blkRows.length > 0 && blkRows[0].value) {
-          var blkList = typeof blkRows[0].value === 'string' ? JSON.parse(blkRows[0].value) : blkRows[0].value;
-          if (Array.isArray(blkList) && blkList.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(email)) {
+          var blkList =
+            typeof blkRows[0].value === 'string' ? JSON.parse(blkRows[0].value) : blkRows[0].value;
+          if (
+            Array.isArray(blkList) &&
+            blkList
+              .map(function (x) {
+                return (x && typeof x === 'object' && x.email ? String(x.email) : String(x))
+                  .toLowerCase()
+                  .trim();
+              })
+              .includes(email)
+          ) {
             isBlocked = true;
           }
         }
@@ -955,7 +1248,16 @@ async function registerMember() {
         var localBlk = localStorage.getItem('bb_blocked_emails');
         if (localBlk) {
           var parsedLocal = JSON.parse(localBlk);
-          if (Array.isArray(parsedLocal) && parsedLocal.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(email)) {
+          if (
+            Array.isArray(parsedLocal) &&
+            parsedLocal
+              .map(function (x) {
+                return (x && typeof x === 'object' && x.email ? String(x.email) : String(x))
+                  .toLowerCase()
+                  .trim();
+              })
+              .includes(email)
+          ) {
             isBlocked = true;
           }
         }
@@ -964,7 +1266,11 @@ async function registerMember() {
 
     if (isBlocked) {
       if (typeof showToast === 'function') {
-        showToast('This email address has been blocked by an administrator and cannot be used to register.', 'error', 6500);
+        showToast(
+          'This email address has been blocked by an administrator and cannot be used to register.',
+          'error',
+          6500
+        );
       }
       if (typeof setButtonLoading === 'function' && regBtn) {
         setButtonLoading(regBtn, false, 'Register Account');
@@ -974,7 +1280,14 @@ async function registerMember() {
 
     // 0. Name collision & identity spoofing prevention (cross-member duplicate/similar name check)
     var allExistingMembers = [];
-    var supaCli = (typeof getSupa === 'function' ? getSupa() : (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null)));
+    var supaCli =
+      typeof getSupa === 'function'
+        ? getSupa()
+        : typeof supa !== 'undefined'
+          ? supa
+          : typeof getSupabaseClient === 'function'
+            ? getSupabaseClient()
+            : null;
     if (supaCli && typeof supaCli.get === 'function') {
       try {
         var dbMemsList = await supaCli.get('bb_members?select=name,email,ic,department');
@@ -985,7 +1298,8 @@ async function registerMember() {
     }
     if (allExistingMembers.length === 0 && typeof localStorage !== 'undefined') {
       try {
-        var rawCached = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
+        var rawCached =
+          localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
         if (rawCached) {
           var parsedMems = JSON.parse(rawCached);
           if (Array.isArray(parsedMems)) allExistingMembers = parsedMems;
@@ -994,7 +1308,7 @@ async function registerMember() {
     }
 
     // Filter out deleted/archived accounts
-    allExistingMembers = allExistingMembers.filter(function(m) {
+    allExistingMembers = allExistingMembers.filter(function (m) {
       if (!m || !m.name) return false;
       var dept = String(m.department || '').toLowerCase();
       if (dept === 'deleted' || dept === 'archived_deleted') return false;
@@ -1003,16 +1317,21 @@ async function registerMember() {
       return true;
     });
 
-    var conflictFn = (typeof isNameConflict === 'function')
-      ? isNameConflict
-      : (typeof window !== 'undefined' && typeof window.isNameConflict === 'function'
+    var conflictFn =
+      typeof isNameConflict === 'function'
+        ? isNameConflict
+        : typeof window !== 'undefined' && typeof window.isNameConflict === 'function'
           ? window.isNameConflict
-          : (typeof global !== 'undefined' && typeof global.isNameConflict === 'function' ? global.isNameConflict : null));
+          : typeof global !== 'undefined' && typeof global.isNameConflict === 'function'
+            ? global.isNameConflict
+            : null;
 
     if (conflictFn && allExistingMembers.length > 0) {
-      var conflicting = allExistingMembers.find(function(m) {
+      var conflicting = allExistingMembers.find(function (m) {
         if (!m || !m.name) return false;
-        var mEmail = String(m.email || m.ic || '').trim().toLowerCase();
+        var mEmail = String(m.email || m.ic || '')
+          .trim()
+          .toLowerCase();
         // Skip check if it is the exact same email (family account sharing)
         if (mEmail && mEmail === email) return false;
         return conflictFn(m.name, name);
@@ -1020,7 +1339,13 @@ async function registerMember() {
 
       if (conflicting) {
         if (typeof showToast === 'function') {
-          showToast('An account with the name "' + name + '" already exists. If this is your account, please log in.', 'warning', 6500);
+          showToast(
+            'An account with the name "' +
+              name +
+              '" already exists. If this is your account, please log in.',
+            'warning',
+            6500
+          );
         }
         var nameInput = document.getElementById('reg-fullname');
         if (nameInput) {
@@ -1035,12 +1360,16 @@ async function registerMember() {
     }
 
     // 1. Check for existing family accounts under this email
-    var existingAccounts = (_isFamilyRegistration && _familyAccounts.length) ? _familyAccounts : await findMembersByEmail(email);
+    var existingAccounts =
+      _isFamilyRegistration && _familyAccounts.length
+        ? _familyAccounts
+        : await findMembersByEmail(email);
 
     if (existingAccounts && existingAccounts.length > 0) {
       // Must verify the exact password used for existing account ( RPC gatekeeping)
       var famPwValid = false;
-      var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+      var client =
+        typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
 
       if (client && typeof client.rpc === 'function') {
         try {
@@ -1065,7 +1394,13 @@ async function registerMember() {
         var pwCheck = await verifyPassword(pass, existingAccounts[0].password || '');
         if (!pwCheck.valid) {
           if (typeof showToast === 'function') {
-            showToast('Incorrect family password! All accounts under ' + email + ' must share the exact same password.', 'error', 4500);
+            showToast(
+              'Incorrect family password! All accounts under ' +
+                email +
+                ' must share the exact same password.',
+              'error',
+              4500
+            );
           }
           return;
         }
@@ -1073,12 +1408,15 @@ async function registerMember() {
       }
 
       // Check if this child's name is already registered under this email
-      var nameMatch = existingAccounts.find(function(a) {
+      var nameMatch = existingAccounts.find(function (a) {
         return (a.name || '').trim().toLowerCase() === name.toLowerCase();
       });
       if (nameMatch) {
         if (typeof showToast === 'function') {
-          showToast('An account for ' + name + ' under ' + email + ' already exists. Please login instead.', 'warning');
+          showToast(
+            'An account for ' + name + ' under ' + email + ' already exists. Please login instead.',
+            'warning'
+          );
         }
         return;
       }
@@ -1117,36 +1455,43 @@ async function registerMember() {
       return;
     }
 
-  // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('register')
-    : '';
-  if (!captchaToken) {
-    var regContainer = document.querySelector('#auth-register .cf-turnstile-container');
-    if (regContainer && typeof renderTurnstileWidget === 'function') {
-      renderTurnstileWidget(regContainer, 'register');
-    }
-    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('register') : '';
-  }
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
-    if (typeof showToast === 'function') {
-      showToast('Please complete the security check box above before registering.', 'warning');
-    }
-    return;
-  }
-  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
-    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'register');
-    if (!captchaResult || !captchaResult.success) {
-      if (typeof resetTurnstileWidget === 'function') {
-        resetTurnstileWidget('register');
+    // Cloudflare Turnstile CAPTCHA Verification
+    var captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('register') : '';
+    if (!captchaToken) {
+      var regContainer = document.querySelector('#auth-register .cf-turnstile-container');
+      if (regContainer && typeof renderTurnstileWidget === 'function') {
+        renderTurnstileWidget(regContainer, 'register');
       }
+      captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('register') : '';
+    }
+    if (
+      !captchaToken &&
+      typeof window !== 'undefined' &&
+      !window.__SKIP_CAPTCHA__ &&
+      !window.__IS_TEST__
+    ) {
       if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+        showToast('Please complete the security check box above before registering.', 'warning');
       }
       return;
     }
-  }
-
+    if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
+      var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'register');
+      if (!captchaResult || !captchaResult.success) {
+        if (typeof resetTurnstileWidget === 'function') {
+          resetTurnstileWidget('register');
+        }
+        if (typeof showToast === 'function') {
+          showToast(
+            captchaResult && captchaResult.error
+              ? captchaResult.error
+              : 'Security verification failed. Please try again.',
+            'error'
+          );
+        }
+        return;
+      }
+    }
 
     var newMemberData = {
       ic: email,
@@ -1167,9 +1512,15 @@ async function registerMember() {
     };
 
     // In unit testing environment (e.g. Node test suite with mock), bypass UI OTP prompt to keep test-modules 100% green
-    var isTestRun = (typeof window === 'undefined') ||
+    var isTestRun =
+      typeof window === 'undefined' ||
       (typeof window !== 'undefined' && (window.__SKIP_REG_OTP__ || window.__IS_TEST__)) ||
-      (typeof process !== 'undefined' && (process.env.NODE_ENV === 'test' || (process.argv && process.argv.some(function(a) { return a.includes('test-modules'); }))));
+      (typeof process !== 'undefined' &&
+        (process.env.NODE_ENV === 'test' ||
+          (process.argv &&
+            process.argv.some(function (a) {
+              return a.includes('test-modules');
+            }))));
 
     if (isTestRun) {
       await finalizeMemberRegistration(newMemberData);
@@ -1177,7 +1528,7 @@ async function registerMember() {
     }
 
     // In browser: Generate 6-digit OTP and show Verification Screen to block fake/random emails
-    var otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    var otpCode = generateSecureSixDigitOtp();
     _stagedRegistration = newMemberData;
     document.getElementById('reg-pass').value = '';
     document.getElementById('reg-pass2').value = '';
@@ -1186,10 +1537,15 @@ async function registerMember() {
     showRegistrationVerifyView(email, name, otpCode, mailRes ? mailRes.hasMailer : false);
 
     if (mailRes && mailRes.hasMailer && typeof showToast === 'function') {
-      showToast('Verification code sent to ' + email + '! Please check your inbox.', 'success', 5000);
+      showToast(
+        'Verification code sent to ' + email + '! Please check your inbox.',
+        'success',
+        5000
+      );
     }
   } catch (e) {
-    if (typeof showToast === 'function') showToast('Registration could not be saved. Check your details or try again.', 'error');
+    if (typeof showToast === 'function')
+      showToast('Registration could not be saved. Check your details or try again.', 'error');
   } finally {
     _isRegisteringMember = false;
     if (typeof setButtonLoading === 'function' && regBtn) {
@@ -1214,40 +1570,44 @@ function showRegistrationVerifyView(email, _name, _otpCode, hasMailer) {
   form.style.display = 'none';
   verifyView.style.display = 'block';
 
-  var fallbackHtml = hasMailer ? '' : '<p role="status">Email delivery is unavailable. Please contact a Company Officer.</p>';
+  var fallbackHtml = hasMailer
+    ? ''
+    : '<p role="status">Email delivery is unavailable. Please contact a Company Officer.</p>';
 
   verifyView.innerHTML =
     '<div style="text-align:center;margin-bottom:12px;">' +
-      '<div style="width:48px;height:48px;border-radius:50%;background:rgba(217,163,35,0.12);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:8px;">' +
-        '<svg class="ui-icon" style="width:24px;height:24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>' +
-      '</div>' +
-      '<h3 style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);margin:0 0 6px;">Verify Email Address</h3>' +
-      '<p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.45;">' +
-        'We generated a 6-digit verification code for <strong>' + escapeHtml(email) + '</strong>.<br>' +
-        '<span style="font-size:11.5px;color:var(--text-muted);">Please check your inbox (and spam folder). Valid for 15 minutes.</span>' +
-      '</p>' +
+    '<div style="width:48px;height:48px;border-radius:50%;background:rgba(217,163,35,0.12);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:8px;">' +
+    '<svg class="ui-icon" style="width:24px;height:24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>' +
+    '</div>' +
+    '<h3 style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);margin:0 0 6px;">Verify Email Address</h3>' +
+    '<p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.45;">' +
+    'We generated a 6-digit verification code for <strong>' +
+    escapeHtml(email) +
+    '</strong>.<br>' +
+    '<span style="font-size:11.5px;color:var(--text-muted);">Please check your inbox (and spam folder). Valid for 15 minutes.</span>' +
+    '</p>' +
     '</div>' +
     '<div style="margin:16px 0;">' +
-      '<input type="text" id="reg-verify-code" class="reg-verify-code-input" maxlength="6" placeholder="000000" autocomplete="one-time-code" onkeydown="if(event.key===\'Enter\'){event.preventDefault();verifyAndCompleteRegistration();}" autofocus />' +
+    '<input type="text" id="reg-verify-code" class="reg-verify-code-input" maxlength="6" placeholder="000000" autocomplete="one-time-code" onkeydown="if(event.key===\'Enter\'){event.preventDefault();verifyAndCompleteRegistration();}" autofocus />' +
     '</div>' +
     fallbackHtml +
     '<div style="display:flex;flex-direction:column;gap:10px;margin-top:14px;">' +
-      '<button type="button" class="submit-btn gold" id="btn-confirm-reg-code" onclick="verifyAndCompleteRegistration()">' +
-        '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Verify &amp; Complete Registration' +
-      '</button>' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">' +
-        '<button type="button" class="portal-btn portal-btn-secondary" id="btn-resend-reg-code" onclick="resendRegistrationCode()" style="font-size:12px;padding:6px 12px;">' +
-          '⏳ Resend Code (60s)' +
-        '</button>' +
-        '<button type="button" onclick="cancelRegistrationVerification()" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;">' +
-          '&larr; Edit Details' +
-        '</button>' +
-      '</div>' +
+    '<button type="button" class="submit-btn gold" id="btn-confirm-reg-code" onclick="verifyAndCompleteRegistration()">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Verify &amp; Complete Registration' +
+    '</button>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px;">' +
+    '<button type="button" class="portal-btn portal-btn-secondary" id="btn-resend-reg-code" onclick="resendRegistrationCode()" style="font-size:12px;padding:6px 12px;">' +
+    '⏳ Resend Code (60s)' +
+    '</button>' +
+    '<button type="button" onclick="cancelRegistrationVerification()" style="background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;">' +
+    '&larr; Edit Details' +
+    '</button>' +
+    '</div>' +
     '</div>';
 
   startRegOtpCooldown(60);
 
-  setTimeout(function() {
+  setTimeout(function () {
     var inp = document.getElementById('reg-verify-code');
     if (inp) inp.focus();
   }, 100);
@@ -1255,10 +1615,14 @@ function showRegistrationVerifyView(email, _name, _otpCode, hasMailer) {
 
 function cancelRegistrationVerification() {
   if (_stagedRegistration) {
-    try { sessionStorage.removeItem('bb_reg_otp_' + _stagedRegistration.email); } catch (_) {}
+    try {
+      sessionStorage.removeItem('bb_reg_otp_' + _stagedRegistration.email);
+    } catch (_) {}
   }
   _stagedRegistration = null;
-  try { sessionStorage.removeItem('bb_staged_reg'); } catch (e) {}
+  try {
+    sessionStorage.removeItem('bb_staged_reg');
+  } catch (e) {}
   var verifyView = document.getElementById('reg-verify-step-view');
   if (verifyView) verifyView.style.display = 'none';
 
@@ -1276,16 +1640,23 @@ async function resendRegistrationCode() {
   var diff = Date.now() - last;
   if (diff < OTP_COOLDOWN_MS) {
     var rem = Math.ceil((OTP_COOLDOWN_MS - diff) / 1000);
-    if (typeof showToast === 'function') showToast('Please wait ' + rem + 's before resending.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please wait ' + rem + 's before resending.', 'warning');
     return;
   }
 
-  var newCode = Math.floor(100000 + Math.random() * 900000).toString();
+  var newCode = generateSecureSixDigitOtp();
   var mailRes = await dispatchVerificationEmail(email, _stagedRegistration.name, newCode);
-  showRegistrationVerifyView(email, _stagedRegistration.name, newCode, mailRes ? mailRes.hasMailer : false);
+  showRegistrationVerifyView(
+    email,
+    _stagedRegistration.name,
+    newCode,
+    mailRes ? mailRes.hasMailer : false
+  );
   _lastOtpTime[email] = Date.now();
   startRegOtpCooldown(60);
-  if (mailRes && mailRes.hasMailer && typeof showToast === 'function') showToast('New 6-digit code sent to ' + email, 'success');
+  if (mailRes && mailRes.hasMailer && typeof showToast === 'function')
+    showToast('New 6-digit code sent to ' + email, 'success');
 }
 
 function startRegOtpCooldown(seconds) {
@@ -1294,7 +1665,7 @@ function startRegOtpCooldown(seconds) {
   var s = seconds;
   btn.disabled = true;
   btn.textContent = '⏳ Resend Code (' + s + 's)';
-  var timer = setInterval(function() {
+  var timer = setInterval(function () {
     s--;
     if (s <= 0) {
       clearInterval(timer);
@@ -1310,7 +1681,8 @@ function startRegOtpCooldown(seconds) {
 
 async function verifyAndCompleteRegistration() {
   if (!_stagedRegistration) {
-    if (typeof showToast === 'function') showToast('Registration session expired. Please refill the registration form.', 'error');
+    if (typeof showToast === 'function')
+      showToast('Registration session expired. Please refill the registration form.', 'error');
     cancelRegistrationVerification();
     return;
   }
@@ -1319,11 +1691,13 @@ async function verifyAndCompleteRegistration() {
   var enteredCode = (codeInp ? codeInp.value : '').trim();
 
   if (!enteredCode) {
-    if (typeof showToast === 'function') showToast('Please enter the 6-digit verification code.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please enter the 6-digit verification code.', 'warning');
     return;
   }
   if (enteredCode.length !== 6) {
-    if (typeof showToast === 'function') showToast('Verification code must be exactly 6 digits.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Verification code must be exactly 6 digits.', 'warning');
     return;
   }
 
@@ -1342,26 +1716,13 @@ async function verifyAndCompleteRegistration() {
     }
   } catch (e) {}
 
-  // 2. Check remote bb_config
-  if (!valid) {
-    try {
-      var client = getSupa();
-      if (client) {
-        var cfgKey = 'bb_reg_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-        var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value');
-        if (rows && rows.length && rows[0].value) {
-          var remoteData = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
-          if (remoteData && remoteData.code === enteredCode && now <= (remoteData.expires_at || 0)) {
-            valid = true;
-          }
-        }
-      }
-    } catch (e) {}
-  }
-
   if (!valid) {
     if (typeof showToast === 'function') {
-      showToast('Invalid or expired verification code. Please check your email or click Resend Code.', 'error', 4500);
+      showToast(
+        'Invalid or expired verification code. Please check your email or click Resend Code.',
+        'error',
+        4500
+      );
     }
     return;
   }
@@ -1373,33 +1734,40 @@ async function verifyAndCompleteRegistration() {
     await finalizeMemberRegistration(staged);
     _stagedRegistration = null;
     // Cleanup OTP only after the member record is saved.
-    try { sessionStorage.removeItem('bb_reg_otp_' + email); } catch (e) {}
-    var client = getSupa();
-    if (client && typeof client.delete === 'function') {
-      var cfgKey2 = 'bb_reg_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-      try { await client.delete('bb_config?key=eq.' + encodeURIComponent(cfgKey2)); } catch (e) {}
-    }
+    try {
+      sessionStorage.removeItem('bb_reg_otp_' + email);
+    } catch (e) {}
   } catch (finalizeErr) {
     _stagedRegistration = staged;
-    if (typeof showToast === 'function') showToast('Registration could not be saved. Please try again.', 'error');
+    if (typeof showToast === 'function')
+      showToast('Registration could not be saved. Please try again.', 'error');
   }
 }
 
 async function finalizeMemberRegistration(data) {
   var isMinor = isMinorSection(data.section, data.age);
-  if (isMinor && (!data.parentName || !data.parentContact || data.parentConsent !== true || !data.consentTimestamp)) {
+  if (
+    isMinor &&
+    (!data.parentName ||
+      !data.parentContact ||
+      data.parentConsent !== true ||
+      !data.consentTimestamp)
+  ) {
     throw new Error('Parental consent is required');
   }
   var client = getSupa();
   var birthYear = new Date().getFullYear() - data.age;
   var approxDob = birthYear + '-01-01';
-  var isOffSec = (typeof normalizeSection === 'function' ? normalizeSection(data.section) : String(data.section || '').toLowerCase()) === 'officer';
+  var isOffSec =
+    (typeof normalizeSection === 'function'
+      ? normalizeSection(data.section)
+      : String(data.section || '').toLowerCase()) === 'officer';
 
   var memberPayload = {
     ic: data.ic,
     name: data.name,
     rank: data.rank,
-    squad: isOffSec ? null : (data.squad || null),
+    squad: isOffSec ? null : data.squad || null,
     att_section: data.section,
     date_of_birth: approxDob,
     password: data.passwordHash,
@@ -1422,7 +1790,7 @@ async function finalizeMemberRegistration(data) {
     try {
       var checkMems = await client.get('bb_members?select=name,email,ic,department');
       if (Array.isArray(checkMems)) {
-        var activeMems = checkMems.filter(function(m) {
+        var activeMems = checkMems.filter(function (m) {
           if (!m || !m.name) return false;
           var dept = String(m.department || '').toLowerCase();
           if (dept === 'deleted' || dept === 'archived_deleted') return false;
@@ -1430,19 +1798,28 @@ async function finalizeMemberRegistration(data) {
           if (mIc.startsWith('archived_')) return false;
           return true;
         });
-        var conflictFn2 = (typeof isNameConflict === 'function')
-          ? isNameConflict
-          : (typeof window !== 'undefined' && typeof window.isNameConflict === 'function'
+        var conflictFn2 =
+          typeof isNameConflict === 'function'
+            ? isNameConflict
+            : typeof window !== 'undefined' && typeof window.isNameConflict === 'function'
               ? window.isNameConflict
-              : (typeof global !== 'undefined' && typeof global.isNameConflict === 'function' ? global.isNameConflict : null));
+              : typeof global !== 'undefined' && typeof global.isNameConflict === 'function'
+                ? global.isNameConflict
+                : null;
         if (conflictFn2) {
-          var conflict2 = activeMems.find(function(m) {
-            var mEmail = String(m.email || m.ic || '').trim().toLowerCase();
+          var conflict2 = activeMems.find(function (m) {
+            var mEmail = String(m.email || m.ic || '')
+              .trim()
+              .toLowerCase();
             if (mEmail && (mEmail === data.email || mEmail === data.ic)) return false;
             return conflictFn2(m.name, data.name);
           });
           if (conflict2) {
-            throw new Error('An account with the name "' + data.name + '" already exists. If this is your account, please log in.');
+            throw new Error(
+              'An account with the name "' +
+                data.name +
+                '" already exists. If this is your account, please log in.'
+            );
           }
         }
       }
@@ -1467,7 +1844,9 @@ async function finalizeMemberRegistration(data) {
     if (delCfg && delCfg.length && delCfg[0].value) {
       var delList = JSON.parse(delCfg[0].value);
       if (Array.isArray(delList) && (delList.includes(data.ic) || delList.includes(data.email))) {
-        delList = delList.filter(function(x) { return x !== data.ic && x !== data.email; });
+        delList = delList.filter(function (x) {
+          return x !== data.ic && x !== data.email;
+        });
         await client.patch('bb_config?key=eq.bb_deleted_members', {
           value: JSON.stringify(delList),
           updated_at: new Date().toISOString()
@@ -1479,15 +1858,24 @@ async function finalizeMemberRegistration(data) {
   // Durable default verification status tracking for new accounts (Not Verified by default)
   try {
     var vCfg = await client.get('bb_config?key=eq.bb_verification_statuses&select=value');
-    var vMap = (vCfg && vCfg.length && vCfg[0].value)
-      ? (typeof vCfg[0].value === 'string' ? JSON.parse(vCfg[0].value) : vCfg[0].value)
-      : {};
+    var vMap =
+      vCfg && vCfg.length && vCfg[0].value
+        ? typeof vCfg[0].value === 'string'
+          ? JSON.parse(vCfg[0].value)
+          : vCfg[0].value
+        : {};
     vMap[data.ic] = 'not_verified';
     if (data.email) vMap[data.email] = 'not_verified';
     if (client.upsert) {
-      await client.upsert('bb_config', { key: 'bb_verification_statuses', value: JSON.stringify(vMap) }, 'key');
+      await client.upsert(
+        'bb_config',
+        { key: 'bb_verification_statuses', value: JSON.stringify(vMap) },
+        'key'
+      );
     } else if (client.patch) {
-      await client.patch('bb_config?key=eq.bb_verification_statuses', { value: JSON.stringify(vMap) });
+      await client.patch('bb_config?key=eq.bb_verification_statuses', {
+        value: JSON.stringify(vMap)
+      });
     }
   } catch (_) {}
 
@@ -1508,7 +1896,11 @@ async function finalizeMemberRegistration(data) {
         recorded_at: new Date().toISOString()
       };
       var consentKey = 'bb_consent_' + data.ic.replace(/[^a-zA-Z0-9_-]/g, '_');
-      await client.upsert('bb_config', { key: consentKey, value: JSON.stringify(auditRecord) }, 'key');
+      await client.upsert(
+        'bb_config',
+        { key: consentKey, value: JSON.stringify(auditRecord) },
+        'key'
+      );
     } catch (cfgErr) {}
   }
 
@@ -1516,15 +1908,27 @@ async function finalizeMemberRegistration(data) {
   if (data.isFamilyMember) {
     try {
       var famKey = 'bb_family_' + data.email.replace(/[^a-zA-Z0-9]/g, '_');
-      var existingFamRows = await client.get('bb_config?key=eq.' + encodeURIComponent(famKey) + '&select=value');
-      var famBlob = (existingFamRows && existingFamRows.length && existingFamRows[0].value)
-        ? (typeof existingFamRows[0].value === 'string' ? JSON.parse(existingFamRows[0].value) : existingFamRows[0].value)
-        : { email: data.email, members: [] };
+      var existingFamRows = await client.get(
+        'bb_config?key=eq.' + encodeURIComponent(famKey) + '&select=value'
+      );
+      var famBlob =
+        existingFamRows && existingFamRows.length && existingFamRows[0].value
+          ? typeof existingFamRows[0].value === 'string'
+            ? JSON.parse(existingFamRows[0].value)
+            : existingFamRows[0].value
+          : { email: data.email, members: [] };
 
       if (!Array.isArray(famBlob.members)) famBlob.members = [];
-      var alreadyInList = famBlob.members.find(function(m) { return m.ic === data.ic; });
+      var alreadyInList = famBlob.members.find(function (m) {
+        return m.ic === data.ic;
+      });
       if (!alreadyInList) {
-        famBlob.members.push({ ic: data.ic, name: data.name, rank: data.rank, section: data.section });
+        famBlob.members.push({
+          ic: data.ic,
+          name: data.name,
+          rank: data.rank,
+          section: data.section
+        });
         famBlob.updated_at = new Date().toISOString();
         await client.upsert('bb_config', { key: famKey, value: JSON.stringify(famBlob) }, 'key');
       }
@@ -1532,7 +1936,7 @@ async function finalizeMemberRegistration(data) {
   }
 
   // Save session state with Remember Me preference
-  var remEl = (typeof document !== 'undefined') ? document.getElementById('reg-remember') : null;
+  var remEl = typeof document !== 'undefined' ? document.getElementById('reg-remember') : null;
   var rememberMe = remEl ? remEl.checked : true;
 
   if (isMinor) {
@@ -1543,7 +1947,10 @@ async function finalizeMemberRegistration(data) {
 
   if (typeof localStorage !== 'undefined') {
     try {
-      localStorage.setItem('bb_account_created_at_' + (data.ic || data.email).toLowerCase(), memberPayload.joined_at);
+      localStorage.setItem(
+        'bb_account_created_at_' + (data.ic || data.email).toLowerCase(),
+        memberPayload.joined_at
+      );
     } catch (_) {}
   }
 
@@ -1558,7 +1965,11 @@ async function finalizeMemberRegistration(data) {
     joined_at: memberPayload.joined_at,
     created_at: memberPayload.joined_at,
     department: '',
-    photo_url: ''
+    photo_url: '',
+    _session_token:
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'session_' + Date.now()
   };
 
   if (typeof logAuditEvent === 'function') {
@@ -1611,13 +2022,18 @@ async function finalizeMemberRegistration(data) {
     if (authBox) authBox.style.display = 'none';
     var dashBox = document.getElementById('m-dashboard');
     if (dashBox) dashBox.style.display = 'block';
-    var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
+    var bt = document.getElementById('tab-badges');
+    if (bt) bt.style.display = 'block';
   }
 
-  if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
-  else if (typeof global !== 'undefined' && typeof global.updateNavUserHeader === 'function') global.updateNavUserHeader();
-  if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') RBAC.loadRolesConfig();
-  if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') RBAC.renderHeaderRoleBadge();
+  if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function')
+    window.updateNavUserHeader();
+  else if (typeof global !== 'undefined' && typeof global.updateNavUserHeader === 'function')
+    global.updateNavUserHeader();
+  if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function')
+    RBAC.loadRolesConfig();
+  if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function')
+    RBAC.renderHeaderRoleBadge();
   if (typeof initPresenceTracking === 'function') initPresenceTracking();
 
   if (typeof showToast === 'function') {
@@ -1625,18 +2041,24 @@ async function finalizeMemberRegistration(data) {
   }
 
   // Smooth post-registration tab transition without full-page reload
-  var regTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
-    ? AuthGuard.getRedirectTarget()
-    : null;
+  var regTarget =
+    typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function'
+      ? AuthGuard.getRedirectTarget()
+      : null;
   if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
     AuthGuard.clearRedirectTarget();
   }
 
-  var targetTab = (regTarget && regTarget !== 'member') ? regTarget : 'member';
+  var targetTab = regTarget && regTarget !== 'member' ? regTarget : 'member';
   if (typeof switchTabNav === 'function') {
     switchTabNav(targetTab);
   }
-  if (typeof window !== 'undefined' && window.location && window.history && window.history.replaceState) {
+  if (
+    typeof window !== 'undefined' &&
+    window.location &&
+    window.history &&
+    window.history.replaceState
+  ) {
     window.history.replaceState(null, '', '#' + targetTab);
   }
 
@@ -1655,7 +2077,12 @@ async function loginMember() {
     if (lockStatus && lockStatus.locked) {
       var remMins = Math.ceil((lockStatus.remaining_seconds || 900) / 60);
       if (typeof showToast === 'function') {
-        showToast('Account is temporarily locked due to 5 failed attempts. Please retry in ' + remMins + ' minutes.', 'error');
+        showToast(
+          'Account is temporarily locked due to 5 failed attempts. Please retry in ' +
+            remMins +
+            ' minutes.',
+          'error'
+        );
       }
       return;
     }
@@ -1665,26 +2092,71 @@ async function loginMember() {
   if (Date.now() < _authFailures.lockedUntil) {
     var remSec = Math.ceil((_authFailures.lockedUntil - Date.now()) / 1000);
     if (typeof showToast === 'function') {
-      showToast('Too many failed login attempts. Please wait ' + remSec + 's before retrying.', 'warning');
+      showToast(
+        'Too many failed login attempts. Please wait ' + remSec + 's before retrying.',
+        'warning'
+      );
     }
     return;
   }
 
-  var idEl = document.getElementById('login-email') || document.getElementById('login-ic') || {};
-  var identifier = (idEl.value || '').trim();
-  var pass = (document.getElementById('login-pass') || {}).value || '';
-  if (!identifier || !pass) { if (typeof showToast === 'function') showToast('Please enter your email and password.', 'warning'); return; }
+  var idEl = document.getElementById('login-email') || document.getElementById('login-ic');
+  var passEl = document.getElementById('login-pass');
+  if (idEl) clearFieldValidation(idEl);
+  if (passEl) clearFieldValidation(passEl);
+
+  var identifier = ((idEl && idEl.value) || '').trim();
+  var pass = (passEl && passEl.value) || '';
+
+  var firstLoginInvalid = null;
+  var firstLoginMsg = '';
+  if (!identifier && idEl) {
+    setFieldValidation(idEl, 'Please enter your email or IC number.');
+    firstLoginInvalid = idEl;
+    firstLoginMsg = 'Please enter your email or IC number.';
+  }
+  if (!pass && passEl) {
+    setFieldValidation(passEl, 'Please enter your password.');
+    if (!firstLoginInvalid) {
+      firstLoginInvalid = passEl;
+      firstLoginMsg = 'Please enter your password.';
+    }
+  }
+  if (firstLoginInvalid) {
+    if (typeof showToast === 'function') showToast(firstLoginMsg, 'warning');
+    if (firstLoginInvalid && typeof firstLoginInvalid.focus === 'function') {
+      firstLoginInvalid.focus();
+    }
+    return;
+  }
 
   // Blocked email verification
   var cleanIdent = identifier.toLowerCase().trim();
   var isLoginBlocked = false;
-  var clientSupa = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
+  var clientSupa =
+    typeof supa !== 'undefined'
+      ? supa
+      : typeof getSupabaseClient === 'function'
+        ? getSupabaseClient()
+        : null;
   if (clientSupa && typeof clientSupa.get === 'function') {
     try {
       var blkLoginRows = await clientSupa.get('bb_config?key=eq.bb_blocked_emails&select=value');
       if (Array.isArray(blkLoginRows) && blkLoginRows.length > 0 && blkLoginRows[0].value) {
-        var blkLogList = typeof blkLoginRows[0].value === 'string' ? JSON.parse(blkLoginRows[0].value) : blkLoginRows[0].value;
-        if (Array.isArray(blkLogList) && blkLogList.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(cleanIdent)) {
+        var blkLogList =
+          typeof blkLoginRows[0].value === 'string'
+            ? JSON.parse(blkLoginRows[0].value)
+            : blkLoginRows[0].value;
+        if (
+          Array.isArray(blkLogList) &&
+          blkLogList
+            .map(function (x) {
+              return (x && typeof x === 'object' && x.email ? String(x.email) : String(x))
+                .toLowerCase()
+                .trim();
+            })
+            .includes(cleanIdent)
+        ) {
           isLoginBlocked = true;
         }
       }
@@ -1695,7 +2167,16 @@ async function loginMember() {
       var localLogBlk = localStorage.getItem('bb_blocked_emails');
       if (localLogBlk) {
         var parsedLogBlk = JSON.parse(localLogBlk);
-        if (Array.isArray(parsedLogBlk) && parsedLogBlk.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(cleanIdent)) {
+        if (
+          Array.isArray(parsedLogBlk) &&
+          parsedLogBlk
+            .map(function (x) {
+              return (x && typeof x === 'object' && x.email ? String(x.email) : String(x))
+                .toLowerCase()
+                .trim();
+            })
+            .includes(cleanIdent)
+        ) {
           isLoginBlocked = true;
         }
       }
@@ -1708,20 +2189,26 @@ async function loginMember() {
     return;
   }
 
-  var loginBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-login button[type="submit"]') : null;
+  var loginBtn =
+    typeof document !== 'undefined'
+      ? document.querySelector('#auth-login button[type="submit"]')
+      : null;
 
   // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('login')
-    : '';
+  var captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('login') : '';
   if (!captchaToken) {
     var loginContainer = document.querySelector('#auth-login .cf-turnstile-container');
     if (loginContainer && typeof renderTurnstileWidget === 'function') {
       renderTurnstileWidget(loginContainer, 'login');
     }
-    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('login') : '';
+    captchaToken = typeof getTurnstileToken === 'function' ? getTurnstileToken('login') : '';
   }
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
+  if (
+    !captchaToken &&
+    typeof window !== 'undefined' &&
+    !window.__SKIP_CAPTCHA__ &&
+    !window.__IS_TEST__
+  ) {
     if (typeof showToast === 'function') {
       showToast('Please complete the security check box above before logging in.', 'warning');
     }
@@ -1734,7 +2221,12 @@ async function loginMember() {
         resetTurnstileWidget('login');
       }
       if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+        showToast(
+          captchaResult && captchaResult.error
+            ? captchaResult.error
+            : 'Security verification failed. Please try again.',
+          'error'
+        );
       }
       return;
     }
@@ -1756,18 +2248,39 @@ async function loginMember() {
     if (client && typeof client.rpc === 'function') {
       try {
         var saltRes = await client.rpc('rpc_get_auth_salt', { p_email: queryEmail });
-        if (saltRes && saltRes.salt) {
-          var derivedHashFull = await hashPassword(pass, saltRes.salt);
-          var derivedHashHex = derivedHashFull.split(':')[4] || derivedHashFull;
+        if (saltRes && (saltRes.salt || saltRes.algorithm === 'legacy')) {
+          var derivedHashHex;
+          if (saltRes.salt) {
+            var derivedHashFull = await hashPassword(pass, saltRes.salt);
+            derivedHashHex = derivedHashFull.split(':')[4] || derivedHashFull;
+          } else {
+            derivedHashHex = pass;
+          }
           var authRes = await client.rpc('rpc_authenticate_member', {
             p_email: queryEmail,
             p_password_hash: derivedHashHex
           });
           if (authRes && authRes.success && authRes.accounts && authRes.accounts.length) {
             accounts = authRes.accounts;
+            if (authRes.token) {
+              accounts.forEach(function (acc) {
+                acc._session_token = authRes.token;
+                acc._session_expires_at = authRes.expires_at;
+              });
+            }
             loginSuccess = true;
-            if (typeof recordAuthAttempt === 'function') {
-              await recordAuthAttempt(queryEmail, true);
+            if (typeof recordAuthAttempt === 'function') await recordAuthAttempt(queryEmail, true);
+            if (saltRes.algorithm === 'legacy') {
+              try {
+                var upgradedHash = await hashPassword(pass);
+                await client.rpc('rpc_change_member_password', {
+                  p_email: queryEmail,
+                  p_current_password_hash: pass,
+                  p_new_password_hash: upgradedHash
+                });
+              } catch (migErr) {
+                console.warn('Legacy password auto-migration warning:', migErr);
+              }
             }
           } else if (authRes && authRes.success === false) {
             _authFailures.count++;
@@ -1776,7 +2289,10 @@ async function loginMember() {
               var recRes = await recordAuthAttempt(queryEmail, false);
               if (recRes && recRes.locked) {
                 if (typeof showToast === 'function') {
-                  showToast('Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.', 'error');
+                  showToast(
+                    'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.',
+                    'error'
+                  );
                 }
                 return;
               }
@@ -1794,9 +2310,14 @@ async function loginMember() {
               });
             }
             if (typeof showToast === 'function') {
-              var rpcMsg = rpcAttemptsLeft > 0
-                ? ('Incorrect password! You have ' + rpcAttemptsLeft + ' attempt' + (rpcAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
-                : 'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.';
+              var rpcMsg =
+                rpcAttemptsLeft > 0
+                  ? 'Incorrect password! You have ' +
+                    rpcAttemptsLeft +
+                    ' attempt' +
+                    (rpcAttemptsLeft === 1 ? '' : 's') +
+                    ' left before a 15-minute lockout.'
+                  : 'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.';
               showToast(rpcMsg, 'error');
             }
             return;
@@ -1816,7 +2337,8 @@ async function loginMember() {
       }
 
       if (!accounts || !accounts.length) {
-        if (typeof showToast === 'function') showToast('No account found with this email address.', 'warning');
+        if (typeof showToast === 'function')
+          showToast('No account found with this email address.', 'warning');
         return;
       }
 
@@ -1829,7 +2351,10 @@ async function loginMember() {
           var directRec = await recordAuthAttempt(queryEmail, false);
           if (directRec && directRec.locked) {
             if (typeof showToast === 'function') {
-              showToast('Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.', 'error');
+              showToast(
+                'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.',
+                'error'
+              );
             }
             return;
           }
@@ -1847,9 +2372,14 @@ async function loginMember() {
           });
         }
         if (typeof showToast === 'function') {
-          var directMsg = directAttemptsLeft > 0
-            ? ('Incorrect password! You have ' + directAttemptsLeft + ' attempt' + (directAttemptsLeft === 1 ? '' : 's') + ' left before a 15-minute lockout.')
-            : 'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.';
+          var directMsg =
+            directAttemptsLeft > 0
+              ? 'Incorrect password! You have ' +
+                directAttemptsLeft +
+                ' attempt' +
+                (directAttemptsLeft === 1 ? '' : 's') +
+                ' left before a 15-minute lockout.'
+              : 'Account is temporarily locked due to 5 failed attempts. Please retry in 15 minutes.';
           showToast(directMsg, 'error');
         }
         return;
@@ -1866,9 +2396,14 @@ async function loginMember() {
       if (check.needsUpgrade) {
         try {
           var upgradedHash = await hashPassword(pass);
-          await Promise.all(accounts.map(function(acc) {
-            return client.patch('bb_members?ic=eq.' + encodeURIComponent(acc.ic), { password: upgradedHash });
-          }));
+          if (typeof client.rpc === 'function') {
+            var legacyPw = check.legacyMatchedPassword || pass;
+            await client.rpc('rpc_change_member_password', {
+              p_email: queryEmail,
+              p_current_password_hash: legacyPw,
+              p_new_password_hash: upgradedHash
+            });
+          }
           if (typeof logAuditEvent === 'function') {
             logAuditEvent({
               action: 'auth.credential_migrated',
@@ -1905,11 +2440,18 @@ async function loginMember() {
     if (client && typeof client.rpc === 'function' && typeof RBAC !== 'undefined') {
       try {
         await RBAC.loadRolesConfig(true);
-        if (RBAC.isAdmin(queryEmail)) {
+        var isConfigured =
+          typeof RBAC.isConfiguredAdmin === 'function'
+            ? RBAC.isConfiguredAdmin(queryEmail)
+            : RBAC.isAdmin(queryEmail);
+        if (isConfigured) {
           var issued = await client.rpc('rpc_begin_admin_member_signin', {
-            p_email: queryEmail, p_password: pass, p_remember: rememberMe
+            p_email: queryEmail,
+            p_password: pass,
+            p_remember: rememberMe
           });
-          if (issued?.token) adminSignIn = { token: issued.token, expires_at: issued.expires_at, email: queryEmail };
+          if (issued?.token)
+            adminSignIn = { token: issued.token, expires_at: issued.expires_at, email: queryEmail };
         }
       } catch (_) {}
     }
@@ -1922,14 +2464,18 @@ async function loginMember() {
       // Single account -> direct login
       completeLoginWithAccount(accounts[0], rememberMe, adminSignIn);
       if (typeof window !== 'undefined' && window.location) {
-        var target = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
-          ? AuthGuard.getRedirectTarget()
-          : null;
+        var target =
+          typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function'
+            ? AuthGuard.getRedirectTarget()
+            : null;
         if (target && target !== 'member') {
           AuthGuard.clearRedirectTarget();
           if (target !== 'admin' || adminSignIn) window.location.hash = '#' + target;
           else if (typeof showToast === 'function') {
-            showToast('Your member sign-in succeeded. Admin access could not be verified.', 'warning');
+            showToast(
+              'Your member sign-in succeeded. Admin access could not be verified.',
+              'warning'
+            );
             return;
           }
         }
@@ -1955,7 +2501,8 @@ async function loginMember() {
  */
 async function dispatchDeviceSecurityAlertEmail(info) {
   try {
-    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    var client =
+      typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
     var scriptUrl = '';
     var syncToken = '';
     if (typeof window !== 'undefined' && window._masterSheetConfig) {
@@ -1968,7 +2515,10 @@ async function dispatchDeviceSecurityAlertEmail(info) {
         sheetRows = await client.get('bb_config?key=eq.bb_att_sheet&select=value');
       }
       if (sheetRows && sheetRows.length && sheetRows[0].value) {
-        var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
+        var parsed =
+          typeof sheetRows[0].value === 'string'
+            ? JSON.parse(sheetRows[0].value)
+            : sheetRows[0].value;
         scriptUrl = parsed.scriptUrl || '';
         syncToken = parsed.syncToken || syncToken;
       }
@@ -1976,21 +2526,30 @@ async function dispatchDeviceSecurityAlertEmail(info) {
 
     if (!scriptUrl) return;
 
-    var portalUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
-      ? (window.location.origin + window.location.pathname)
-      : 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
+    var portalUrl =
+      typeof window !== 'undefined' && window.location && window.location.origin
+        ? window.location.origin + window.location.pathname
+        : 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
 
-    var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
+    var url =
+      scriptUrl +
+      (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
       'action=sendSecurityAlertEmail' +
-      '&email=' + encodeURIComponent(info.email) +
-      '&name=' + encodeURIComponent(info.name || 'Member') +
-      '&device=' + encodeURIComponent(info.deviceLabel || 'New Device') +
-      '&browser=' + encodeURIComponent(info.browser || 'Web Browser') +
-      '&time=' + encodeURIComponent(info.time || '') +
-      '&portalUrl=' + encodeURIComponent(portalUrl) +
+      '&email=' +
+      encodeURIComponent(info.email) +
+      '&name=' +
+      encodeURIComponent(info.name || 'Member') +
+      '&device=' +
+      encodeURIComponent(info.deviceLabel || 'New Device') +
+      '&browser=' +
+      encodeURIComponent(info.browser || 'Web Browser') +
+      '&time=' +
+      encodeURIComponent(info.time || '') +
+      '&portalUrl=' +
+      encodeURIComponent(portalUrl) +
       (syncToken ? '&token=' + encodeURIComponent(syncToken) : '');
 
-    await fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function(err) {
+    await fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function (err) {
       console.warn('Security alert email dispatch note:', err);
     });
   } catch (err) {
@@ -2005,24 +2564,33 @@ async function dispatchDeviceSecurityAlertEmail(info) {
  */
 async function checkAndNotifyNewDeviceLogin(m) {
   try {
-    var userEmail = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : '')).trim().toLowerCase();
+    var userEmail = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : ''))
+      .trim()
+      .toLowerCase();
     if (!userEmail || userEmail.indexOf('@') === -1) return;
 
-    var getDevFn = (typeof window !== 'undefined' && window.getDeviceSecurityInfo) ||
+    var getDevFn =
+      (typeof window !== 'undefined' && window.getDeviceSecurityInfo) ||
       (typeof global !== 'undefined' && global.getDeviceSecurityInfo) ||
       (typeof getDeviceSecurityInfo === 'function' ? getDeviceSecurityInfo : null);
-    var devInfo = getDevFn ? getDevFn() : { deviceId: 'dev_default', label: 'Web Browser', os: 'Unknown OS', browser: 'Browser' };
+    var devInfo = getDevFn
+      ? getDevFn()
+      : { deviceId: 'dev_default', label: 'Web Browser', os: 'Unknown OS', browser: 'Browser' };
 
-    var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
+    var client =
+      typeof supa !== 'undefined' ? supa : typeof getSupa === 'function' ? getSupa() : null;
     if (!client) return;
 
     var devKey = 'bb_devices_' + userEmail.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
     var knownDevices = [];
 
     try {
-      var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(devKey) + '&select=value');
+      var rows = await client.get(
+        'bb_config?key=eq.' + encodeURIComponent(devKey) + '&select=value'
+      );
       if (rows && rows.length && rows[0].value) {
-        knownDevices = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+        knownDevices =
+          typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
         if (!Array.isArray(knownDevices)) knownDevices = [];
       }
     } catch (_) {}
@@ -2042,13 +2610,15 @@ async function checkAndNotifyNewDeviceLogin(m) {
     if (isKnown) {
       try {
         if (typeof client.patch === 'function') {
-          await client.patch('bb_config?key=eq.' + encodeURIComponent(devKey), { value: JSON.stringify(knownDevices) });
+          await client.patch('bb_config?key=eq.' + encodeURIComponent(devKey), {
+            value: JSON.stringify(knownDevices)
+          });
         }
       } catch (_) {}
       return;
     }
 
-    var isFirstBaseline = (knownDevices.length === 0);
+    var isFirstBaseline = knownDevices.length === 0;
 
     knownDevices.push({
       deviceId: devInfo.deviceId,
@@ -2061,11 +2631,20 @@ async function checkAndNotifyNewDeviceLogin(m) {
 
     try {
       if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', { key: devKey, value: JSON.stringify(knownDevices) }, 'key');
+        await client.upsert(
+          'bb_config',
+          { key: devKey, value: JSON.stringify(knownDevices) },
+          'key'
+        );
       } else if (isFirstBaseline && typeof client.req === 'function') {
-        await client.req('POST', 'bb_config?on_conflict=key', { key: devKey, value: JSON.stringify(knownDevices) });
+        await client.req('POST', 'bb_config?on_conflict=key', {
+          key: devKey,
+          value: JSON.stringify(knownDevices)
+        });
       } else if (typeof client.patch === 'function') {
-        await client.patch('bb_config?key=eq.' + encodeURIComponent(devKey), { value: JSON.stringify(knownDevices) });
+        await client.patch('bb_config?key=eq.' + encodeURIComponent(devKey), {
+          value: JSON.stringify(knownDevices)
+        });
       }
     } catch (saveErr) {
       try {
@@ -2076,14 +2655,17 @@ async function checkAndNotifyNewDeviceLogin(m) {
     }
 
     if (!isFirstBaseline) {
-      var dateFormatted = new Date().toLocaleDateString('en-MY', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric'
-      }) + ', ' + new Date().toLocaleTimeString('en-MY', {
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      var dateFormatted =
+        new Date().toLocaleDateString('en-MY', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        }) +
+        ', ' +
+        new Date().toLocaleTimeString('en-MY', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
 
       await dispatchDeviceSecurityAlertEmail({
         email: userEmail,
@@ -2106,10 +2688,8 @@ async function checkAndNotifyNewDeviceLogin(m) {
  */
 /* global saveAdminMemberSignIn */
 function completeLoginWithAccount(m, rememberMe, adminSignIn) {
-  if (typeof window !== 'undefined' && typeof window.Notification !== 'undefined' && window.Notification.permission === 'default' && typeof window.requestNotificationPermission === 'function') {
-    window.requestNotificationPermission();
-  }
-  var userEmail = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : m.ic));
+  var userEmail = m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : m.ic);
+  sessionSet('email', userEmail);
   sessionSet('remember', rememberMe !== false);
   sessionSet('ic', m.ic);
   sessionSet('email', userEmail);
@@ -2124,6 +2704,10 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   sessionSet('created_at', m.created_at || m.joined_at || '');
   sessionSet('department', m.department || '');
   sessionSet('photo_url', m.photo_url || '');
+  if (m && m._session_token) {
+    sessionSet('session_token', m._session_token);
+    if (m._session_expires_at) sessionSet('session_expires_at', m._session_expires_at);
+  }
 
   renderDashboard();
 
@@ -2131,9 +2715,11 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
 
   if (typeof loadMemberCosmetics === 'function') {
-    loadMemberCosmetics(true).then(function() {
-      if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
-    }).catch(function() {});
+    loadMemberCosmetics(true)
+      .then(function () {
+        if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
+      })
+      .catch(function () {});
   }
   if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
   if (typeof window !== 'undefined' && typeof window.fetchRemoteArcadeStats === 'function') {
@@ -2141,23 +2727,31 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   } else if (typeof global !== 'undefined' && typeof global.fetchRemoteArcadeStats === 'function') {
     global.fetchRemoteArcadeStats();
   }
-  var getGlobalFn = function(fnName) {
-    if (typeof window !== 'undefined' && typeof window[fnName] === 'function') return window[fnName];
-    if (typeof global !== 'undefined' && typeof global[fnName] === 'function') return global[fnName];
+  var getGlobalFn = function (fnName) {
+    if (typeof window !== 'undefined' && typeof window[fnName] === 'function')
+      return window[fnName];
+    if (typeof global !== 'undefined' && typeof global[fnName] === 'function')
+      return global[fnName];
     return null;
   };
-  var fnWordle = getGlobalFn('fetchRemoteWordleState'); if (fnWordle) fnWordle();
-  var fnTrivia = getGlobalFn('fetchRemoteTriviaState'); if (fnTrivia) fnTrivia();
-  var fnBadges = getGlobalFn('loadBadges'); if (fnBadges) fnBadges();
-  var fnReminders = getGlobalFn('fetchRemoteMemberEvents'); if (fnReminders) fnReminders();
+  var fnWordle = getGlobalFn('fetchRemoteWordleState');
+  if (fnWordle) fnWordle();
+  var fnTrivia = getGlobalFn('fetchRemoteTriviaState');
+  if (fnTrivia) fnTrivia();
+  var fnBadges = getGlobalFn('loadBadges');
+  if (fnBadges) fnBadges();
+  var fnReminders = getGlobalFn('fetchRemoteMemberEvents');
+  if (fnReminders) fnReminders();
   var fnDismissed = getGlobalFn('fetchRemoteDismissedNotifs');
   var fnNotifs = getGlobalFn('syncAllPortalNotifications');
   if (fnDismissed) {
-    fnDismissed().then(function() {
-      if (fnNotifs) fnNotifs();
-    }).catch(function() {
-      if (fnNotifs) fnNotifs();
-    });
+    fnDismissed()
+      .then(function () {
+        if (fnNotifs) fnNotifs();
+      })
+      .catch(function () {
+        if (fnNotifs) fnNotifs();
+      });
   } else if (fnNotifs) {
     fnNotifs();
   }
@@ -2171,31 +2765,52 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
     if (sn) sn.textContent = m.name || '';
     var sb = document.getElementById('sidebar-user-badge');
     if (sb) sb.textContent = m.rank || 'Member';
-    var bt = document.getElementById('tab-badges'); if (bt) bt.style.display = 'block';
+    var bt = document.getElementById('tab-badges');
+    if (bt) bt.style.display = 'block';
   }
 
-  if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
-  else if (typeof global !== 'undefined' && typeof global.updateNavUserHeader === 'function') global.updateNavUserHeader();
+  if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function')
+    window.updateNavUserHeader();
+  else if (typeof global !== 'undefined' && typeof global.updateNavUserHeader === 'function')
+    global.updateNavUserHeader();
   if (typeof RBAC !== 'undefined' && typeof RBAC.renderHeaderRoleBadge === 'function') {
     RBAC.renderHeaderRoleBadge();
   }
 
   if (typeof showToast === 'function') {
-    showToast('Signed in as ' + m.name + ' (' + (m.att_section || m.section || 'Member') + ')', 'success', 3000);
+    showToast(
+      'Signed in as ' + m.name + ' (' + (m.att_section || m.section || 'Member') + ')',
+      'success',
+      3000
+    );
   }
 
   // Trigger onboarding wizard if user has not completed onboarding
-  var checkLoginOnboarding = async function() {
-    var isNative = typeof window !== 'undefined' && (
-      (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
-      Boolean(window.androidBridge) ||
-      (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
-      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
-      (window.navigator && window.navigator.standalone === true)
-    );
-    var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
+  var checkLoginOnboarding = async function () {
+    var isNative =
+      typeof window !== 'undefined' &&
+      ((typeof window.Capacitor !== 'undefined' &&
+        typeof window.Capacitor.isNativePlatform === 'function' &&
+        window.Capacitor.isNativePlatform()) ||
+        Boolean(window.androidBridge) ||
+        (window.location &&
+          (window.location.protocol === 'capacitor:' ||
+            window.location.protocol === 'ionic:' ||
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1')) ||
+        (typeof window.matchMedia === 'function' &&
+          window.matchMedia('(display-mode: standalone)').matches) ||
+        (window.navigator && window.navigator.standalone === true));
+    var nativeNeeded =
+      isNative &&
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('bb_native_onboarding_completed') !== 'true';
 
-    if (!nativeNeeded && typeof isOnboardingCompleted === 'function' && isOnboardingCompleted(userEmail)) {
+    if (
+      !nativeNeeded &&
+      typeof isOnboardingCompleted === 'function' &&
+      isOnboardingCompleted(userEmail)
+    ) {
       return;
     }
     var remoteDone = false;
@@ -2204,7 +2819,11 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
         remoteDone = await fetchRemoteOnboardingStatus(userEmail);
       } catch (_) {}
     }
-    if ((nativeNeeded || !remoteDone) && typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
+    if (
+      (nativeNeeded || !remoteDone) &&
+      typeof launchOnboardingWizard === 'function' &&
+      typeof document !== 'undefined'
+    ) {
       launchOnboardingWizard({ user: m });
     }
   };
@@ -2224,7 +2843,7 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
     return Promise.resolve(accounts[0]);
   }
 
-  return new Promise(function(resolve) {
+  return new Promise(function (resolve) {
     var old = document.querySelector('.account-picker-overlay');
     if (old && old.parentNode) old.parentNode.removeChild(old);
 
@@ -2239,7 +2858,8 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
 
     var header = document.createElement('div');
     header.className = 'account-picker-header';
-    header.innerHTML = '<h3 id="account-picker-title">' +
+    header.innerHTML =
+      '<h3 id="account-picker-title">' +
       '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
       'Select Member Account</h3>' +
       '<p>Multiple accounts are linked to this email address. Choose which member to sign in as:</p>';
@@ -2248,53 +2868,97 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
     var list = document.createElement('div');
     list.className = 'account-picker-list';
 
-    accounts.forEach(function(acc) {
+    accounts.forEach(function (acc) {
       var item = document.createElement('button');
       item.type = 'button';
       item.className = 'account-picker-item';
 
       var avatarHtml = '';
       if (acc.photo_url) {
-        avatarHtml = '<img src="' + escapeHtml(acc.photo_url) + '" class="account-picker-avatar-img" alt="' + escapeHtml(acc.name) + '"/>';
+        avatarHtml =
+          '<img src="' +
+          escapeHtml(acc.photo_url) +
+          '" class="account-picker-avatar-img" alt="' +
+          escapeHtml(acc.name) +
+          '"/>';
       } else {
-        var isCr = (typeof isPortalCreator === 'function') ? isPortalCreator(acc.name, acc.email || acc.ic) : (acc.name && acc.name.toLowerCase() === 'jeshua koh');
-        var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(acc.name) : '#047857';
-        var initial = isCr ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(acc.name, acc.email) : ((acc.name || 'M').trim().charAt(0).toUpperCase() || '?'));
+        var isCr =
+          typeof isPortalCreator === 'function'
+            ? isPortalCreator(acc.name, acc.email || acc.ic)
+            : acc.name && acc.name.toLowerCase() === 'jeshua koh';
+        var color =
+          typeof getMemberAvatarColor === 'function' ? getMemberAvatarColor(acc.name) : '#047857';
+        var initial = isCr
+          ? 'J'
+          : typeof getMemberAvatarInitial === 'function'
+            ? getMemberAvatarInitial(acc.name, acc.email)
+            : (acc.name || 'M').trim().charAt(0).toUpperCase() || '?';
         if (isCr) {
-          avatarHtml = '<div class="member-avatar-placeholder creator-outline-avatar" style="width:100%;height:100%;font-size:16px;">' + initial + '</div>';
+          avatarHtml =
+            '<div class="member-avatar-placeholder creator-outline-avatar" style="width:100%;height:100%;font-size:16px;">' +
+            initial +
+            '</div>';
         } else {
-          avatarHtml = '<div class="member-avatar-placeholder" style="width:100%;height:100%;background:' + color + ';font-size:16px;border:2px solid ' + color + ';display:flex;align-items:center;justify-content:center;border-radius:50%;color:#ffffff;font-weight:700;">' + initial + '</div>';
+          avatarHtml =
+            '<div class="member-avatar-placeholder" style="width:100%;height:100%;background:' +
+            color +
+            ';font-size:16px;border:2px solid ' +
+            color +
+            ';display:flex;align-items:center;justify-content:center;border-radius:50%;color:#ffffff;font-weight:700;">' +
+            initial +
+            '</div>';
         }
       }
 
-      var sectionRank = (acc.att_section || acc.section || 'Senior') + (acc.rank ? ' &bull; ' + escapeHtml(acc.rank) : '');
-      var platoon = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad(acc.squad, acc.att_section || acc.section) : (acc.squad ? acc.squad + ' Platoon' : '');
+      var sectionRank =
+        (acc.att_section || acc.section || 'Senior') +
+        (acc.rank ? ' &bull; ' + escapeHtml(acc.rank) : '');
+      var platoon =
+        typeof formatPlatoonOrSquad === 'function'
+          ? formatPlatoonOrSquad(acc.squad, acc.att_section || acc.section)
+          : acc.squad
+            ? acc.squad + ' Platoon'
+            : '';
 
       item.innerHTML =
-        '<div class="account-picker-avatar-wrap">' + avatarHtml + '</div>' +
+        '<div class="account-picker-avatar-wrap">' +
+        avatarHtml +
+        '</div>' +
         '<div class="account-picker-info">' +
-          '<div class="account-picker-name">' + escapeHtml(acc.name || 'Member') + '</div>' +
-          '<div class="account-picker-meta">' +
-            '<span class="account-picker-badge">' + sectionRank + '</span>' +
-            (platoon ? '<span style="color:var(--text-muted);font-size:11px;">' + escapeHtml(platoon) + '</span>' : '') +
-          '</div>' +
+        '<div class="account-picker-name">' +
+        escapeHtml(acc.name || 'Member') +
+        '</div>' +
+        '<div class="account-picker-meta">' +
+        '<span class="account-picker-badge">' +
+        sectionRank +
+        '</span>' +
+        (platoon
+          ? '<span style="color:var(--text-muted);font-size:11px;">' +
+            escapeHtml(platoon) +
+            '</span>'
+          : '') +
+        '</div>' +
         '</div>' +
         '<div class="account-picker-arrow">' +
-          '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>' +
+        '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>' +
         '</div>';
 
-      item.addEventListener('click', function() {
+      item.addEventListener('click', function () {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         completeLoginWithAccount(acc, rememberMe, adminSignIn);
         if (typeof window !== 'undefined' && window.location) {
-          var pickerTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
-            ? AuthGuard.getRedirectTarget()
-            : null;
+          var pickerTarget =
+            typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function'
+              ? AuthGuard.getRedirectTarget()
+              : null;
           if (pickerTarget && pickerTarget !== 'member') {
             AuthGuard.clearRedirectTarget();
             if (pickerTarget !== 'admin' || adminSignIn) window.location.hash = '#' + pickerTarget;
             else if (typeof showToast === 'function') {
-              showToast('Your member sign-in succeeded. Admin access could not be verified.', 'warning');
+              showToast(
+                'Your member sign-in succeeded. Admin access could not be verified.',
+                'warning'
+              );
               resolve(acc);
               return;
             }
@@ -2317,7 +2981,7 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
     cancelBtn.textContent = 'Cancel';
     cancelBtn.style.fontSize = '12px';
     cancelBtn.style.padding = '6px 14px';
-    cancelBtn.addEventListener('click', function() {
+    cancelBtn.addEventListener('click', function () {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
       resolve(null);
     });
@@ -2327,7 +2991,7 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
     overlay.appendChild(card);
     document.body.appendChild(overlay);
 
-    overlay.addEventListener('click', function(e) {
+    overlay.addEventListener('click', function (e) {
       if (e.target === overlay) {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         resolve(null);
@@ -2349,7 +3013,7 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
  * Convenient in-portal switcher allowing a parent to toggle between children.
  */
 async function switchFamilyAccount() {
-  var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
+  var email = typeof sessionGet === 'function' ? sessionGet('email') : null;
   if (!email) return;
   var accounts = await findMembersByEmail(email);
   if (accounts && accounts.length > 1) {
@@ -2376,7 +3040,8 @@ var AVATAR_OUTLINE_STYLES = {
     badge: 'Animated',
     description: '360° rotating chromatic spectrum with electric glow',
     className: 'avatar-outline-rgb',
-    swatch: 'conic-gradient(from -45deg, #ff4b4b 0deg 90deg, #3b82f6 90deg 180deg, #22c55e 180deg 270deg, #facc15 270deg 360deg)',
+    swatch:
+      'conic-gradient(from -45deg, #ff4b4b 0deg 90deg, #3b82f6 90deg 180deg, #22c55e 180deg 270deg, #facc15 270deg 360deg)',
     animated: true
   },
   sunset: {
@@ -2498,7 +3163,7 @@ var AVATAR_OUTLINE_STYLES = {
   }
 };
 
-var _customAvatarOutlinesMap = (function() {
+var _customAvatarOutlinesMap = (function () {
   if (typeof localStorage !== 'undefined') {
     try {
       var cached = localStorage.getItem('bb_custom_avatar_outlines');
@@ -2507,7 +3172,6 @@ var _customAvatarOutlinesMap = (function() {
   }
   return {};
 })();
-
 
 // ── Profile Cosmetics & Gamified Arcade Credit Shop ────────────────
 var PROFILE_COSMETICS = {
@@ -2519,7 +3183,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'Headwear',
     price: 40,
     desc: 'Festive celebratory cone hat with cheerful dots, wavy streamers, and pom-pom.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4L7 27h18L16 4z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16" cy="4" r="2.5" fill="#ef4444"/><path d="M9 22c2-1 4-1 6 0s4 1 6 0" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M11 16c1.5-.8 3-.8 4.5 0s3 .8 4.5 0" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="11" r="1.2" fill="#10b981"/></svg>'
+    badgeHtml:
+      '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 4L7 27h18L16 4z" fill="#f59e0b" stroke="#b45309" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16" cy="4" r="2.5" fill="#ef4444"/><path d="M9 22c2-1 4-1 6 0s4 1 6 0" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/><path d="M11 16c1.5-.8 3-.8 4.5 0s3 .8 4.5 0" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="11" r="1.2" fill="#10b981"/></svg>'
   },
   cowboy_hat: {
     id: 'cowboy_hat',
@@ -2528,7 +3193,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'Headwear',
     price: 50,
     desc: 'Rugged wild-west brown stetson with rolled brim and leather band.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="16" cy="22" rx="13" ry="4.5" fill="#78350f" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c0-6 2-11 6-11s6 5 6 11H10z" fill="#92400e" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c1.5-1 4-1.5 6-1.5s4.5.5 6 1.5" stroke="#fbbf24" stroke-width="1.5"/><path d="M13 11c1.5 1 4.5 1 6 0" stroke="#451a03" stroke-width="1.2" stroke-linecap="round"/></svg>'
+    badgeHtml:
+      '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="16" cy="22" rx="13" ry="4.5" fill="#78350f" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c0-6 2-11 6-11s6 5 6 11H10z" fill="#92400e" stroke="#451a03" stroke-width="1.2"/><path d="M10 20c1.5-1 4-1.5 6-1.5s4.5.5 6 1.5" stroke="#fbbf24" stroke-width="1.5"/><path d="M13 11c1.5 1 4.5 1 6 0" stroke="#451a03" stroke-width="1.2" stroke-linecap="round"/></svg>'
   },
   chef_hat: {
     id: 'chef_hat',
@@ -2537,7 +3203,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'Headwear',
     price: 45,
     desc: 'Crisp white pleated culinary toque worn by master chefs.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 20h10v5H11v-5z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.2"/><path d="M11 20c-3 0-4-3-3-5 1-3 4-2 4-4 1-3 5-4 7-2 3-2 6 0 6 3 1 2 3 2 3 5 0 2-2 3-3 3H11z" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round"/><path d="M14 14v6M17 13v7M20 14v6" stroke="#cbd5e1" stroke-width="1" stroke-linecap="round"/></svg>'
+    badgeHtml:
+      '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M11 20h10v5H11v-5z" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1.2"/><path d="M11 20c-3 0-4-3-3-5 1-3 4-2 4-4 1-3 5-4 7-2 3-2 6 0 6 3 1 2 3 2 3 5 0 2-2 3-3 3H11z" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" stroke-linejoin="round"/><path d="M14 14v6M17 13v7M20 14v6" stroke="#cbd5e1" stroke-width="1" stroke-linecap="round"/></svg>'
   },
   bb_cap: {
     id: 'bb_cap',
@@ -2546,7 +3213,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'Headwear',
     price: 55,
     desc: 'Official Boys Brigade ceremonial navy side cap with double white piping and silver star badge.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 24 C5 16, 9 8, 18 8 C25 8, 28 14, 29 24 Z" fill="#172554" stroke="#0f172a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 11 C17 12, 23 11, 26 15" stroke="#1e3a8a" stroke-width="1.2" stroke-linecap="round"/><path d="M4.5 24 C8 19, 17 18, 29 23 L28.5 25 C17 20, 8 21, 4.5 25.5 Z" fill="#1e3a8a"/><path d="M5.5 21.5 C10 17.5, 19 17.5, 28 21.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M6 24 C10.5 20, 19.5 20, 27.5 23.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M13 14 L14 11.5 L15 14 L17.5 15 L15 16 L14 18.5 L13 16 L10.5 15 Z" fill="#f8fafc" stroke="#cbd5e1" stroke-width="0.5"/><circle cx="14" cy="15" r="1.4" fill="#172554"/><circle cx="14" cy="15" r="0.6" fill="#f8fafc"/></svg>'
+    badgeHtml:
+      '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 24 C5 16, 9 8, 18 8 C25 8, 28 14, 29 24 Z" fill="#172554" stroke="#0f172a" stroke-width="1.2" stroke-linejoin="round"/><path d="M12 11 C17 12, 23 11, 26 15" stroke="#1e3a8a" stroke-width="1.2" stroke-linecap="round"/><path d="M4.5 24 C8 19, 17 18, 29 23 L28.5 25 C17 20, 8 21, 4.5 25.5 Z" fill="#1e3a8a"/><path d="M5.5 21.5 C10 17.5, 19 17.5, 28 21.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M6 24 C10.5 20, 19.5 20, 27.5 23.5" stroke="#ffffff" stroke-width="1.3" stroke-linecap="round"/><path d="M13 14 L14 11.5 L15 14 L17.5 15 L15 16 L14 18.5 L13 16 L10.5 15 Z" fill="#f8fafc" stroke="#cbd5e1" stroke-width="0.5"/><circle cx="14" cy="15" r="1.4" fill="#172554"/><circle cx="14" cy="15" r="0.6" fill="#f8fafc"/></svg>'
   },
   santa_hat: {
     id: 'santa_hat',
@@ -2555,7 +3223,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'Headwear',
     price: 50,
     desc: 'Festive Christmas holiday cap with snowy white fleece trim & pom-pom.',
-    badgeHtml: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 22c4-12 14-14 18-10 1 1 0 3-1 3-3 0-5 2-8 5-2 1.5-6 2-9 2z" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/><rect x="7" y="21" width="18" height="5" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/><circle cx="27" cy="13" r="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/></svg>'
+    badgeHtml:
+      '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 22c4-12 14-14 18-10 1 1 0 3-1 3-3 0-5 2-8 5-2 1.5-6 2-9 2z" fill="#dc2626" stroke="#991b1b" stroke-width="1.2"/><rect x="7" y="21" width="18" height="5" rx="2.5" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/><circle cx="27" cy="13" r="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="1"/></svg>'
   },
 
   // ── 2. BB Badges (From assets/BB Badges) ──────────────────────────────────
@@ -2566,7 +3235,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 30,
     desc: 'Foundation syllabus badge covering BB history, drill, and company regulations.',
-    badgeHtml: '<img src="assets/BB Badges/0%20Target.png" alt="Target Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/0%20Target.png" alt="Target Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/0%20Target.png'
   },
   badge_arts: {
@@ -2576,7 +3246,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 40,
     desc: 'Proficiency in drawing, painting, photography, and creative visual arts.',
-    badgeHtml: '<img src="assets/BB Badges/Arts.png" alt="Arts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Arts.png" alt="Arts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Arts.png'
   },
   badge_athletics: {
@@ -2586,7 +3257,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 40,
     desc: 'Track and field proficiency in sprinting, distance running, and jumping.',
-    badgeHtml: '<img src="assets/BB Badges/Athletics.png" alt="Athletics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Athletics.png" alt="Athletics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Athletics.png'
   },
   badge_bandsman: {
@@ -2596,7 +3268,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Musicianship in the BB brass band, wind ensemble, or bagpipe band.',
-    badgeHtml: '<img src="assets/BB Badges/Bandsman.png" alt="Bandsman Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Bandsman.png" alt="Bandsman Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Bandsman.png'
   },
   badge_bronze_scholastic: {
@@ -2606,17 +3279,19 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 60,
     desc: 'Academic excellence and scholastic merit in school examinations.',
-    badgeHtml: '<img src="assets/BB Badges/Bronze%20Scholastic.png" alt="Bronze Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Bronze%20Scholastic.png" alt="Bronze Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Bronze%20Scholastic.png'
   },
   badge_buglers: {
     id: 'badge_buglers',
-    name: 'Bugler\'s Badge',
+    name: "Bugler's Badge",
     category: 'badges',
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Proficiency in sounding official ceremonial BB bugle calls and fanfares.',
-    badgeHtml: '<img src="assets/BB Badges/Buglers.png" alt="Bugler\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Buglers.png" alt="Bugler\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Buglers.png'
   },
   badge_camping: {
@@ -2626,7 +3301,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Campcraft mastery including tent pitching, campsite layout, and camp cooking.',
-    badgeHtml: '<img src="assets/BB Badges/Camping.png" alt="Camping Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Camping.png" alt="Camping Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Camping.png'
   },
   badge_christian_ed: {
@@ -2636,7 +3312,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Bible knowledge, Christian faith foundations, and moral character.',
-    badgeHtml: '<img src="assets/BB Badges/Christian%20Education.png" alt="Christian Education Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Christian%20Education.png" alt="Christian Education Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Christian%20Education.png'
   },
   badge_citizenship: {
@@ -2646,7 +3323,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Knowledge of Malaysian government, constitution, national heritage, and civic duties.',
-    badgeHtml: '<img src="assets/BB Badges/Citizenship.png" alt="Citizenship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Citizenship.png" alt="Citizenship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Citizenship.png'
   },
   badge_communications: {
@@ -2656,7 +3334,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Mastery in public speaking, radio transmission, signals, and media.',
-    badgeHtml: '<img src="assets/BB Badges/Communications.png" alt="Communications Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Communications.png" alt="Communications Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Communications.png'
   },
   badge_community_service: {
@@ -2666,7 +3345,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Dedicated volunteer service aiding underprivileged communities.',
-    badgeHtml: '<img src="assets/BB Badges/Community%20Service.png" alt="Community Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Community%20Service.png" alt="Community Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Community%20Service.png'
   },
   badge_computer_knowledge: {
@@ -2676,7 +3356,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Competency in software applications, digital safety, and coding.',
-    badgeHtml: '<img src="assets/BB Badges/Computer%20Knowledge.png" alt="Computer Knowledge Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Computer%20Knowledge.png" alt="Computer Knowledge Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Computer%20Knowledge.png'
   },
   badge_crafts: {
@@ -2686,7 +3367,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 40,
     desc: 'Handicraft proficiency in woodwork, leatherwork, and model making.',
-    badgeHtml: '<img src="assets/BB Badges/Crafts.png" alt="Crafts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Crafts.png" alt="Crafts Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Crafts.png'
   },
   badge_drill: {
@@ -2696,17 +3378,19 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Precision military drill movements, squad formations, and parade discipline.',
-    badgeHtml: '<img src="assets/BB Badges/Drill.png" alt="Drill Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Drill.png" alt="Drill Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Drill.png'
   },
   badge_drummers: {
     id: 'badge_drummers',
-    name: 'Drummer\'s Badge',
+    name: "Drummer's Badge",
     category: 'badges',
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Percussion proficiency in snare drum rudiments and pipe band drumming.',
-    badgeHtml: '<img src="assets/BB Badges/Drummers.png" alt="Drummer\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Drummers.png" alt="Drummer\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Drummers.png'
   },
   badge_environmental_conservation: {
@@ -2716,7 +3400,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Eco-stewardship, waste recycling, tree planting, and sustainability.',
-    badgeHtml: '<img src="assets/BB Badges/Enviromental%20Conservation.png" alt="Environmental Conservation Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Enviromental%20Conservation.png" alt="Environmental Conservation Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Enviromental%20Conservation.png'
   },
   badge_expedition: {
@@ -2726,7 +3411,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 55,
     desc: 'Multi-day wilderness hiking expedition requiring compass navigation and survival.',
-    badgeHtml: '<img src="assets/BB Badges/Expedition.png" alt="Expedition Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Expedition.png" alt="Expedition Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Expedition.png'
   },
   badge_financial_stewardship: {
@@ -2736,7 +3422,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Personal budgeting, prudent money management, and Biblical stewardship.',
-    badgeHtml: '<img src="assets/BB Badges/Financial%20Stewardship.png" alt="Financial Stewardship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Financial%20Stewardship.png" alt="Financial Stewardship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Financial%20Stewardship.png'
   },
   badge_fire_and_rescue: {
@@ -2746,7 +3433,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Fire safety precautions, extinguishers, evacuation drills, and rescue methods.',
-    badgeHtml: '<img src="assets/BB Badges/Fire%20and%20Rescue.png" alt="Fire and Rescue Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Fire%20and%20Rescue.png" alt="Fire and Rescue Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Fire%20and%20Rescue.png'
   },
   badge_first_aid: {
@@ -2756,17 +3444,19 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Emergency lifesaving treatment, CPR, wound dressing, and casualty care.',
-    badgeHtml: '<img src="assets/BB Badges/First%20Aid.png" alt="First Aid Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/First%20Aid.png" alt="First Aid Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/First%20Aid.png'
   },
   badge_founders_award: {
     id: 'badge_founders_award',
-    name: 'Founder\'s Badge',
+    name: "Founder's Badge",
     category: 'badges',
     categoryLabel: 'BB Badges',
     price: 150,
     desc: 'The pinnacle achievement for Senior Section Boys recognizing sterling leadership and service.',
-    badgeHtml: '<img src="assets/BB Badges/Founder%27s%20Award.png" alt="Founder\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Founder%27s%20Award.png" alt="Founder\'s Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Founder%27s%20Award.png'
   },
   badge_gold_award: {
@@ -2776,7 +3466,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 120,
     desc: 'Premier Junior Section award representing outstanding diligence and excellence.',
-    badgeHtml: '<img src="assets/BB Badges/Gold%20Award.png" alt="Gold Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Gold%20Award.png" alt="Gold Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Gold%20Award.png'
   },
   badge_gold_scholastic: {
@@ -2786,7 +3477,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 85,
     desc: 'Highest scholastic merit honoring top academic standing in major public examinations.',
-    badgeHtml: '<img src="assets/BB Badges/Gold%20Scholastic.png" alt="Gold Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Gold%20Scholastic.png" alt="Gold Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Gold%20Scholastic.png'
   },
   badge_gymnastics: {
@@ -2796,7 +3488,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Physical agility, tumbling, balance, and gymnastic apparatus execution.',
-    badgeHtml: '<img src="assets/BB Badges/Gymnastics.png" alt="Gymnastics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Gymnastics.png" alt="Gymnastics Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Gymnastics.png'
   },
   badge_hobbies: {
@@ -2806,7 +3499,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 40,
     desc: 'Sustained personal dedication to a constructive hobby, craft, or collection.',
-    badgeHtml: '<img src="assets/BB Badges/Hobbies.png" alt="Hobbies Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Hobbies.png" alt="Hobbies Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Hobbies.png'
   },
   badge_international_relations: {
@@ -2816,7 +3510,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Appreciation of global cultures, worldwide BB fellowships, and international diplomacy.',
-    badgeHtml: '<img src="assets/BB Badges/International%20Relations.png" alt="International Relations Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/International%20Relations.png" alt="International Relations Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/International%20Relations.png'
   },
   badge_life_saving: {
@@ -2826,7 +3521,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 55,
     desc: 'Water safety, drowning casualty rescue, resuscitation, and open-water recovery.',
-    badgeHtml: '<img src="assets/BB Badges/Life%20Saving.png" alt="Life Saving Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Life%20Saving.png" alt="Life Saving Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Life%20Saving.png'
   },
   badge_long_year_service: {
@@ -2836,7 +3532,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 90,
     desc: 'Honoring long-term steadfast loyalty and continuous faithful membership in 1st PJ.',
-    badgeHtml: '<img src="assets/BB Badges/Long%20Year%20Service.png" alt="Long Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Long%20Year%20Service.png" alt="Long Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Long%20Year%20Service.png'
   },
   badge_nature_awareness: {
@@ -2846,7 +3543,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Observation and study of Malaysian flora, fauna, and natural habitats.',
-    badgeHtml: '<img src="assets/BB Badges/Nature%20Awareness.png" alt="Nature Awareness Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Nature%20Awareness.png" alt="Nature Awareness Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Nature%20Awareness.png'
   },
   badge_nco_proficiency: {
@@ -2856,7 +3554,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 100,
     desc: 'Recognizing distinguished Non-Commissioned Officer leadership, command, and squad mentoring.',
-    badgeHtml: '<img src="assets/BB Badges/NCO%20Proficiency.png" alt="NCO Proficiency Star" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/NCO%20Proficiency.png" alt="NCO Proficiency Star" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/NCO%20Proficiency.png'
   },
   badge_physical_training: {
@@ -2866,17 +3565,19 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'High standard of physical fitness, calisthenics, and cardiovascular endurance.',
-    badgeHtml: '<img src="assets/BB Badges/Physical%20Training.png" alt="Physical Training Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Physical%20Training.png" alt="Physical Training Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Physical%20Training.png'
   },
   badge_presidents_award: {
     id: 'badge_presidents_award',
-    name: 'President\'s Award Badge',
+    name: "President's Award Badge",
     category: 'badges',
     categoryLabel: 'BB Badges',
     price: 140,
     desc: 'Prestigious national award recognizing eminent leadership and distinguished Christian service.',
-    badgeHtml: '<img src="assets/BB Badges/President%27s%20Award.png" alt="President\'s Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/President%27s%20Award.png" alt="President\'s Award Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/President%27s%20Award.png'
   },
   badge_recruitment: {
@@ -2885,8 +3586,9 @@ var PROFILE_COSMETICS = {
     category: 'badges',
     categoryLabel: 'BB Badges',
     price: 50,
-    desc: 'Awarded for bringing new friends and comrades into the fellowship of the Boys\' Brigade.',
-    badgeHtml: '<img src="assets/BB Badges/Recruitment.png" alt="Recruitment Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    desc: "Awarded for bringing new friends and comrades into the fellowship of the Boys' Brigade.",
+    badgeHtml:
+      '<img src="assets/BB Badges/Recruitment.png" alt="Recruitment Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Recruitment.png'
   },
   badge_safety: {
@@ -2896,7 +3598,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 40,
     desc: 'Knowledge and practice of home, road, workshop, and sports safety precautions.',
-    badgeHtml: '<img src="assets/BB Badges/Safety.png" alt="Safety Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Safety.png" alt="Safety Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Safety.png'
   },
   badge_silver_scholastic: {
@@ -2906,7 +3609,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 70,
     desc: 'Commendable scholastic merit awarded for high academic performance in school examinations.',
-    badgeHtml: '<img src="assets/BB Badges/Silver%20Scholastic.png" alt="Silver Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Silver%20Scholastic.png" alt="Silver Scholastic Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Silver%20Scholastic.png'
   },
   badge_social_entrepreneurship: {
@@ -2916,7 +3620,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Developing innovative social business ventures that benefit the community.',
-    badgeHtml: '<img src="assets/BB Badges/Social%20Entreprenuership.png" alt="Social Entrepreneurship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Social%20Entreprenuership.png" alt="Social Entrepreneurship Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Social%20Entreprenuership.png'
   },
   badge_sports: {
@@ -2926,7 +3631,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Active team sportsmanship, rules knowledge, and fair play in athletic games.',
-    badgeHtml: '<img src="assets/BB Badges/Sports.png" alt="Sports Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Sports.png" alt="Sports Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Sports.png'
   },
   badge_sustainability: {
@@ -2936,7 +3642,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Renewable energy, resource conservation, carbon footprint reduction, and green living.',
-    badgeHtml: '<img src="assets/BB Badges/Sustainability.png" alt="Sustainability Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Sustainability.png" alt="Sustainability Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Sustainability.png'
   },
   badge_swimming: {
@@ -2946,7 +3653,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 45,
     desc: 'Proficiency in multiple swimming strokes, breath control, and water endurance.',
-    badgeHtml: '<img src="assets/BB Badges/Swimming.png" alt="Swimming Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Swimming.png" alt="Swimming Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Swimming.png'
   },
   badge_three_year_service: {
@@ -2956,7 +3664,8 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 75,
     desc: 'Awarded upon completing three consecutive years of steadfast and faithful service in 1st PJ.',
-    badgeHtml: '<img src="assets/BB Badges/Three%20Year%20Service%20Badge.png" alt="Three Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Three%20Year%20Service%20Badge.png" alt="Three Year Service Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Three%20Year%20Service%20Badge.png'
   },
   badge_water_adventure: {
@@ -2966,12 +3675,13 @@ var PROFILE_COSMETICS = {
     categoryLabel: 'BB Badges',
     price: 50,
     desc: 'Proficiency in canoeing, kayaking, rafting, and aquatic expedition techniques.',
-    badgeHtml: '<img src="assets/BB Badges/Water%20Adventure.png" alt="Water Adventure Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
+    badgeHtml:
+      '<img src="assets/BB Badges/Water%20Adventure.png" alt="Water Adventure Badge" class="cosmetic-badge-img" style="width:100%;height:100%;object-fit:contain;display:block;" />',
     imgSrc: 'assets/BB Badges/Water%20Adventure.png'
   }
 };
 
-var _memberCosmeticsMap = (function() {
+var _memberCosmeticsMap = (function () {
   if (typeof localStorage !== 'undefined') {
     try {
       var cached = localStorage.getItem('bb_member_cosmetics');
@@ -3000,18 +3710,22 @@ async function loadMemberCosmetics(force) {
 
   function mergeCosmeticsSnapshot(remoteMap) {
     if (!remoteMap || typeof remoteMap !== 'object') return;
-    Object.keys(remoteMap).forEach(function(k) {
+    Object.keys(remoteMap).forEach(function (k) {
       var rem = remoteMap[k];
       if (!rem || typeof rem !== 'object') return;
       if (!_memberCosmeticsMap[k]) {
         _memberCosmeticsMap[k] = rem;
       } else {
-        var localInv = Array.isArray(_memberCosmeticsMap[k].inventory) ? _memberCosmeticsMap[k].inventory : [];
+        var localInv = Array.isArray(_memberCosmeticsMap[k].inventory)
+          ? _memberCosmeticsMap[k].inventory
+          : [];
         var remoteInv = Array.isArray(rem.inventory) ? rem.inventory : [];
         _memberCosmeticsMap[k].inventory = Array.from(new Set(localInv.concat(remoteInv)));
 
         var remTs = rem.updatedAt ? new Date(rem.updatedAt).getTime() : 0;
-        var locTs = _memberCosmeticsMap[k].updatedAt ? new Date(_memberCosmeticsMap[k].updatedAt).getTime() : 0;
+        var locTs = _memberCosmeticsMap[k].updatedAt
+          ? new Date(_memberCosmeticsMap[k].updatedAt).getTime()
+          : 0;
         if (remTs > 0 && remTs >= locTs) {
           _memberCosmeticsMap[k].equipped = rem.equipped;
           _memberCosmeticsMap[k].updatedAt = rem.updatedAt;
@@ -3030,7 +3744,9 @@ async function loadMemberCosmetics(force) {
     if (snapCosm && typeof snapCosm === 'object') {
       mergeCosmeticsSnapshot(snapCosm);
       if (typeof localStorage !== 'undefined') {
-        try { localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap)); } catch (_) {}
+        try {
+          localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
+        } catch (_) {}
       }
       if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
       if (typeof refreshActiveAvatarCosmetics === 'function') {
@@ -3040,7 +3756,7 @@ async function loadMemberCosmetics(force) {
     }
   }
 
-  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  var client = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
   if (!client || !client.get) return _memberCosmeticsMap;
 
   try {
@@ -3066,10 +3782,17 @@ async function loadMemberCosmetics(force) {
 }
 
 function getMemberCosmetic(emailOrIc, memberName) {
-  var cleanKey = String(emailOrIc || '').trim().toLowerCase();
-  var cleanName = String(memberName || '').trim().toLowerCase();
+  var cleanKey = String(emailOrIc || '')
+    .trim()
+    .toLowerCase();
+  var cleanName = String(memberName || '')
+    .trim()
+    .toLowerCase();
 
-  var cosMap = (typeof global !== 'undefined' && global._memberCosmeticsMap) ? global._memberCosmeticsMap : _memberCosmeticsMap;
+  var cosMap =
+    typeof global !== 'undefined' && global._memberCosmeticsMap
+      ? global._memberCosmeticsMap
+      : _memberCosmeticsMap;
 
   // Ensure cosMap is populated from localStorage if in-memory cache is empty
   if ((!cosMap || Object.keys(cosMap).length === 0) && typeof localStorage !== 'undefined') {
@@ -3083,10 +3806,12 @@ function getMemberCosmetic(emailOrIc, memberName) {
   }
 
   var isCreator = false;
-  if (typeof isPortalCreator === 'function') {
+  if (cleanKey === 'creator' || cleanName === 'creator') {
+    isCreator = true;
+  } else if (typeof isPortalCreator === 'function') {
     isCreator = isPortalCreator(cleanName, cleanKey);
   } else {
-    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh');
+    isCreator = cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh';
   }
 
   var record = null;
@@ -3104,11 +3829,17 @@ function getMemberCosmetic(emailOrIc, memberName) {
       var k = mapKeys[i];
       var entry = cosMap[k];
       if (entry && typeof entry === 'object') {
-        var entryName = String(entry.name || '').trim().toLowerCase();
-        var entryTarget = String(entry.target || k).trim().toLowerCase();
-        if ((cleanName && entryName === cleanName) ||
-            (cleanName && entryTarget === cleanName) ||
-            (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
+        var entryName = String(entry.name || '')
+          .trim()
+          .toLowerCase();
+        var entryTarget = String(entry.target || k)
+          .trim()
+          .toLowerCase();
+        if (
+          (cleanName && entryName === cleanName) ||
+          (cleanName && entryTarget === cleanName) ||
+          (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))
+        ) {
           record = entry;
           break;
         }
@@ -3118,15 +3849,24 @@ function getMemberCosmetic(emailOrIc, memberName) {
 
   // 3. Fallback: Lookup in member directory / caches to cross-resolve name <-> email/ic
   if (!record && (cleanName || cleanKey)) {
-    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
-      ? resolveMemberDirectoryInfo
-      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    var resolver =
+      typeof resolveMemberDirectoryInfo === 'function'
+        ? resolveMemberDirectoryInfo
+        : typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function'
+          ? window.resolveMemberDirectoryInfo
+          : null;
     if (resolver) {
       var resolved = resolver(cleanName || cleanKey);
       if (resolved) {
-        var rEmail = String(resolved.email || '').toLowerCase().trim();
-        var rIc = String(resolved.ic || '').toLowerCase().trim();
-        var rName = String(resolved.name || '').toLowerCase().trim();
+        var rEmail = String(resolved.email || '')
+          .toLowerCase()
+          .trim();
+        var rIc = String(resolved.ic || '')
+          .toLowerCase()
+          .trim();
+        var rName = String(resolved.name || '')
+          .toLowerCase()
+          .trim();
         if (rEmail && cosMap[rEmail]) {
           record = cosMap[rEmail];
         } else if (rIc && cosMap[rIc]) {
@@ -3149,7 +3889,9 @@ function getMemberCosmetic(emailOrIc, memberName) {
     if (isCreator) checkKeys.push('jeshuakoh2008@gmail.com', 'jeshua koh');
     for (var j = 0; j < checkKeys.length; j++) {
       try {
-        var userCached = localStorage.getItem('bb_member_cosmetic_' + checkKeys[j].replace(/[^a-zA-Z0-9_-]/g, '_'));
+        var userCached = localStorage.getItem(
+          'bb_member_cosmetic_' + checkKeys[j].replace(/[^a-zA-Z0-9_-]/g, '_')
+        );
         if (userCached) {
           var parsedUser = JSON.parse(userCached);
           if (parsedUser && parsedUser.equipped) {
@@ -3179,12 +3921,16 @@ function getMemberCosmetic(emailOrIc, memberName) {
     svg: cfg ? cfg.badgeHtml : '',
     config: cfg,
     isCreator: isCreator,
-    assignedBy: (record && record.assignedBy) ? record.assignedBy : null
+    assignedBy: record && record.assignedBy ? record.assignedBy : null
   };
 }
 
 function getMemberCosmeticInventory(emailOrIc) {
-  var cleanKey = String(emailOrIc || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
+  var cleanKey = String(
+    emailOrIc || (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '')
+  )
+    .trim()
+    .toLowerCase();
   var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
   var cleanName = String(myName).trim().toLowerCase();
 
@@ -3211,11 +3957,17 @@ function getMemberCosmeticInventory(emailOrIc) {
       var k = mapKeys[i];
       var entry = _memberCosmeticsMap[k];
       if (entry && typeof entry === 'object') {
-        var entryName = String(entry.name || '').trim().toLowerCase();
-        var entryTarget = String(entry.target || k).trim().toLowerCase();
-        if ((cleanName && entryName === cleanName) ||
-            (cleanName && entryTarget === cleanName) ||
-            (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
+        var entryName = String(entry.name || '')
+          .trim()
+          .toLowerCase();
+        var entryTarget = String(entry.target || k)
+          .trim()
+          .toLowerCase();
+        if (
+          (cleanName && entryName === cleanName) ||
+          (cleanName && entryTarget === cleanName) ||
+          (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))
+        ) {
           record = entry;
           break;
         }
@@ -3224,14 +3976,23 @@ function getMemberCosmeticInventory(emailOrIc) {
   }
 
   // 4. Fallback to user-specific localStorage key
-  if ((!record || !Array.isArray(record.inventory) || record.inventory.length === 0) && typeof localStorage !== 'undefined') {
+  if (
+    (!record || !Array.isArray(record.inventory) || record.inventory.length === 0) &&
+    typeof localStorage !== 'undefined'
+  ) {
     var checkKeys = [cleanKey, cleanName].filter(Boolean);
     for (var j = 0; j < checkKeys.length; j++) {
       try {
-        var userCached = localStorage.getItem('bb_member_cosmetic_' + checkKeys[j].replace(/[^a-zA-Z0-9_-]/g, '_'));
+        var userCached = localStorage.getItem(
+          'bb_member_cosmetic_' + checkKeys[j].replace(/[^a-zA-Z0-9_-]/g, '_')
+        );
         if (userCached) {
           var parsedUser = JSON.parse(userCached);
-          if (parsedUser && Array.isArray(parsedUser.inventory) && parsedUser.inventory.length > 0) {
+          if (
+            parsedUser &&
+            Array.isArray(parsedUser.inventory) &&
+            parsedUser.inventory.length > 0
+          ) {
             record = parsedUser;
             break;
           }
@@ -3247,25 +4008,38 @@ function getMemberCosmeticInventory(emailOrIc) {
 }
 
 async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targetName, isUnlock) {
-  var cleanActor = String(actorEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
-  var isCreator = (cleanActor === 'jeshuakoh2008@gmail.com');
-  var cleanTarget = String(targetEmailOrIc || '').trim().toLowerCase();
+  var cleanActor = String(
+    actorEmail || (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '')
+  )
+    .trim()
+    .toLowerCase();
+  var isCreator = cleanActor === 'jeshuakoh2008@gmail.com';
+  var cleanTarget = String(targetEmailOrIc || '')
+    .trim()
+    .toLowerCase();
 
   if (!cleanTarget) {
     return { success: false, error: 'Target member identifier required.' };
   }
 
   // Creator can assign any cosmetic to anyone. Non-creator can ONLY equip/unequip their own owned cosmetics!
-  var isSelf = (cleanActor && (cleanActor === cleanTarget || (typeof sessionGet === 'function' && String(sessionGet('email') || sessionGet('ic')).trim().toLowerCase() === cleanTarget)));
+  var isSelf =
+    cleanActor &&
+    (cleanActor === cleanTarget ||
+      (typeof sessionGet === 'function' &&
+        String(sessionGet('email') || sessionGet('ic'))
+          .trim()
+          .toLowerCase() === cleanTarget));
 
   if (!isCreator && !isSelf) {
     return {
       success: false,
-      error: 'Access Denied: Only the creator (jeshuakoh2008@gmail.com) has access and permissions to assign cosmetics to members.'
+      error:
+        'Access Denied: Only the creator (jeshuakoh2008@gmail.com) has access and permissions to assign cosmetics to members.'
     };
   }
 
-  var validCosmeticId = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? cosmeticId : 'none';
+  var validCosmeticId = cosmeticId && PROFILE_COSMETICS[cosmeticId] ? cosmeticId : 'none';
 
   // If non-creator self-equipping, verify that cosmetic is either 'none' or in inventory
   if (!isCreator && !isUnlock && validCosmeticId !== 'none') {
@@ -3276,11 +4050,16 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
   }
 
   var existing = _memberCosmeticsMap[cleanTarget] || {};
-  var cleanName = String(targetName || existing.name || '').trim().toLowerCase();
+  var cleanName = String(targetName || existing.name || '')
+    .trim()
+    .toLowerCase();
   if (!cleanName) {
-    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
-      ? resolveMemberDirectoryInfo
-      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    var resolver =
+      typeof resolveMemberDirectoryInfo === 'function'
+        ? resolveMemberDirectoryInfo
+        : typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function'
+          ? window.resolveMemberDirectoryInfo
+          : null;
     if (resolver) {
       var dirInfo = resolver(cleanTarget);
       if (dirInfo && dirInfo.name) cleanName = String(dirInfo.name).trim().toLowerCase();
@@ -3301,7 +4080,7 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
   var entry = {
     equipped: validCosmeticId,
     inventory: currentInv,
-    assignedBy: isCreator ? cleanActor : (existing.assignedBy || 'self'),
+    assignedBy: isCreator ? cleanActor : existing.assignedBy || 'self',
     updatedAt: new Date().toISOString(),
     target: cleanTarget,
     name: cleanName
@@ -3311,9 +4090,12 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
   if (cleanName && cleanName !== cleanTarget) {
     _memberCosmeticsMap[cleanName] = entry;
   }
-  var resolver = (typeof resolveMemberDirectoryInfo === 'function')
-    ? resolveMemberDirectoryInfo
-    : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+  var resolver =
+    typeof resolveMemberDirectoryInfo === 'function'
+      ? resolveMemberDirectoryInfo
+      : typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function'
+        ? window.resolveMemberDirectoryInfo
+        : null;
   if (resolver) {
     var dirInfo = resolver(cleanTarget) || resolver(cleanName);
     if (dirInfo) {
@@ -3329,27 +4111,41 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
 
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem('bb_member_cosmetics', JSON.stringify(_memberCosmeticsMap));
-    localStorage.setItem('bb_member_cosmetic_' + cleanTarget.replace(/[^a-zA-Z0-9_-]/g, '_'), JSON.stringify(entry));
+    localStorage.setItem(
+      'bb_member_cosmetic_' + cleanTarget.replace(/[^a-zA-Z0-9_-]/g, '_'),
+      JSON.stringify(entry)
+    );
     if (cleanName && cleanName !== cleanTarget) {
-      localStorage.setItem('bb_member_cosmetic_' + cleanName.replace(/[^a-zA-Z0-9_-]/g, '_'), JSON.stringify(entry));
+      localStorage.setItem(
+        'bb_member_cosmetic_' + cleanName.replace(/[^a-zA-Z0-9_-]/g, '_'),
+        JSON.stringify(entry)
+      );
     }
   }
   if (typeof global !== 'undefined') global._memberCosmeticsMap = _memberCosmeticsMap;
 
-  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : getSupa();
+  var client = typeof getSupabaseClient === 'function' ? getSupabaseClient() : getSupa();
   if (client) {
     try {
       if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', {
-          key: 'bb_member_cosmetics',
-          value: JSON.stringify(_memberCosmeticsMap)
-        }, 'key');
+        await client.upsert(
+          'bb_config',
+          {
+            key: 'bb_member_cosmetics',
+            value: JSON.stringify(_memberCosmeticsMap)
+          },
+          'key'
+        );
       } else if (client.post) {
-        await client.post('bb_config', {
-          key: 'bb_member_cosmetics',
-          value: JSON.stringify(_memberCosmeticsMap),
-          updated_at: new Date().toISOString()
-        }, { upsert: true });
+        await client.post(
+          'bb_config',
+          {
+            key: 'bb_member_cosmetics',
+            value: JSON.stringify(_memberCosmeticsMap),
+            updated_at: new Date().toISOString()
+          },
+          { upsert: true }
+        );
       }
     } catch (dbErr) {
       console.warn('saveMemberCosmetic db sync warning:', dbErr);
@@ -3357,15 +4153,31 @@ async function saveMemberCosmetic(targetEmailOrIc, cosmeticId, actorEmail, targe
   }
 
   if (typeof supa !== 'undefined' && typeof supa.recordConfigSnapshot === 'function') {
-    try { supa.recordConfigSnapshot('bb_member_cosmetics', _memberCosmeticsMap); } catch (_) {}
+    try {
+      supa.recordConfigSnapshot('bb_member_cosmetics', _memberCosmeticsMap);
+    } catch (_) {}
   }
-  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-    try { window.PortalRealtime.broadcast('cosmetics', 'update', { key: 'bb_member_cosmetics' }); } catch (_) {}
-  } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
-    try { global.PortalRealtime.broadcast('cosmetics', 'update', { key: 'bb_member_cosmetics' }); } catch (_) {}
+  if (
+    typeof window !== 'undefined' &&
+    window.PortalRealtime &&
+    typeof window.PortalRealtime.broadcast === 'function'
+  ) {
+    try {
+      window.PortalRealtime.broadcast('cosmetics', 'update', { key: 'bb_member_cosmetics' });
+    } catch (_) {}
+  } else if (
+    typeof global !== 'undefined' &&
+    global.PortalRealtime &&
+    typeof global.PortalRealtime.broadcast === 'function'
+  ) {
+    try {
+      global.PortalRealtime.broadcast('cosmetics', 'update', { key: 'bb_member_cosmetics' });
+    } catch (_) {}
   }
   if (typeof window !== 'undefined') {
-    try { window.dispatchEvent(new CustomEvent('bb_cosmetics_changed')); } catch (_) {}
+    try {
+      window.dispatchEvent(new CustomEvent('bb_cosmetics_changed'));
+    } catch (_) {}
   }
 
   refreshActiveAvatarCosmetics();
@@ -3376,29 +4188,46 @@ async function unlockCosmetic(cosmeticId) {
   var item = PROFILE_COSMETICS[cosmeticId];
   if (!item) return { success: false, error: 'Cosmetic item not found.' };
 
-  var userKey = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  var userKey =
+    (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '') || '';
   if (!userKey) {
-    if (typeof showToast === 'function') showToast('Please sign in to unlock profile cosmetics.', 'error');
+    if (typeof showToast === 'function')
+      showToast('Please sign in to unlock profile cosmetics.', 'error');
     return { success: false, error: 'Authentication required' };
   }
 
-  var getStatsFn = (typeof getArcadeStats === 'function')
-    ? getArcadeStats
-    : (typeof window !== 'undefined' && window.getArcadeStats ? window.getArcadeStats : (typeof global !== 'undefined' && global.getArcadeStats ? global.getArcadeStats : null));
+  var getStatsFn =
+    typeof getArcadeStats === 'function'
+      ? getArcadeStats
+      : typeof window !== 'undefined' && window.getArcadeStats
+        ? window.getArcadeStats
+        : typeof global !== 'undefined' && global.getArcadeStats
+          ? global.getArcadeStats
+          : null;
   var stats = getStatsFn ? getStatsFn() : { credits: 0 };
   var currentCredits = stats.credits || 0;
 
   if (currentCredits < item.price) {
     var need = item.price - currentCredits;
     if (typeof showToast === 'function') {
-      showToast('Need ' + need + ' more Arcade Credits! Play Wordle or Trivia in 1stPJ Arcade to earn credits.', 'info');
+      showToast(
+        'Need ' +
+          need +
+          ' more Arcade Credits! Play Wordle or Trivia in 1stPJ Arcade to earn credits.',
+        'info'
+      );
     }
     return { success: false, error: 'Insufficient credits', need: need };
   }
 
-  var saveStatsFn = (typeof saveArcadeStats === 'function')
-    ? saveArcadeStats
-    : (typeof window !== 'undefined' && window.saveArcadeStats ? window.saveArcadeStats : (typeof global !== 'undefined' && global.saveArcadeStats ? global.saveArcadeStats : null));
+  var saveStatsFn =
+    typeof saveArcadeStats === 'function'
+      ? saveArcadeStats
+      : typeof window !== 'undefined' && window.saveArcadeStats
+        ? window.saveArcadeStats
+        : typeof global !== 'undefined' && global.saveArcadeStats
+          ? global.saveArcadeStats
+          : null;
 
   // Deduct credits via arcade module
   stats.credits = currentCredits - item.price;
@@ -3407,7 +4236,13 @@ async function unlockCosmetic(cosmeticId) {
   }
 
   // Save cosmetic to inventory and equip it
-  var saveRes = await saveMemberCosmetic(userKey, cosmeticId, userKey, (typeof sessionGet === 'function' ? sessionGet('name') : ''), true);
+  var saveRes = await saveMemberCosmetic(
+    userKey,
+    cosmeticId,
+    userKey,
+    typeof sessionGet === 'function' ? sessionGet('name') : '',
+    true
+  );
   if (!saveRes.success) {
     // Refund credits on unexpected failure
     stats.credits = currentCredits;
@@ -3416,7 +4251,11 @@ async function unlockCosmetic(cosmeticId) {
   }
 
   if (typeof showToast === 'function') {
-    showToast('🎉 Unlocked & equipped ' + item.name + '! (' + stats.credits + ' Credits remaining)', 'success', 4000);
+    showToast(
+      '🎉 Unlocked & equipped ' + item.name + '! (' + stats.credits + ' Credits remaining)',
+      'success',
+      4000
+    );
   }
 
   // Refresh live cosmetic shop balance pill & live preview if open
@@ -3429,12 +4268,24 @@ async function unlockCosmetic(cosmeticId) {
 }
 
 async function equipCosmetic(cosmeticId) {
-  var userKey = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
-  var res = await saveMemberCosmetic(userKey, cosmeticId, userKey, (typeof sessionGet === 'function' ? sessionGet('name') : ''), false);
+  var userKey =
+    (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '') || '';
+  var res = await saveMemberCosmetic(
+    userKey,
+    cosmeticId,
+    userKey,
+    typeof sessionGet === 'function' ? sessionGet('name') : '',
+    false
+  );
   if (res.success) {
-    var name = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId].name : 'None';
+    var name =
+      cosmeticId && PROFILE_COSMETICS[cosmeticId] ? PROFILE_COSMETICS[cosmeticId].name : 'None';
     if (typeof showToast === 'function') {
-      if (cosmeticId === 'none') { showToast('Unequipped cosmetic.', 'info'); } else { showToast('Equipped ' + name + ' cosmetic!', 'success'); }
+      if (cosmeticId === 'none') {
+        showToast('Unequipped cosmetic.', 'info');
+      } else {
+        showToast('Equipped ' + name + ' cosmetic!', 'success');
+      }
     }
     renderCosmeticShopCards();
     renderCosmeticLivePreview(cosmeticId);
@@ -3448,7 +4299,8 @@ async function unequipCosmetic() {
 
 function applyMemberCosmeticElement(containerEl, cosmeticId, sizeVariant) {
   if (!containerEl || typeof containerEl !== 'object') return;
-  var validCosmetic = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId] : null;
+  var validCosmetic =
+    cosmeticId && PROFILE_COSMETICS[cosmeticId] ? PROFILE_COSMETICS[cosmeticId] : null;
   var existingBadge = containerEl.querySelector('.avatar-cosmetic-badge');
 
   if (!validCosmetic) {
@@ -3467,7 +4319,7 @@ function applyMemberCosmeticElement(containerEl, cosmeticId, sizeVariant) {
   }
 
   var sizeClass = sizeVariant || 'cosmetic-md';
-  var isHeadwear = (validCosmetic.category === 'headwear');
+  var isHeadwear = validCosmetic.category === 'headwear';
   var headwearClass = isHeadwear ? ' is-headwear' : '';
 
   if (!existingBadge) {
@@ -3484,8 +4336,8 @@ function applyMemberCosmeticElement(containerEl, cosmeticId, sizeVariant) {
 
 function refreshActiveAvatarCosmetics() {
   if (typeof document === 'undefined') return;
-  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
-  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var myName = typeof sessionGet === 'function' ? sessionGet('name') : '';
+  var myEmail = typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '';
   if (typeof renderMemberAvatar === 'function') {
     renderMemberAvatar(myName, myEmail);
   }
@@ -3499,7 +4351,9 @@ function refreshActiveAvatarCosmetics() {
     }
   }
   if (typeof window !== 'undefined') {
-    try { window.dispatchEvent(new CustomEvent('bb_cosmetics_changed')); } catch (_) {}
+    try {
+      window.dispatchEvent(new CustomEvent('bb_cosmetics_changed'));
+    } catch (_) {}
   }
 }
 
@@ -3517,71 +4371,87 @@ function renderCosmeticShopView() {
     loadMemberCosmetics();
   }
 
-  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var myEmail = typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '';
   var activeCosmetic = getMemberCosmetic(myEmail);
   _cosmeticShopPreviewId = activeCosmetic.id; // Strictly 'none' if user has no equipped cosmetic!
 
   container.innerHTML =
     '<div class="cosmetic-shop-tab-view">' +
-      '<!-- Live Profile Preview Card -->' +
-      '<div class="card cosmetic-shop-preview-card" style="margin-bottom:14px;padding:16px 20px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">' +
-          '<div style="display:flex;align-items:center;gap:14px;">' +
-            '<div id="shop-live-avatar-wrap" style="position:relative;width:56px;height:56px;flex-shrink:0;"></div>' +
-            '<div>' +
-              '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.04em;">Live Profile Preview</div>' +
-              '<div id="shop-preview-item-name" style="font-size:15px;font-weight:700;color:var(--text);margin-top:2px;">No Cosmetic Equipped</div>' +
-            '</div>' +
-          '</div>' +
-          '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
-            '<div id="shop-preview-item-action"></div>' +
-            '<div class="cosmetic-shop-credits-pill" title="Current Arcade Credits">' +
-              '🪙 <span id="shop-credits-balance">0</span> Credits' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-      '<!-- Filter Toolbar -->' +
-      '<div class="card cosmetic-filter-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;margin-bottom:16px;flex-wrap:wrap;">' +
-        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
-          '<button type="button" class="btn btn-secondary cosmetic-filter-btn" onclick="resetCosmeticFilters()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
-            '<span>Filter</span>' +
-          '</button>' +
-
-          '<div style="display:inline-flex;align-items:center;gap:6px;">' +
-            '<label for="shop-filter-type" style="font-size:12px;font-weight:600;color:var(--text-muted);">Type:</label>' +
-            '<select id="shop-filter-type" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
-              '<option value="all"' + (_cosmeticShopTypeFilter === 'all' ? ' selected' : '') + '>All Types (46)</option>' +
-              '<option value="headwear"' + (_cosmeticShopTypeFilter === 'headwear' ? ' selected' : '') + '>Headwear (5)</option>' +
-              '<option value="badges"' + (_cosmeticShopTypeFilter === 'badges' ? ' selected' : '') + '>BB Badges (41)</option>' +
-            '</select>' +
-          '</div>' +
-
-          '<div style="display:inline-flex;align-items:center;gap:6px;">' +
-            '<label for="shop-filter-cost" style="font-size:12px;font-weight:600;color:var(--text-muted);">Cost:</label>' +
-            '<select id="shop-filter-cost" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
-              '<option value="all"' + (_cosmeticShopCostFilter === 'all' ? ' selected' : '') + '>All Costs</option>' +
-              '<option value="affordable"' + (_cosmeticShopCostFilter === 'affordable' ? ' selected' : '') + '>Affordable Now</option>' +
-              '<option value="under40"' + (_cosmeticShopCostFilter === 'under40' ? ' selected' : '') + '>Under 40 Credits</option>' +
-              '<option value="40to50"' + (_cosmeticShopCostFilter === '40to50' ? ' selected' : '') + '>40 – 50 Credits</option>' +
-              '<option value="over50"' + (_cosmeticShopCostFilter === 'over50' ? ' selected' : '') + '>55+ Credits</option>' +
-              '<option value="owned"' + (_cosmeticShopCostFilter === 'owned' ? ' selected' : '') + '>Owned Items</option>' +
-            '</select>' +
-          '</div>' +
-
-          '<button type="button" id="shop-filter-reset-btn" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding:5px 10px;font-size:11px;border-radius:8px;' + ((_cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all') ? '' : 'display:none;') + '">Reset</button>' +
-        '</div>' +
-
-        '<div id="shop-filter-count" style="font-size:12px;color:var(--text-muted);font-weight:600;">Showing 46 items</div>' +
-      '</div>' +
-
-      '<!-- Cosmetic Cards Grid -->' +
-      '<div class="cosmetic-shop-grid" id="cosmetic-shop-grid"></div>' +
+    '<!-- Live Profile Preview Card -->' +
+    '<div class="card cosmetic-shop-preview-card" style="margin-bottom:14px;padding:16px 20px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">' +
+    '<div style="display:flex;align-items:center;gap:14px;">' +
+    '<div id="shop-live-avatar-wrap" style="position:relative;width:56px;height:56px;flex-shrink:0;"></div>' +
+    '<div>' +
+    '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.04em;">Live Profile Preview</div>' +
+    '<div id="shop-preview-item-name" style="font-size:15px;font-weight:700;color:var(--text);margin-top:2px;">No Cosmetic Equipped</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+    '<div id="shop-preview-item-action"></div>' +
+    '<div class="cosmetic-shop-credits-pill" title="Current Arcade Credits">' +
+    '🪙 <span id="shop-credits-balance">0</span> Credits' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<!-- Filter Toolbar -->' +
+    '<div class="card cosmetic-filter-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;margin-bottom:16px;flex-wrap:wrap;">' +
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+    '<button type="button" class="btn btn-secondary cosmetic-filter-btn" onclick="resetCosmeticFilters()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;">' +
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>' +
+    '<span>Filter</span>' +
+    '</button>' +
+    '<div style="display:inline-flex;align-items:center;gap:6px;">' +
+    '<label for="shop-filter-type" style="font-size:12px;font-weight:600;color:var(--text-muted);">Type:</label>' +
+    '<select id="shop-filter-type" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
+    '<option value="all"' +
+    (_cosmeticShopTypeFilter === 'all' ? ' selected' : '') +
+    '>All Types (46)</option>' +
+    '<option value="headwear"' +
+    (_cosmeticShopTypeFilter === 'headwear' ? ' selected' : '') +
+    '>Headwear (5)</option>' +
+    '<option value="badges"' +
+    (_cosmeticShopTypeFilter === 'badges' ? ' selected' : '') +
+    '>BB Badges (41)</option>' +
+    '</select>' +
+    '</div>' +
+    '<div style="display:inline-flex;align-items:center;gap:6px;">' +
+    '<label for="shop-filter-cost" style="font-size:12px;font-weight:600;color:var(--text-muted);">Cost:</label>' +
+    '<select id="shop-filter-cost" class="form-input cosmetic-filter-select" onchange="applyCosmeticFilters()">' +
+    '<option value="all"' +
+    (_cosmeticShopCostFilter === 'all' ? ' selected' : '') +
+    '>All Costs</option>' +
+    '<option value="affordable"' +
+    (_cosmeticShopCostFilter === 'affordable' ? ' selected' : '') +
+    '>Affordable Now</option>' +
+    '<option value="under40"' +
+    (_cosmeticShopCostFilter === 'under40' ? ' selected' : '') +
+    '>Under 40 Credits</option>' +
+    '<option value="40to50"' +
+    (_cosmeticShopCostFilter === '40to50' ? ' selected' : '') +
+    '>40 – 50 Credits</option>' +
+    '<option value="over50"' +
+    (_cosmeticShopCostFilter === 'over50' ? ' selected' : '') +
+    '>55+ Credits</option>' +
+    '<option value="owned"' +
+    (_cosmeticShopCostFilter === 'owned' ? ' selected' : '') +
+    '>Owned Items</option>' +
+    '</select>' +
+    '</div>' +
+    '<button type="button" id="shop-filter-reset-btn" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding:5px 10px;font-size:11px;border-radius:8px;' +
+    (_cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all'
+      ? ''
+      : 'display:none;') +
+    '">Reset</button>' +
+    '</div>' +
+    '<div id="shop-filter-count" style="font-size:12px;color:var(--text-muted);font-weight:600;">Showing 46 items</div>' +
+    '</div>' +
+    '<!-- Cosmetic Cards Grid -->' +
+    '<div class="cosmetic-shop-grid" id="cosmetic-shop-grid"></div>' +
     '</div>';
 
-  var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+  var stats = typeof getArcadeStats === 'function' ? getArcadeStats() : { credits: 0 };
   var balanceEl = document.getElementById('shop-credits-balance');
   if (balanceEl) balanceEl.textContent = String(stats.credits || 0);
 
@@ -3617,7 +4487,7 @@ function applyCosmeticFilters() {
 
   var resetBtn = document.getElementById('shop-filter-reset-btn');
   if (resetBtn) {
-    var isFiltered = (_cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all');
+    var isFiltered = _cosmeticShopTypeFilter !== 'all' || _cosmeticShopCostFilter !== 'all';
     resetBtn.style.display = isFiltered ? 'inline-block' : 'none';
   }
 
@@ -3643,17 +4513,31 @@ function renderCosmeticLivePreview(cosmeticId) {
   var actEl = document.getElementById('shop-preview-item-action');
   if (!wrap) return;
 
-  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : 'Member';
-  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
-  var isCreator = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
-  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(myName, myEmail) : (myName.charAt(0) || 'M'));
-  var color = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(myName) : '#047857');
+  var myName = typeof sessionGet === 'function' ? sessionGet('name') : 'Member';
+  var myEmail = typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '';
+  var isCreator = typeof isCreatorSession === 'function' ? isCreatorSession() : false;
+  var initial = isCreator
+    ? 'J'
+    : typeof getMemberAvatarInitial === 'function'
+      ? getMemberAvatarInitial(myName, myEmail)
+      : myName.charAt(0) || 'M';
+  var color = isCreator
+    ? '#083830'
+    : typeof getMemberAvatarColor === 'function'
+      ? getMemberAvatarColor(myName)
+      : '#047857';
   var outline = getMemberAvatarOutline(myEmail, myName);
 
   wrap.innerHTML =
-    '<div style="width:56px;height:56px;border-radius:50%;background:' + color + ';color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;position:relative;overflow:visible;">' +
-      initial +
-      (outline.style !== 'none' ? '<span class="avatar-outline-overlay ' + outline.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;"></span>' : '') +
+    '<div style="width:56px;height:56px;border-radius:50%;background:' +
+    color +
+    ';color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;position:relative;overflow:visible;">' +
+    initial +
+    (outline.style !== 'none'
+      ? '<span class="avatar-outline-overlay ' +
+        outline.config.className +
+        '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;"></span>'
+      : '') +
     '</div>';
 
   var avatarDiv = wrap.firstElementChild;
@@ -3661,13 +4545,14 @@ function renderCosmeticLivePreview(cosmeticId) {
 
   var myInv = getMemberCosmeticInventory(myEmail);
   var currentEquipped = getMemberCosmetic(myEmail).id;
-  var item = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId] : null;
+  var item = cosmeticId && PROFILE_COSMETICS[cosmeticId] ? PROFILE_COSMETICS[cosmeticId] : null;
 
   if (cosmeticId === 'none' || !item) {
     if (nameEl) nameEl.textContent = 'No Cosmetic Equipped';
     if (actEl) {
       if (currentEquipped !== 'none') {
-        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="unequipCosmetic()">Unequip Active Cosmetic</button>';
+        actEl.innerHTML =
+          '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="unequipCosmetic()">Unequip Active Cosmetic</button>';
       } else {
         actEl.innerHTML = '';
       }
@@ -3675,7 +4560,7 @@ function renderCosmeticLivePreview(cosmeticId) {
     return;
   }
 
-  var isEquipped = (currentEquipped === cosmeticId);
+  var isEquipped = currentEquipped === cosmeticId;
   var isOwned = myInv.includes(cosmeticId);
 
   if (nameEl) {
@@ -3688,14 +4573,23 @@ function renderCosmeticLivePreview(cosmeticId) {
 
   if (actEl) {
     if (isEquipped) {
-      actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="unequipCosmetic()">Equipped ✓ (Click to Unequip)</button>';
+      actEl.innerHTML =
+        '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="unequipCosmetic()">Equipped ✓ (Click to Unequip)</button>';
     } else if (isOwned) {
-      actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="equipCosmetic(\'' + cosmeticId + '\')">Equip Now</button>';
+      actEl.innerHTML =
+        '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="equipCosmetic(\'' +
+        cosmeticId +
+        '\')">Equip Now</button>';
     } else {
-      var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+      var stats = typeof getArcadeStats === 'function' ? getArcadeStats() : { credits: 0 };
       var hasCredits = (stats.credits || 0) >= item.price;
       if (hasCredits) {
-        actEl.innerHTML = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="unlockCosmetic(\'' + cosmeticId + '\')">Unlock for ' + item.price + ' 🪙</button>';
+        actEl.innerHTML =
+          '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="unlockCosmetic(\'' +
+          cosmeticId +
+          '\')">Unlock for ' +
+          item.price +
+          ' 🪙</button>';
       } else {
         // User instruction: Remove the Need 35 more credits text and button
         actEl.innerHTML = '';
@@ -3708,14 +4602,14 @@ function renderCosmeticShopCards() {
   var grid = document.getElementById('cosmetic-shop-grid');
   if (!grid) return;
 
-  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var myEmail = typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '';
   var myInv = getMemberCosmeticInventory(myEmail);
   var currentEquipped = getMemberCosmetic(myEmail).id;
-  var stats = (typeof getArcadeStats === 'function') ? getArcadeStats() : { credits: 0 };
+  var stats = typeof getArcadeStats === 'function' ? getArcadeStats() : { credits: 0 };
   var myCredits = stats.credits || 0;
 
   var keys = Object.keys(PROFILE_COSMETICS);
-  var filteredKeys = keys.filter(function(k) {
+  var filteredKeys = keys.filter(function (k) {
     var item = PROFILE_COSMETICS[k];
     if (!item) return false;
 
@@ -3743,46 +4637,71 @@ function renderCosmeticShopCards() {
 
   var countEl = document.getElementById('shop-filter-count');
   if (countEl) {
-    countEl.textContent = 'Showing ' + filteredKeys.length + ' item' + (filteredKeys.length === 1 ? '' : 's');
+    countEl.textContent =
+      'Showing ' + filteredKeys.length + ' item' + (filteredKeys.length === 1 ? '' : 's');
   }
 
   if (filteredKeys.length === 0) {
     grid.innerHTML =
       '<div class="card" style="grid-column: 1 / -1; padding: 32px 20px; text-align: center;">' +
-        '<div style="font-size: 28px; margin-bottom: 8px;">🔍</div>' +
-        '<div style="font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px;">No matching cosmetics found</div>' +
-        '<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">Try adjusting your type or cost filters to see more items.</div>' +
-        '<button type="button" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding: 6px 16px; font-size: 12px; border-radius: 8px;">Reset All Filters</button>' +
+      '<div style="font-size: 28px; margin-bottom: 8px;">🔍</div>' +
+      '<div style="font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px;">No matching cosmetics found</div>' +
+      '<div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">Try adjusting your type or cost filters to see more items.</div>' +
+      '<button type="button" class="btn btn-secondary" onclick="resetCosmeticFilters()" style="padding: 6px 16px; font-size: 12px; border-radius: 8px;">Reset All Filters</button>' +
       '</div>';
     return;
   }
 
   var html = '';
-  filteredKeys.forEach(function(k) {
+  filteredKeys.forEach(function (k) {
     var item = PROFILE_COSMETICS[k];
-    var isEquipped = (currentEquipped === k);
+    var isEquipped = currentEquipped === k;
     var isOwned = myInv.includes(k);
-    var canAfford = (myCredits >= item.price);
+    var canAfford = myCredits >= item.price;
 
     var cardCls = 'cosmetic-card' + (isEquipped ? ' equipped' : '');
     var actionBtnHtml = '';
 
     if (isEquipped) {
-      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="event.stopPropagation(); unequipCosmetic();">Equipped ✓</button>';
+      actionBtnHtml =
+        '<button type="button" class="cosmetic-card-action-btn btn-equipped" onclick="event.stopPropagation(); unequipCosmetic();">Equipped ✓</button>';
     } else if (isOwned) {
-      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="event.stopPropagation(); equipCosmetic(\'' + k + '\');">Equip</button>';
+      actionBtnHtml =
+        '<button type="button" class="cosmetic-card-action-btn btn-equip" onclick="event.stopPropagation(); equipCosmetic(\'' +
+        k +
+        '\');">Equip</button>';
     } else if (canAfford) {
-      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="event.stopPropagation(); unlockCosmetic(\'' + k + '\');">Unlock ' + item.price + ' 🪙</button>';
+      actionBtnHtml =
+        '<button type="button" class="cosmetic-card-action-btn btn-buy" onclick="event.stopPropagation(); unlockCosmetic(\'' +
+        k +
+        '\');">Unlock ' +
+        item.price +
+        ' 🪙</button>';
     } else {
-      actionBtnHtml = '<button type="button" class="cosmetic-card-action-btn btn-locked" disabled title="Play Arcade to earn credits!">Locked (' + item.price + ' 🪙)</button>';
+      actionBtnHtml =
+        '<button type="button" class="cosmetic-card-action-btn btn-locked" disabled title="Play Arcade to earn credits!">Locked (' +
+        item.price +
+        ' 🪙)</button>';
     }
 
     html +=
-      '<div class="' + cardCls + '" onclick="renderCosmeticLivePreview(\'' + k + '\')">' +
-        '<div class="cosmetic-badge-preview-icon">' + item.badgeHtml + '</div>' +
-        '<div class="cosmetic-card-category">' + item.categoryLabel + '</div>' +
-        '<div class="cosmetic-card-name">' + item.name + '</div>' +
-        '<div style="width:100%;margin-top:auto;">' + actionBtnHtml + '</div>' +
+      '<div class="' +
+      cardCls +
+      '" onclick="renderCosmeticLivePreview(\'' +
+      k +
+      '\')">' +
+      '<div class="cosmetic-badge-preview-icon">' +
+      item.badgeHtml +
+      '</div>' +
+      '<div class="cosmetic-card-category">' +
+      item.categoryLabel +
+      '</div>' +
+      '<div class="cosmetic-card-name">' +
+      item.name +
+      '</div>' +
+      '<div style="width:100%;margin-top:auto;">' +
+      actionBtnHtml +
+      '</div>' +
       '</div>';
   });
 
@@ -3790,20 +4709,26 @@ function renderCosmeticShopCards() {
 }
 
 function isCreatorSession() {
-  var em = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  var em = (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '') || '';
   var cleanEm = String(em).trim().toLowerCase();
   return cleanEm === 'jeshuakoh2008@gmail.com';
 }
 
 function getMemberAvatarOutline(emailOrIc, memberName) {
-  var cleanKey = String(emailOrIc || '').trim().toLowerCase();
-  var cleanName = String(memberName || '').trim().toLowerCase();
+  var cleanKey = String(emailOrIc || '')
+    .trim()
+    .toLowerCase();
+  var cleanName = String(memberName || '')
+    .trim()
+    .toLowerCase();
 
   var isCreator = false;
-  if (typeof isPortalCreator === 'function') {
+  if (cleanKey === 'creator' || cleanName === 'creator') {
+    isCreator = true;
+  } else if (typeof isPortalCreator === 'function') {
     isCreator = isPortalCreator(cleanName, cleanKey);
   } else {
-    isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh');
+    isCreator = cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh';
   }
 
   // 1. Direct key match (by email, ic, or name)
@@ -3821,11 +4746,17 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
       var k = mapKeys[i];
       var entry = _customAvatarOutlinesMap[k];
       if (entry && typeof entry === 'object') {
-        var entryName = String(entry.name || '').trim().toLowerCase();
-        var entryTarget = String(entry.target || k).trim().toLowerCase();
-        if ((cleanName && entryName === cleanName) ||
-            (cleanName && entryTarget === cleanName) ||
-            (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
+        var entryName = String(entry.name || '')
+          .trim()
+          .toLowerCase();
+        var entryTarget = String(entry.target || k)
+          .trim()
+          .toLowerCase();
+        if (
+          (cleanName && entryName === cleanName) ||
+          (cleanName && entryTarget === cleanName) ||
+          (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))
+        ) {
           assigned = entry;
           break;
         }
@@ -3835,15 +4766,24 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
 
   // 3. Fallback: Lookup in member directory / caches to cross-resolve name <-> email/ic
   if (!assigned && (cleanName || cleanKey)) {
-    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
-      ? resolveMemberDirectoryInfo
-      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    var resolver =
+      typeof resolveMemberDirectoryInfo === 'function'
+        ? resolveMemberDirectoryInfo
+        : typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function'
+          ? window.resolveMemberDirectoryInfo
+          : null;
     if (resolver) {
       var resolved = resolver(cleanName || cleanKey);
       if (resolved) {
-        var rEmail = String(resolved.email || '').toLowerCase().trim();
-        var rIc = String(resolved.ic || '').toLowerCase().trim();
-        var rName = String(resolved.name || '').toLowerCase().trim();
+        var rEmail = String(resolved.email || '')
+          .toLowerCase()
+          .trim();
+        var rIc = String(resolved.ic || '')
+          .toLowerCase()
+          .trim();
+        var rName = String(resolved.name || '')
+          .toLowerCase()
+          .trim();
         if (rEmail && _customAvatarOutlinesMap[rEmail]) {
           assigned = _customAvatarOutlinesMap[rEmail];
         } else if (rIc && _customAvatarOutlinesMap[rIc]) {
@@ -3857,7 +4797,10 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
 
   var styleKey = isCreator ? 'rgb' : 'none';
   if (assigned) {
-    styleKey = (typeof assigned === 'object' && assigned.style) ? assigned.style : assigned;
+    var rawStyle = typeof assigned === 'object' && assigned.style ? assigned.style : assigned;
+    if (rawStyle) {
+      styleKey = rawStyle;
+    }
   }
 
   var cfg = AVATAR_OUTLINE_STYLES[styleKey] || AVATAR_OUTLINE_STYLES.none;
@@ -3865,7 +4808,8 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
     style: styleKey,
     config: cfg,
     isCreator: isCreator,
-    assignedBy: assigned && assigned.assignedBy ? assigned.assignedBy : (isCreator ? 'Creator Default' : null)
+    assignedBy:
+      assigned && assigned.assignedBy ? assigned.assignedBy : isCreator ? 'Creator Default' : null
   };
 }
 
@@ -3886,7 +4830,9 @@ async function loadCustomAvatarOutlines() {
     if (snapOutlines && typeof snapOutlines === 'object') {
       _customAvatarOutlinesMap = snapOutlines;
       if (typeof localStorage !== 'undefined') {
-        try { localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(snapOutlines)); } catch (_) {}
+        try {
+          localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(snapOutlines));
+        } catch (_) {}
       }
       if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
       if (typeof refreshActiveAvatarCosmetics === 'function') refreshActiveAvatarCosmetics();
@@ -3894,7 +4840,7 @@ async function loadCustomAvatarOutlines() {
     }
   }
 
-  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : null;
+  var client = typeof getSupabaseClient === 'function' ? getSupabaseClient() : null;
   if (!client || !client.get) return _customAvatarOutlinesMap;
 
   try {
@@ -3906,7 +4852,8 @@ async function loadCustomAvatarOutlines() {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(parsed));
         }
-        if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+        if (typeof global !== 'undefined')
+          global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
         if (typeof refreshActiveAvatarCosmetics === 'function') {
           refreshActiveAvatarCosmetics();
         }
@@ -3920,27 +4867,39 @@ async function loadCustomAvatarOutlines() {
 }
 
 async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, targetName) {
-  var cleanActor = String(actorEmail || (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '')).trim().toLowerCase();
-  var isCreator = (cleanActor === 'jeshuakoh2008@gmail.com');
+  var cleanActor = String(
+    actorEmail || (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '')
+  )
+    .trim()
+    .toLowerCase();
+  var isCreator = cleanActor === 'jeshuakoh2008@gmail.com';
 
   if (!isCreator) {
     return {
       success: false,
-      error: 'Access Denied: Only jeshuakoh2008@gmail.com can assign custom profile avatar outlines.'
+      error:
+        'Access Denied: Only jeshuakoh2008@gmail.com can assign custom profile avatar outlines.'
     };
   }
 
-  var cleanTarget = String(targetEmailOrIc || '').trim().toLowerCase();
+  var cleanTarget = String(targetEmailOrIc || '')
+    .trim()
+    .toLowerCase();
   if (!cleanTarget) {
     return { success: false, error: 'Target member identifier required.' };
   }
 
   var validKey = AVATAR_OUTLINE_STYLES[styleKey] ? styleKey : 'none';
-  var cleanName = String(targetName || '').trim().toLowerCase();
+  var cleanName = String(targetName || '')
+    .trim()
+    .toLowerCase();
   if (!cleanName) {
-    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
-      ? resolveMemberDirectoryInfo
-      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+    var resolver =
+      typeof resolveMemberDirectoryInfo === 'function'
+        ? resolveMemberDirectoryInfo
+        : typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function'
+          ? window.resolveMemberDirectoryInfo
+          : null;
     if (resolver) {
       var dirInfo = resolver(cleanTarget);
       if (dirInfo && dirInfo.name) cleanName = String(dirInfo.name).trim().toLowerCase();
@@ -3965,20 +4924,28 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, ta
   }
   if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
 
-  var client = (typeof getSupabaseClient === 'function') ? getSupabaseClient() : getSupa();
+  var client = typeof getSupabaseClient === 'function' ? getSupabaseClient() : getSupa();
   if (client) {
     try {
       if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', {
-          key: 'bb_custom_avatar_outlines',
-          value: JSON.stringify(_customAvatarOutlinesMap)
-        }, 'key');
+        await client.upsert(
+          'bb_config',
+          {
+            key: 'bb_custom_avatar_outlines',
+            value: JSON.stringify(_customAvatarOutlinesMap)
+          },
+          'key'
+        );
       } else if (client.post) {
-        await client.post('bb_config', {
-          key: 'bb_custom_avatar_outlines',
-          value: JSON.stringify(_customAvatarOutlinesMap),
-          updated_at: new Date().toISOString()
-        }, { upsert: true });
+        await client.post(
+          'bb_config',
+          {
+            key: 'bb_custom_avatar_outlines',
+            value: JSON.stringify(_customAvatarOutlinesMap),
+            updated_at: new Date().toISOString()
+          },
+          { upsert: true }
+        );
       }
     } catch (dbErr) {
       console.warn('saveMemberAvatarOutline db sync warning:', dbErr);
@@ -3989,13 +4956,19 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, ta
 
   // Re-render tasks board & project stacks if currently active
   if (typeof window !== 'undefined' && typeof window.renderKanbanBoard === 'function') {
-    try { window.renderKanbanBoard(); } catch (_) {}
+    try {
+      window.renderKanbanBoard();
+    } catch (_) {}
   }
   if (typeof window !== 'undefined' && typeof window.renderProjectsList === 'function') {
-    try { window.renderProjectsList(); } catch (_) {}
+    try {
+      window.renderProjectsList();
+    } catch (_) {}
   }
   if (typeof window !== 'undefined') {
-    try { window.dispatchEvent(new CustomEvent('bb_avatar_outlines_changed')); } catch (_) {}
+    try {
+      window.dispatchEvent(new CustomEvent('bb_avatar_outlines_changed'));
+    } catch (_) {}
   }
 
   return { success: true, target: cleanTarget, style: validKey };
@@ -4024,7 +4997,7 @@ function applyAvatarOutlineElement(containerEl, styleKey) {
     containerEl.appendChild(overlay);
   } else {
     // Clear previous outline classes
-    Object.keys(AVATAR_OUTLINE_STYLES).forEach(function(k) {
+    Object.keys(AVATAR_OUTLINE_STYLES).forEach(function (k) {
       var cls = AVATAR_OUTLINE_STYLES[k].className;
       if (cls) overlay.classList.remove(cls);
     });
@@ -4044,7 +5017,8 @@ function applyAvatarOutlineElement(containerEl, styleKey) {
 
 function refreshActiveAvatarOutlines() {
   if (typeof document === 'undefined') return;
-  var myEmail = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || '';
+  var myEmail =
+    (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '') || '';
   var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
   var myOutline = getMemberAvatarOutline(myEmail, myName);
 
@@ -4074,15 +5048,27 @@ function renderMemberAvatar(memberName, memberEmail) {
   if (typeof document === 'undefined') return;
   var name = memberName || (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
   var email = memberEmail || (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
-  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshua\s+koh/i.test(name);
-  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name.trim().charAt(0).toUpperCase() || '?'));
-  var color = isCreator ? '' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
+  var isCreator =
+    typeof isPortalCreator === 'function'
+      ? isPortalCreator(name, email)
+      : /jeshua\s+koh/i.test(name);
+  var initial = isCreator
+    ? 'J'
+    : typeof getMemberAvatarInitial === 'function'
+      ? getMemberAvatarInitial(name, email)
+      : name.trim().charAt(0).toUpperCase() || '?';
+  var color = isCreator
+    ? ''
+    : typeof getMemberAvatarColor === 'function'
+      ? getMemberAvatarColor(name)
+      : '#047857';
   var tooltip = name + (isCreator ? ' (Portal Creator)' : '');
 
   var outline = getMemberAvatarOutline(email, name);
   var cosmetic = getMemberCosmetic(email, name);
 
-  var textLColor = (typeof isBrightColor === 'function' && isBrightColor(color)) ? '#1e293b' : '#ffffff';
+  var textLColor =
+    typeof isBrightColor === 'function' && isBrightColor(color) ? '#1e293b' : '#ffffff';
 
   // 1. Sidebar user avatar placeholder
   var sPh = document.getElementById('sidebar-user-avatar-ph');
@@ -4101,7 +5087,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     sPh.style.display = 'flex';
     sPh.style.alignItems = 'center';
     sPh.style.justifyContent = 'center';
-    var wantsRgb = (outline.style === 'rgb');
+    var wantsRgb = outline.style === 'rgb';
     if (wantsRgb) {
       sPh.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       sPh.style.background = '#083830';
@@ -4178,8 +5164,10 @@ function renderMemberAvatar(memberName, memberEmail) {
 
 function resetMemberAvatar() {
   if (typeof document === 'undefined') return;
-  var defaultSvg = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-  var defaultLgSvg = '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  var defaultSvg =
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  var defaultLgSvg =
+    '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 
   var sPh = document.getElementById('sidebar-user-avatar-ph');
   if (sPh) {
@@ -4215,37 +5203,56 @@ function resetMemberAvatar() {
   var navCircle = document.querySelector('.nav-avatar-circle');
   var mRing = document.getElementById('m-pfp-ring');
   if (sPh && sPh.parentElement) {
-    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(sPh.parentElement, 'none');
-    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(sPh.parentElement, 'none');
+    if (typeof applyAvatarOutlineElement === 'function')
+      applyAvatarOutlineElement(sPh.parentElement, 'none');
+    if (typeof applyMemberCosmeticElement === 'function')
+      applyMemberCosmeticElement(sPh.parentElement, 'none');
   }
   if (mRing) {
     if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(mRing, 'none');
     if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(mRing, 'none');
   }
   if (navCircle) {
-    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(navCircle, 'none');
-    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(navCircle, 'none');
+    if (typeof applyAvatarOutlineElement === 'function')
+      applyAvatarOutlineElement(navCircle, 'none');
+    if (typeof applyMemberCosmeticElement === 'function')
+      applyMemberCosmeticElement(navCircle, 'none');
   }
 }
 
 function hasActiveCustomPhoto() {
   if (typeof document !== 'undefined') {
     var img = document.getElementById('m-pfp-img');
-    if (img && img.style.display !== 'none' && img.src && img.src.length > 5 && !img.src.endsWith('#')) {
+    if (
+      img &&
+      img.style.display !== 'none' &&
+      img.src &&
+      img.src.length > 5 &&
+      !img.src.endsWith('#')
+    ) {
       return true;
     }
     var sImg = document.getElementById('sidebar-user-avatar-img');
-    if (sImg && sImg.style.display !== 'none' && sImg.src && sImg.src.length > 5 && !sImg.src.endsWith('#')) {
+    if (
+      sImg &&
+      sImg.style.display !== 'none' &&
+      sImg.src &&
+      sImg.src.length > 5 &&
+      !sImg.src.endsWith('#')
+    ) {
       return true;
     }
   }
-  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
+  var id = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
   if (id) {
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     if (typeof localStorage !== 'undefined' && localStorage.getItem('bb_pfp_' + cleanFileName)) {
       return true;
     }
-    if (typeof sessionGet === 'function' && (sessionGet('pfp_cache_' + cleanFileName) || sessionGet('photo_url'))) {
+    if (
+      typeof sessionGet === 'function' &&
+      (sessionGet('pfp_cache_' + cleanFileName) || sessionGet('photo_url'))
+    ) {
       return true;
     }
   }
@@ -4256,20 +5263,20 @@ function handlePfpRingClick() {
   if (hasActiveCustomPhoto()) {
     removePfp();
   } else {
-    var fi = (typeof document !== 'undefined') ? document.getElementById('pfp-upload') : null;
+    var fi = typeof document !== 'undefined' ? document.getElementById('pfp-upload') : null;
     if (fi) fi.click();
   }
 }
 
 function setRemovePfpButtonVisible(visible) {
   if (typeof document === 'undefined') return;
-  var isVis = (typeof visible === 'boolean') ? visible : hasActiveCustomPhoto();
+  var isVis = typeof visible === 'boolean' ? visible : hasActiveCustomPhoto();
   var remCircle = document.querySelectorAll('.m-pfp-remove-btn');
-  remCircle.forEach(function(btn) {
+  remCircle.forEach(function (btn) {
     btn.style.display = isVis ? 'flex' : 'none';
   });
   var remText = document.querySelectorAll('.m-pfp-remove-text-btn');
-  remText.forEach(function(btn) {
+  remText.forEach(function (btn) {
     btn.style.display = isVis ? 'inline-flex' : 'none';
   });
 }
@@ -4278,42 +5285,55 @@ async function removePfp(e) {
   if (e && typeof e.preventDefault === 'function') e.preventDefault();
   if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
 
-  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
+  var id = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
   if (!id) {
-    if (typeof showToast === 'function') showToast('Please log in to manage your profile photo.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please log in to manage your profile photo.', 'warning');
     return;
   }
 
-  var confirmed = (typeof showConfirmModal === 'function')
-    ? await showConfirmModal('Remove your custom profile picture and revert to your personalized initials avatar?', 'Remove Profile Picture', { confirmText: 'Remove', cancelText: 'Cancel', danger: true })
-    : true;
+  var confirmed =
+    typeof showConfirmModal === 'function'
+      ? await showConfirmModal(
+          'Remove your custom profile picture and revert to your personalized initials avatar?',
+          'Remove Profile Picture',
+          { confirmText: 'Remove', cancelText: 'Cancel', danger: true }
+        )
+      : true;
   if (!confirmed) return;
   if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
-  var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
-  var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
+  var email = typeof sessionGet === 'function' ? sessionGet('email') : null;
+  var ic = typeof sessionGet === 'function' ? sessionGet('ic') : null;
 
   var targetFileNames = [];
   if (id) targetFileNames.push(id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
-  if (email && email !== id && id.indexOf(email + '__') !== 0) targetFileNames.push(email.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
-  if (ic && ic !== id && ic !== email) targetFileNames.push(ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+  if (email && email !== id && id.indexOf(email + '__') !== 0)
+    targetFileNames.push(email.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+  if (ic && ic !== id && ic !== email)
+    targetFileNames.push(ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
 
   // Confirm storage deletion before clearing the local avatar.
   var client = getSupa();
   try {
     for (var i = 0; i < targetFileNames.length; i++) {
-      if (!await client.deleteFile('avatars', targetFileNames[i])) throw new Error('Storage rejected deletion');
+      if (!(await client.deleteFile('avatars', targetFileNames[i])))
+        throw new Error('Storage rejected deletion');
     }
-    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: null });
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
+    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), {
+      photo_url: null
+    });
+    if (!updated || (Array.isArray(updated) && updated.length === 0))
+      throw new Error('Member record unavailable');
   } catch (_) {
-    if (typeof showToast === 'function') showToast('Profile photo removal could not be confirmed. Please retry.', 'error');
+    if (typeof showToast === 'function')
+      showToast('Profile photo removal could not be confirmed. Please retry.', 'error');
     return;
   }
   if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
   // 1. Purge saved copies for this avatar.
-  targetFileNames.forEach(function(fn) {
+  targetFileNames.forEach(function (fn) {
     if (typeof sessionSet === 'function') {
       sessionSet('pfp_cache_' + fn, null);
     }
@@ -4332,9 +5352,10 @@ async function removePfp(e) {
   try {
     if (typeof _memberPfpsMap !== 'undefined') {
       if (id) delete _memberPfpsMap[id.toLowerCase()];
-      if (email && (email === id || id.indexOf(email + '__') !== 0)) delete _memberPfpsMap[email.toLowerCase()];
+      if (email && (email === id || id.indexOf(email + '__') !== 0))
+        delete _memberPfpsMap[email.toLowerCase()];
       if (ic) delete _memberPfpsMap[ic.toLowerCase()];
-      var removeCurrentName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
+      var removeCurrentName = typeof sessionGet === 'function' ? sessionGet('name') : '';
       if (removeCurrentName) delete _memberPfpsMap[removeCurrentName.trim().toLowerCase()];
       try {
         if (typeof localStorage !== 'undefined') {
@@ -4343,7 +5364,11 @@ async function removePfp(e) {
       } catch (_) {}
     }
     if (client && typeof client.upsert === 'function' && typeof _memberPfpsMap !== 'undefined') {
-      await client.upsert('bb_config', { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) }, 'key');
+      await client.upsert(
+        'bb_config',
+        { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) },
+        'key'
+      );
     }
   } catch (_) {
     directorySyncFailed = true;
@@ -4353,20 +5378,30 @@ async function removePfp(e) {
   // 3. Immediately revert UI to default initials avatar
   if (typeof document !== 'undefined') {
     var img = document.getElementById('m-pfp-img');
-    var ph  = document.getElementById('m-pfp-ph');
-    if (img) { img.src = ''; img.style.display = 'none'; }
-    if (ph)  ph.style.display = 'flex';
+    var ph = document.getElementById('m-pfp-ph');
+    if (img) {
+      img.src = '';
+      img.style.display = 'none';
+    }
+    if (ph) ph.style.display = 'flex';
 
     var sImg = document.getElementById('sidebar-user-avatar-img');
-    var sPh  = document.getElementById('sidebar-user-avatar-ph');
-    if (sImg) { sImg.src = ''; sImg.style.display = 'none'; }
-    if (sPh)  sPh.style.display = 'flex';
+    var sPh = document.getElementById('sidebar-user-avatar-ph');
+    if (sImg) {
+      sImg.src = '';
+      sImg.style.display = 'none';
+    }
+    if (sPh) sPh.style.display = 'flex';
 
     var navAvatarImg = document.getElementById('nav-avatar-img');
-    var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
-    if (navAvatarImg) { navAvatarImg.src = ''; navAvatarImg.style.display = 'none'; }
-    if (navAvatarPh)  navAvatarPh.style.display = 'flex';
-    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+    var navAvatarPh = document.getElementById('nav-avatar-placeholder');
+    if (navAvatarImg) {
+      navAvatarImg.src = '';
+      navAvatarImg.style.display = 'none';
+    }
+    if (navAvatarPh) navAvatarPh.style.display = 'flex';
+    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function')
+      window.updateNavUserHeader();
 
     var fileInp = document.getElementById('pfp-upload');
     if (fileInp) fileInp.value = '';
@@ -4375,14 +5410,15 @@ async function removePfp(e) {
   }
 
   // 4. Re-render initials and unique color / creator RGB animation
-  var memberName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
-  var memberEmail = (typeof sessionGet === 'function') ? sessionGet('email') : '';
+  var memberName = typeof sessionGet === 'function' ? sessionGet('name') : '';
+  var memberEmail = typeof sessionGet === 'function' ? sessionGet('email') : '';
   if (typeof renderMemberAvatar === 'function') {
     renderMemberAvatar(memberName, memberEmail);
   }
 
   if (typeof showToast === 'function') {
-    if (directorySyncFailed) showToast('Profile picture removed. Directory sync failed.', 'warning');
+    if (directorySyncFailed)
+      showToast('Profile picture removed. Directory sync failed.', 'warning');
     else showToast('Profile picture removed successfully.', 'success');
   }
 }
@@ -4393,7 +5429,7 @@ var _renderedMemberId = null;
 
 async function renderDashboard() {
   if (typeof document === 'undefined') return;
-  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
+  var id = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
   var authBox = document.getElementById('m-auth');
   var dashBox = document.getElementById('m-dashboard');
   if (authBox && !id) authBox.style.display = 'block';
@@ -4403,12 +5439,16 @@ async function renderDashboard() {
 
   try {
     var client = getSupa();
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
+    var data = await client.get(
+      'bb_members?ic=eq.' +
+        encodeURIComponent(id) +
+        '&select=id,name,email,ic,role,rank,platoon,squad,section,att_section,age,department,photo_url,points,parade_attendance,band_attendance,uniform_points,parade_points,band_points,joined_date,created_at'
+    );
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!data || !data.length) throw new Error('Member record unavailable');
 
     var m = data[0];
-    var set = function(elemId, val) {
+    var set = function (elemId, val) {
       var el = document.getElementById(elemId);
       if (el) el.textContent = val;
     };
@@ -4416,10 +5456,15 @@ async function renderDashboard() {
     var displayEmail = m.email || (m.ic && m.ic.includes('@') ? m.ic.split('__')[0] : '');
     set('m-display-name', m.name || '—');
     set('m-display-email', displayEmail);
-    set('m-display-ic',   displayEmail); // Compatibility for legacy selectors
-    set('m-rank-val',     m.rank || '—');
-    set('m-squad-val',    (typeof formatPlatoonOrSquad === 'function' ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : m.squad) || '—');
-    set('m-section-val',  m.att_section || m.section || sessionGet('section') || 'Senior');
+    set('m-display-ic', displayEmail); // Compatibility for legacy selectors
+    set('m-rank-val', m.rank || '—');
+    set(
+      'm-squad-val',
+      (typeof formatPlatoonOrSquad === 'function'
+        ? formatPlatoonOrSquad(m.squad, m.section || m.att_section)
+        : m.squad) || '—'
+    );
+    set('m-section-val', m.att_section || m.section || sessionGet('section') || 'Senior');
 
     // Display age if calculated or from birth year
     var ageVal = '—';
@@ -4428,24 +5473,39 @@ async function renderDashboard() {
     } else if (m.date_of_birth) {
       var bYear = parseInt((m.date_of_birth || '').split('-')[0], 10);
       if (bYear > 0 && bYear <= new Date().getFullYear()) {
-        ageVal = (new Date().getFullYear() - bYear) + ' yrs';
+        ageVal = new Date().getFullYear() - bYear + ' yrs';
       }
     }
     set('m-age-val', ageVal);
 
-    if (sessionGet('name') !== (m.name || '')) sessionSet('name', m.name || '', { localOnly: true });
-    if (m.photo_url && sessionGet('photo_url') !== m.photo_url) sessionSet('photo_url', m.photo_url, { localOnly: true });
-    if (sessionGet('rank') !== (m.rank || '')) sessionSet('rank', m.rank || '', { localOnly: true });
-    if (sessionGet('joined') !== (m.joined_at || '')) sessionSet('joined', m.joined_at || '', { localOnly: true });
-    if (sessionGet('department') !== (m.department || '')) sessionSet('department', m.department || '', { localOnly: true });
-    set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+    if (sessionGet('name') !== (m.name || ''))
+      sessionSet('name', m.name || '', { localOnly: true });
+    if (m.photo_url && sessionGet('photo_url') !== m.photo_url)
+      sessionSet('photo_url', m.photo_url, { localOnly: true });
+    if (sessionGet('rank') !== (m.rank || ''))
+      sessionSet('rank', m.rank || '', { localOnly: true });
+    if (sessionGet('joined') !== (m.joined_at || ''))
+      sessionSet('joined', m.joined_at || '', { localOnly: true });
+    if (sessionGet('department') !== (m.department || ''))
+      sessionSet('department', m.department || '', { localOnly: true });
+    set(
+      'm-since-val',
+      m.joined_at
+        ? new Date(m.joined_at).toLocaleDateString('en-MY', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+          })
+        : '—'
+    );
 
     // Child Safety & Parental Consent Status
     var memberSection = m.att_section || m.section || sessionGet('section') || '';
     var memberAge = sessionGet('age');
     if (!memberAge && m.date_of_birth) {
       var bYear = parseInt((m.date_of_birth || '').split('-')[0], 10);
-      if (bYear > 0 && bYear <= new Date().getFullYear()) memberAge = new Date().getFullYear() - bYear;
+      if (bYear > 0 && bYear <= new Date().getFullYear())
+        memberAge = new Date().getFullYear() - bYear;
     }
     var isMinor = isMinorSection(memberSection, memberAge);
     var consentWrap = document.getElementById('m-consent-status-wrap');
@@ -4456,33 +5516,57 @@ async function renderDashboard() {
         if ((sessionGet('ic') || sessionGet('email')) !== id) return;
         var isVerified = consentData && consentData.parental_consent_signed;
         var mediaConsent = !!(consentData && consentData.media_consent === true);
-        var consentDateStr = (consentData && consentData.parental_consent_date)
-          ? new Date(consentData.parental_consent_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '';
-        var parentNameStr = (consentData && consentData.parent_name) ? (' by ' + (typeof escapeHtml === 'function' ? escapeHtml(consentData.parent_name) : consentData.parent_name)) : '';
+        var consentDateStr =
+          consentData && consentData.parental_consent_date
+            ? new Date(consentData.parental_consent_date).toLocaleDateString('en-MY', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+              })
+            : '';
+        var parentNameStr =
+          consentData && consentData.parent_name
+            ? ' by ' +
+              (typeof escapeHtml === 'function'
+                ? escapeHtml(consentData.parent_name)
+                : consentData.parent_name)
+            : '';
 
-        var statusHtml = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
-          + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<div style="width:28px;height:28px;border-radius:50%;background:' + (isVerified ? 'rgba(74,222,128,0.15)' : 'rgba(234,179,8,0.15)') + ';display:flex;align-items:center;justify-content:center;color:' + (isVerified ? 'var(--green)' : 'var(--accent)') + ';">'
-              + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
-            + '</div>'
-            + '<div>'
-              + '<div style="font-size:12px;font-weight:700;color:var(--text-primary);">'
-                + (isVerified ? ('Parental Consent Recorded' + parentNameStr) : 'Parental Consent Pending Verification')
-              + '</div>'
-              + '<div style="font-size:11px;color:var(--text-muted);">'
-                + (isVerified ? ('Submitted on ' + (consentDateStr || 'registration')) : 'Consent record missing. Contact Section Officer.')
-              + '</div>'
-            + '</div>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:6px;">'
-            + (mediaConsent
-                ? '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photo Consent Opted-In</span>'
-                : '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="2" x2="22" y1="2" y2="22"/></svg> Media Private (No Photos)</span>')
-            + '<button type="button" onclick="updateMemberMediaConsent(!' + mediaConsent + ')" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600;" title="Update media release preference">' + (mediaConsent ? 'Withdraw Photo Consent' : 'Opt-In to Photos') + '</button>'
-            + '<a href="#" onclick="openChildSafetyModal(event)" style="font-size:11px;color:var(--accent);text-decoration:underline;margin-left:4px;">Policy</a>'
-          + '</div>'
-        + '</div>';
+        var statusHtml =
+          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<div style="width:28px;height:28px;border-radius:50%;background:' +
+          (isVerified ? 'rgba(74,222,128,0.15)' : 'rgba(234,179,8,0.15)') +
+          ';display:flex;align-items:center;justify-content:center;color:' +
+          (isVerified ? 'var(--green)' : 'var(--accent)') +
+          ';">' +
+          '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+          '</div>' +
+          '<div>' +
+          '<div style="font-size:12px;font-weight:700;color:var(--text-primary);">' +
+          (isVerified
+            ? 'Parental Consent Recorded' + parentNameStr
+            : 'Parental Consent Pending Verification') +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text-muted);">' +
+          (isVerified
+            ? 'Submitted on ' + (consentDateStr || 'registration')
+            : 'Consent record missing. Contact Section Officer.') +
+          '</div>' +
+          '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;">' +
+          (mediaConsent
+            ? '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photo Consent Opted-In</span>'
+            : '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="2" x2="22" y1="2" y2="22"/></svg> Media Private (No Photos)</span>') +
+          '<button type="button" onclick="updateMemberMediaConsent(!' +
+          mediaConsent +
+          ')" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600;" title="Update media release preference">' +
+          (mediaConsent ? 'Withdraw Photo Consent' : 'Opt-In to Photos') +
+          '</button>' +
+          '<a href="#" onclick="openChildSafetyModal(event)" style="font-size:11px;color:var(--accent);text-decoration:underline;margin-left:4px;">Policy</a>' +
+          '</div>' +
+          '</div>';
         consentWrap.innerHTML = statusHtml;
       } else {
         consentWrap.style.display = 'none';
@@ -4490,8 +5574,16 @@ async function renderDashboard() {
     }
 
     set('sidebar-user-name', m.name || 'Member');
-    var sqBadgeFmt = (typeof formatPlatoonOrSquad === 'function') ? formatPlatoonOrSquad(m.squad, m.section || m.att_section) : (m.squad ? m.squad + ' Sq' : '');
-    set('sidebar-user-badge', (m.rank ? m.rank : '') + (sqBadgeFmt ? ' · ' + sqBadgeFmt : (m.att_section || 'Member')));
+    var sqBadgeFmt =
+      typeof formatPlatoonOrSquad === 'function'
+        ? formatPlatoonOrSquad(m.squad, m.section || m.att_section)
+        : m.squad
+          ? m.squad + ' Sq'
+          : '';
+    set(
+      'sidebar-user-badge',
+      (m.rank ? m.rank : '') + (sqBadgeFmt ? ' · ' + sqBadgeFmt : m.att_section || 'Member')
+    );
 
     // Render personalized initial, color & creator RGB animation on avatar placeholders
     renderMemberAvatar(m.name, displayEmail);
@@ -4500,49 +5592,73 @@ async function renderDashboard() {
     // Load profile avatar from Supabase Storage / local cache
     try {
       var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-      var cachedPfp = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_pfp_' + cleanFileName) : null;
+      var cachedPfp =
+        typeof localStorage !== 'undefined'
+          ? localStorage.getItem('bb_pfp_' + cleanFileName)
+          : null;
       if (!cachedPfp && typeof sessionGet === 'function') {
         cachedPfp = sessionGet('pfp_cache_' + cleanFileName);
       }
       if (cachedPfp) {
         var cImg = document.getElementById('m-pfp-img');
-        var cPh  = document.getElementById('m-pfp-ph');
-        if (cImg) { cImg.src = cachedPfp; cImg.style.display = 'block'; }
-        if (cPh)  cPh.style.display = 'none';
+        var cPh = document.getElementById('m-pfp-ph');
+        if (cImg) {
+          cImg.src = cachedPfp;
+          cImg.style.display = 'block';
+        }
+        if (cPh) cPh.style.display = 'none';
         var csImg = document.getElementById('sidebar-user-avatar-img');
-        var csPh  = document.getElementById('sidebar-user-avatar-ph');
-        if (csImg) { csImg.src = cachedPfp; csImg.style.display = 'block'; }
-        if (csPh)  csPh.style.display = 'none';
+        var csPh = document.getElementById('sidebar-user-avatar-ph');
+        if (csImg) {
+          csImg.src = cachedPfp;
+          csImg.style.display = 'block';
+        }
+        if (csPh) csPh.style.display = 'none';
         var cNavImg = document.getElementById('nav-avatar-img');
-        var cNavPh  = document.getElementById('nav-avatar-placeholder');
-        if (cNavImg) { cNavImg.src = cachedPfp; cNavImg.style.display = 'block'; }
-        if (cNavPh)  cNavPh.style.display = 'none';
-        if (typeof sessionSet === 'function') sessionSet('photo_url', cachedPfp, { localOnly: true });
-        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+        var cNavPh = document.getElementById('nav-avatar-placeholder');
+        if (cNavImg) {
+          cNavImg.src = cachedPfp;
+          cNavImg.style.display = 'block';
+        }
+        if (cNavPh) cNavPh.style.display = 'none';
+        if (typeof sessionSet === 'function')
+          sessionSet('photo_url', cachedPfp, { localOnly: true });
+        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function')
+          window.updateNavUserHeader();
         setRemovePfpButtonVisible(true);
       }
 
       var pfpUrl = client.fileUrl('avatars', cleanFileName);
       var testImg = new Image();
-      testImg.onload = function() {
+      testImg.onload = function () {
         if ((sessionGet('ic') || sessionGet('email')) !== id) return;
         var img = document.getElementById('m-pfp-img');
-        var ph  = document.getElementById('m-pfp-ph');
-        if (img) { img.src = pfpUrl; img.style.display = 'block'; }
-        if (ph)  ph.style.display = 'none';
+        var ph = document.getElementById('m-pfp-ph');
+        if (img) {
+          img.src = pfpUrl;
+          img.style.display = 'block';
+        }
+        if (ph) ph.style.display = 'none';
         var sImg = document.getElementById('sidebar-user-avatar-img');
-        var sPh  = document.getElementById('sidebar-user-avatar-ph');
-        if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
-        if (sPh)  sPh.style.display = 'none';
+        var sPh = document.getElementById('sidebar-user-avatar-ph');
+        if (sImg) {
+          sImg.src = pfpUrl;
+          sImg.style.display = 'block';
+        }
+        if (sPh) sPh.style.display = 'none';
         var nImg = document.getElementById('nav-avatar-img');
-        var nPh  = document.getElementById('nav-avatar-placeholder');
-        if (nImg) { nImg.src = pfpUrl; nImg.style.display = 'block'; }
-        if (nPh)  nPh.style.display = 'none';
+        var nPh = document.getElementById('nav-avatar-placeholder');
+        if (nImg) {
+          nImg.src = pfpUrl;
+          nImg.style.display = 'block';
+        }
+        if (nPh) nPh.style.display = 'none';
         if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl, { localOnly: true });
-        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function')
+          window.updateNavUserHeader();
         setRemovePfpButtonVisible(true);
       };
-      testImg.onerror = function() {
+      testImg.onerror = function () {
         if ((sessionGet('ic') || sessionGet('email')) !== id) return;
         if (!hasActiveCustomPhoto()) {
           setRemovePfpButtonVisible(false);
@@ -4557,7 +5673,8 @@ async function renderDashboard() {
     loadMemberOrders();
     if (typeof loadMemberAttendanceStats === 'function') loadMemberAttendanceStats(m.name);
 
-    var bt = document.getElementById('tab-badges');  if (bt) bt.style.display = 'block';
+    var bt = document.getElementById('tab-badges');
+    if (bt) bt.style.display = 'block';
 
     if (typeof checkAttendanceTabVisibility === 'function') checkAttendanceTabVisibility(m.ic);
   } catch (e) {
@@ -4567,32 +5684,71 @@ async function renderDashboard() {
   }
 }
 
-async function loadMemberOrders() {
-  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
+async function loadMemberOrders(forcedId) {
+  var id =
+    (typeof forcedId === 'string' && forcedId) ||
+    (typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null);
   var container = document.getElementById('member-orders-list');
-  var formsContainer = (typeof document !== 'undefined') ? document.querySelector('.member-form-responses-list') : null;
+  var formsContainer =
+    typeof document !== 'undefined' ? document.querySelector('.member-form-responses-list') : null;
   if (!id || !container) return;
 
-  container.innerHTML = (typeof renderSkeletonCard === 'function') ? renderSkeletonCard(3, 'order') : '<div class="skeleton-shimmer" style="height:140px;border-radius:12px;"></div>';
+  container.innerHTML =
+    typeof renderSkeletonCard === 'function'
+      ? renderSkeletonCard(3, 'order')
+      : '<div class="skeleton-shimmer" style="height:140px;border-radius:12px;"></div>';
   if (formsContainer) {
-    formsContainer.innerHTML = (typeof renderSkeletonCard === 'function') ? renderSkeletonCard(2, 'order') : '<div class="skeleton-shimmer" style="height:100px;border-radius:12px;"></div>';
+    formsContainer.innerHTML =
+      typeof renderSkeletonCard === 'function'
+        ? renderSkeletonCard(2, 'order')
+        : '<div class="skeleton-shimmer" style="height:100px;border-radius:12px;"></div>';
   }
 
   try {
     var client = getSupa();
-    var orders = await client.get('bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc');
-    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+    var memberToken =
+      typeof sessionGet === 'function'
+        ? sessionGet('session_token') || sessionGet('member_token')
+        : null;
+    var orders = [];
+    if (client && typeof client.rpc === 'function' && memberToken) {
+      var rpcRes = await client.rpc('rpc_member_get_own_orders', { p_token: memberToken });
+      if (rpcRes && rpcRes.success && Array.isArray(rpcRes.orders)) {
+        orders = rpcRes.orders;
+      }
+    } else if (client && client.get) {
+      orders = await client.get(
+        'bb_orders?ic=eq.' + encodeURIComponent(id) + '&order=created_at.desc&limit=10'
+      );
+    }
+    if (!forcedId && (sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!orders) orders = [];
 
-    var SC = { pending: '#e8b830', paid: '#34d399', processing: '#42a5f5', ready: '#66bb6a', completed: '#888', collected: '#888', cancelled: '#ef5350' };
-    var SL = { pending: 'Pending', paid: 'Paid', processing: 'Processing', ready: 'Ready for Collection', completed: 'Completed', collected: 'Collected', cancelled: 'Cancelled' };
+    var SC = {
+      pending: '#e8b830',
+      paid: '#34d399',
+      processing: '#42a5f5',
+      ready: '#66bb6a',
+      completed: '#888',
+      collected: '#888',
+      cancelled: '#ef5350'
+    };
+    var SL = {
+      pending: 'Pending',
+      paid: 'Paid',
+      processing: 'Processing',
+      ready: 'Ready for Collection',
+      completed: 'Completed',
+      collected: 'Collected',
+      cancelled: 'Cancelled'
+    };
     var itemsList = window.UNIFORM_ITEMS || [];
 
     // Separate actual uniform orders from custom form submissions
     var uniformOrders = [];
     var formResponses = [];
 
-    orders.forEach(function(o) {
+    orders.forEach(function (o) {
       var num = o.order_number || '';
       var isForm = num.startsWith('FORM-') || o.payment_method === 'form_submission';
       if (!isForm && o.items) {
@@ -4612,56 +5768,104 @@ async function loadMemberOrders() {
 
     // 1. Render Uniform Orders
     if (!uniformOrders.length) {
-      container.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No uniform orders yet.</div>';
+      container.innerHTML =
+        '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No uniform orders yet.</div>';
     } else {
       var html = '';
-      uniformOrders.forEach(function(o) {
-        var status  = o.status || 'pending';
-        var sc      = SC[status] || '#888';
-        var sl      = SL[status] || status;
-        var created = o.created_at ? new Date(o.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      uniformOrders.forEach(function (o) {
+        var status = o.status || 'pending';
+        var sc = SC[status] || '#888';
+        var sl = SL[status] || status;
+        var created = o.created_at
+          ? new Date(o.created_at).toLocaleDateString('en-MY', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric'
+            })
+          : '';
 
         var itemLines = '';
         try {
-          var items = typeof o.items === 'string' ? JSON.parse(o.items || '{}') : (o.items || {});
-          Object.entries(items).forEach(function(kv) {
+          var items = typeof o.items === 'string' ? JSON.parse(o.items || '{}') : o.items || {};
+          Object.entries(items).forEach(function (kv) {
             var v = kv[1];
             var baseKey = kv[0].split('__')[0];
-            var prod = itemsList.find(function(i) {
+            var prod = itemsList.find(function (i) {
               return i.key === kv[0] || (v && v.key && i.key === v.key) || i.key === baseKey;
             });
             if (!v || !Number.isSafeInteger(Number(v.qty)) || Number(v.qty) < 1) return;
             var displayName = v.name || (prod && prod.name) || baseKey;
             var price = v.price === null || v.price === undefined ? NaN : Number(v.price);
-            var subtotal = Number.isFinite(price) && price >= 0 ? ' — RM ' + (Math.round(price * 100) * v.qty / 100).toFixed(2) : '';
-            var customPart = (v && (v.custom_text || v.customText)) ? ' · "' + escapeHtml(v.custom_text || v.customText) + '"' : '';
-            itemLines += '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding:3px 0;">'
-              + '<span>' + escapeHtml(displayName) + (v.size ? ' (' + escapeHtml(v.size) + ')' : '') + customPart + '</span>'
-              + '<span>x' + escapeHtml(v.qty) + subtotal + '</span></div>';
+            var subtotal =
+              Number.isFinite(price) && price >= 0
+                ? ' — RM ' + ((Math.round(price * 100) * v.qty) / 100).toFixed(2)
+                : '';
+            var customPart =
+              v && (v.custom_text || v.customText)
+                ? ' · "' + escapeHtml(v.custom_text || v.customText) + '"'
+                : '';
+            itemLines +=
+              '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-secondary);padding:3px 0;">' +
+              '<span>' +
+              escapeHtml(displayName) +
+              (v.size ? ' (' + escapeHtml(v.size) + ')' : '') +
+              customPart +
+              '</span>' +
+              '<span>x' +
+              escapeHtml(v.qty) +
+              subtotal +
+              '</span></div>';
           });
         } catch (e) {}
 
-        var cancelButton = status === 'pending' && typeof window.cancelUniformOrder === 'function'
-          ? '<button type="button" class="portal-btn portal-btn-secondary" data-cancel-order="' + escapeHtml(o.order_number) + '">Cancel order</button>' : '';
+        var cancelButton =
+          status === 'pending' && typeof window.cancelUniformOrder === 'function'
+            ? '<button type="button" class="portal-btn portal-btn-secondary" data-cancel-order="' +
+              escapeHtml(o.order_number) +
+              '">Cancel order</button>'
+            : '';
 
-        html += '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">'
-          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
-          + '<div>'
-          + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(o.order_number) + '</div>'
-          + '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + created + '</div>'
-          + '</div>'
-          + '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;font-family:var(--font-headline);text-align:center;">' + escapeHtml(sl) + '</div>'
-          + '</div>'
-          + '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' + itemLines + '</div>'
-          + cancelButton
-          + (o.notes ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' + ((typeof sanitizeHtml === 'function') ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) + '</div>' : '')
-          + '</div>';
+        html +=
+          '<div style="background:var(--bg-card);border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid var(--border-card);box-shadow:var(--shadow-card);">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
+          '<div>' +
+          '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' +
+          escapeHtml(o.order_number) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' +
+          created +
+          '</div>' +
+          '</div>' +
+          '<div style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;background:' +
+          sc +
+          '22;color:' +
+          sc +
+          ';border:1px solid ' +
+          sc +
+          '44;font-family:var(--font-headline);text-align:center;">' +
+          escapeHtml(sl) +
+          '</div>' +
+          '</div>' +
+          '<div style="border-top:1px solid var(--border-subtle);padding-top:8px;">' +
+          itemLines +
+          '</div>' +
+          cancelButton +
+          (o.notes
+            ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Note: ' +
+              (typeof sanitizeHtml === 'function' ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) +
+              '</div>'
+            : '') +
+          '</div>';
       });
       container.innerHTML = html;
-      container.querySelectorAll('[data-cancel-order]').forEach(function(button) {
-        button.addEventListener('click', async function() {
-          await withSmartButtonLock(button, async function() {
-            var confirmed = await showConfirmModal('Cancel this pending uniform order?', 'Cancel order', { confirmText: 'Cancel order', cancelText: 'Keep order' });
+      container.querySelectorAll('[data-cancel-order]').forEach(function (button) {
+        button.addEventListener('click', async function () {
+          await withSmartButtonLock(button, async function () {
+            var confirmed = await showConfirmModal(
+              'Cancel this pending uniform order?',
+              'Cancel order',
+              { confirmText: 'Cancel order', cancelText: 'Keep order' }
+            );
             if (confirmed && (sessionGet('ic') || sessionGet('email')) === id) {
               await window.cancelUniformOrder(button.getAttribute('data-cancel-order'));
               await loadMemberOrders();
@@ -4674,37 +5878,55 @@ async function loadMemberOrders() {
     // 2. Render Member Form Responses
     if (formsContainer) {
       if (!formResponses.length) {
-        formsContainer.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No form responses yet.</div>';
+        formsContainer.innerHTML =
+          '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px;">No form responses yet.</div>';
       } else {
         var formsHtml = '';
-        formResponses.forEach(function(r) {
+        formResponses.forEach(function (r) {
           var items = {};
           try {
-            items = typeof r.items === 'string' ? JSON.parse(r.items) : (r.items || {});
+            items = typeof r.items === 'string' ? JSON.parse(r.items) : r.items || {};
           } catch (_) {}
 
           var formTitle = items.form_name || r.notes || r.order_number;
-          var created = r.created_at ? new Date(r.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+          var created = r.created_at
+            ? new Date(r.created_at).toLocaleDateString('en-MY', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+              })
+            : '';
 
-          formsHtml += '<div class="member-response-item" data-resp-id="' + escapeHtml(r.order_number) + '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.15s ease;">'
-            + '<div style="margin-bottom:6px;">'
-            + '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' + escapeHtml(formTitle) + '</div>'
-            + (created ? '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + escapeHtml(created) + '</div>' : '')
-            + '</div>'
-            + '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle);font-size:12px;color:var(--accent);">'
-            + '<span>Click to view your submitted answers</span>'
-            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>'
-            + '</div>'
-            + '</div>';
+          formsHtml +=
+            '<div class="member-response-item" data-resp-id="' +
+            escapeHtml(r.order_number) +
+            '" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.15s ease;">' +
+            '<div style="margin-bottom:6px;">' +
+            '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);">' +
+            escapeHtml(formTitle) +
+            '</div>' +
+            (created
+              ? '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' +
+                escapeHtml(created) +
+                '</div>'
+              : '') +
+            '</div>' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle);font-size:12px;color:var(--accent);">' +
+            '<span>Click to view your submitted answers</span>' +
+            '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>' +
+            '</div>' +
+            '</div>';
         });
 
         formsContainer.innerHTML = formsHtml;
 
-        formsContainer.querySelectorAll('[data-resp-id]').forEach(function(card) {
+        formsContainer.querySelectorAll('[data-resp-id]').forEach(function (card) {
           if (card && typeof card.addEventListener === 'function') {
-            card.addEventListener('click', function() {
+            card.addEventListener('click', function () {
               var ref = card.getAttribute('data-resp-id');
-              var found = formResponses.find(function(x) { return x.order_number === ref; });
+              var found = formResponses.find(function (x) {
+                return x.order_number === ref;
+              });
               if (found) viewMemberFormResponse(found);
             });
           }
@@ -4712,9 +5934,11 @@ async function loadMemberOrders() {
       }
     }
   } catch (e) {
-    container.innerHTML = '<div style="color:#f66;font-size:13px;text-align:center;padding:16px;">Failed to load orders.</div>';
+    container.innerHTML =
+      '<div style="color:#f66;font-size:13px;text-align:center;padding:16px;">Failed to load orders.</div>';
     if (formsContainer) {
-      formsContainer.innerHTML = '<div style="color:#f66;font-size:13px;text-align:center;padding:16px;">Failed to load form responses.</div>';
+      formsContainer.innerHTML =
+        '<div style="color:#f66;font-size:13px;text-align:center;padding:16px;">Failed to load form responses.</div>';
     }
   }
 }
@@ -4731,73 +5955,101 @@ function viewMemberFormResponse(response) {
 
   var items = {};
   try {
-    items = typeof response.items === 'string' ? JSON.parse(response.items) : (response.items || {});
+    items = typeof response.items === 'string' ? JSON.parse(response.items) : response.items || {};
   } catch (_) {}
 
   var formTitle = items.form_name || response.notes || response.order_number;
   var answers = items.answers || {};
   var created = response.created_at
-    ? new Date(response.created_at).toLocaleString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? new Date(response.created_at).toLocaleString('en-MY', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     : '';
 
   var qaHtml = '';
   var entries = Object.entries(answers);
   if (!entries.length) {
-    qaHtml = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:24px;">No submitted answers recorded for this entry.</div>';
+    qaHtml =
+      '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:24px;">No submitted answers recorded for this entry.</div>';
   } else {
-    entries.forEach(function(entry) {
+    entries.forEach(function (entry) {
       var q = entry[0];
       var a = entry[1];
       var valHtml = '';
       if (typeof a === 'string' && a.startsWith('data:image/')) {
-        valHtml = '<div style="background:#ffffff;padding:8px 12px;border-radius:8px;border:1px solid var(--border-card);display:inline-block;margin-top:6px;"><img src="' +
-          a + '" style="max-height:120px;max-width:100%;display:block;" alt="Signature"/></div>';
+        valHtml =
+          '<div style="background:#ffffff;padding:8px 12px;border-radius:8px;border:1px solid var(--border-card);display:inline-block;margin-top:6px;"><img src="' +
+          a +
+          '" style="max-height:120px;max-width:100%;display:block;" alt="Signature"/></div>';
       } else if (typeof a === 'string' && a.startsWith('data:')) {
-        valHtml = '<div style="margin-top:6px;"><a href="' + escapeHtml(a) + '" download="uploaded-attachment" class="portal-btn portal-btn-secondary" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:12px;text-decoration:none;color:var(--text-primary);"><svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Attachment</a></div>';
+        valHtml =
+          '<div style="margin-top:6px;"><a href="' +
+          escapeHtml(a) +
+          '" download="uploaded-attachment" class="portal-btn portal-btn-secondary" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:12px;text-decoration:none;color:var(--text-primary);"><svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Attachment</a></div>';
       } else if (a === null || a === undefined || a === '') {
-        valHtml = '<span style="color:var(--text-muted);font-style:italic;">No response provided</span>';
+        valHtml =
+          '<span style="color:var(--text-muted);font-style:italic;">No response provided</span>';
       } else {
         valHtml = escapeHtml(String(a));
       }
 
-      qaHtml += '<div class="member-qa-item">' +
-        '<div class="member-qa-label">' + escapeHtml(q) + '</div>' +
-        '<div class="member-qa-val">' + valHtml + '</div>' +
+      qaHtml +=
+        '<div class="member-qa-item">' +
+        '<div class="member-qa-label">' +
+        escapeHtml(q) +
+        '</div>' +
+        '<div class="member-qa-val">' +
+        valHtml +
+        '</div>' +
         '</div>';
     });
   }
 
   var overlay = document.createElement('div');
   overlay.className = 'member-response-modal-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
+  overlay.style.cssText =
+    'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;';
 
-  overlay.innerHTML = '<div class="member-response-modal-card">' +
+  overlay.innerHTML =
+    '<div class="member-response-modal-card">' +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid var(--border-card);padding-bottom:14px;">' +
-      '<div>' +
-        '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);">' + escapeHtml(formTitle) + '</div>' +
-        (created ? '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Submitted on ' + escapeHtml(created) + '</div>' : '') +
-      '</div>' +
-      '<button type="button" class="btn-resp-modal-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:6px;" aria-label="Close">' +
-        '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-      '</button>' +
+    '<div>' +
+    '<div style="font-family:var(--font-headline);font-size:17px;font-weight:700;color:var(--text-primary);">' +
+    escapeHtml(formTitle) +
+    '</div>' +
+    (created
+      ? '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Submitted on ' +
+        escapeHtml(created) +
+        '</div>'
+      : '') +
+    '</div>' +
+    '<button type="button" class="btn-resp-modal-close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:6px;" aria-label="Close">' +
+    '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+    '</button>' +
     '</div>' +
     '<div style="max-height:60vh;overflow-y:auto;padding-right:4px;">' +
-      qaHtml +
+    qaHtml +
     '</div>' +
     '<div style="display:flex;justify-content:flex-end;margin-top:18px;border-top:1px solid var(--border-card);padding-top:14px;">' +
-      '<button type="button" class="portal-btn portal-btn-secondary btn-resp-modal-close" style="padding:8px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">Close</button>' +
+    '<button type="button" class="portal-btn portal-btn-secondary btn-resp-modal-close" style="padding:8px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">Close</button>' +
     '</div>' +
     '</div>';
 
   document.body.appendChild(overlay);
 
-  overlay.querySelectorAll('.btn-resp-modal-close').forEach(function(b) {
+  overlay.querySelectorAll('.btn-resp-modal-close').forEach(function (b) {
     if (b && typeof b.addEventListener === 'function') {
-      b.addEventListener('click', function() { overlay.remove(); });
+      b.addEventListener('click', function () {
+        overlay.remove();
+      });
     }
   });
 
-  overlay.addEventListener('click', function(e) {
+  overlay.addEventListener('click', function (e) {
     if (e.target === overlay) overlay.remove();
   });
 }
@@ -4810,14 +6062,20 @@ function closeMemberResponseModal() {
 
 function logoutMember() {
   if (_stagedRegistration) cancelRegistrationVerification();
-  if (typeof window !== 'undefined' && typeof window.resetTasksFiltersToDefault === 'function') window.resetTasksFiltersToDefault();
+  if (typeof window !== 'undefined' && typeof window.resetTasksFiltersToDefault === 'function')
+    window.resetTasksFiltersToDefault();
   if (typeof sendPresenceHeartbeat === 'function') {
-    try { sendPresenceHeartbeat('offline').catch(function() {}); } catch (_) {}
+    try {
+      sendPresenceHeartbeat('offline').catch(function () {});
+    } catch (_) {}
   } else if (typeof window !== 'undefined' && typeof window.sendPresenceHeartbeat === 'function') {
-    try { window.sendPresenceHeartbeat('offline').catch(function() {}); } catch (_) {}
+    try {
+      window.sendPresenceHeartbeat('offline').catch(function () {});
+    } catch (_) {}
   }
 
-  var curUser = (typeof sessionGet === 'function' ? (sessionGet('email') || sessionGet('ic')) : '') || 'member';
+  var curUser =
+    (typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('ic') : '') || 'member';
   var curRole = (typeof sessionGet === 'function' ? sessionGet('role') : '') || 'member';
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
@@ -4837,7 +6095,11 @@ function logoutMember() {
   } else if (typeof window !== 'undefined' && typeof window.sessionClear === 'function') {
     window.sessionClear();
   } else {
-    if (typeof window !== 'undefined' && typeof window._session === 'object' && window._session !== null) {
+    if (
+      typeof window !== 'undefined' &&
+      typeof window._session === 'object' &&
+      window._session !== null
+    ) {
       for (var k in window._session) {
         if (Object.prototype.hasOwnProperty.call(window._session, k)) {
           delete window._session[k];
@@ -4850,7 +6112,20 @@ function logoutMember() {
       localStorage.removeItem('bb_remember');
     }
     if (typeof sessionSet === 'function') {
-      ['email', 'ic', 'name', 'rank', 'squad', 'joined', 'section', 'points', 'remember', 'adminAuthed', 'photo_url', 'department'].forEach(function(k) {
+      [
+        'email',
+        'ic',
+        'name',
+        'rank',
+        'squad',
+        'joined',
+        'section',
+        'points',
+        'remember',
+        'adminAuthed',
+        'photo_url',
+        'department'
+      ].forEach(function (k) {
         sessionSet(k, null);
       });
     }
@@ -4878,9 +6153,12 @@ function logoutMember() {
     if (navStatusDot) navStatusDot.style.background = '#6b7280';
   }
 
-  var tt = document.getElementById('tab-tasks');       if (tt) tt.style.display = 'none';
-  var bt = document.getElementById('tab-badges');      if (bt) bt.style.display = 'none';
-  var at = document.getElementById('tab-attendance');  if (at) at.style.display = 'none';
+  var tt = document.getElementById('tab-tasks');
+  if (tt) tt.style.display = 'none';
+  var bt = document.getElementById('tab-badges');
+  if (bt) bt.style.display = 'none';
+  var at = document.getElementById('tab-attendance');
+  if (at) at.style.display = 'none';
 
   var authBox = document.getElementById('m-auth');
   var dashBox = document.getElementById('m-dashboard');
@@ -4893,9 +6171,9 @@ function logoutMember() {
   if (sn) sn.textContent = 'Guest Member';
   if (sb) sb.textContent = 'Login / Register';
   var sImg = document.getElementById('sidebar-user-avatar-img');
-    var sPh  = document.getElementById('sidebar-user-avatar-ph');
+  var sPh = document.getElementById('sidebar-user-avatar-ph');
   if (sImg) sImg.style.display = 'none';
-  if (sPh)  sPh.style.display = 'flex';
+  if (sPh) sPh.style.display = 'flex';
 
   showAuthMode('login');
   if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
@@ -4920,54 +6198,80 @@ function openMemberSignInForAdmin(email) {
 async function uploadPfp(input) {
   var file = input && input.files && input.files[0];
   if (!file) return;
-  var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
+  var id = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
   if (!id) return;
 
   try {
     // 1. Strict security validation & EXIF GPS stripping via canvas
-    var strippedResult = await stripExifAndCompress(file, { maxDimension: 600, quality: 0.85, bucket: 'avatars' });
+    var strippedResult = await stripExifAndCompress(file, {
+      maxDimension: 600,
+      quality: 0.85,
+      bucket: 'avatars'
+    });
     var cleanBlob = strippedResult.blob;
-    if (!(cleanBlob instanceof Blob) || !cleanBlob.size) throw new Error('Photo could not be processed');
+    if (!(cleanBlob instanceof Blob) || !cleanBlob.size)
+      throw new Error('Photo could not be processed');
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
     var client = getSupa();
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     await client.uploadFile('avatars', cleanFileName, cleanBlob);
-    var signed = typeof client.createSignedUrl === 'function'
-      ? await client.createSignedUrl('avatars', cleanFileName, 86400)
-      : null;
-    var pfpUrl = signed && signed.signedUrl
-      ? signed.signedUrl
-      : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
-    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: pfpUrl });
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
+    var signed =
+      typeof client.createSignedUrl === 'function'
+        ? await client.createSignedUrl('avatars', cleanFileName, 86400)
+        : null;
+    var pfpUrl =
+      signed && signed.signedUrl
+        ? signed.signedUrl
+        : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
+    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), {
+      photo_url: pfpUrl
+    });
+    if (!updated || (Array.isArray(updated) && updated.length === 0))
+      throw new Error('Member record unavailable');
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
     var img = document.getElementById('m-pfp-img');
-    var ph  = document.getElementById('m-pfp-ph');
-    if (img) { img.src = pfpUrl; img.style.display = 'block'; }
-    if (ph)  ph.style.display = 'none';
+    var ph = document.getElementById('m-pfp-ph');
+    if (img) {
+      img.src = pfpUrl;
+      img.style.display = 'block';
+    }
+    if (ph) ph.style.display = 'none';
     var sImg = document.getElementById('sidebar-user-avatar-img');
-    var sPh  = document.getElementById('sidebar-user-avatar-ph');
-    if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
-    if (sPh)  sPh.style.display = 'none';
+    var sPh = document.getElementById('sidebar-user-avatar-ph');
+    if (sImg) {
+      sImg.src = pfpUrl;
+      sImg.style.display = 'block';
+    }
+    if (sPh) sPh.style.display = 'none';
     var navAvatarImg = document.getElementById('nav-avatar-img');
-    var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
-    if (navAvatarImg) { navAvatarImg.src = pfpUrl; navAvatarImg.style.display = 'block'; }
-    if (navAvatarPh)  navAvatarPh.style.display = 'none';
+    var navAvatarPh = document.getElementById('nav-avatar-placeholder');
+    if (navAvatarImg) {
+      navAvatarImg.src = pfpUrl;
+      navAvatarImg.style.display = 'block';
+    }
+    if (navAvatarPh) navAvatarPh.style.display = 'none';
     if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
-    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+    if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function')
+      window.updateNavUserHeader();
     setRemovePfpButtonVisible(true);
 
     // Store only a confirmed upload in the offline avatar cache.
     if (typeof sessionSet === 'function') {
       try {
         var reader = new FileReader();
-        reader.onloadend = function() {
-          if (reader.result && (sessionGet('ic') || sessionGet('email')) === id && sessionGet('photo_url') === pfpUrl) {
+        reader.onloadend = function () {
+          if (
+            reader.result &&
+            (sessionGet('ic') || sessionGet('email')) === id &&
+            sessionGet('photo_url') === pfpUrl
+          ) {
             sessionSet('pfp_cache_' + cleanFileName, reader.result, { localOnly: true });
             if (typeof localStorage !== 'undefined') {
-              try { localStorage.setItem('bb_pfp_' + cleanFileName, reader.result); } catch (_) {}
+              try {
+                localStorage.setItem('bb_pfp_' + cleanFileName, reader.result);
+              } catch (_) {}
             }
           }
         };
@@ -4987,16 +6291,23 @@ async function uploadPfp(input) {
       } catch (_) {}
       try {
         if (typeof client.upsert === 'function') {
-          await client.upsert('bb_config', { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) }, 'key');
+          await client.upsert(
+            'bb_config',
+            { key: 'bb_member_pfps', value: JSON.stringify(_memberPfpsMap) },
+            'key'
+          );
         }
       } catch (pfpSyncErr) {
-        if (typeof showToast === 'function') showToast('Profile picture saved. Directory sync failed.', 'warning');
+        if (typeof showToast === 'function')
+          showToast('Profile picture saved. Directory sync failed.', 'warning');
         return;
       }
     }
-    if (typeof showToast === 'function') showToast('Profile picture updated successfully.', 'success');
+    if (typeof showToast === 'function')
+      showToast('Profile picture updated successfully.', 'success');
   } catch (e) {
-    if (typeof showToast === 'function') showToast('Could not save your profile photo. Try a JPEG, PNG, or WebP image.', 'error');
+    if (typeof showToast === 'function')
+      showToast('Could not save your profile photo. Try a JPEG, PNG, or WebP image.', 'error');
   } finally {
     input.value = '';
   }
@@ -5013,16 +6324,29 @@ async function refreshLoggedInUserProfile() {
   try {
     var client = getSupa();
     if (!client || typeof client.get !== 'function') return;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=ic,email,name,rank,squad,section,department,att_section,joined_at');
+    var data = await client.get(
+      'bb_members?ic=eq.' +
+        encodeURIComponent(id) +
+        '&select=ic,email,name,rank,squad,section,department,att_section,joined_at'
+    );
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-    if (!data || data.length === 0 || (data[0] && (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))) {
+    if (
+      !data ||
+      data.length === 0 ||
+      (data[0] &&
+        (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))
+    ) {
       if (typeof forceKickDeletedAccount === 'function') {
         forceKickDeletedAccount();
       }
       return;
     }
     if (data && data.length > 0) {
-      if ((data[0].created_at || data[0].joined_at) && typeof sessionSet === 'function' && !sessionGet('created_at')) {
+      if (
+        (data[0].created_at || data[0].joined_at) &&
+        typeof sessionSet === 'function' &&
+        !sessionGet('created_at')
+      ) {
         sessionSet('created_at', data[0].created_at || data[0].joined_at, { localOnly: true });
       }
       var m = data[0];
@@ -5037,7 +6361,8 @@ async function refreshLoggedInUserProfile() {
         if (sb) sb.textContent = m.rank || 'Member';
       }
       if (m.photo_url) {
-        if (sessionGet('photo_url') !== m.photo_url) sessionSet('photo_url', m.photo_url, { localOnly: true });
+        if (sessionGet('photo_url') !== m.photo_url)
+          sessionSet('photo_url', m.photo_url, { localOnly: true });
         if (typeof _memberPfpsMap !== 'undefined') {
           _memberPfpsMap[id.toLowerCase()] = m.photo_url;
           if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = m.photo_url;
@@ -5046,7 +6371,8 @@ async function refreshLoggedInUserProfile() {
       if (m.department !== undefined && sessionGet('department') !== (m.department || '')) {
         sessionSet('department', m.department || '', { localOnly: true });
       }
-      if ((m.att_section || m.section) && sessionGet('section') !== (m.att_section || m.section)) sessionSet('section', m.att_section || m.section, { localOnly: true });
+      if ((m.att_section || m.section) && sessionGet('section') !== (m.att_section || m.section))
+        sessionSet('section', m.att_section || m.section, { localOnly: true });
     }
   } catch (err) {
     console.warn('refreshLoggedInUserProfile error:', err);
@@ -5059,25 +6385,27 @@ function showForgotStep(step) {
   var s1 = document.getElementById('forgot-step1');
   var s2 = document.getElementById('forgot-step2');
   var sub = document.getElementById('forgot-header-sub');
-  if (s1) s1.style.display = (step === 1) ? 'block' : 'none';
-  if (s2) s2.style.display = (step === 2) ? 'block' : 'none';
+  if (s1) s1.style.display = step === 1 ? 'block' : 'none';
+  if (s2) s2.style.display = step === 2 ? 'block' : 'none';
   if (sub) {
-    sub.textContent = (step === 1)
-      ? 'Verify via your registered email'
-      : 'Enter code and new password';
+    sub.textContent =
+      step === 1 ? 'Verify via your registered email' : 'Enter code and new password';
   }
 }
 
 async function sendPasswordResetEmail() {
-  var emailEl = document.getElementById('forgot-email') || document.getElementById('forgot-ic') || {};
-  var email   = (emailEl.value || '').trim().toLowerCase();
+  var emailEl =
+    document.getElementById('forgot-email') || document.getElementById('forgot-ic') || {};
+  var email = (emailEl.value || '').trim().toLowerCase();
 
   if (!email) {
-    if (typeof showToast === 'function') showToast('Please enter your registered email address.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please enter your registered email address.', 'warning');
     return;
   }
   if (!EMAIL_REGEX.test(email)) {
-    if (typeof showToast === 'function') showToast('Please enter a valid email address.', 'warning');
+    if (typeof showToast === 'function')
+      showToast('Please enter a valid email address.', 'warning');
     return;
   }
 
@@ -5096,19 +6424,27 @@ async function sendPasswordResetEmail() {
   var origText = btn ? btn.textContent : '';
 
   // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('forgot_password')
-    : '';
+  var captchaToken =
+    typeof getTurnstileToken === 'function' ? getTurnstileToken('forgot_password') : '';
   if (!captchaToken) {
     var forgotContainer = document.querySelector('#auth-forgot .cf-turnstile-container');
     if (forgotContainer && typeof renderTurnstileWidget === 'function') {
       renderTurnstileWidget(forgotContainer, 'forgot_password');
     }
-    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('forgot_password') : '';
+    captchaToken =
+      typeof getTurnstileToken === 'function' ? getTurnstileToken('forgot_password') : '';
   }
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
+  if (
+    !captchaToken &&
+    typeof window !== 'undefined' &&
+    !window.__SKIP_CAPTCHA__ &&
+    !window.__IS_TEST__
+  ) {
     if (typeof showToast === 'function') {
-      showToast('Please complete the security check box above before requesting a reset code.', 'warning');
+      showToast(
+        'Please complete the security check box above before requesting a reset code.',
+        'warning'
+      );
     }
     return;
   }
@@ -5119,7 +6455,12 @@ async function sendPasswordResetEmail() {
         resetTurnstileWidget('forgot_password');
       }
       if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
+        showToast(
+          captchaResult && captchaResult.error
+            ? captchaResult.error
+            : 'Security verification failed. Please try again.',
+          'error'
+        );
       }
       return;
     }
@@ -5133,8 +6474,8 @@ async function sendPasswordResetEmail() {
   try {
     var client = getSupa();
 
-    // Generate secure 6-digit verification code
-    var code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate cryptographically secure 6-digit verification code (CWE-338 Remediation)
+    var code = generateSecureSixDigitOtp();
     var expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
     var memberName = 'Member';
 
@@ -5145,7 +6486,8 @@ async function sendPasswordResetEmail() {
     } else if (typeof window !== 'undefined' && typeof window.computeSha256 === 'function') {
       otpHash = await window.computeSha256(code);
     } else if (typeof crypto !== 'undefined') {
-      var cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : (crypto.webcrypto || crypto);
+      var cryptoObj =
+        typeof window !== 'undefined' && window.crypto ? window.crypto : crypto.webcrypto || crypto;
       if (cryptoObj && cryptoObj.subtle && typeof TextEncoder !== 'undefined') {
         var enc = new TextEncoder();
         var buf = await cryptoObj.subtle.digest('SHA-256', enc.encode(code));
@@ -5157,84 +6499,58 @@ async function sendPasswordResetEmail() {
       }
     }
 
-    var rpcResetDone = false;
-    if (client && typeof client.rpc === 'function') {
-      try {
-        var rpcRes = await client.rpc('rpc_request_password_reset', {
-          p_email: email,
-          p_otp_code: code,
-          p_otp_hash: otpHash
-        });
-        if (rpcRes && rpcRes.success) {
-          rpcResetDone = true;
-          if (rpcRes.name) memberName = rpcRes.name;
-        } else if (rpcRes && rpcRes.success === false) {
-          if (btn) { btn.disabled = false; btn.textContent = origText; }
-          if (typeof showToast === 'function') showToast(rpcRes.error || 'No active account found with this email address.', 'warning');
-          return;
-        }
-      } catch (rpcErr) {
-        console.warn('RPC reset request fallback:', rpcErr);
+    if (!client || typeof client.rpc !== 'function') {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
       }
+      if (typeof showToast === 'function')
+        showToast('Password reset service unavailable.', 'error');
+      return;
     }
 
-    if (!rpcResetDone) {
-      // Fallback: Check if account exists in bb_members
-      var accounts = await findMembersByEmail(email);
-      if (!accounts || !accounts.length) {
-        var rawAccounts = await client.get('bb_members?ic=eq.' + encodeURIComponent((emailEl.value || '').trim()) + '&select=ic,name,department');
-        if (rawAccounts && rawAccounts.length) accounts = rawAccounts;
-      }
-      accounts = (accounts || []).filter(function(a) {
-        return a.department !== 'deleted' && a.department !== 'archived_deleted';
+    var rpcRes;
+    try {
+      rpcRes = await client.rpc('rpc_request_password_reset', {
+        p_email: email,
+        p_otp_code: code,
+        p_otp_hash: otpHash
       });
-      if (!accounts || !accounts.length) {
-        if (btn) { btn.disabled = false; btn.textContent = origText; }
-        if (typeof showToast === 'function') showToast('No active account found with this email address.', 'warning');
-        return;
+    } catch (rpcErr) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
       }
-
-      var member = accounts[0];
-      memberName = member.name || 'Member';
-
-      var otpPayload = {
-        code: code,
-        email: email,
-        name: memberName,
-        expires_at: expiresAt
-      };
-
-      try {
-        sessionStorage.setItem('bb_reset_otp_' + email, JSON.stringify(otpPayload));
-      } catch (e) {}
-
-      // Server-Side PostgreSQL SECURITY DEFINER RPC Dispatch
-      if (client && typeof client.rpc === 'function') {
-        try {
-          await client.rpc('rpc_request_password_reset', {
-            p_email: email,
-            p_otp_code: code,
-            p_otp_hash: null
-          });
-        } catch (rpcErr) {
-          console.warn('RPC password reset request warning:', rpcErr);
-        }
-      }
-
-      var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-      try {
-        await client.req('POST', 'bb_config?on_conflict=key', {
-          key: configKey,
-          value: JSON.stringify(otpPayload)
-        });
-      } catch (cfgErr) {
-        try {
-          await client.patch('bb_config?key=eq.' + configKey, {
-            value: JSON.stringify(otpPayload)
-          });
-        } catch (e2) {}
-      }
+      if (typeof showToast === 'function')
+        showToast('Failed to send reset email: ' + (rpcErr.message || 'Server error'), 'error');
+      return;
     }
+
+    if (!rpcRes || !rpcRes.success) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+      if (typeof showToast === 'function')
+        showToast(
+          (rpcRes && rpcRes.error) || 'No active account found with this email address.',
+          'warning'
+        );
+      return;
+    }
+
+    if (rpcRes.name) memberName = rpcRes.name;
+
+    var otpPayload = {
+      code: code,
+      email: email,
+      name: memberName,
+      expires_at: expiresAt
+    };
+
+    try {
+      sessionStorage.setItem('bb_reset_otp_' + email, JSON.stringify(otpPayload));
+    } catch (e) {}
 
     // Dispatch reset code via Google Apps Script Webhook
     var hasMailer = false;
@@ -5245,28 +6561,53 @@ async function sendPasswordResetEmail() {
         scriptUrl = window._masterSheetConfig.scriptUrl || '';
         syncToken = window._masterSheetConfig.syncToken || '';
       }
-      if (!scriptUrl && client && typeof client.get === 'function') {
-        var sheetRows = await client.get('bb_config?key=eq.bb_master_sheet_config&select=value');
-        if (!sheetRows || !sheetRows.length) {
-          sheetRows = await client.get('bb_config?key=eq.bb_att_sheet&select=value');
+      if (!scriptUrl) {
+        if (client && typeof client.rpc === 'function') {
+          try {
+            var mailerRes = await client.rpc('rpc_get_mailer_url');
+            if (mailerRes && mailerRes.script_url) {
+              scriptUrl = mailerRes.script_url;
+            }
+          } catch (mErr) {}
         }
-        if (sheetRows && sheetRows.length && sheetRows[0].value) {
-          var parsed = typeof sheetRows[0].value === 'string' ? JSON.parse(sheetRows[0].value) : sheetRows[0].value;
-          scriptUrl = parsed.scriptUrl || '';
-          syncToken = parsed.syncToken || syncToken;
+        if (!scriptUrl && client && typeof client.get === 'function') {
+          var mailerRows = await client.get('bb_config?key=eq.bb_mailer_script_url&select=value');
+          if (mailerRows && mailerRows.length && mailerRows[0].value) {
+            scriptUrl = mailerRows[0].value;
+          } else {
+            var sheetRows = await client.get(
+              'bb_config?key=eq.bb_master_sheet_config&select=value'
+            );
+            if (!sheetRows || !sheetRows.length) {
+              sheetRows = await client.get('bb_config?key=eq.bb_att_sheet&select=value');
+            }
+            if (sheetRows && sheetRows.length && sheetRows[0].value) {
+              var parsed =
+                typeof sheetRows[0].value === 'string'
+                  ? JSON.parse(sheetRows[0].value)
+                  : sheetRows[0].value;
+              scriptUrl = parsed.scriptUrl || '';
+              syncToken = parsed.syncToken || syncToken;
+            }
+          }
         }
       }
 
       if (scriptUrl && scriptUrl.trim().length > 0) {
         hasMailer = true;
-        var url = scriptUrl + (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
+        var url =
+          scriptUrl +
+          (scriptUrl.indexOf('?') === -1 ? '?' : '&') +
           'action=sendVerificationEmail' +
-          '&email=' + encodeURIComponent(email) +
-          '&code=' + encodeURIComponent(code) +
-          '&name=' + encodeURIComponent(memberName) +
+          '&email=' +
+          encodeURIComponent(email) +
+          '&code=' +
+          encodeURIComponent(code) +
+          '&name=' +
+          encodeURIComponent(memberName) +
           (syncToken ? '&token=' + encodeURIComponent(syncToken) : '');
 
-        fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function() {});
+        fetch(url, { method: 'POST', mode: 'no-cors' }).catch(function () {});
       }
     } catch (mailErr) {
       console.warn('Apps Script reset mail dispatch note:', mailErr);
@@ -5277,18 +6618,27 @@ async function sendPasswordResetEmail() {
     if (noticeEl) {
       var fallbackBtn = '';
       if (!hasMailer) {
-        fallbackBtn = '<div style="margin-top:8px;"><button type="button" onclick="document.getElementById(\'forgot-code\').value=\'' + escapeHtml(code) + '\'" style="background:var(--accent);color:#0f172a;border:none;border-radius:6px;padding:4px 12px;font-weight:700;font-size:14px;cursor:pointer;">' + escapeHtml(code) + '</button></div>';
+        fallbackBtn =
+          '<div style="margin-top:8px;"><button type="button" onclick="document.getElementById(\'forgot-code\').value=\'' +
+          escapeHtml(code) +
+          '\'" style="background:var(--accent);color:#0f172a;border:none;border-radius:6px;padding:4px 12px;font-weight:700;font-size:14px;cursor:pointer;">' +
+          escapeHtml(code) +
+          '</button></div>';
       }
-      noticeEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> A 6-digit reset code has been sent to <strong>' + escapeHtml(email) + '</strong>.</span><br>'
-        + '<span style="font-size:11px;opacity:0.9;">Please check your inbox (and spam folder) and enter the code below. Valid for 15 minutes.</span>' + fallbackBtn;
+      noticeEl.innerHTML =
+        '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> A 6-digit reset code has been sent to <strong>' +
+        escapeHtml(email) +
+        '</strong>.</span><br>' +
+        '<span style="font-size:11px;opacity:0.9;">Please check your inbox (and spam folder) and enter the code below. Valid for 15 minutes.</span>' +
+        fallbackBtn;
     }
 
     var codeInp = document.getElementById('forgot-code');
-    var p1Inp   = document.getElementById('forgot-newpass');
-    var p2Inp   = document.getElementById('forgot-newpass2');
+    var p1Inp = document.getElementById('forgot-newpass');
+    var p2Inp = document.getElementById('forgot-newpass2');
     if (codeInp) codeInp.value = '';
-    if (p1Inp)   p1Inp.value = '';
-    if (p2Inp)   p2Inp.value = '';
+    if (p1Inp) p1Inp.value = '';
+    if (p2Inp) p2Inp.value = '';
 
     showForgotStep(2);
 
@@ -5297,7 +6647,7 @@ async function sendPasswordResetEmail() {
     if (btn) {
       btn.disabled = true;
       btn.textContent = '⏳ Resend Code (' + cd + 's)';
-      var cdTimer = setInterval(function() {
+      var cdTimer = setInterval(function () {
         cd--;
         if (cd <= 0) {
           clearInterval(cdTimer);
@@ -5311,9 +6661,15 @@ async function sendPasswordResetEmail() {
       }, 1000);
     }
 
-    if (typeof showToast === 'function') showToast('Reset code sent to ' + email + '! Please check your inbox and enter the 6-digit code.', 'success', 5000);
+    if (typeof showToast === 'function')
+      showToast(
+        'Reset code sent to ' + email + '! Please check your inbox and enter the 6-digit code.',
+        'success',
+        5000
+      );
   } catch (e) {
-    if (typeof showToast === 'function') showToast('Failed to send reset email: ' + e.message, 'error');
+    if (typeof showToast === 'function')
+      showToast('Failed to send reset email: ' + e.message, 'error');
     if (btn) {
       btn.disabled = false;
       btn.textContent = origText || 'Send Reset Code';
@@ -5322,18 +6678,38 @@ async function sendPasswordResetEmail() {
 }
 
 async function verifyResetCodeAndSetPassword() {
-  var emailEl = document.getElementById('forgot-email') || document.getElementById('forgot-ic') || {};
-  var email   = (emailEl.value || '').trim().toLowerCase();
+  var emailEl =
+    document.getElementById('forgot-email') || document.getElementById('forgot-ic') || {};
+  var email = (emailEl.value || '').trim().toLowerCase();
   var codeInp = document.getElementById('forgot-code');
-  var code    = ((codeInp || {}).value || '').trim();
-  var p1      = (document.getElementById('forgot-newpass') || {}).value || '';
-  var p2      = (document.getElementById('forgot-newpass2') || {}).value || '';
+  var code = ((codeInp || {}).value || '').trim();
+  var p1 = (document.getElementById('forgot-newpass') || {}).value || '';
+  var p2 = (document.getElementById('forgot-newpass2') || {}).value || '';
 
-  if (!email) { if (typeof showToast === 'function') showToast('Please enter your registered email address.', 'warning'); return; }
-  if (!code)  { if (typeof showToast === 'function') showToast('Please enter the 6-digit verification code sent to your email.', 'warning'); return; }
-  if (code.length !== 6) { if (typeof showToast === 'function') showToast('Verification code must be exactly 6 digits.', 'warning'); return; }
-  if (p1.length < 6) { if (typeof showToast === 'function') showToast('New password must be at least 6 characters.', 'warning'); return; }
-  if (p1 !== p2)     { if (typeof showToast === 'function') showToast('Passwords do not match!', 'error'); return; }
+  if (!email) {
+    if (typeof showToast === 'function')
+      showToast('Please enter your registered email address.', 'warning');
+    return;
+  }
+  if (!code) {
+    if (typeof showToast === 'function')
+      showToast('Please enter the 6-digit verification code sent to your email.', 'warning');
+    return;
+  }
+  if (code.length !== 6) {
+    if (typeof showToast === 'function')
+      showToast('Verification code must be exactly 6 digits.', 'warning');
+    return;
+  }
+  if (p1.length < 6) {
+    if (typeof showToast === 'function')
+      showToast('New password must be at least 6 characters.', 'warning');
+    return;
+  }
+  if (p1 !== p2) {
+    if (typeof showToast === 'function') showToast('Passwords do not match!', 'error');
+    return;
+  }
 
   var btn = document.getElementById('btn-verify-reset');
   var origText = btn ? btn.textContent : '';
@@ -5344,8 +6720,6 @@ async function verifyResetCodeAndSetPassword() {
 
   try {
     var client = getSupa();
-    var valid = false;
-    var now = Date.now();
     var rpcResetSuccess = false;
 
     // 1. Try server-side RPC verification and password update
@@ -5359,9 +6733,11 @@ async function verifyResetCodeAndSetPassword() {
         });
         if (rpcRes && rpcRes.success) {
           rpcResetSuccess = true;
-          valid = true;
         } else if (rpcRes && rpcRes.error) {
-          if (btn) { btn.disabled = false; btn.textContent = origText; }
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = origText;
+          }
           if (typeof showToast === 'function') showToast(rpcRes.error, 'error', 4500);
           return;
         }
@@ -5371,57 +6747,23 @@ async function verifyResetCodeAndSetPassword() {
     }
 
     if (!rpcResetSuccess) {
-      // Check local session storage
-      try {
-        var localStr = sessionStorage.getItem('bb_reset_otp_' + email);
-        if (localStr) {
-          var localData = JSON.parse(localStr);
-          if (localData && localData.code === code && now <= (localData.expires_at || 0)) {
-            valid = true;
-          }
-        }
-      } catch (e) {}
-
-      // Check remote Supabase bb_config
-      if (!valid) {
-        try {
-          var configKey = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-          var rows = await client.get('bb_config?key=eq.' + configKey + '&select=value');
-          if (rows && rows.length) {
-            var remoteData = JSON.parse(rows[0].value || '{}');
-            if (remoteData && remoteData.code === code && now <= (remoteData.expires_at || 0)) {
-              valid = true;
-            }
-          }
-        } catch (e) {}
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
       }
-
-      if (!valid) {
-        if (btn) { btn.disabled = false; btn.textContent = origText; }
-        if (typeof showToast === 'function') showToast('Invalid or expired verification code. Please check your email or click "Resend Code".', 'error', 4500);
-        return;
-      }
-
-      // Update password in bb_members using cryptographic PBKDF2/SHA-256 hashing
-      var newHashFallback = await hashPassword(p1);
-      try {
-        await client.patch('bb_members?ic=eq.' + encodeURIComponent(email), {
-          password: newHashFallback
-        });
-      } catch (pErr) {
-        var rawEmail = (emailEl.value || '').trim();
-        await client.patch('bb_members?ic=eq.' + encodeURIComponent(rawEmail), {
-          password: newHashFallback
-        });
-      }
-
-      // Cleanup OTP
-      try { sessionStorage.removeItem('bb_reset_otp_' + email); } catch (e) {}
-      try {
-        var configKeyClean = 'bb_reset_otp_' + email.replace(/[^a-zA-Z0-9]/g, '_');
-        await client.delete('bb_config?key=eq.' + configKeyClean);
-      } catch (e) {}
+      if (typeof showToast === 'function')
+        showToast(
+          'Invalid or expired verification code. Please check your email or click "Resend Code".',
+          'error',
+          4500
+        );
+      return;
     }
+
+    // Cleanup local OTP
+    try {
+      sessionStorage.removeItem('bb_reset_otp_' + email);
+    } catch (e) {}
 
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
@@ -5433,7 +6775,11 @@ async function verifyResetCodeAndSetPassword() {
         details: { method: rpcResetSuccess ? 'rpc' : 'direct_otp' }
       });
     }
-    if (typeof showToast === 'function') showToast('Password reset successfully! You can now log in with your new password.', 'success');
+    if (typeof showToast === 'function')
+      showToast(
+        'Password reset successfully! You can now log in with your new password.',
+        'success'
+      );
 
     // Clear forgot form
     if (codeInp) codeInp.value = '';
@@ -5474,7 +6820,6 @@ function loadSecurityQuestion() {
   var step2 = document.getElementById('forgot-step2');
   if (step2) step2.style.display = 'block';
 }
-
 
 // ── Portal User Settings & Preferences System ──────────────────────────────
 function openResetModal() {
@@ -5521,7 +6866,8 @@ function refreshSettingsModalAvatar() {
   var email = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
   if (!name && typeof document !== 'undefined') {
     var sn = document.getElementById('sidebar-user-name');
-    if (sn && sn.textContent && sn.textContent.trim() !== 'Guest Member') name = sn.textContent.trim();
+    if (sn && sn.textContent && sn.textContent.trim() !== 'Guest Member')
+      name = sn.textContent.trim();
     var mn = document.getElementById('m-name');
     if (!name && mn && mn.textContent) name = mn.textContent.trim();
   }
@@ -5530,12 +6876,30 @@ function refreshSettingsModalAvatar() {
     if (me && me.textContent) email = me.textContent.trim();
   }
 
-  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshua\s+koh/i.test(name);
-  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name ? name.trim().charAt(0).toUpperCase() : 'B'));
-  var bgColor = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
-  var textColor = (typeof isBrightColor === 'function' && isBrightColor(bgColor)) ? '#1e293b' : '#ffffff';
-  var outline = (typeof getMemberAvatarOutline === 'function') ? getMemberAvatarOutline(email, name) : { style: 'none' };
-  var cosmetic = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(email, name) : { id: 'none' };
+  var isCreator =
+    typeof isPortalCreator === 'function'
+      ? isPortalCreator(name, email)
+      : /jeshua\s+koh/i.test(name);
+  var initial = isCreator
+    ? 'J'
+    : typeof getMemberAvatarInitial === 'function'
+      ? getMemberAvatarInitial(name, email)
+      : name
+        ? name.trim().charAt(0).toUpperCase()
+        : 'B';
+  var bgColor = isCreator
+    ? '#083830'
+    : typeof getMemberAvatarColor === 'function'
+      ? getMemberAvatarColor(name)
+      : '#047857';
+  var textColor =
+    typeof isBrightColor === 'function' && isBrightColor(bgColor) ? '#1e293b' : '#ffffff';
+  var outline =
+    typeof getMemberAvatarOutline === 'function'
+      ? getMemberAvatarOutline(email, name)
+      : { style: 'none' };
+  var cosmetic =
+    typeof getMemberCosmetic === 'function' ? getMemberCosmetic(email, name) : { id: 'none' };
 
   var userPhoto = (typeof sessionGet === 'function' ? sessionGet('photo_url') : '') || '';
   if (!userPhoto && typeof hasActiveCustomPhoto === 'function' && hasActiveCustomPhoto()) {
@@ -5561,8 +6925,10 @@ function refreshSettingsModalAvatar() {
   }
 
   if (wrap) {
-    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(wrap, outline.style);
-    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(wrap, cosmetic.id, 'cosmetic-md');
+    if (typeof applyAvatarOutlineElement === 'function')
+      applyAvatarOutlineElement(wrap, outline.style);
+    if (typeof applyMemberCosmeticElement === 'function')
+      applyMemberCosmeticElement(wrap, cosmetic.id, 'cosmetic-md');
   }
 }
 
@@ -5599,16 +6965,21 @@ function handleSettingsThemeToggle() {
     statusEl.textContent = isDark ? 'Dark Mode' : 'Light Mode';
   }
   if (btnEl) {
-    var sunIcon = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-    var moonIcon = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-    btnEl.innerHTML = isDark ? (sunIcon + '<span>Switch to Light</span>') : (moonIcon + '<span>Switch to Dark</span>');
+    var sunIcon =
+      '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+    var moonIcon =
+      '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+    btnEl.innerHTML = isDark
+      ? sunIcon + '<span>Switch to Light</span>'
+      : moonIcon + '<span>Switch to Dark</span>';
   }
 }
 
 function handleSettingsParticlesToggle() {
-  var currentState = (typeof getAmbientParticlesState === 'function')
-    ? getAmbientParticlesState()
-    : { enabled: true, mode: 'both' };
+  var currentState =
+    typeof getAmbientParticlesState === 'function'
+      ? getAmbientParticlesState()
+      : { enabled: true, mode: 'both' };
   var newState = !currentState.enabled;
   if (typeof toggleAmbientParticles === 'function') {
     toggleAmbientParticles(newState);
@@ -5623,7 +6994,14 @@ function handleSettingsParticlesToggle() {
   }
 
   if (typeof showToast === 'function') {
-    showToast(newState ? 'Falling snow & leaves animation enabled.' : 'Falling snow & leaves animation disabled.', 'info', 2500, { silent: true });
+    showToast(
+      newState
+        ? 'Falling snow & leaves animation enabled.'
+        : 'Falling snow & leaves animation disabled.',
+      'info',
+      2500,
+      { silent: true }
+    );
   }
 }
 
@@ -5632,7 +7010,12 @@ function handleSettingsParticlesModeChange(mode) {
     setAmbientParticlesMode(mode);
   }
   if (typeof showToast === 'function') {
-    var modeLabel = mode === 'snow' ? 'Falling snow only ❄️' : (mode === 'leaves' ? 'Falling leaves only 🍂' : 'Snow & leaves ❄️ 🍂');
+    var modeLabel =
+      mode === 'snow'
+        ? 'Falling snow only ❄️'
+        : mode === 'leaves'
+          ? 'Falling leaves only 🍂'
+          : 'Snow & leaves ❄️ 🍂';
     showToast('Seasonal animation set to: ' + modeLabel, 'info', 2500, { silent: true });
   }
 }
@@ -5643,24 +7026,42 @@ function handleSettingsNotificationToggle(type) {
       var sndEl = document.getElementById('settings-toggle-sound');
       var enabled = sndEl ? sndEl.checked : true;
       localStorage.setItem('bb_notif_sound_enabled', enabled ? 'true' : 'false');
-      if (enabled && typeof window !== 'undefined' && typeof window.playNotificationSound === 'function') {
+      if (
+        enabled &&
+        typeof window !== 'undefined' &&
+        typeof window.playNotificationSound === 'function'
+      ) {
         window.playNotificationSound();
       }
       if (typeof showToast === 'function') {
-        showToast(enabled ? 'Notification chime enabled.' : 'Notification chime muted.', 'info', 2000, { silent: true });
+        showToast(
+          enabled ? 'Notification chime enabled.' : 'Notification chime muted.',
+          'info',
+          2000,
+          { silent: true }
+        );
       }
     } else if (type === 'system') {
       var sysEl = document.getElementById('settings-toggle-sysnotif');
       var sysEnabled = sysEl ? sysEl.checked : true;
       localStorage.setItem('bb_notif_system_enabled', sysEnabled ? 'true' : 'false');
-      if (sysEnabled && typeof window !== 'undefined' && typeof window.requestNotificationPermission === 'function') {
+      if (
+        sysEnabled &&
+        typeof window !== 'undefined' &&
+        typeof window.requestNotificationPermission === 'function'
+      ) {
         if (window.Capacitor?.isNativePlatform?.()) {
-          window.requestNotificationPermission().then(function(perm) {
-            if (perm === 'granted') return;
-            localStorage.setItem('bb_notif_system_enabled', 'false');
-            if (sysEl) sysEl.checked = false;
-            showToast('You can allow app notifications in your phone settings.', 'info', 3500, { silent: true });
-          }).catch(function() {});
+          window
+            .requestNotificationPermission()
+            .then(function (perm) {
+              if (perm === 'granted') return;
+              localStorage.setItem('bb_notif_system_enabled', 'false');
+              if (sysEl) sysEl.checked = false;
+              showToast('You can allow app notifications in your phone settings.', 'info', 3500, {
+                silent: true
+              });
+            })
+            .catch(function () {});
         } else {
           window.requestNotificationPermission();
         }
@@ -5698,7 +7099,8 @@ async function handleSettingsPasswordUpdate() {
   var pNew = pNewEl.value || '';
   var pConf = pConfEl.value || '';
 
-  var email = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('bb_user_email')) : '';
+  var email =
+    typeof sessionGet === 'function' ? sessionGet('email') || sessionGet('bb_user_email') : '';
   if (!email) {
     if (typeof showToast === 'function') {
       showToast('Please log in to update your password.', 'warning');
@@ -5729,44 +7131,48 @@ async function handleSettingsPasswordUpdate() {
 
   try {
     _isUpdatingSettingsPassword = true;
-    var client = (typeof getSupa === 'function') ? getSupa() : (typeof supa !== 'undefined' ? supa : null);
+    var client =
+      typeof getSupa === 'function' ? getSupa() : typeof supa !== 'undefined' ? supa : null;
     if (!client) {
       if (typeof showToast === 'function') showToast('Network connection unavailable.', 'error');
       return;
     }
 
     var cleanEmail = email.trim().toLowerCase();
-    var records = [];
-    if (typeof client.get === 'function') {
+    var newHash = await hashPassword(pNew);
+    var saltRes = null;
+    if (typeof client.rpc === 'function') {
       try {
-        records = await client.get('bb_members?email=eq.' + encodeURIComponent(cleanEmail) + '&select=id,password,email,ic');
-      } catch (_) {}
-      if (!records || !records.length) {
-        var userIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('bb_user_ic')) : '';
-        if (userIc) {
-          try {
-            records = await client.get('bb_members?ic=eq.' + encodeURIComponent(userIc) + '&select=id,password,email,ic');
-          } catch (_) {}
-        }
+        saltRes = await client.rpc('rpc_get_auth_salt', { p_email: cleanEmail });
+      } catch (saltErr) {
+        console.warn('rpc_get_auth_salt warning:', saltErr);
       }
     }
-
-    // Strict identity & password verification: prevent unauthenticated password overwrites
-    if (!records || !records.length || !records[0].password) {
-      throw new Error('Current credential unavailable');
+    var curHashHex;
+    if (saltRes && saltRes.salt) {
+      var curHashFull = await hashPassword(pCur, saltRes.salt);
+      curHashHex = curHashFull.split(':')[4] || curHashFull;
+    } else if (saltRes && saltRes.algorithm === 'legacy') {
+      curHashHex = pCur;
+    } else {
+      var curHashFull = await hashPassword(pCur);
+      curHashHex = curHashFull.split(':')[4] || curHashFull;
     }
-    var pwCheck = await verifyPassword(pCur, records[0].password);
-    if (!pwCheck.valid) {
-      if (typeof showToast === 'function') showToast('Current password is incorrect.', 'error');
-      return;
-    }
 
-    var newHash = await hashPassword(pNew);
-    var query = records[0].email
-      ? 'bb_members?email=eq.' + encodeURIComponent(cleanEmail)
-      : 'bb_members?ic=eq.' + encodeURIComponent(records[0].ic);
-    var updated = await client.patch(query, { password: newHash });
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
+    if (client && typeof client.rpc === 'function') {
+      var rpcRes = await client.rpc('rpc_change_member_password', {
+        p_email: cleanEmail,
+        p_current_password_hash: curHashHex,
+        p_new_password_hash: newHash
+      });
+      if (!rpcRes || !rpcRes.success) {
+        var errMessage = rpcRes && rpcRes.error ? rpcRes.error : 'Current password is incorrect.';
+        if (typeof showToast === 'function') showToast(errMessage, 'error');
+        return;
+      }
+    } else {
+      throw new Error('Database connection unavailable for secure password change');
+    }
 
     pCurEl.value = '';
     pNewEl.value = '';
@@ -5802,7 +7208,8 @@ function openSettingsModal() {
   var email = (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
   if (!name && typeof document !== 'undefined') {
     var sn = document.getElementById('sidebar-user-name');
-    if (sn && sn.textContent && sn.textContent.trim() !== 'Guest Member') name = sn.textContent.trim();
+    if (sn && sn.textContent && sn.textContent.trim() !== 'Guest Member')
+      name = sn.textContent.trim();
     var mn = document.getElementById('m-name');
     if (!name && mn && mn.textContent) name = mn.textContent.trim();
   }
@@ -5825,9 +7232,10 @@ function openSettingsModal() {
   try {
     soundEnabled = localStorage.getItem('bb_notif_sound_enabled') !== 'false';
     var systemPreference = localStorage.getItem('bb_notif_system_enabled');
-    sysNotifEnabled = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()
-      ? systemPreference === 'true'
-      : systemPreference !== 'false';
+    sysNotifEnabled =
+      typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()
+        ? systemPreference === 'true'
+        : systemPreference !== 'false';
     defaultTab = localStorage.getItem('bb_default_tab') || 'home';
   } catch (_) {}
 
@@ -5842,12 +7250,30 @@ function openSettingsModal() {
   }
   var hasPhoto = !!(userPhoto && userPhoto.length > 5 && !userPhoto.endsWith('#'));
 
-  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshua\s+koh/i.test(name);
-  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name ? name.trim().charAt(0).toUpperCase() : 'B'));
-  var bgColor = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
-  var textColor = (typeof isBrightColor === 'function' && isBrightColor(bgColor)) ? '#1e293b' : '#ffffff';
-  var outline = (typeof getMemberAvatarOutline === 'function') ? getMemberAvatarOutline(email, name) : { style: 'none' };
-  var cosmetic = (typeof getMemberCosmetic === 'function') ? getMemberCosmetic(email, name) : { id: 'none' };
+  var isCreator =
+    typeof isPortalCreator === 'function'
+      ? isPortalCreator(name, email)
+      : /jeshua\s+koh/i.test(name);
+  var initial = isCreator
+    ? 'J'
+    : typeof getMemberAvatarInitial === 'function'
+      ? getMemberAvatarInitial(name, email)
+      : name
+        ? name.trim().charAt(0).toUpperCase()
+        : 'B';
+  var bgColor = isCreator
+    ? '#083830'
+    : typeof getMemberAvatarColor === 'function'
+      ? getMemberAvatarColor(name)
+      : '#047857';
+  var textColor =
+    typeof isBrightColor === 'function' && isBrightColor(bgColor) ? '#1e293b' : '#ffffff';
+  var outline =
+    typeof getMemberAvatarOutline === 'function'
+      ? getMemberAvatarOutline(email, name)
+      : { style: 'none' };
+  var cosmetic =
+    typeof getMemberCosmetic === 'function' ? getMemberCosmetic(email, name) : { id: 'none' };
 
   var modal = document.getElementById('settings-modal');
   if (!modal) {
@@ -5857,223 +7283,270 @@ function openSettingsModal() {
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-label', 'Portal Settings');
-    modal.style.cssText = 'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;';
-    modal.onclick = function(e) {
+    modal.style.cssText =
+      'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;padding:16px;';
+    modal.onclick = function (e) {
       if (e.target === modal) closeSettingsModal();
     };
     document.body.appendChild(modal);
   }
 
-  var sunSvg = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-  var moonSvg = '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-  var bellSvg = '<svg class="ui-icon-xs" style="margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
-  var particlesState = (typeof getAmbientParticlesState === 'function')
-    ? getAmbientParticlesState()
-    : { enabled: true, mode: 'both' };
+  var sunSvg =
+    '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var moonSvg =
+    '<svg class="ui-icon-xs" style="margin-right:6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  var bellSvg =
+    '<svg class="ui-icon-xs" style="margin-right:4px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+  var particlesState =
+    typeof getAmbientParticlesState === 'function'
+      ? getAmbientParticlesState()
+      : { enabled: true, mode: 'both' };
   var particlesEnabled = particlesState.enabled !== false;
   var particlesMode = particlesState.mode || 'both';
 
-  var modalHtml = ''
-    + '<div class="portal-modal-card settings-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border-card);">'
-        + '<div style="display:flex;align-items:center;gap:10px;">'
-          + '<div style="width:38px;height:38px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;">'
-            + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>'
-          + '</div>'
-          + '<div>'
-            + '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);">Settings</div>'
-            + '<div style="font-size:12px;color:var(--text-secondary);">Account profile &amp; device alert preferences</div>'
-          + '</div>'
-        + '</div>'
-        + '<button type="button" onclick="closeSettingsModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;" title="Close Settings">&times;</button>'
-      + '</div>'
-
-      // Section 1: Profile Image & Avatar
-      + '<div class="settings-section-card">'
-        + '<div class="settings-section-title">'
-          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-          + '<span>Profile Picture &amp; Avatar</span>'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">'
-          + '<div id="settings-pfp-preview-wrap" style="position:relative;width:64px;height:64px;border-radius:50%;overflow:visible;background:var(--bg-card);flex-shrink:0;">'
-            + '<img id="settings-pfp-img" src="' + escapeHtml(userPhoto) + '" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:' + (hasPhoto ? 'block' : 'none') + ';" />'
-            + '<div id="settings-pfp-ph" class="admin-member-avatar-initial" style="width:100%;height:100%;border-radius:50%;display:' + (hasPhoto ? 'none' : 'flex') + ';align-items:center;justify-content:center;background:' + bgColor + ';color:' + textColor + ' !important;font-weight:700;font-size:22px;overflow:hidden;">' + escapeHtml(initial) + '</div>'
-          + '</div>'
-          + '<div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px;">'
-            + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-              + '<input type="file" id="settings-avatar-file-input" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="handleSettingsAvatarUpload(this)" />'
-              + '<button type="button" class="portal-btn portal-btn-primary" onclick="document.getElementById(\'settings-avatar-file-input\').click()" style="padding:6px 14px;font-size:12px;font-weight:600;">Upload Photo</button>'
-              + '<button type="button" class="portal-btn" onclick="handleSettingsAvatarRemove()" style="padding:6px 14px;font-size:12px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);">Remove</button>'
-            + '</div>'
-            + '<div class="settings-hint">Supported formats: JPG, PNG, WebP (max 5MB). Encrypted &amp; compressed on-device.</div>'
-          + '</div>'
-        + '</div>'
-      + '</div>'
-
-      // Section 2: Account Information (Locked / Non-editable)
-      + '<div class="settings-section-card">'
-        + '<div class="settings-section-title">'
-          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
-          + '<span>Account Information (Locked)</span>'
-        + '</div>'
-        + '<div class="form-group" style="margin-bottom:10px;">'
-          + '<label class="form-label">Full Name</label>'
-          + '<div class="settings-readonly-field">'
-            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-            + '<span id="settings-display-name">' + escapeHtml(name) + '</span>'
-          + '</div>'
-        + '</div>'
-        + '<div class="form-group" style="margin-bottom:10px;">'
-          + '<label class="form-label">Official Registered Email</label>'
-          + '<div class="settings-readonly-field">'
-            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>'
-            + '<span id="settings-display-email">' + escapeHtml(email) + '</span>'
-          + '</div>'
-          + '<div class="settings-hint">To update official registered names or email addresses, contact a Company Officer.</div>'
-        + '</div>'
-        + '<div class="form-group" style="margin-bottom:0;">'
-          + '<label class="form-label">Time Zone</label>'
-          + '<div class="settings-readonly-field">'
-            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
-            + '<span id="settings-display-tz">' + escapeHtml(tzString) + '</span>'
-          + '</div>'
-        + '</div>'
-      + '</div>'
-
-      // Section 3: Password Management
-      + '<div class="settings-section-card">'
-        + '<div class="settings-section-title">'
-          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5m-3 3l-1.5-1.5L8.5 8.5 7 7l-1.5 1.5L4 7 2 9l5 5 2-2 1.5 1.5L9 15l2 2 5-5-2-2z"/></svg>'
-          + '<span>Password Management</span>'
-        + '</div>'
-        + '<div class="form-group" style="margin-bottom:10px;">'
-          + '<label class="form-label">Current Password</label>'
-          + '<input type="password" id="settings-pwd-current" class="form-input" placeholder="Enter current password" autocomplete="current-password" />'
-        + '</div>'
-        + '<div class="form-group" style="margin-bottom:10px;">'
-          + '<label class="form-label">New Password</label>'
-          + '<input type="password" id="settings-pwd-new" class="form-input" placeholder="Minimum 6 characters" autocomplete="new-password" />'
-        + '</div>'
-        + '<div class="form-group" style="margin-bottom:14px;">'
-          + '<label class="form-label">Confirm New Password</label>'
-          + '<input type="password" id="settings-pwd-confirm" class="form-input" placeholder="Re-enter new password" autocomplete="new-password" />'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
-          + '<button type="button" class="portal-btn portal-btn-primary" onclick="handleSettingsPasswordUpdate()" style="font-weight:700;padding:8px 18px;">Update Password</button>'
-          + '<a href="javascript:void(0)" onclick="openResetModal()" style="font-size:12px;color:var(--accent);font-weight:600;text-decoration:none;">Forgot password? Reset via OTP</a>'
-        + '</div>'
-      + '</div>'
-
-      // Section 4: Theme & Appearance
-      + '<div class="settings-section-card">'
-        + '<div class="settings-section-title">'
-          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
-          + '<span>Theme &amp; Appearance</span>'
-        + '</div>'
-        + '<div class="settings-row">'
-          + '<div>'
-            + '<div class="settings-row-label">Portal Color Theme</div>'
-            + '<div class="settings-row-desc">Currently in <strong id="settings-theme-status">' + (isDark ? 'Dark Mode' : 'Light Mode') + '</strong></div>'
-          + '</div>'
-          + '<button type="button" class="portal-btn" onclick="handleSettingsThemeToggle()" id="settings-theme-btn" style="padding:7px 16px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;">' + (isDark ? (sunSvg + '<span>Switch to Light</span>') : (moonSvg + '<span>Switch to Dark</span>')) + '</button>'
-        + '</div>'
-        + '<div class="settings-row" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-card);">'
-          + '<div style="flex:1;">'
-            + '<div class="settings-row-label">Seasonal Falling Effects (Snow &amp; Leaves)</div>'
-            + '<div class="settings-row-desc">Ambient seasonal snowflakes and autumn leaves across your portal background</div>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-            + '<select id="settings-select-particles-mode" class="form-select" onchange="handleSettingsParticlesModeChange(this.value)" style="font-size:12px;padding:5px 8px;height:auto;min-width:135px;">'
-              + '<option value="both"' + (particlesMode === 'both' ? ' selected' : '') + '>Snow &amp; Leaves ❄️ 🍂</option>'
-              + '<option value="snow"' + (particlesMode === 'snow' ? ' selected' : '') + '>Snow Only ❄️</option>'
-              + '<option value="leaves"' + (particlesMode === 'leaves' ? ' selected' : '') + '>Leaves Only 🍂</option>'
-            + '</select>'
-            + '<button type="button" class="portal-btn' + (particlesEnabled ? '' : ' portal-btn-primary') + '" onclick="handleSettingsParticlesToggle()" id="settings-particles-btn" style="padding:6px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">'
-              + (particlesEnabled
-                  ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
-                  : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>')
-            + '</button>'
-          + '</div>'
-        + '</div>'
-      + '</div>'
-
-      // Section 5: Notifications & Audio Alerts
-      + '<div class="settings-section-card" style="margin-bottom:0;">'
-        + '<div class="settings-section-title">'
-          + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>'
-          + '<span>Notifications &amp; Audio Alerts</span>'
-        + '</div>'
-        + '<div class="settings-row">'
-          + '<div style="flex:1;">'
-            + '<div class="settings-row-label">Desktop &amp; Mobile System Popups</div>'
-            + '<div class="settings-row-desc">Display notification</div>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.testNotificationPopup===\'function\')window.testNotificationPopup();else if(typeof window!==\'undefined\'&&typeof window.requestNotificationPermission===\'function\')window.requestNotificationPermission();" style="font-size:11.5px;padding:5px 10px;">Test</button>'
-            + '<input type="checkbox" id="settings-toggle-sysnotif" onchange="handleSettingsNotificationToggle(\'system\')" ' + (sysNotifEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
-          + '</div>'
-        + '</div>'
-        + '<div class="settings-row">'
-          + '<div style="flex:1;">'
-            + '<div class="settings-row-label">Notification Sound</div>'
-            + '<div class="settings-row-desc">Play an audible chime when alerts and notifications pop up</div>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.playNotificationSound===\'function\')window.playNotificationSound();" style="font-size:11.5px;padding:5px 10px;display:inline-flex;align-items:center;">' + bellSvg + '<span>Preview</span></button>'
-            + '<input type="checkbox" id="settings-toggle-sound" onchange="handleSettingsNotificationToggle(\'sound\')" ' + (soundEnabled ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />'
-          + '</div>'
-        + '</div>'
-        + '<div class="settings-row">'
-          + '<div>'
-            + '<div class="settings-row-label">Default Starting Tab</div>'
-            + '<div class="settings-row-desc">Choose which screen opens on portal launch</div>'
-          + '</div>'
-          + '<select id="settings-select-default-tab" class="form-select" onchange="handleSettingsDefaultTabChange(this.value)" style="font-size:12px;padding:5px 10px;height:auto;min-width:130px;">'
-            + '<option value="home"' + (defaultTab === 'home' ? ' selected' : '') + '>Home Dashboard</option>'
-            + '<option value="parade"' + (defaultTab === 'parade' ? ' selected' : '') + '>Company Calendar</option>'
-            + '<option value="tasks"' + (defaultTab === 'tasks' ? ' selected' : '') + '>Project &amp; Tasks</option>'
-            + '<option value="arcade"' + (defaultTab === 'arcade' ? ' selected' : '') + '>1stPJ Arcade</option>'
-            + '<option value="member"' + (defaultTab === 'member' ? ' selected' : '') + '>Member Hub</option>'
-          + '</select>'
-        + '</div>'
-        + '<div class="settings-row">'
-          + '<div style="flex:1;">'
-            + '<div class="settings-row-label">Portal Onboarding &amp; Code of Conduct</div>'
-            + '<div class="settings-row-desc">Review community conduct rules, test device pop-up alerts, or reconfigure setup</div>'
-          + '</div>'
-          + '<button type="button" class="portal-btn" onclick="closeSettingsModal();launchOnboardingWizard({isReview:true});" style="font-size:12px;padding:6px 14px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">'
-            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>'
-            + '<span>Relaunch Wizard</span>'
-          + '</button>'
-        + '</div>'
-      + '</div>'
-
-      // Section 6: Account Session & Sign Out
-      + '<div class="settings-section-card" style="margin-top:14px;border:1px solid rgba(239,68,68,0.25);background:rgba(239,68,68,0.04);">'
-        + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">'
-          + '<div>'
-            + '<div style="font-size:13px;font-weight:700;color:#ef4444;display:flex;align-items:center;gap:6px;">'
-              + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
-              + '<span>Log Out</span>'
-            + '</div>'
-            + '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Sign out of your account on this device</div>'
-          + '</div>'
-          + '<button type="button" class="portal-btn settings-logout-btn" onclick="closeSettingsModal(); if(typeof logoutMember===\'function\') logoutMember();" style="padding:7px 16px;background:#ef4444;color:#ffffff;border:none;font-weight:600;font-size:12px;border-radius:var(--radius-md);cursor:pointer;display:inline-flex;align-items:center;gap:6px;">'
-            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>'
-            + '<span>Log Out</span>'
-          + '</button>'
-        + '</div>'
-      + '</div>'
-
-    + '</div>';
+  var modalHtml =
+    '' +
+    '<div class="portal-modal-card settings-modal-card" style="background:var(--bg-card);border:1.5px solid var(--border-card);border-radius:var(--radius-xl);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:var(--shadow-elevated);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border-card);">' +
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<div style="width:38px;height:38px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>' +
+    '</div>' +
+    '<div>' +
+    '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text-primary);">Settings</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);">Account profile &amp; device alert preferences</div>' +
+    '</div>' +
+    '</div>' +
+    '<button type="button" onclick="closeSettingsModal()" style="background:var(--bg-card-subtle);border:1px solid var(--border-card);color:var(--text-muted);border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;" title="Close Settings">&times;</button>' +
+    '</div>' +
+    // Section 1: Profile Image & Avatar
+    '<div class="settings-section-card">' +
+    '<div class="settings-section-title">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+    '<span>Profile Picture &amp; Avatar</span>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">' +
+    '<div id="settings-pfp-preview-wrap" style="position:relative;width:64px;height:64px;border-radius:50%;overflow:visible;background:var(--bg-card);flex-shrink:0;">' +
+    '<img id="settings-pfp-img" src="' +
+    escapeHtml(userPhoto) +
+    '" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover;display:' +
+    (hasPhoto ? 'block' : 'none') +
+    ';" />' +
+    '<div id="settings-pfp-ph" class="admin-member-avatar-initial" style="width:100%;height:100%;border-radius:50%;display:' +
+    (hasPhoto ? 'none' : 'flex') +
+    ';align-items:center;justify-content:center;background:' +
+    bgColor +
+    ';color:' +
+    textColor +
+    ' !important;font-weight:700;font-size:22px;overflow:hidden;">' +
+    escapeHtml(initial) +
+    '</div>' +
+    '</div>' +
+    '<div style="flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px;">' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+    '<input type="file" id="settings-avatar-file-input" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="handleSettingsAvatarUpload(this)" />' +
+    '<button type="button" class="portal-btn portal-btn-primary" onclick="document.getElementById(\'settings-avatar-file-input\').click()" style="padding:6px 14px;font-size:12px;font-weight:600;">Upload Photo</button>' +
+    '<button type="button" class="portal-btn" onclick="handleSettingsAvatarRemove()" style="padding:6px 14px;font-size:12px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.25);">Remove</button>' +
+    '</div>' +
+    '<div class="settings-hint">Supported formats: JPG, PNG, WebP (max 5MB). Encrypted &amp; compressed on-device.</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    // Section 2: Account Information (Locked / Non-editable)
+    '<div class="settings-section-card">' +
+    '<div class="settings-section-title">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+    '<span>Account Information (Locked)</span>' +
+    '</div>' +
+    '<div class="form-group" style="margin-bottom:10px;">' +
+    '<label class="form-label">Full Name</label>' +
+    '<div class="settings-readonly-field">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>' +
+    '<span id="settings-display-name">' +
+    escapeHtml(name) +
+    '</span>' +
+    '</div>' +
+    '</div>' +
+    '<div class="form-group" style="margin-bottom:10px;">' +
+    '<label class="form-label">Official Registered Email</label>' +
+    '<div class="settings-readonly-field">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>' +
+    '<span id="settings-display-email">' +
+    escapeHtml(email) +
+    '</span>' +
+    '</div>' +
+    '<div class="settings-hint">To update official registered names or email addresses, contact a Company Officer.</div>' +
+    '</div>' +
+    '<div class="form-group" style="margin-bottom:0;">' +
+    '<label class="form-label">Time Zone</label>' +
+    '<div class="settings-readonly-field">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' +
+    '<span id="settings-display-tz">' +
+    escapeHtml(tzString) +
+    '</span>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    // Section 3: Password Management
+    '<div class="settings-section-card">' +
+    '<div class="settings-section-title">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5m-3 3l-1.5-1.5L8.5 8.5 7 7l-1.5 1.5L4 7 2 9l5 5 2-2 1.5 1.5L9 15l2 2 5-5-2-2z"/></svg>' +
+    '<span>Password Management</span>' +
+    '</div>' +
+    '<div class="form-group" style="margin-bottom:10px;">' +
+    '<label class="form-label">Current Password</label>' +
+    '<input type="password" id="settings-pwd-current" class="form-input" placeholder="Enter current password" autocomplete="current-password" />' +
+    '</div>' +
+    '<div class="form-group" style="margin-bottom:10px;">' +
+    '<label class="form-label">New Password</label>' +
+    '<input type="password" id="settings-pwd-new" class="form-input" placeholder="Minimum 6 characters" autocomplete="new-password" />' +
+    '</div>' +
+    '<div class="form-group" style="margin-bottom:14px;">' +
+    '<label class="form-label">Confirm New Password</label>' +
+    '<input type="password" id="settings-pwd-confirm" class="form-input" placeholder="Re-enter new password" autocomplete="new-password" />' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+    '<button type="button" class="portal-btn portal-btn-primary" onclick="handleSettingsPasswordUpdate()" style="font-weight:700;padding:8px 18px;">Update Password</button>' +
+    '<a href="javascript:void(0)" onclick="openResetModal()" style="font-size:12px;color:var(--accent);font-weight:600;text-decoration:none;">Forgot password? Reset via OTP</a>' +
+    '</div>' +
+    '</div>' +
+    // Section 4: Theme & Appearance
+    '<div class="settings-section-card">' +
+    '<div class="settings-section-title">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>' +
+    '<span>Theme &amp; Appearance</span>' +
+    '</div>' +
+    '<div class="settings-row">' +
+    '<div>' +
+    '<div class="settings-row-label">Portal Color Theme</div>' +
+    '<div class="settings-row-desc">Currently in <strong id="settings-theme-status">' +
+    (isDark ? 'Dark Mode' : 'Light Mode') +
+    '</strong></div>' +
+    '</div>' +
+    '<button type="button" class="portal-btn" onclick="handleSettingsThemeToggle()" id="settings-theme-btn" style="padding:7px 16px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;">' +
+    (isDark ? sunSvg + '<span>Switch to Light</span>' : moonSvg + '<span>Switch to Dark</span>') +
+    '</button>' +
+    '</div>' +
+    '<div class="settings-row" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-card);">' +
+    '<div style="flex:1;">' +
+    '<div class="settings-row-label">Seasonal Falling Effects (Snow &amp; Leaves)</div>' +
+    '<div class="settings-row-desc">Ambient seasonal snowflakes and autumn leaves across your portal background</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+    '<select id="settings-select-particles-mode" class="form-select" onchange="handleSettingsParticlesModeChange(this.value)" style="font-size:12px;padding:5px 8px;height:auto;min-width:135px;">' +
+    '<option value="both"' +
+    (particlesMode === 'both' ? ' selected' : '') +
+    '>Snow &amp; Leaves ❄️ 🍂</option>' +
+    '<option value="snow"' +
+    (particlesMode === 'snow' ? ' selected' : '') +
+    '>Snow Only ❄️</option>' +
+    '<option value="leaves"' +
+    (particlesMode === 'leaves' ? ' selected' : '') +
+    '>Leaves Only 🍂</option>' +
+    '</select>' +
+    '<button type="button" class="portal-btn' +
+    (particlesEnabled ? '' : ' portal-btn-primary') +
+    '" onclick="handleSettingsParticlesToggle()" id="settings-particles-btn" style="padding:6px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">' +
+    (particlesEnabled
+      ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
+      : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>') +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    // Section 5: Notifications & Audio Alerts
+    '<div class="settings-section-card" style="margin-bottom:0;">' +
+    '<div class="settings-section-title">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>' +
+    '<span>Notifications &amp; Audio Alerts</span>' +
+    '</div>' +
+    '<div class="settings-row">' +
+    '<div style="flex:1;">' +
+    '<div class="settings-row-label">Desktop &amp; Mobile System Popups</div>' +
+    '<div class="settings-row-desc">Display notification</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.testNotificationPopup===\'function\')window.testNotificationPopup();else if(typeof window!==\'undefined\'&&typeof window.requestNotificationPermission===\'function\')window.requestNotificationPermission();" style="font-size:11.5px;padding:5px 10px;">Test</button>' +
+    '<input type="checkbox" id="settings-toggle-sysnotif" onchange="handleSettingsNotificationToggle(\'system\')" ' +
+    (sysNotifEnabled ? 'checked' : '') +
+    ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />' +
+    '</div>' +
+    '</div>' +
+    '<div class="settings-row">' +
+    '<div style="flex:1;">' +
+    '<div class="settings-row-label">Notification Sound</div>' +
+    '<div class="settings-row-desc">Play an audible chime when alerts and notifications pop up</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;">' +
+    '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.playNotificationSound===\'function\')window.playNotificationSound();" style="font-size:11.5px;padding:5px 10px;display:inline-flex;align-items:center;">' +
+    bellSvg +
+    '<span>Preview</span></button>' +
+    '<input type="checkbox" id="settings-toggle-sound" onchange="handleSettingsNotificationToggle(\'sound\')" ' +
+    (soundEnabled ? 'checked' : '') +
+    ' style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer;" />' +
+    '</div>' +
+    '</div>' +
+    '<div class="settings-row">' +
+    '<div>' +
+    '<div class="settings-row-label">Default Starting Tab</div>' +
+    '<div class="settings-row-desc">Choose which screen opens on portal launch</div>' +
+    '</div>' +
+    '<select id="settings-select-default-tab" class="form-select" onchange="handleSettingsDefaultTabChange(this.value)" style="font-size:12px;padding:5px 10px;height:auto;min-width:130px;">' +
+    '<option value="home"' +
+    (defaultTab === 'home' ? ' selected' : '') +
+    '>Home Dashboard</option>' +
+    '<option value="parade"' +
+    (defaultTab === 'parade' ? ' selected' : '') +
+    '>Company Calendar</option>' +
+    '<option value="tasks"' +
+    (defaultTab === 'tasks' ? ' selected' : '') +
+    '>Project &amp; Tasks</option>' +
+    '<option value="arcade"' +
+    (defaultTab === 'arcade' ? ' selected' : '') +
+    '>1stPJ Arcade</option>' +
+    '<option value="member"' +
+    (defaultTab === 'member' ? ' selected' : '') +
+    '>Member Hub</option>' +
+    '</select>' +
+    '</div>' +
+    '<div class="settings-row">' +
+    '<div style="flex:1;">' +
+    '<div class="settings-row-label">Portal Onboarding &amp; Code of Conduct</div>' +
+    '<div class="settings-row-desc">Review community conduct rules, test device pop-up alerts, or reconfigure setup</div>' +
+    '</div>' +
+    '<button type="button" class="portal-btn" onclick="closeSettingsModal();launchOnboardingWizard({isReview:true});" style="font-size:12px;padding:6px 14px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>' +
+    '<span>Relaunch Wizard</span>' +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    // Section 6: Account Session & Sign Out
+    '<div class="settings-section-card" style="margin-top:14px;border:1px solid rgba(239,68,68,0.25);background:rgba(239,68,68,0.04);">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">' +
+    '<div>' +
+    '<div style="font-size:13px;font-weight:700;color:#ef4444;display:flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>' +
+    '<span>Log Out</span>' +
+    '</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Sign out of your account on this device</div>' +
+    '</div>' +
+    '<button type="button" class="portal-btn settings-logout-btn" onclick="closeSettingsModal(); if(typeof logoutMember===\'function\') logoutMember();" style="padding:7px 16px;background:#ef4444;color:#ffffff;border:none;font-weight:600;font-size:12px;border-radius:var(--radius-md);cursor:pointer;display:inline-flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>' +
+    '<span>Log Out</span>' +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>';
 
   modal.innerHTML = modalHtml;
   modal.style.display = 'flex';
 
   var previewWrap = document.getElementById('settings-pfp-preview-wrap');
   if (previewWrap) {
-    if (typeof applyAvatarOutlineElement === 'function') applyAvatarOutlineElement(previewWrap, outline.style);
-    if (typeof applyMemberCosmeticElement === 'function') applyMemberCosmeticElement(previewWrap, cosmetic.id, 'cosmetic-md');
+    if (typeof applyAvatarOutlineElement === 'function')
+      applyAvatarOutlineElement(previewWrap, outline.style);
+    if (typeof applyMemberCosmeticElement === 'function')
+      applyMemberCosmeticElement(previewWrap, cosmetic.id, 'cosmetic-md');
   }
 }
 
@@ -6106,24 +7579,40 @@ var _onboardingState = {
 function launchOnboardingWizard(options) {
   if (typeof document === 'undefined' || !document.body) return;
 
-  var user = (options && options.user) || (typeof sessionGet === 'function' ? {
-    name: sessionGet('name') || '',
-    email: sessionGet('email') || sessionGet('ic') || '',
-    rank: sessionGet('rank') || '',
-    section: sessionGet('section') || 'Senior'
-  } : null);
+  var user =
+    (options && options.user) ||
+    (typeof sessionGet === 'function'
+      ? {
+          name: sessionGet('name') || '',
+          email: sessionGet('email') || sessionGet('ic') || '',
+          rank: sessionGet('rank') || '',
+          section: sessionGet('section') || 'Senior'
+        }
+      : null);
 
-  var isReview = (options && options.isReview === true);
-  var isNewAccount = (options && options.isNewAccount === true);
-  var email = user ? (user.email || user.ic || '') : '';
-  var isNativeOnboarding = typeof window !== 'undefined' && (
-    (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
-    Boolean(window.androidBridge) ||
-    (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
-    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
-    (window.navigator && window.navigator.standalone === true)
-  ) && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
-  var alreadyDone = !isNewAccount && !isNativeOnboarding && ((typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false);
+  var isReview = options && options.isReview === true;
+  var isNewAccount = options && options.isNewAccount === true;
+  var email = user ? user.email || user.ic || '' : '';
+  var isNativeOnboarding =
+    typeof window !== 'undefined' &&
+    ((typeof window.Capacitor !== 'undefined' &&
+      typeof window.Capacitor.isNativePlatform === 'function' &&
+      window.Capacitor.isNativePlatform()) ||
+      Boolean(window.androidBridge) ||
+      (window.location &&
+        (window.location.protocol === 'capacitor:' ||
+          window.location.protocol === 'ionic:' ||
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1')) ||
+      (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(display-mode: standalone)').matches) ||
+      (window.navigator && window.navigator.standalone === true)) &&
+    typeof localStorage !== 'undefined' &&
+    localStorage.getItem('bb_native_onboarding_completed') !== 'true';
+  var alreadyDone =
+    !isNewAccount &&
+    !isNativeOnboarding &&
+    (typeof isOnboardingCompleted === 'function' ? isOnboardingCompleted(email) : false);
 
   var isDark = false;
   try {
@@ -6132,9 +7621,10 @@ function launchOnboardingWizard(options) {
     }
   } catch (_) {}
 
-  var currentParticles = (typeof getAmbientParticlesState === 'function')
-    ? getAmbientParticlesState()
-    : { enabled: true, mode: 'both' };
+  var currentParticles =
+    typeof getAmbientParticlesState === 'function'
+      ? getAmbientParticlesState()
+      : { enabled: true, mode: 'both' };
 
   _onboardingState = {
     step: (options && options.step) || 1,
@@ -6142,9 +7632,15 @@ function launchOnboardingWizard(options) {
     user: user,
     termsAccepted: !isNewAccount && (alreadyDone || isReview),
     privacyAccepted: !isNewAccount && (alreadyDone || isReview),
-    notifSound: (typeof localStorage !== 'undefined') ? (localStorage.getItem('bb_notif_sound_enabled') !== 'false') : true,
+    notifSound:
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem('bb_notif_sound_enabled') !== 'false'
+        : true,
     theme: isReview ? (isDark ? 'dark' : 'light') : 'light',
-    defaultView: (typeof localStorage !== 'undefined' ? (localStorage.getItem('bb_default_calendar_view') || 'upcoming') : 'upcoming'),
+    defaultView:
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem('bb_default_calendar_view') || 'upcoming'
+        : 'upcoming',
     particlesEnabled: isReview ? currentParticles.enabled : false,
     particlesMode: currentParticles.mode || 'both'
   };
@@ -6169,8 +7665,11 @@ function launchOnboardingWizard(options) {
  */
 function closeOnboardingWizard() {
   if (typeof document === 'undefined') return;
-  var email = _onboardingState.user ? (_onboardingState.user.email || _onboardingState.user.ic || '') : '';
-  var alreadyDone = (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false;
+  var email = _onboardingState.user
+    ? _onboardingState.user.email || _onboardingState.user.ic || ''
+    : '';
+  var alreadyDone =
+    typeof isOnboardingCompleted === 'function' ? isOnboardingCompleted(email) : false;
 
   if (!_onboardingState.isReview && !alreadyDone) {
     if (typeof showToast === 'function') {
@@ -6183,7 +7682,7 @@ function closeOnboardingWizard() {
   if (overlay) {
     overlay.style.opacity = '0';
     overlay.style.transition = 'opacity 0.2s ease';
-    setTimeout(function() {
+    setTimeout(function () {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }, 200);
   }
@@ -6217,9 +7716,12 @@ function renderOnboardingWizardDom() {
   if (!overlay) return;
 
   var step = _onboardingState.step;
-  var progressPercent = step === 1 ? 25 : (step === 2 ? 50 : (step === 3 ? 75 : 100));
-  var email = _onboardingState.user ? (_onboardingState.user.email || _onboardingState.user.ic || '') : '';
-  var alreadyDone = (typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false;
+  var progressPercent = step === 1 ? 25 : step === 2 ? 50 : step === 3 ? 75 : 100;
+  var email = _onboardingState.user
+    ? _onboardingState.user.email || _onboardingState.user.ic || ''
+    : '';
+  var alreadyDone =
+    typeof isOnboardingCompleted === 'function' ? isOnboardingCompleted(email) : false;
   var canClose = _onboardingState.isReview || alreadyDone;
 
   var closeBtnHtml = canClose
@@ -6233,48 +7735,63 @@ function renderOnboardingWizardDom() {
     { num: 4, name: 'Preferences' }
   ];
 
-  var stepperHtml = stepNames.map(function(s) {
-    var cls = 'onboarding-step-pill';
-    var icon = s.num;
-    if (s.num === step) {
-      cls += ' active';
-    } else if (s.num < step) {
-      cls += ' completed';
-      icon = '✓';
-    }
-    return ''
-      + '<div class="' + cls + '">'
-        + '<div class="onboarding-step-dot">' + icon + '</div>'
-        + '<span class="step-title-text">' + s.name + '</span>'
-      + '</div>';
-  }).join('');
+  var stepperHtml = stepNames
+    .map(function (s) {
+      var cls = 'onboarding-step-pill';
+      var icon = s.num;
+      if (s.num === step) {
+        cls += ' active';
+      } else if (s.num < step) {
+        cls += ' completed';
+        icon = '✓';
+      }
+      return (
+        '' +
+        '<div class="' +
+        cls +
+        '">' +
+        '<div class="onboarding-step-dot">' +
+        icon +
+        '</div>' +
+        '<span class="step-title-text">' +
+        s.name +
+        '</span>' +
+        '</div>'
+      );
+    })
+    .join('');
 
   var contentHtml = getOnboardingStepContentHtml(step);
 
-  overlay.innerHTML = ''
-    + '<div class="portal-onboarding-card">'
-      + '<div class="onboarding-header">'
-        + '<div class="onboarding-brand-row">'
-          + '<div class="onboarding-brand-title">'
-            + '<div class="onboarding-brand-crest">'
-              + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>'
-            + '</div>'
-            + '<div class="onboarding-brand-text">'
-              + '<h2>1st Petaling Jaya Boys\' Brigade</h2>'
-              + '<p>Portal Onboarding &amp; Setup</p>'
-            + '</div>'
-          + '</div>'
-          + closeBtnHtml
-        + '</div>'
-        + '<div class="onboarding-stepper">' + stepperHtml + '</div>'
-        + '<div class="onboarding-progress-track">'
-          + '<div class="onboarding-progress-fill" style="width:' + progressPercent + '%;"></div>'
-        + '</div>'
-      + '</div>'
-      + '<div class="onboarding-body">'
-        + contentHtml
-      + '</div>'
-    + '</div>';
+  overlay.innerHTML =
+    '' +
+    '<div class="portal-onboarding-card">' +
+    '<div class="onboarding-header">' +
+    '<div class="onboarding-brand-row">' +
+    '<div class="onboarding-brand-title">' +
+    '<div class="onboarding-brand-crest">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>' +
+    '</div>' +
+    '<div class="onboarding-brand-text">' +
+    "<h2>1st Petaling Jaya Boys' Brigade</h2>" +
+    '<p>Portal Onboarding &amp; Setup</p>' +
+    '</div>' +
+    '</div>' +
+    closeBtnHtml +
+    '</div>' +
+    '<div class="onboarding-stepper">' +
+    stepperHtml +
+    '</div>' +
+    '<div class="onboarding-progress-track">' +
+    '<div class="onboarding-progress-fill" style="width:' +
+    progressPercent +
+    '%;"></div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="onboarding-body">' +
+    contentHtml +
+    '</div>' +
+    '</div>';
 }
 
 /**
@@ -6298,38 +7815,46 @@ function renderStep1ConductHtml() {
   var privacyChecked = _onboardingState.privacyAccepted ? 'checked' : '';
   var canProceed = _onboardingState.termsAccepted && _onboardingState.privacyAccepted;
 
-  return ''
-    + '<div class="onboarding-step-badge">Step 1 of 4 · Ethos &amp; Integrity</div>'
-    + '<h3 class="onboarding-step-title">Code of Conduct &amp; Privacy Terms</h3>'
-    + '<p class="onboarding-step-desc">Welcome to the 1st PJ Boys\' Brigade Portal. Please review our community conduct guidelines and data usage rules before accessing your workspace.</p>'
-    + '<div class="onboarding-terms-box">'
-      + '<h4>The Object of The Boys\' Brigade</h4>'
-      + '<p style="font-style:italic;color:var(--text-primary);border-left:3px solid var(--accent);padding-left:12px;margin:8px 0 14px;">"The advancement of Christ\'s kingdom among boys and the promotion of habits of Obedience, Reverence, Discipline, Self-respect and all that tends towards a true Christian manliness."</p>'
-      + '<h4>Pillars of Portal Conduct</h4>'
-      + '<ul>'
-        + '<li><strong>Brotherhood &amp; Respect:</strong> Treat all officers, NCOs, fellow members, and parents with courtesy, honor, and reverence. Cyberbullying, foul language, harassment, and toxic behavior in forums, announcements, or task comments are strictly prohibited.</li>'
-        + '<li><strong>Honesty &amp; Truthfulness:</strong> Submit accurate and truthful records for parade roll call, uniform inspections, badge syllabus submissions, and squad duties.</li>'
-        + '<li><strong>Account Responsibility:</strong> Safeguard your password. Never share login credentials or impersonate other members.</li>'
-      + '</ul>'
-      + '<h4>Privacy Terms &amp; Data Usage</h4>'
-      + '<ul>'
-        + '<li><strong>What We Store:</strong> Full name, section (Junior / Senior / Officer), rank, squad/platoon, parade attendance records, badge progress, and team task assignments.</li>'
-        + '<li><strong>What We NEVER Collect:</strong> We strictly <strong>never</strong> store national identity numbers (IC/MyKad), home street addresses, banking/card credentials, or unencrypted passwords.</li>'
-        + '<li><strong>Security Standards:</strong> Passwords are cryptographically salted and hashed using PBKDF2 with SHA-256 (100,000 iterations). Role-based security restricts administrative tools to authorized Officers.</li>'
-      + '</ul>'
-    + '</div>'
-    + '<label class="onboarding-checkbox-row">'
-      + '<input type="checkbox" id="onboarding-chk-conduct" ' + conductChecked + ' onchange="handleOnboardingCheckboxChange()" />'
-      + '<span class="onboarding-checkbox-text">I agree to uphold the Boys\' Brigade Code of Conduct and Portal Terms of Service.</span>'
-    + '</label>'
-    + '<label class="onboarding-checkbox-row">'
-      + '<input type="checkbox" id="onboarding-chk-privacy" ' + privacyChecked + ' onchange="handleOnboardingCheckboxChange()" />'
-      + '<span class="onboarding-checkbox-text">I have read and agree to the Portal Privacy Terms and data usage.</span>'
-    + '</label>'
-    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
-      + '<div></div>'
-      + '<button type="button" class="portal-btn portal-btn-primary" id="onboarding-btn-step1" onclick="setOnboardingStep(2)" ' + (canProceed ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"') + ' style="font-weight:700;padding:10px 22px;">Agree &amp; Continue &rarr;</button>'
-    + '</div>';
+  return (
+    '' +
+    '<div class="onboarding-step-badge">Step 1 of 4 · Ethos &amp; Integrity</div>' +
+    '<h3 class="onboarding-step-title">Code of Conduct &amp; Privacy Terms</h3>' +
+    '<p class="onboarding-step-desc">Welcome to the 1st PJ Boys\' Brigade Portal. Please review our community conduct guidelines and data usage rules before accessing your workspace.</p>' +
+    '<div class="onboarding-terms-box">' +
+    "<h4>The Object of The Boys' Brigade</h4>" +
+    '<p style="font-style:italic;color:var(--text-primary);border-left:3px solid var(--accent);padding-left:12px;margin:8px 0 14px;">"The advancement of Christ\'s kingdom among boys and the promotion of habits of Obedience, Reverence, Discipline, Self-respect and all that tends towards a true Christian manliness."</p>' +
+    '<h4>Pillars of Portal Conduct</h4>' +
+    '<ul>' +
+    '<li><strong>Brotherhood &amp; Respect:</strong> Treat all officers, NCOs, fellow members, and parents with courtesy, honor, and reverence. Cyberbullying, foul language, harassment, and toxic behavior in forums, announcements, or task comments are strictly prohibited.</li>' +
+    '<li><strong>Honesty &amp; Truthfulness:</strong> Submit accurate and truthful records for parade roll call, uniform inspections, badge syllabus submissions, and squad duties.</li>' +
+    '<li><strong>Account Responsibility:</strong> Safeguard your password. Never share login credentials or impersonate other members.</li>' +
+    '</ul>' +
+    '<h4>Privacy Terms &amp; Data Usage</h4>' +
+    '<ul>' +
+    '<li><strong>What We Store:</strong> Full name, section (Junior / Senior / Officer), rank, squad/platoon, parade attendance records, badge progress, and team task assignments.</li>' +
+    '<li><strong>What We NEVER Collect:</strong> We strictly <strong>never</strong> store national identity numbers (IC/MyKad), home street addresses, banking/card credentials, or unencrypted passwords.</li>' +
+    '<li><strong>Security Standards:</strong> Passwords are cryptographically salted and hashed using PBKDF2 with SHA-256 (100,000 iterations). Role-based security restricts administrative tools to authorized Officers.</li>' +
+    '</ul>' +
+    '</div>' +
+    '<label class="onboarding-checkbox-row">' +
+    '<input type="checkbox" id="onboarding-chk-conduct" ' +
+    conductChecked +
+    ' onchange="handleOnboardingCheckboxChange()" />' +
+    '<span class="onboarding-checkbox-text">I agree to uphold the Boys\' Brigade Code of Conduct and Portal Terms of Service.</span>' +
+    '</label>' +
+    '<label class="onboarding-checkbox-row">' +
+    '<input type="checkbox" id="onboarding-chk-privacy" ' +
+    privacyChecked +
+    ' onchange="handleOnboardingCheckboxChange()" />' +
+    '<span class="onboarding-checkbox-text">I have read and agree to the Portal Privacy Terms and data usage.</span>' +
+    '</label>' +
+    '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">' +
+    '<div></div>' +
+    '<button type="button" class="portal-btn portal-btn-primary" id="onboarding-btn-step1" onclick="setOnboardingStep(2)" ' +
+    (canProceed ? '' : 'disabled style="opacity:0.5;cursor:not-allowed;"') +
+    ' style="font-weight:700;padding:10px 22px;">Agree &amp; Continue &rarr;</button>' +
+    '</div>'
+  );
 }
 
 function handleOnboardingCheckboxChange() {
@@ -6352,92 +7877,111 @@ function handleOnboardingCheckboxChange() {
  */
 function renderStep2NotificationsHtml() {
   var nativeApp = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
-  var perm = (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default';
-  if (nativeApp) perm = localStorage.getItem('bb_notif_system_enabled') === 'true' ? 'granted' : 'default';
+  var perm =
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default';
+  if (nativeApp)
+    perm = localStorage.getItem('bb_notif_system_enabled') === 'true' ? 'granted' : 'default';
   var statusBadge = '';
   if (perm === 'granted') {
-    statusBadge = '<span class="onboarding-status-pill granted"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Device Notifications Active</span>';
+    statusBadge =
+      '<span class="onboarding-status-pill granted"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Device Notifications Active</span>';
   } else if (perm === 'denied') {
-    statusBadge = '<span class="onboarding-status-pill denied"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Blocked in Browser (Click lock icon in address bar to allow)</span>';
+    statusBadge =
+      '<span class="onboarding-status-pill denied"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Blocked in Browser (Click lock icon in address bar to allow)</span>';
   } else {
-    statusBadge = '<span class="onboarding-status-pill default"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Permission Not Yet Granted</span>';
+    statusBadge =
+      '<span class="onboarding-status-pill default"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Permission Not Yet Granted</span>';
   }
 
   var soundChecked = _onboardingState.notifSound ? 'checked' : '';
 
-  return ''
-    + '<div class="onboarding-step-badge">Step 2 of 4 · Stay Connected</div>'
-    + '<h3 class="onboarding-step-title">Device Pop-up Notifications &amp; Sound</h3>'
-    + '<p class="onboarding-step-desc">' + (nativeApp
+  return (
+    '' +
+    '<div class="onboarding-step-badge">Step 2 of 4 · Stay Connected</div>' +
+    '<h3 class="onboarding-step-title">Device Pop-up Notifications &amp; Sound</h3>' +
+    '<p class="onboarding-step-desc">' +
+    (nativeApp
       ? 'Allow optional notifications and the company chime for updates received while the app is open. You can continue and enable them later in Settings.'
-      : 'Receive pop-up notifications directly on your Windows, Mac, or mobile screen.')
-    + '</p>'
-    + '<div class="onboarding-grid">'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Direct @Mentions</div>'
-        + '<div class="onboarding-card-mini-desc">Instant desktop pop-up when someone mentions your name or rank in tasks, announcements, or forums.</div>'
-      + '</div>'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Task Assignments</div>'
-        + '<div class="onboarding-card-mini-desc">Immediate alerts when you are assigned project tasks or when milestone deadlines are nearing.</div>'
-      + '</div>'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Urgent Announcements</div>'
-        + '<div class="onboarding-card-mini-desc">Live alerts for company parade updates, uniform of the day, and special event schedules.</div>'
-      + '</div>'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Support Forum Replies</div>'
-        + '<div class="onboarding-card-mini-desc">Notifications when officers or cadets reply to your questions and bug reports.</div>'
-      + '</div>'
-    + '</div>'
-    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">'
-        + '<div style="display:flex;align-items:center;gap:10px;">'
-          + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Device Permission:</span>'
-          + '<span id="onboarding-notif-status">' + statusBadge + '</span>'
-        + '</div>'
-        + '<div style="display:flex;gap:8px;">'
-          + '<button type="button" class="portal-btn portal-btn-primary" onclick="handleOnboardingEnableNotifications()" style="font-size:12px;padding:6px 14px;font-weight:600;">Enable Device Pop-ups</button>'
-          + '<button type="button" class="portal-btn" onclick="handleOnboardingTestNotification()" style="font-size:12px;padding:6px 14px;">Send Test Pop-up</button>'
-        + '</div>'
-      + '</div>'
-      + '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">'
-        + '<input type="checkbox" id="onboarding-chk-sound" ' + soundChecked + ' onchange="handleOnboardingSoundToggle(this.checked)" style="width:17px;height:17px;accent-color:var(--accent);" />'
-        + '<span style="font-size:12.5px;color:var(--text-secondary);">Play audio chime when receiving new notifications</span>'
-      + '</label>'
-    + '</div>'
-    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
-      + '<button type="button" class="portal-btn" onclick="setOnboardingStep(1)" style="padding:10px 18px;">&larr; Back</button>'
-      + '<button type="button" class="portal-btn portal-btn-primary" onclick="setOnboardingStep(3)" style="font-weight:700;padding:10px 22px;">Continue &rarr;</button>'
-    + '</div>';
+      : 'Receive pop-up notifications directly on your Windows, Mac, or mobile screen.') +
+    '</p>' +
+    '<div class="onboarding-grid">' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Direct @Mentions</div>' +
+    '<div class="onboarding-card-mini-desc">Instant desktop pop-up when someone mentions your name or rank in tasks, announcements, or forums.</div>' +
+    '</div>' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Task Assignments</div>' +
+    '<div class="onboarding-card-mini-desc">Immediate alerts when you are assigned project tasks or when milestone deadlines are nearing.</div>' +
+    '</div>' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Urgent Announcements</div>' +
+    '<div class="onboarding-card-mini-desc">Live alerts for company parade updates, uniform of the day, and special event schedules.</div>' +
+    '</div>' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Support Forum Replies</div>' +
+    '<div class="onboarding-card-mini-desc">Notifications when officers or cadets reply to your questions and bug reports.</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:16px;margin-bottom:14px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">' +
+    '<div style="display:flex;align-items:center;gap:10px;">' +
+    '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Device Permission:</span>' +
+    '<span id="onboarding-notif-status">' +
+    statusBadge +
+    '</span>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<button type="button" class="portal-btn portal-btn-primary" onclick="handleOnboardingEnableNotifications()" style="font-size:12px;padding:6px 14px;font-weight:600;">Enable Device Pop-ups</button>' +
+    '<button type="button" class="portal-btn" onclick="handleOnboardingTestNotification()" style="font-size:12px;padding:6px 14px;">Send Test Pop-up</button>' +
+    '</div>' +
+    '</div>' +
+    '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">' +
+    '<input type="checkbox" id="onboarding-chk-sound" ' +
+    soundChecked +
+    ' onchange="handleOnboardingSoundToggle(this.checked)" style="width:17px;height:17px;accent-color:var(--accent);" />' +
+    '<span style="font-size:12.5px;color:var(--text-secondary);">Play audio chime when receiving new notifications</span>' +
+    '</label>' +
+    '</div>' +
+    '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">' +
+    '<button type="button" class="portal-btn" onclick="setOnboardingStep(1)" style="padding:10px 18px;">&larr; Back</button>' +
+    '<button type="button" class="portal-btn portal-btn-primary" onclick="setOnboardingStep(3)" style="font-weight:700;padding:10px 22px;">Continue &rarr;</button>' +
+    '</div>'
+  );
 }
 
 function handleOnboardingEnableNotifications() {
   if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
-    return window.requestNotificationPermission().then(function(perm) {
+    return window.requestNotificationPermission().then(function (perm) {
       renderOnboardingWizardDom();
       if (perm === 'granted') {
         showToast('App notifications enabled.', 'success', 2500, { silent: true });
       } else {
-        showToast('You can allow app notifications in your phone settings.', 'info', 3500, { silent: true });
+        showToast('You can allow app notifications in your phone settings.', 'info', 3500, {
+          silent: true
+        });
       }
     });
   }
   if (typeof window !== 'undefined' && 'Notification' in window) {
-    Notification.requestPermission().then(function(perm) {
+    Notification.requestPermission().then(function (perm) {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('bb_notif_system_enabled', perm === 'granted' ? 'true' : 'false');
       }
       renderOnboardingWizardDom();
       if (perm === 'granted') {
-        if (typeof showToast === 'function') showToast('Device notifications enabled successfully!', 'success');
+        if (typeof showToast === 'function')
+          showToast('Device notifications enabled successfully!', 'success');
         handleOnboardingTestNotification();
       } else if (perm === 'denied') {
-        if (typeof showToast === 'function') showToast('Notifications blocked in browser. Please click the lock icon in your address bar to allow.', 'warning');
+        if (typeof showToast === 'function')
+          showToast(
+            'Notifications blocked in browser. Please click the lock icon in your address bar to allow.',
+            'warning'
+          );
       }
     });
   } else if (typeof showToast === 'function') {
@@ -6452,7 +7996,7 @@ function handleOnboardingTestNotification() {
   if (typeof triggerPortalSystemNotification === 'function') {
     triggerPortalSystemNotification(
       "1st Petaling Jaya Boys\' Brigade",
-      "Pop-up notification test successful! Your device is ready.",
+      'Pop-up notification test successful! Your device is ready.',
       { force: true }
     );
   } else if (typeof playNotificationSound === 'function') {
@@ -6476,62 +8020,89 @@ function handleOnboardingSoundToggle(checked) {
 function renderStep3UploadsHtml() {
   var user = _onboardingState.user || {};
   var name = user.name || (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'Member';
-  var email = user.email || user.ic || (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
+  var email =
+    user.email || user.ic || (typeof sessionGet === 'function' ? sessionGet('email') : '') || '';
   var photoUrl = (typeof sessionGet === 'function' ? sessionGet('photo_url') : '') || '';
   var hasPhoto = !!(photoUrl && photoUrl.length > 5 && !photoUrl.endsWith('#'));
-  var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(name, email) : /jeshuas+koh/i.test(name);
-  var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(name, email) : (name ? name.trim().charAt(0).toUpperCase() : 'B'));
-  var bgColor = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(name) : '#047857');
-  var textColor = (typeof isBrightColor === 'function' && isBrightColor(bgColor)) ? '#1e293b' : '#ffffff';
+  var isCreator =
+    typeof isPortalCreator === 'function'
+      ? isPortalCreator(name, email)
+      : /jeshuas+koh/i.test(name);
+  var initial = isCreator
+    ? 'J'
+    : typeof getMemberAvatarInitial === 'function'
+      ? getMemberAvatarInitial(name, email)
+      : name
+        ? name.trim().charAt(0).toUpperCase()
+        : 'B';
+  var bgColor = isCreator
+    ? '#083830'
+    : typeof getMemberAvatarColor === 'function'
+      ? getMemberAvatarColor(name)
+      : '#047857';
+  var textColor =
+    typeof isBrightColor === 'function' && isBrightColor(bgColor) ? '#1e293b' : '#ffffff';
 
-  return ''
-    + '<div class="onboarding-step-badge">Step 3 of 4 · Media &amp; Attachments</div>'
-    + '<h3 class="onboarding-step-title">Photos &amp; Attachments</h3>'
-    + '<p class="onboarding-step-desc">You choose which photos and documents to share when using a feature that accepts attachments.</p>'
-    + '<div class="onboarding-grid">'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Support Forum</div>'
-        + '<div class="onboarding-card-mini-desc">Choose a screenshot to include with a support request if it helps explain the issue.</div>'
-      + '</div>'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Gallery</div>'
-        + '<div class="onboarding-card-mini-desc">Authorized members can select photos and videos to share with the company.</div>'
-      + '</div>'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Projects &amp; Tasks</div>'
-        + '<div class="onboarding-card-mini-desc">Attach reference documents, spreadsheets, and media directly to team project boards.</div>'
-      + '</div>'
-      + '<div class="onboarding-card-mini">'
-        + '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>'
-        + '<div class="onboarding-card-mini-title">Member Profile Avatar</div>'
-        + '<div class="onboarding-card-mini-desc">Upload a photo to personalize your official 1st PJ Boys\' Brigade membership card.</div>'
-      + '</div>'
-    + '</div>'
-    + '<div style="background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.25);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">'
-      + '<div style="color:var(--accent);flex-shrink:0;">'
-        + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
-      + '</div>'
-      + '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;">'
-        + '<strong style="color:var(--text-primary);display:block;margin-bottom:2px;">Device file picker</strong>'
-        + 'When you choose to upload a file, your device opens a file picker. Select the items you want to share or close the picker to skip.'
-      + '</div>'
-    + '</div>'
-    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;">'
-      + '<div style="width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;background:' + bgColor + ';color:' + textColor + ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;">'
-        + (hasPhoto ? ('<img src="' + escapeHtml(photoUrl) + '" alt="Avatar" style="width:100%;height:100%;object-fit:cover;" />') : escapeHtml(initial))
-      + '</div>'
-      + '<div style="flex:1;">'
-        + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">' + escapeHtml(name) + '</div>'
-        + '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">Default profile avatar is ready. You can customize your photo anytime in Settings.</div>'
-      + '</div>'
-    + '</div>'
-    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
-      + '<button type="button" class="portal-btn" onclick="setOnboardingStep(2)" style="padding:10px 18px;">&larr; Back</button>'
-      + '<button type="button" class="portal-btn portal-btn-primary" onclick="setOnboardingStep(4)" style="font-weight:700;padding:10px 22px;">Continue &rarr;</button>'
-    + '</div>';
+  return (
+    '' +
+    '<div class="onboarding-step-badge">Step 3 of 4 · Media &amp; Attachments</div>' +
+    '<h3 class="onboarding-step-title">Photos &amp; Attachments</h3>' +
+    '<p class="onboarding-step-desc">You choose which photos and documents to share when using a feature that accepts attachments.</p>' +
+    '<div class="onboarding-grid">' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Support Forum</div>' +
+    '<div class="onboarding-card-mini-desc">Choose a screenshot to include with a support request if it helps explain the issue.</div>' +
+    '</div>' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Gallery</div>' +
+    '<div class="onboarding-card-mini-desc">Authorized members can select photos and videos to share with the company.</div>' +
+    '</div>' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Projects &amp; Tasks</div>' +
+    '<div class="onboarding-card-mini-desc">Attach reference documents, spreadsheets, and media directly to team project boards.</div>' +
+    '</div>' +
+    '<div class="onboarding-card-mini">' +
+    '<div class="onboarding-card-mini-icon"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>' +
+    '<div class="onboarding-card-mini-title">Member Profile Avatar</div>' +
+    '<div class="onboarding-card-mini-desc">Upload a photo to personalize your official 1st PJ Boys\' Brigade membership card.</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="background:rgba(217,163,35,0.06);border:1px solid rgba(217,163,35,0.25);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">' +
+    '<div style="color:var(--accent);flex-shrink:0;">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>' +
+    '</div>' +
+    '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.45;">' +
+    '<strong style="color:var(--text-primary);display:block;margin-bottom:2px;">Device file picker</strong>' +
+    'When you choose to upload a file, your device opens a file picker. Select the items you want to share or close the picker to skip.' +
+    '</div>' +
+    '</div>' +
+    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;">' +
+    '<div style="width:52px;height:52px;border-radius:50%;overflow:hidden;flex-shrink:0;background:' +
+    bgColor +
+    ';color:' +
+    textColor +
+    ';display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;">' +
+    (hasPhoto
+      ? '<img src="' +
+        escapeHtml(photoUrl) +
+        '" alt="Avatar" style="width:100%;height:100%;object-fit:cover;" />'
+      : escapeHtml(initial)) +
+    '</div>' +
+    '<div style="flex:1;">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">' +
+    escapeHtml(name) +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">Default profile avatar is ready. You can customize your photo anytime in Settings.</div>' +
+    '</div>' +
+    '</div>' +
+    '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">' +
+    '<button type="button" class="portal-btn" onclick="setOnboardingStep(2)" style="padding:10px 18px;">&larr; Back</button>' +
+    '<button type="button" class="portal-btn portal-btn-primary" onclick="setOnboardingStep(4)" style="font-weight:700;padding:10px 22px;">Continue &rarr;</button>' +
+    '</div>'
+  );
 }
 
 /**
@@ -6557,86 +8128,108 @@ function renderStep4PreferencesHtml() {
     myTimeStr = 'Saturdays, 2:15 PM';
   }
 
-  return ''
-    + '<div class="onboarding-step-badge">Step 4 of 4 · Personalization</div>'
-    + '<h3 class="onboarding-step-title">Preferences &amp; Company Timezone</h3>'
-    + '<p class="onboarding-step-desc">Configure your theme and confirm synchronization with 1st PJ Company Time.</p>'
-    + '<div class="onboarding-tz-banner">'
-      + '<div style="width:38px;height:38px;border-radius:10px;background:rgba(217,163,35,0.18);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-        + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
-      + '</div>'
-      + '<div style="flex:1;">'
-        + '<div style="font-size:13.5px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">'
-          + '<span>Official Company Timezone</span>'
-          + '<span style="font-size:11px;background:var(--accent);color:#0f172a;font-weight:800;padding:2px 8px;border-radius:12px;">GMT+8</span>'
-        + '</div>'
-        + '<div class="onboarding-tz-clock">Asia/Kuala_Lumpur • Malaysia Time (' + escapeHtml(myTimeStr) + ')</div>'
-        + '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.45;">'
-          + 'All parade fall-in times (2:15 PM), band rehearsals (9:30 AM), uniform inspections, task due dates, and company events are strictly synchronized to Malaysia Time (GMT+8) regardless of your physical device location.'
-        + '</div>'
-      + '</div>'
-    + '</div>'
-    + '<div style="margin-bottom:14px;">'
-      + '<label style="font-size:13px;font-weight:700;color:var(--text-primary);display:block;margin-bottom:8px;">Select Color Theme</label>'
-      + '<div class="onboarding-theme-grid">'
-        + '<div class="onboarding-theme-btn ' + (!isDark ? 'selected' : '') + '" onclick="handleOnboardingThemeSelect(\'light\')">'
-          + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
-          + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">Light Mode</div>'
-          + '<div style="font-size:11.5px;color:var(--text-secondary);">Crisp daytime clarity &amp; high contrast</div>'
-        + '</div>'
-        + '<div class="onboarding-theme-btn ' + (isDark ? 'selected' : '') + '" onclick="handleOnboardingThemeSelect(\'dark\')">'
-          + '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
-          + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">Dark Mode</div>'
-          + '<div style="font-size:11.5px;color:var(--text-secondary);">Sleek low-glare dark finish with gold accents</div>'
-        + '</div>'
-      + '</div>'
-    + '</div>'
-    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">'
-        + '<div style="flex:1;min-width:200px;">'
-          + '<div style="font-size:13px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">'
-            + '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/></svg>'
-            + '<span>Seasonal Falling Effects (Snow &amp; Leaves)</span>'
-          + '</div>'
-          + '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">'
-            + 'Ambient seasonal snowflakes and autumn leaves across your portal background'
-          + '</div>'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-          + '<select id="onboarding-select-particles-mode" class="form-select" onchange="handleOnboardingParticlesModeChange(this.value)" style="font-size:12px;padding:6px 10px;height:auto;min-width:145px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:8px;">'
-            + '<option value="both"' + (particlesMode === 'both' ? ' selected' : '') + '>Snow &amp; Leaves ❄️ 🍂</option>'
-            + '<option value="snow"' + (particlesMode === 'snow' ? ' selected' : '') + '>Snow Only ❄️</option>'
-            + '<option value="leaves"' + (particlesMode === 'leaves' ? ' selected' : '') + '>Leaves Only 🍂</option>'
-          + '</select>'
-          + '<button type="button" class="portal-btn' + (particlesEnabled ? '' : ' portal-btn-primary') + '" onclick="handleOnboardingParticlesToggle()" id="onboarding-particles-btn" style="padding:6px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">'
-            + (particlesEnabled
-                ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
-                : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>')
-          + '</button>'
-        + '</div>'
-      + '</div>'
-    + '</div>'
-    + '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">'
-      + '<label style="font-size:13px;font-weight:700;color:var(--text-primary);display:block;margin-bottom:6px;">Default Calendar View</label>'
-      + '<div style="display:flex;gap:12px;flex-wrap:wrap;">'
-        + '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">'
-          + '<input type="radio" name="onboarding-cal-view" value="upcoming" ' + (view === 'upcoming' ? 'checked' : '') + ' onchange="handleOnboardingCalendarViewChange(\'upcoming\')" style="accent-color:var(--accent);" />'
-          + 'Upcoming Hero [Recommended]'
-        + '</label>'
-        + '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">'
-          + '<input type="radio" name="onboarding-cal-view" value="week" ' + (view === 'week' ? 'checked' : '') + ' onchange="handleOnboardingCalendarViewChange(\'week\')" style="accent-color:var(--accent);" />'
-          + 'Week View'
-        + '</label>'
-        + '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">'
-          + '<input type="radio" name="onboarding-cal-view" value="month" ' + (view === 'month' ? 'checked' : '') + ' onchange="handleOnboardingCalendarViewChange(\'month\')" style="accent-color:var(--accent);" />'
-          + 'Month View'
-        + '</label>'
-      + '</div>'
-    + '</div>'
-    + '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">'
-      + '<button type="button" class="portal-btn" onclick="setOnboardingStep(3)" style="padding:10px 18px;">&larr; Back</button>'
-      + '<button type="button" class="portal-btn portal-btn-primary" onclick="completeOnboardingWizard()" style="font-weight:800;padding:10px 24px;box-shadow:0 4px 14px rgba(217,163,35,0.35);">Complete Onboarding &amp; Enter Portal ✨</button>'
-    + '</div>';
+  return (
+    '' +
+    '<div class="onboarding-step-badge">Step 4 of 4 · Personalization</div>' +
+    '<h3 class="onboarding-step-title">Preferences &amp; Company Timezone</h3>' +
+    '<p class="onboarding-step-desc">Configure your theme and confirm synchronization with 1st PJ Company Time.</p>' +
+    '<div class="onboarding-tz-banner">' +
+    '<div style="width:38px;height:38px;border-radius:10px;background:rgba(217,163,35,0.18);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>' +
+    '</div>' +
+    '<div style="flex:1;">' +
+    '<div style="font-size:13.5px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;">' +
+    '<span>Official Company Timezone</span>' +
+    '<span style="font-size:11px;background:var(--accent);color:#0f172a;font-weight:800;padding:2px 8px;border-radius:12px;">GMT+8</span>' +
+    '</div>' +
+    '<div class="onboarding-tz-clock">Asia/Kuala_Lumpur • Malaysia Time (' +
+    escapeHtml(myTimeStr) +
+    ')</div>' +
+    '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.45;">' +
+    'All parade fall-in times (2:15 PM), band rehearsals (9:30 AM), uniform inspections, task due dates, and company events are strictly synchronized to Malaysia Time (GMT+8) regardless of your physical device location.' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="margin-bottom:14px;">' +
+    '<label style="font-size:13px;font-weight:700;color:var(--text-primary);display:block;margin-bottom:8px;">Select Color Theme</label>' +
+    '<div class="onboarding-theme-grid">' +
+    '<div class="onboarding-theme-btn ' +
+    (!isDark ? 'selected' : '') +
+    '" onclick="handleOnboardingThemeSelect(\'light\')">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>' +
+    '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">Light Mode</div>' +
+    '<div style="font-size:11.5px;color:var(--text-secondary);">Crisp daytime clarity &amp; high contrast</div>' +
+    '</div>' +
+    '<div class="onboarding-theme-btn ' +
+    (isDark ? 'selected' : '') +
+    '" onclick="handleOnboardingThemeSelect(\'dark\')">' +
+    '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>' +
+    '<div style="font-size:13px;font-weight:700;color:var(--text-primary);">Dark Mode</div>' +
+    '<div style="font-size:11.5px;color:var(--text-secondary);">Sleek low-glare dark finish with gold accents</div>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
+    '<div style="flex:1;min-width:200px;">' +
+    '<div style="font-size:13px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+    '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/></svg>' +
+    '<span>Seasonal Falling Effects (Snow &amp; Leaves)</span>' +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">' +
+    'Ambient seasonal snowflakes and autumn leaves across your portal background' +
+    '</div>' +
+    '</div>' +
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+    '<select id="onboarding-select-particles-mode" class="form-select" onchange="handleOnboardingParticlesModeChange(this.value)" style="font-size:12px;padding:6px 10px;height:auto;min-width:145px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border-card);border-radius:8px;">' +
+    '<option value="both"' +
+    (particlesMode === 'both' ? ' selected' : '') +
+    '>Snow &amp; Leaves ❄️ 🍂</option>' +
+    '<option value="snow"' +
+    (particlesMode === 'snow' ? ' selected' : '') +
+    '>Snow Only ❄️</option>' +
+    '<option value="leaves"' +
+    (particlesMode === 'leaves' ? ' selected' : '') +
+    '>Leaves Only 🍂</option>' +
+    '</select>' +
+    '<button type="button" class="portal-btn' +
+    (particlesEnabled ? '' : ' portal-btn-primary') +
+    '" onclick="handleOnboardingParticlesToggle()" id="onboarding-particles-btn" style="padding:6px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">' +
+    (particlesEnabled
+      ? '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg><span>Disable</span>'
+      : '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg><span>Enable</span>') +
+    '</button>' +
+    '</div>' +
+    '</div>' +
+    '</div>' +
+    '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:12px;padding:14px 16px;margin-bottom:14px;">' +
+    '<label style="font-size:13px;font-weight:700;color:var(--text-primary);display:block;margin-bottom:6px;">Default Calendar View</label>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap;">' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">' +
+    '<input type="radio" name="onboarding-cal-view" value="upcoming" ' +
+    (view === 'upcoming' ? 'checked' : '') +
+    ' onchange="handleOnboardingCalendarViewChange(\'upcoming\')" style="accent-color:var(--accent);" />' +
+    'Upcoming Hero [Recommended]' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">' +
+    '<input type="radio" name="onboarding-cal-view" value="week" ' +
+    (view === 'week' ? 'checked' : '') +
+    ' onchange="handleOnboardingCalendarViewChange(\'week\')" style="accent-color:var(--accent);" />' +
+    'Week View' +
+    '</label>' +
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;">' +
+    '<input type="radio" name="onboarding-cal-view" value="month" ' +
+    (view === 'month' ? 'checked' : '') +
+    ' onchange="handleOnboardingCalendarViewChange(\'month\')" style="accent-color:var(--accent);" />' +
+    'Month View' +
+    '</label>' +
+    '</div>' +
+    '</div>' +
+    '<div class="onboarding-footer" style="padding-left:0;padding-right:0;border-top:none;margin-top:14px;">' +
+    '<button type="button" class="portal-btn" onclick="setOnboardingStep(3)" style="padding:10px 18px;">&larr; Back</button>' +
+    '<button type="button" class="portal-btn portal-btn-primary" onclick="completeOnboardingWizard()" style="font-weight:800;padding:10px 24px;box-shadow:0 4px 14px rgba(217,163,35,0.35);">Complete Onboarding &amp; Enter Portal ✨</button>' +
+    '</div>'
+  );
 }
 
 function handleOnboardingThemeSelect(theme) {
@@ -6659,9 +8252,10 @@ function handleOnboardingCalendarViewChange(view) {
 }
 
 function handleOnboardingParticlesToggle() {
-  var currentState = (typeof getAmbientParticlesState === 'function')
-    ? getAmbientParticlesState()
-    : { enabled: true, mode: 'both' };
+  var currentState =
+    typeof getAmbientParticlesState === 'function'
+      ? getAmbientParticlesState()
+      : { enabled: true, mode: 'both' };
   var newState = !currentState.enabled;
   _onboardingState.particlesEnabled = newState;
 
@@ -6688,7 +8282,14 @@ function handleOnboardingParticlesToggle() {
   }
 
   if (typeof showToast === 'function') {
-    showToast(newState ? 'Falling snow & leaves animation enabled.' : 'Falling snow & leaves animation disabled.', 'info', 2500, { silent: true });
+    showToast(
+      newState
+        ? 'Falling snow & leaves animation enabled.'
+        : 'Falling snow & leaves animation disabled.',
+      'info',
+      2500,
+      { silent: true }
+    );
   }
 }
 
@@ -6696,7 +8297,10 @@ function handleOnboardingParticlesModeChange(mode) {
   _onboardingState.particlesMode = mode;
   if (typeof setAmbientParticlesMode === 'function') {
     setAmbientParticlesMode(mode);
-  } else if (typeof window !== 'undefined' && typeof window.setAmbientParticlesMode === 'function') {
+  } else if (
+    typeof window !== 'undefined' &&
+    typeof window.setAmbientParticlesMode === 'function'
+  ) {
     window.setAmbientParticlesMode(mode);
   }
 
@@ -6711,7 +8315,12 @@ function handleOnboardingParticlesModeChange(mode) {
   }
 
   if (typeof showToast === 'function') {
-    var modeLabel = mode === 'snow' ? 'Falling snow only ❄️' : (mode === 'leaves' ? 'Falling leaves only 🍂' : 'Snow & leaves ❄️ 🍂');
+    var modeLabel =
+      mode === 'snow'
+        ? 'Falling snow only ❄️'
+        : mode === 'leaves'
+          ? 'Falling leaves only 🍂'
+          : 'Snow & leaves ❄️ 🍂';
     showToast('Seasonal animation set to: ' + modeLabel, 'info', 2500, { silent: true });
   }
 }
@@ -6720,13 +8329,17 @@ function handleOnboardingParticlesModeChange(mode) {
  * Completes the onboarding wizard, persists user consent and configuration, and enters dashboard.
  */
 function completeOnboardingWizard() {
-  var user = _onboardingState.user || (typeof sessionGet === 'function' ? {
-    name: sessionGet('name') || '',
-    email: sessionGet('email') || sessionGet('ic') || ''
-  } : null);
+  var user =
+    _onboardingState.user ||
+    (typeof sessionGet === 'function'
+      ? {
+          name: sessionGet('name') || '',
+          email: sessionGet('email') || sessionGet('ic') || ''
+        }
+      : null);
 
-  var email = user ? (user.email || user.ic || '') : '';
-  var name = user ? (user.name || '') : '';
+  var email = user ? user.email || user.ic || '' : '';
+  var name = user ? user.name || '' : '';
 
   if (typeof markOnboardingCompleted === 'function') {
     markOnboardingCompleted(email, {
@@ -6735,7 +8348,8 @@ function completeOnboardingWizard() {
       terms_accepted: true,
       privacy_accepted: true,
       timezone: 'GMT+8 (Asia/Kuala_Lumpur • Malaysia Time)',
-      notifications_enabled: (typeof Notification !== 'undefined') ? (Notification.permission === 'granted') : false,
+      notifications_enabled:
+        typeof Notification !== 'undefined' ? Notification.permission === 'granted' : false,
       notification_sound: _onboardingState.notifSound,
       theme: _onboardingState.theme,
       default_calendar_view: _onboardingState.defaultView,
@@ -6764,24 +8378,34 @@ function completeOnboardingWizard() {
   if (overlay) {
     overlay.style.opacity = '0';
     overlay.style.transition = 'opacity 0.25s ease';
-    setTimeout(function() {
+    setTimeout(function () {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }, 250);
   }
 
   if (typeof showToast === 'function') {
-    showToast('🎉 Welcome to the 1st Petaling Jaya Boys\' Brigade Web Portal' + (name ? (', ' + name) : '') + '!', 'success', 5000);
+    showToast(
+      "🎉 Welcome to the 1st Petaling Jaya Boys' Brigade Web Portal" +
+        (name ? ', ' + name : '') +
+        '!',
+      'success',
+      5000
+    );
   }
 
   // Route to intended tab if one was queued by AuthGuard, or default to home/member
-  var redirectTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
-    ? AuthGuard.getRedirectTarget()
-    : null;
+  var redirectTarget =
+    typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function'
+      ? AuthGuard.getRedirectTarget()
+      : null;
   if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
     AuthGuard.clearRedirectTarget();
   }
 
-  var dest = (redirectTarget && redirectTarget !== 'member' && redirectTarget !== 'admin') ? redirectTarget : 'home';
+  var dest =
+    redirectTarget && redirectTarget !== 'member' && redirectTarget !== 'admin'
+      ? redirectTarget
+      : 'home';
   if (typeof switchTabNav === 'function') {
     switchTabNav(dest);
   }
@@ -6790,123 +8414,121 @@ function completeOnboardingWizard() {
 // ── Global Window Exports (HTML inline handler compatibility) ────────────────
 
 if (typeof window !== 'undefined') {
-  window.isMinorSection               = isMinorSection;
-  window.handleSectionChange          = handleSectionChange;
-  window.handleRegRankChange          = handleRegRankChange;
+  window.isMinorSection = isMinorSection;
+  window.handleSectionChange = handleSectionChange;
+  window.handleRegRankChange = handleRegRankChange;
   if (typeof global !== 'undefined') global.handleRegRankChange = handleRegRankChange;
-  window.openChildSafetyModal         = openChildSafetyModal;
-  window.closeChildSafetyModal        = closeChildSafetyModal;
-  window.fetchMemberConsent           = fetchMemberConsent;
-  window.showAuthMode                 = showAuthMode;
-  window.showForgotStep               = showForgotStep;
-  window.togglePassVis                = togglePassVis;
-  window.goToMemberTab                = goToMemberTab;
-  window.updateMemberMediaConsent     = updateMemberMediaConsent;
-  window.registerMember               = registerMember;
-  window.loginMember                  = loginMember;
-  window.AVATAR_OUTLINE_STYLES          = AVATAR_OUTLINE_STYLES;
-  window.getMemberAvatarOutline         = getMemberAvatarOutline;
-  window.loadCustomAvatarOutlines       = loadCustomAvatarOutlines;
-  window.saveMemberAvatarOutline        = saveMemberAvatarOutline;
-  window.applyAvatarOutlineElement      = applyAvatarOutlineElement;
-  window.refreshActiveAvatarOutlines    = refreshActiveAvatarOutlines;
-  window._customAvatarOutlinesMap        = _customAvatarOutlinesMap;
-  window.isCreatorSession               = isCreatorSession;
-  window.renderMemberAvatar             = renderMemberAvatar;
-  window.resetMemberAvatar              = resetMemberAvatar;
-  window.hasActiveCustomPhoto          = hasActiveCustomPhoto;
-  window.handlePfpRingClick           = handlePfpRingClick;
-  window.setRemovePfpButtonVisible    = setRemovePfpButtonVisible;
-  window.removePfp                    = removePfp;
-  window.refreshLoggedInUserProfile   = refreshLoggedInUserProfile;
-  window.renderDashboard              = renderDashboard;
-  window.loadMemberOrders             = loadMemberOrders;
-  window.viewMemberFormResponse       = viewMemberFormResponse;
-  window.closeMemberResponseModal     = closeMemberResponseModal;
-  window.logoutMember                 = logoutMember;
-  window.openMemberSignInForAdmin       = openMemberSignInForAdmin;
-  window.uploadPfp                    = uploadPfp;
-  window.loadSecurityQuestion         = loadSecurityQuestion;
-  window.sendPasswordResetEmail       = sendPasswordResetEmail;
+  window.openChildSafetyModal = openChildSafetyModal;
+  window.closeChildSafetyModal = closeChildSafetyModal;
+  window.fetchMemberConsent = fetchMemberConsent;
+  window.showAuthMode = showAuthMode;
+  window.showForgotStep = showForgotStep;
+  window.togglePassVis = togglePassVis;
+  window.goToMemberTab = goToMemberTab;
+  window.updateMemberMediaConsent = updateMemberMediaConsent;
+  window.registerMember = registerMember;
+  window.loginMember = loginMember;
+  window.AVATAR_OUTLINE_STYLES = AVATAR_OUTLINE_STYLES;
+  window.getMemberAvatarOutline = getMemberAvatarOutline;
+  window.loadCustomAvatarOutlines = loadCustomAvatarOutlines;
+  window.saveMemberAvatarOutline = saveMemberAvatarOutline;
+  window.applyAvatarOutlineElement = applyAvatarOutlineElement;
+  window.refreshActiveAvatarOutlines = refreshActiveAvatarOutlines;
+  window._customAvatarOutlinesMap = _customAvatarOutlinesMap;
+  window.isCreatorSession = isCreatorSession;
+  window.renderMemberAvatar = renderMemberAvatar;
+  window.resetMemberAvatar = resetMemberAvatar;
+  window.hasActiveCustomPhoto = hasActiveCustomPhoto;
+  window.handlePfpRingClick = handlePfpRingClick;
+  window.setRemovePfpButtonVisible = setRemovePfpButtonVisible;
+  window.removePfp = removePfp;
+  window.refreshLoggedInUserProfile = refreshLoggedInUserProfile;
+  window.renderDashboard = renderDashboard;
+  window.loadMemberOrders = loadMemberOrders;
+  window.viewMemberFormResponse = viewMemberFormResponse;
+  window.closeMemberResponseModal = closeMemberResponseModal;
+  window.logoutMember = logoutMember;
+  window.openMemberSignInForAdmin = openMemberSignInForAdmin;
+  window.uploadPfp = uploadPfp;
+  window.loadSecurityQuestion = loadSecurityQuestion;
+  window.sendPasswordResetEmail = sendPasswordResetEmail;
   window.verifyResetCodeAndSetPassword = verifyResetCodeAndSetPassword;
-  window._authFailures                 = _authFailures;
-  window._lastOtpTime                  = _lastOtpTime;
-  window.AUTH_MAX_ATTEMPTS             = AUTH_MAX_ATTEMPTS;
-  window.AUTH_LOCKOUT_MS               = AUTH_LOCKOUT_MS;
-  window.OTP_COOLDOWN_MS               = OTP_COOLDOWN_MS;
-  window.resetPassword                = resetPassword;
-  window.findMembersByEmail           = findMembersByEmail;
-  window.handleRegEmailInput          = handleRegEmailInput;
+  window._authFailures = _authFailures;
+  window._lastOtpTime = _lastOtpTime;
+  window.AUTH_MAX_ATTEMPTS = AUTH_MAX_ATTEMPTS;
+  window.AUTH_LOCKOUT_MS = AUTH_LOCKOUT_MS;
+  window.OTP_COOLDOWN_MS = OTP_COOLDOWN_MS;
+  window.resetPassword = resetPassword;
+  window.findMembersByEmail = findMembersByEmail;
+  window.handleRegEmailInput = handleRegEmailInput;
   window.verifyAndCompleteRegistration = verifyAndCompleteRegistration;
   window.cancelRegistrationVerification = cancelRegistrationVerification;
-  window.resendRegistrationCode       = resendRegistrationCode;
-  window.showAccountPickerModal       = showAccountPickerModal;
-  window.switchFamilyAccount          = switchFamilyAccount;
+  window.resendRegistrationCode = resendRegistrationCode;
+  window.showAccountPickerModal = showAccountPickerModal;
+  window.switchFamilyAccount = switchFamilyAccount;
   window.checkAndNotifyNewDeviceLogin = checkAndNotifyNewDeviceLogin;
   window.dispatchDeviceSecurityAlertEmail = dispatchDeviceSecurityAlertEmail;
-  window.MEMBERS_JUNIORS_RANKS        = MEMBERS_JUNIORS_RANKS;
-  window.MEMBERS_SENIOR_RANKS         = MEMBERS_SENIOR_RANKS;
-  window.NCO_RANKS                    = NCO_RANKS;
-  window.OFFICER_RANKS                = OFFICER_RANKS;
-  window.normalizeSection             = normalizeSection;
-  window.getSectionForRank            = getSectionForRank;
-  window.getRanksForSection           = getRanksForSection;
-  window.populateRankOptions          = populateRankOptions;
-  window.populateSquadOptions         = populateSquadOptions;
-  window.formatPlatoonOrSquad         = formatPlatoonOrSquad;
-  window.SENIOR_PLATOONS              = SENIOR_PLATOONS;
-  window.JUNIOR_SQUADS                = JUNIOR_SQUADS;
+  window.MEMBERS_JUNIORS_RANKS = MEMBERS_JUNIORS_RANKS;
+  window.MEMBERS_SENIOR_RANKS = MEMBERS_SENIOR_RANKS;
+  window.NCO_RANKS = NCO_RANKS;
+  window.OFFICER_RANKS = OFFICER_RANKS;
+  window.normalizeSection = normalizeSection;
+  window.getSectionForRank = getSectionForRank;
+  window.getRanksForSection = getRanksForSection;
+  window.populateRankOptions = populateRankOptions;
+  window.populateSquadOptions = populateSquadOptions;
+  window.formatPlatoonOrSquad = formatPlatoonOrSquad;
+  window.SENIOR_PLATOONS = SENIOR_PLATOONS;
+  window.JUNIOR_SQUADS = JUNIOR_SQUADS;
   if (typeof global !== 'undefined') {
     global.populateSquadOptions = populateSquadOptions;
     global.formatPlatoonOrSquad = formatPlatoonOrSquad;
     global.SENIOR_PLATOONS = SENIOR_PLATOONS;
     global.JUNIOR_SQUADS = JUNIOR_SQUADS;
   }
-  window.PROFILE_COSMETICS            = PROFILE_COSMETICS;
-  window.getMemberCosmeticsMap        = getMemberCosmeticsMap;
-  window.loadMemberCosmetics          = loadMemberCosmetics;
-  window.getMemberCosmetic            = getMemberCosmetic;
-  window.getMemberCosmeticInventory   = getMemberCosmeticInventory;
-  window.saveMemberCosmetic           = saveMemberCosmetic;
-  window.unlockCosmetic               = unlockCosmetic;
-  window.equipCosmetic                = equipCosmetic;
-  window.unequipCosmetic              = unequipCosmetic;
-  window.applyMemberCosmeticElement   = applyMemberCosmeticElement;
+  window.PROFILE_COSMETICS = PROFILE_COSMETICS;
+  window.getMemberCosmeticsMap = getMemberCosmeticsMap;
+  window.loadMemberCosmetics = loadMemberCosmetics;
+  window.getMemberCosmetic = getMemberCosmetic;
+  window.getMemberCosmeticInventory = getMemberCosmeticInventory;
+  window.saveMemberCosmetic = saveMemberCosmetic;
+  window.unlockCosmetic = unlockCosmetic;
+  window.equipCosmetic = equipCosmetic;
+  window.unequipCosmetic = unequipCosmetic;
+  window.applyMemberCosmeticElement = applyMemberCosmeticElement;
   window.refreshActiveAvatarCosmetics = refreshActiveAvatarCosmetics;
-  window.openCosmeticShopDrawer       = openCosmeticShopDrawer;
-  window.renderCosmeticShopView       = renderCosmeticShopView;
-  window.applyCosmeticFilters         = applyCosmeticFilters;
-  window.resetCosmeticFilters         = resetCosmeticFilters;
-  window.closeCosmeticShopDrawer      = closeCosmeticShopDrawer;
-  window.filterCosmeticShop           = filterCosmeticShop;
-  window.renderCosmeticLivePreview    = renderCosmeticLivePreview;
-  window.renderCosmeticShopCards      = renderCosmeticShopCards;
-  window.openResetModal                 = openResetModal;
-  window.openSettingsModal              = openSettingsModal;
-  window.closeSettingsModal             = closeSettingsModal;
-  window.handleSettingsAvatarUpload     = handleSettingsAvatarUpload;
-  window.handleSettingsAvatarRemove     = handleSettingsAvatarRemove;
-  window.handleSettingsThemeToggle      = handleSettingsThemeToggle;
-  window.handleSettingsParticlesToggle  = handleSettingsParticlesToggle;
+  window.openCosmeticShopDrawer = openCosmeticShopDrawer;
+  window.renderCosmeticShopView = renderCosmeticShopView;
+  window.applyCosmeticFilters = applyCosmeticFilters;
+  window.resetCosmeticFilters = resetCosmeticFilters;
+  window.closeCosmeticShopDrawer = closeCosmeticShopDrawer;
+  window.filterCosmeticShop = filterCosmeticShop;
+  window.renderCosmeticLivePreview = renderCosmeticLivePreview;
+  window.renderCosmeticShopCards = renderCosmeticShopCards;
+  window.openResetModal = openResetModal;
+  window.openSettingsModal = openSettingsModal;
+  window.closeSettingsModal = closeSettingsModal;
+  window.handleSettingsAvatarUpload = handleSettingsAvatarUpload;
+  window.handleSettingsAvatarRemove = handleSettingsAvatarRemove;
+  window.handleSettingsThemeToggle = handleSettingsThemeToggle;
+  window.handleSettingsParticlesToggle = handleSettingsParticlesToggle;
   window.handleSettingsParticlesModeChange = handleSettingsParticlesModeChange;
   window.handleSettingsNotificationToggle = handleSettingsNotificationToggle;
   window.handleSettingsDefaultTabChange = handleSettingsDefaultTabChange;
-    window.handleSettingsPasswordUpdate   = handleSettingsPasswordUpdate;
-  window.launchOnboardingWizard         = launchOnboardingWizard;
-  window.closeOnboardingWizard          = closeOnboardingWizard;
-  window.setOnboardingStep              = setOnboardingStep;
-  window.handleOnboardingThemeSelect    = handleOnboardingThemeSelect;
+  window.handleSettingsPasswordUpdate = handleSettingsPasswordUpdate;
+  window.launchOnboardingWizard = launchOnboardingWizard;
+  window.closeOnboardingWizard = closeOnboardingWizard;
+  window.setOnboardingStep = setOnboardingStep;
+  window.handleOnboardingThemeSelect = handleOnboardingThemeSelect;
   window.handleOnboardingTestNotification = handleOnboardingTestNotification;
   window.handleOnboardingEnableNotifications = handleOnboardingEnableNotifications;
-  window.handleOnboardingSoundToggle    = handleOnboardingSoundToggle;
+  window.handleOnboardingSoundToggle = handleOnboardingSoundToggle;
   window.handleOnboardingCheckboxChange = handleOnboardingCheckboxChange;
   window.handleOnboardingCalendarViewChange = handleOnboardingCalendarViewChange;
-  window.handleOnboardingParticlesToggle  = handleOnboardingParticlesToggle;
+  window.handleOnboardingParticlesToggle = handleOnboardingParticlesToggle;
   window.handleOnboardingParticlesModeChange = handleOnboardingParticlesModeChange;
-  window.completeOnboardingWizard       = completeOnboardingWizard;
+  window.completeOnboardingWizard = completeOnboardingWizard;
 }
-
-
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -7003,7 +8625,7 @@ if (typeof module !== 'undefined' && module.exports) {
     handleSettingsParticlesModeChange,
     handleSettingsNotificationToggle,
     handleSettingsDefaultTabChange,
-        handleSettingsPasswordUpdate,
+    handleSettingsPasswordUpdate,
     launchOnboardingWizard,
     closeOnboardingWizard,
     setOnboardingStep,
@@ -7016,7 +8638,7 @@ if (typeof module !== 'undefined' && module.exports) {
     handleOnboardingParticlesToggle,
     handleOnboardingParticlesModeChange,
     completeOnboardingWizard
-};
+  };
 }
 
 if (typeof document !== 'undefined') {

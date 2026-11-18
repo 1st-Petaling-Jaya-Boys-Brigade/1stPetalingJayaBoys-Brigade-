@@ -23,19 +23,51 @@
  *    - Preserves strict 388 unique DOM IDs invariant in index.html.
  */
 
-(function() {
+(function () {
   'use strict';
 
   // ── BB-Themed Word Bank (5-Letter Words) ──────────────────────────────────
   var BB_WORDLE_WORDS = [
-    'DRILL', 'BADGE', 'SQUAD', 'FAITH', 'BRAVE',
-    'HONOR', 'MEDAL', 'LOYAL', 'CROSS', 'PILOT',
-    'STAFF', 'MARCH', 'ORDER', 'SCOUT', 'UNITY',
-    'FLAGS', 'BOOTS', 'BERET', 'CREST', 'TRUTH',
-    'CUBIC', 'FLINT', 'MAPLE', 'SCARF', 'CADET',
-    'HASTE', 'SHINE', 'KNOTS', 'GUARD', 'BUGLE',
-    'DRUMS', 'STAND', 'PIPER', 'RALLY', 'STARS',
-    'VALOR', 'SHARP', 'GUIDE', 'ANCHR', 'ROPEY'
+    'DRILL',
+    'BADGE',
+    'SQUAD',
+    'FAITH',
+    'BRAVE',
+    'HONOR',
+    'MEDAL',
+    'LOYAL',
+    'CROSS',
+    'PILOT',
+    'STAFF',
+    'MARCH',
+    'ORDER',
+    'SCOUT',
+    'UNITY',
+    'FLAGS',
+    'BOOTS',
+    'BERET',
+    'CREST',
+    'TRUTH',
+    'CUBIC',
+    'FLINT',
+    'MAPLE',
+    'SCARF',
+    'CADET',
+    'HASTE',
+    'SHINE',
+    'KNOTS',
+    'GUARD',
+    'BUGLE',
+    'DRUMS',
+    'STAND',
+    'PIPER',
+    'RALLY',
+    'STARS',
+    'VALOR',
+    'SHARP',
+    'GUIDE',
+    'ANCHR',
+    'ROPEY'
   ];
 
   // ── Authentic 5-Letter Wordle Dictionary ( Dictionary Filter) ─────
@@ -218,7 +250,8 @@
    */
   function showWordleToast(message, durationMs) {
     if (typeof document === 'undefined') return;
-    var wrapper = document.querySelector('.wordle-board-wrapper') || document.querySelector('.wordle-card');
+    var wrapper =
+      document.querySelector('.wordle-board-wrapper') || document.querySelector('.wordle-card');
     if (!wrapper) return;
 
     var existing = wrapper.querySelector('.wordle-toast-container');
@@ -239,9 +272,9 @@
     wrapper.appendChild(container);
 
     var dur = durationMs || 1500;
-    setTimeout(function() {
+    setTimeout(function () {
       toast.classList.add('fade-out');
-      setTimeout(function() {
+      setTimeout(function () {
         if (container.parentNode) {
           container.parentNode.removeChild(container);
         }
@@ -249,38 +282,47 @@
     }, dur);
   }
 
-
   // ── Educational BB Trivia Question Bank ──────────────────────────────────
   var BB_TRIVIA_QUESTIONS = [
     {
-      q: 'What is the official Motto of The Boys\' Brigade?',
+      q: "What is the official Motto of The Boys' Brigade?",
       options: ['Sure & Stedfast', 'Be Prepared', 'Faith & Courage', 'Duty First'],
       correct: 0,
       expl: 'The BB Motto is "Sure & Stedfast", taken from Hebrews 6:19: "Which hope we have as an anchor of the soul, both sure and stedfast".'
     },
     {
-      q: 'Who was the Founder of The Boys\' Brigade?',
-      options: ['Lord Baden-Powell', 'Sir William Alexander Smith', 'Alexander MacKeith', 'John Shearer'],
+      q: "Who was the Founder of The Boys' Brigade?",
+      options: [
+        'Lord Baden-Powell',
+        'Sir William Alexander Smith',
+        'Alexander MacKeith',
+        'John Shearer'
+      ],
       correct: 1,
-      expl: 'Sir William Alexander Smith founded The Boys\' Brigade on 4th October 1883 in Glasgow, Scotland.'
+      expl: "Sir William Alexander Smith founded The Boys' Brigade on 4th October 1883 in Glasgow, Scotland."
     },
     {
-      q: 'In what year was 1st Petaling Jaya Boys\' Brigade Company founded?',
+      q: "In what year was 1st Petaling Jaya Boys' Brigade Company founded?",
       options: ['1954', '1959', '1975', '1983'],
       correct: 1,
       expl: '1st Petaling Jaya Company was founded in 1959 and is sponsored by Trinity Methodist Church PJ.'
     },
     {
-      q: 'What is the primary twin pillar foundation of The Boys\' Brigade methodology?',
-      options: ['Religion and Discipline', 'Athletics and Academics', 'Camping and Survival', 'Music and Drill'],
+      q: "What is the primary twin pillar foundation of The Boys' Brigade methodology?",
+      options: [
+        'Religion and Discipline',
+        'Athletics and Academics',
+        'Camping and Survival',
+        'Music and Drill'
+      ],
       correct: 0,
-      expl: 'The twin pillars of The Boys\' Brigade are Religion and Discipline, designed to promote habits of obedience, reverence, discipline, and self-respect.'
+      expl: "The twin pillars of The Boys' Brigade are Religion and Discipline, designed to promote habits of obedience, reverence, discipline, and self-respect."
     },
     {
       q: 'What is the highest award a Senior Section BB member can achieve in Malaysia?',
-      options: ['President\'s Award', 'Founder\'s Badge', 'Gold Badge', 'Chief Leader Cross'],
+      options: ["President's Award", "Founder's Badge", 'Gold Badge', 'Chief Leader Cross'],
       correct: 1,
-      expl: 'The Founder\'s Award is the highest national award in the BB Malaysia Senior Section.'
+      expl: "The Founder's Award is the highest national award in the BB Malaysia Senior Section."
     },
     {
       q: 'In Foot Drill, what is the command to stand at attention in Malay?',
@@ -301,14 +343,19 @@
       expl: '"Hormat ke hadapan, Hormat" instructs the squad to deliver a standard salute to the front.'
     },
     {
-      q: 'What is at the center of The Boys\' Brigade emblem?',
+      q: "What is at the center of The Boys' Brigade emblem?",
       options: ['A Cross', 'A Crown', 'A Lion', 'A Shield'],
       correct: 0,
-      expl: 'The Boys\' Brigade emblem features an Anchor with the Cross placed at its center, symbolizing Christian faith and hope.'
+      expl: "The Boys' Brigade emblem features an Anchor with the Cross placed at its center, symbolizing Christian faith and hope."
     },
     {
       q: 'What are the two regular parade sections for youth members in 1st PJ?',
-      options: ['Junior Section & Senior Section', 'Cadet Section & Scout Section', 'Alpha & Zulu', 'Rookies & Veterans'],
+      options: [
+        'Junior Section & Senior Section',
+        'Cadet Section & Scout Section',
+        'Alpha & Zulu',
+        'Rookies & Veterans'
+      ],
       correct: 0,
       expl: '1st PJ runs Pre-Junior / Junior Section (primary school) and Senior Section (secondary school).'
     },
@@ -325,14 +372,19 @@
       expl: 'Hebrews 6:19: "Which hope we have as an anchor of the soul, both sure and stedfast..."'
     },
     {
-      q: 'Which city and country was The Boys\' Brigade originally founded in?',
+      q: "Which city and country was The Boys' Brigade originally founded in?",
       options: ['Glasgow, Scotland', 'London, England', 'Edinburgh, Scotland', 'Dublin, Ireland'],
       correct: 0,
-      expl: 'The Boys\' Brigade was founded on 4th October 1883 at North Woodside Mission Hall in Glasgow, Scotland.'
+      expl: "The Boys' Brigade was founded on 4th October 1883 at North Woodside Mission Hall in Glasgow, Scotland."
     },
     {
-      q: 'What is the Object of The Boys\' Brigade?',
-      options: ['The advancement of Christ\'s Kingdom among Boys', 'To explore nature and wilderness', 'To teach military tactics', 'To achieve academic excellence'],
+      q: "What is the Object of The Boys' Brigade?",
+      options: [
+        "The advancement of Christ's Kingdom among Boys",
+        'To explore nature and wilderness',
+        'To teach military tactics',
+        'To achieve academic excellence'
+      ],
       correct: 0,
       expl: 'The Object is "The advancement of Christ\'s Kingdom among Boys and the promotion of habits of Obedience, Reverence, Discipline, Self-Respect and all that tends towards a true Christian manliness."'
     },
@@ -364,7 +416,7 @@
       q: 'Which biennial national BB event brings Companies across Malaysia together for friendly competitions?',
       options: ['National Pesta', 'Jamboree', 'BB Expo', 'Camporee'],
       correct: 0,
-      expl: 'The National Pesta is BB Malaysia\'s biennial national gathering featuring national drill, band, and sports competitions.'
+      expl: "The National Pesta is BB Malaysia's biennial national gathering featuring national drill, band, and sports competitions."
     },
     {
       q: 'What is the BB hymn traditionally sung at Company dismissal?',
@@ -401,17 +453,23 @@
 
   // ── Date & Daily Key Helpers ──────────────────────────────────────────────
   var arcadeDateFormatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit'
+    timeZone: 'Asia/Kuala_Lumpur',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
   });
 
   function getTodayDateKey(ref) {
     if (typeof ref === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ref)) {
       var parsed = new Date(ref + 'T00:00:00Z');
-      if (Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === ref) return ref;
+      if (Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === ref)
+        return ref;
     }
     var now = ref instanceof Date && Number.isFinite(ref.getTime()) ? ref : new Date();
     var parts = {};
-    arcadeDateFormatter.formatToParts(now).forEach(function(part) { parts[part.type] = part.value; });
+    arcadeDateFormatter.formatToParts(now).forEach(function (part) {
+      parts[part.type] = part.value;
+    });
     return parts.year + '-' + parts.month + '-' + parts.day;
   }
 
@@ -433,17 +491,17 @@
 
   // ── Credits & Streak Storage Engine ───────────────────────────────────────
   function getArcadeUserKey() {
-    var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
-    return ic ? ('bb_arcade_' + String(ic).replace(/[^a-zA-Z0-9_-]/g, '_')) : 'bb_arcade_guest';
+    var ic = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
+    return ic ? 'bb_arcade_' + String(ic).replace(/[^a-zA-Z0-9_-]/g, '_') : 'bb_arcade_guest';
   }
 
   function getCandidateUserKeys(prefix) {
     var pfx = prefix || 'bb_arcade_';
     var candidates = [];
-    var ic = (typeof sessionGet === 'function') ? sessionGet('ic') : null;
-    var email = (typeof sessionGet === 'function') ? sessionGet('email') : null;
+    var ic = typeof sessionGet === 'function' ? sessionGet('ic') : null;
+    var email = typeof sessionGet === 'function' ? sessionGet('email') : null;
 
-    var addCandidate = function(id) {
+    var addCandidate = function (id) {
       if (!id || typeof id !== 'string') return;
       var clean = id.trim();
       if (!clean) return;
@@ -462,7 +520,6 @@
     return candidates;
   }
 
-
   function getArcadeStats(refDate) {
     var defaultStats = {
       credits: 0,
@@ -479,13 +536,18 @@
 
     try {
       var key = getArcadeUserKey();
-      var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(key) : null;
+      var raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
       if (raw) {
         var parsed = JSON.parse(raw);
         // Verify streak freshness: if last played before yesterday, streak resets to 0 until played today
-        var today = (typeof refDate === 'string' && refDate) ? getTodayDateKey(refDate) : getTodayDateKey();
+        var today =
+          typeof refDate === 'string' && refDate ? getTodayDateKey(refDate) : getTodayDateKey();
         var yesterday = getYesterdayDateKey(today);
-        if (parsed.lastPlayedDate && parsed.lastPlayedDate !== today && parsed.lastPlayedDate !== yesterday) {
+        if (
+          parsed.lastPlayedDate &&
+          parsed.lastPlayedDate !== today &&
+          parsed.lastPlayedDate !== yesterday
+        ) {
           parsed.streak = 0;
         }
         return Object.assign({}, defaultStats, parsed);
@@ -499,9 +561,10 @@
   function saveArcadeStats(stats) {
     try {
       var prior = getArcadeStats();
-      if (stats.credits !== prior.credits) stats.balanceUpdatedAt = Math.max(Date.now(), (Number(prior.balanceUpdatedAt) || 0) + 1);
+      if (stats.credits !== prior.credits)
+        stats.balanceUpdatedAt = Math.max(Date.now(), (Number(prior.balanceUpdatedAt) || 0) + 1);
       var candKeys = getCandidateUserKeys('bb_arcade_');
-      candKeys.forEach(function(k) {
+      candKeys.forEach(function (k) {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem(k, JSON.stringify(stats));
         }
@@ -515,14 +578,16 @@
       // Async sync to Supabase bb_config if logged in
       var client = getArcadeSupaClient();
       if (client) {
-        candKeys.forEach(function(k) {
+        candKeys.forEach(function (k) {
           if (k !== 'bb_arcade_guest') {
             if (typeof client.setConfig === 'function') {
-              client.setConfig(k, stats).catch(function() {});
+              client.setConfig(k, stats).catch(function () {});
             } else if (typeof client.upsert === 'function') {
-              client.upsert('bb_config', { key: k, value: JSON.stringify(stats) }, 'key').catch(function() {});
+              client
+                .upsert('bb_config', { key: k, value: JSON.stringify(stats) }, 'key')
+                .catch(function () {});
             } else if (typeof client.safeConfigUpdate === 'function') {
-              client.safeConfigUpdate(k, stats).catch(function() {});
+              client.safeConfigUpdate(k, stats).catch(function () {});
             }
           }
         });
@@ -533,7 +598,8 @@
   }
 
   function getArcadeSupaClient() {
-    if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function') return window.getSupaClient();
+    if (typeof window !== 'undefined' && typeof window.getSupaClient === 'function')
+      return window.getSupaClient();
     if (typeof window !== 'undefined' && window.supa) return window.supa;
     if (typeof global !== 'undefined' && global.supa) return global.supa;
     if (typeof supa !== 'undefined' && supa) return supa;
@@ -563,9 +629,11 @@
           if (typeof client.getConfig === 'function') {
             cfg = await client.getConfig(ck);
           } else if (typeof client.get === 'function') {
-            var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(ck) + '&select=value');
+            var rows = await client.get(
+              'bb_config?key=eq.' + encodeURIComponent(ck) + '&select=value'
+            );
             if (rows && rows.length && rows[0].value) {
-              cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+              cfg = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
             }
           }
           if (cfg && typeof cfg === 'object') {
@@ -577,37 +645,74 @@
       if (key !== getArcadeUserKey()) return getArcadeStats(optRefDate);
       var local = getArcadeStats(optRefDate);
       if (remoteList.length > 0) {
-        var today = (typeof optRefDate === 'string' && optRefDate) ? getTodayDateKey(optRefDate) : getTodayDateKey();
+        var today =
+          typeof optRefDate === 'string' && optRefDate
+            ? getTodayDateKey(optRefDate)
+            : getTodayDateKey();
         var yesterday = getYesterdayDateKey(today);
 
         var merged = Object.assign({}, local);
-        remoteList.forEach(function(remote) {
+        remoteList.forEach(function (remote) {
           var localVersion = Number(merged.balanceUpdatedAt) || 0;
           var remoteVersion = Number(remote.balanceUpdatedAt) || 0;
-          if (remoteVersion > localVersion || (remoteVersion === localVersion && arcadeCount(remote.credits) > arcadeCount(merged.credits))) {
+          if (
+            remoteVersion > localVersion ||
+            (remoteVersion === localVersion &&
+              arcadeCount(remote.credits) > arcadeCount(merged.credits))
+          ) {
             merged.credits = arcadeCount(remote.credits);
             merged.balanceUpdatedAt = remoteVersion;
           }
-          merged.bestStreak = Math.max(Number(merged.bestStreak) || 0, Number(remote.bestStreak) || 0);
-          merged.wordlePlays = Math.max(Number(merged.wordlePlays) || 0, Number(remote.wordlePlays) || 0);
-          merged.wordleWins = Math.max(Number(merged.wordleWins) || 0, Number(remote.wordleWins) || 0);
-          merged.triviaPlays = Math.max(Number(merged.triviaPlays) || 0, Number(remote.triviaPlays) || 0);
-          merged.triviaScoreTotal = Math.max(Number(merged.triviaScoreTotal) || 0, Number(remote.triviaScoreTotal) || 0);
-          if (remote.lastPlayedDate && (!merged.lastPlayedDate || remote.lastPlayedDate > merged.lastPlayedDate)) {
+          merged.bestStreak = Math.max(
+            Number(merged.bestStreak) || 0,
+            Number(remote.bestStreak) || 0
+          );
+          merged.wordlePlays = Math.max(
+            Number(merged.wordlePlays) || 0,
+            Number(remote.wordlePlays) || 0
+          );
+          merged.wordleWins = Math.max(
+            Number(merged.wordleWins) || 0,
+            Number(remote.wordleWins) || 0
+          );
+          merged.triviaPlays = Math.max(
+            Number(merged.triviaPlays) || 0,
+            Number(remote.triviaPlays) || 0
+          );
+          merged.triviaScoreTotal = Math.max(
+            Number(merged.triviaScoreTotal) || 0,
+            Number(remote.triviaScoreTotal) || 0
+          );
+          if (
+            remote.lastPlayedDate &&
+            (!merged.lastPlayedDate || remote.lastPlayedDate > merged.lastPlayedDate)
+          ) {
             merged.lastPlayedDate = remote.lastPlayedDate;
             merged.streak = Number(remote.streak) || 0;
           } else if (remote.lastPlayedDate === merged.lastPlayedDate) {
             merged.streak = Math.max(Number(merged.streak) || 0, Number(remote.streak) || 0);
           }
-          merged.awardedWordle = Object.assign({}, merged.awardedWordle || {}, remote.awardedWordle || {});
-          merged.awardedTrivia = Object.assign({}, merged.awardedTrivia || {}, remote.awardedTrivia || {});
+          merged.awardedWordle = Object.assign(
+            {},
+            merged.awardedWordle || {},
+            remote.awardedWordle || {}
+          );
+          merged.awardedTrivia = Object.assign(
+            {},
+            merged.awardedTrivia || {},
+            remote.awardedTrivia || {}
+          );
         });
 
-        if (merged.lastPlayedDate && merged.lastPlayedDate !== today && merged.lastPlayedDate !== yesterday) {
+        if (
+          merged.lastPlayedDate &&
+          merged.lastPlayedDate !== today &&
+          merged.lastPlayedDate !== yesterday
+        ) {
           merged.streak = 0;
         }
 
-        candKeys.forEach(function(k) {
+        candKeys.forEach(function (k) {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem(k, JSON.stringify(merged));
           }
@@ -671,13 +776,17 @@
    * Awards game credits to the member.
    */
   function awardCredits(amount, reason) {
-    if (!amount || amount <= 0) return (getArcadeStats().credits || 0);
+    if (!amount || amount <= 0) return getArcadeStats().credits || 0;
     var stats = getArcadeStats();
     stats.credits = (stats.credits || 0) + amount;
     saveArcadeStats(stats);
 
     if (typeof showToast === 'function') {
-      showToast('+' + amount + ' Credits earned! ' + (reason ? '(' + reason + ')' : ''), 'success', 3500);
+      showToast(
+        '+' + amount + ' Credits earned! ' + (reason ? '(' + reason + ')' : ''),
+        'success',
+        3500
+      );
     }
     return stats.credits;
   }
@@ -692,8 +801,16 @@
     if (streakValEl) streakValEl.textContent = String(data.streak || 0);
     if (credsValEl) credsValEl.textContent = String(data.credits || 0);
     if (badgeEl) {
-      badgeEl.title = 'Daily Streak: ' + (data.streak || 0) + ' days | Total Credits: ' + (data.credits || 0) + ' (Click for 1stPJ Arcade)';
-      badgeEl.setAttribute('aria-label', 'Credits: ' + (data.credits || 0) + ', Streak: ' + (data.streak || 0));
+      badgeEl.title =
+        'Daily Streak: ' +
+        (data.streak || 0) +
+        ' days | Total Credits: ' +
+        (data.credits || 0) +
+        ' (Click for 1stPJ Arcade)';
+      badgeEl.setAttribute(
+        'aria-label',
+        'Credits: ' + (data.credits || 0) + ', Streak: ' + (data.streak || 0)
+      );
     }
   }
 
@@ -703,7 +820,7 @@
     var userKey = getArcadeUserKey();
     var storageKey = 'bb_wordle_' + today + '_' + userKey;
     try {
-      var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(storageKey) : null;
+      var raw = typeof localStorage !== 'undefined' ? localStorage.getItem(storageKey) : null;
       if (raw) return normalizeWordleState(JSON.parse(raw), today);
     } catch (e) {}
     if (_wordleOwner === userKey && _wordleState.dateKey === today) return _wordleState;
@@ -719,7 +836,7 @@
 
     var saved = null;
     try {
-      var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(storageKey) : null;
+      var raw = typeof localStorage !== 'undefined' ? localStorage.getItem(storageKey) : null;
       if (raw) saved = normalizeWordleState(JSON.parse(raw), today);
     } catch (e) {}
 
@@ -756,9 +873,11 @@
         var client = getArcadeSupaClient();
         if (client) {
           if (typeof client.upsert === 'function') {
-            client.upsert('bb_config', { key: storageKey, value: JSON.stringify(_wordleState) }, 'key').catch(function() {});
+            client
+              .upsert('bb_config', { key: storageKey, value: JSON.stringify(_wordleState) }, 'key')
+              .catch(function () {});
           } else if (typeof client.safeConfigUpdate === 'function') {
-            client.safeConfigUpdate(storageKey, _wordleState).catch(function() {});
+            client.safeConfigUpdate(storageKey, _wordleState).catch(function () {});
           }
         }
       }
@@ -786,27 +905,40 @@
           if (typeof client.getConfig === 'function') {
             cfg = await client.getConfig(sk);
           } else if (typeof client.get === 'function') {
-            var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(sk) + '&select=value');
+            var rows = await client.get(
+              'bb_config?key=eq.' + encodeURIComponent(sk) + '&select=value'
+            );
             if (rows && rows.length && rows[0].value) {
-              cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+              cfg = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
             }
           }
           cfg = normalizeWordleState(cfg, today);
-          if (cfg && progressScore(cfg, 'wordle') > progressScore(bestRemote, 'wordle')) bestRemote = cfg;
+          if (cfg && progressScore(cfg, 'wordle') > progressScore(bestRemote, 'wordle'))
+            bestRemote = cfg;
         } catch (_) {}
       }
 
-      if (userKey !== getArcadeUserKey() || (_wordleState.dateKey && _wordleOwner === userKey && _wordleState.dateKey !== today)) return;
+      if (
+        userKey !== getArcadeUserKey() ||
+        (_wordleState.dateKey && _wordleOwner === userKey && _wordleState.dateKey !== today)
+      )
+        return;
       var localState = loadWordleState(today);
-      if (bestRemote && (!localState || progressScore(bestRemote, 'wordle') > progressScore(localState, 'wordle'))) {
+      if (
+        bestRemote &&
+        (!localState || progressScore(bestRemote, 'wordle') > progressScore(localState, 'wordle'))
+      ) {
         _wordleOwner = userKey;
         _wordleState = bestRemote;
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bb_wordle_' + today + '_' + userKey, JSON.stringify(bestRemote));
         }
         if (_arcadeSubtab === 'wordle') renderWordleView();
-      } else if (_wordleOwner === userKey && _wordleState.dateKey === today &&
-          progressScore(_wordleState, 'wordle') > progressScore(bestRemote, 'wordle')) {
+      } else if (
+        _wordleOwner === userKey &&
+        _wordleState.dateKey === today &&
+        progressScore(_wordleState, 'wordle') > progressScore(bestRemote, 'wordle')
+      ) {
         saveWordleState();
       }
     } catch (e) {
@@ -816,23 +948,35 @@
 
   function progressScore(state, game) {
     if (!state) return 0;
-    if (game === 'wordle') return (state.isGameOver ? 16 : 0) + (state.hasWon ? 8 : 0) + (state.guesses?.length || 0);
+    if (game === 'wordle')
+      return (state.isGameOver ? 16 : 0) + (state.hasWon ? 8 : 0) + (state.guesses?.length || 0);
     return (state.isSubmitted ? 16 : 0) + Object.keys(state.answers || {}).length;
   }
 
   function normalizeWordleState(state, date) {
     if (!state || state.dateKey !== date || !Array.isArray(state.guesses)) return null;
     var word = getDailyWordleWord(date).toUpperCase();
-    var guesses = state.guesses.slice(0, 6).filter(function(entry) { return entry && isValidWordleWord(entry.guess); })
-      .map(function(entry) {
+    var guesses = state.guesses
+      .slice(0, 6)
+      .filter(function (entry) {
+        return entry && isValidWordleWord(entry.guess);
+      })
+      .map(function (entry) {
         var guess = entry.guess.toUpperCase();
         return { guess: guess, evalResult: evaluateGuess(guess, word) };
       });
-    var win = guesses.findIndex(function(entry) { return entry.guess === word; });
+    var win = guesses.findIndex(function (entry) {
+      return entry.guess === word;
+    });
     if (win !== -1) guesses = guesses.slice(0, win + 1);
-    return Object.assign({}, state, { word: word, guesses: guesses, maxTries: 6,
+    return Object.assign({}, state, {
+      word: word,
+      guesses: guesses,
+      maxTries: 6,
       currentGuess: /^[A-Z]{0,5}$/.test(state.currentGuess) ? state.currentGuess : '',
-      hasWon: win !== -1, isGameOver: win !== -1 || guesses.length === 6 });
+      hasWon: win !== -1,
+      isGameOver: win !== -1 || guesses.length === 6
+    });
   }
 
   function evaluateGuess(guess, target) {
@@ -864,7 +1008,8 @@
   }
 
   function handleWordleKey(char) {
-    if (_wordleOwner !== getArcadeUserKey() || _wordleState.dateKey !== getTodayDateKey()) initWordle();
+    if (_wordleOwner !== getArcadeUserKey() || _wordleState.dateKey !== getTodayDateKey())
+      initWordle();
     if (_wordleState.isGameOver) return;
     var c = String(char || '').toUpperCase();
 
@@ -884,7 +1029,12 @@
   }
 
   function submitWordleGuess() {
-    if (_wordleState.isGameOver || _wordleOwner !== getArcadeUserKey() || _wordleState.dateKey !== getTodayDateKey()) return;
+    if (
+      _wordleState.isGameOver ||
+      _wordleOwner !== getArcadeUserKey() ||
+      _wordleState.dateKey !== getTodayDateKey()
+    )
+      return;
 
     if (_wordleState.currentGuess.length !== 5) {
       showWordleToast('Not enough letters');
@@ -955,7 +1105,7 @@
       activeRow.classList.remove('shake');
       void activeRow.offsetWidth;
       activeRow.classList.add('shake');
-      setTimeout(function() {
+      setTimeout(function () {
         if (activeRow) activeRow.classList.remove('shake');
       }, 450);
     }
@@ -1002,8 +1152,8 @@
   }
 
   function getTriviaUserKey() {
-    var ic = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
-    return ic ? ('bb_trivia_' + String(ic).replace(/[^a-zA-Z0-9_-]/g, '_')) : 'bb_trivia_guest';
+    var ic = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : null;
+    return ic ? 'bb_trivia_' + String(ic).replace(/[^a-zA-Z0-9_-]/g, '_') : 'bb_trivia_guest';
   }
 
   function saveTriviaState(state) {
@@ -1014,7 +1164,7 @@
       var candKeys = getCandidateUserKeys('bb_trivia_');
       var json = JSON.stringify(st);
 
-      candKeys.forEach(function(uKey) {
+      candKeys.forEach(function (uKey) {
         var storageKey = uKey + '_' + st.dateKey;
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem(storageKey, json);
@@ -1023,18 +1173,24 @@
       });
 
       // An empty daily quiz has no progress to publish.
-      if (primaryKey && primaryKey !== 'bb_trivia_guest' && (st.isSubmitted || Object.keys(st.answers || {}).length)) {
+      if (
+        primaryKey &&
+        primaryKey !== 'bb_trivia_guest' &&
+        (st.isSubmitted || Object.keys(st.answers || {}).length)
+      ) {
         var client = getArcadeSupaClient();
         if (client) {
-          candKeys.forEach(function(uKey) {
+          candKeys.forEach(function (uKey) {
             if (uKey !== 'bb_trivia_guest') {
               var storageKey = uKey + '_' + st.dateKey;
               if (typeof client.setConfig === 'function') {
-                client.setConfig(storageKey, st).catch(function() {});
+                client.setConfig(storageKey, st).catch(function () {});
               } else if (typeof client.upsert === 'function') {
-                client.upsert('bb_config', { key: storageKey, value: json }, 'key').catch(function() {});
+                client
+                  .upsert('bb_config', { key: storageKey, value: json }, 'key')
+                  .catch(function () {});
               } else if (typeof client.safeConfigUpdate === 'function') {
-                client.safeConfigUpdate(storageKey, st).catch(function() {});
+                client.safeConfigUpdate(storageKey, st).catch(function () {});
               }
             }
           });
@@ -1050,7 +1206,7 @@
     var indices = getDailyTriviaQuestionIndices(date);
     var answers = {};
     var score = 0;
-    indices.forEach(function(questionIndex, index) {
+    indices.forEach(function (questionIndex, index) {
       var question = BB_TRIVIA_QUESTIONS[questionIndex];
       var answer = state.answers?.[index];
       if (!Number.isInteger(answer) || answer < 0 || answer >= question.options.length) return;
@@ -1058,8 +1214,12 @@
       if (answer === question.correct) score++;
     });
     return Object.assign({}, state, {
-      questionIndices: indices, answers: answers, score: score,
-      currentIndex: Number.isInteger(state.currentIndex) ? Math.max(0, Math.min(4, state.currentIndex)) : 0,
+      questionIndices: indices,
+      answers: answers,
+      score: score,
+      currentIndex: Number.isInteger(state.currentIndex)
+        ? Math.max(0, Math.min(4, state.currentIndex))
+        : 0,
       isSubmitted: state.isSubmitted === true
     });
   }
@@ -1085,31 +1245,45 @@
           if (typeof client.getConfig === 'function') {
             cfg = await client.getConfig(sk);
           } else if (typeof client.get === 'function') {
-            var rows = await client.get('bb_config?key=eq.' + encodeURIComponent(sk) + '&select=value');
+            var rows = await client.get(
+              'bb_config?key=eq.' + encodeURIComponent(sk) + '&select=value'
+            );
             if (rows && rows.length && rows[0].value) {
-              cfg = (typeof rows[0].value === 'string') ? JSON.parse(rows[0].value) : rows[0].value;
+              cfg = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
             }
           }
           cfg = normalizeTriviaState(cfg, today);
-          if (cfg && progressScore(cfg, 'trivia') > progressScore(bestRemote, 'trivia')) bestRemote = cfg;
+          if (cfg && progressScore(cfg, 'trivia') > progressScore(bestRemote, 'trivia'))
+            bestRemote = cfg;
         } catch (_) {}
       }
 
-      if (userKey !== getTriviaUserKey() || (_triviaState.dateKey && _triviaOwner === userKey && _triviaState.dateKey !== today)) return;
-      var localState = _triviaOwner === userKey && _triviaState.dateKey === today ? _triviaState : null;
+      if (
+        userKey !== getTriviaUserKey() ||
+        (_triviaState.dateKey && _triviaOwner === userKey && _triviaState.dateKey !== today)
+      )
+        return;
+      var localState =
+        _triviaOwner === userKey && _triviaState.dateKey === today ? _triviaState : null;
       if (bestRemote && !localState && typeof localStorage !== 'undefined') {
-        localState = normalizeTriviaState(JSON.parse(localStorage.getItem(userKey + '_' + today)), today);
+        localState = normalizeTriviaState(
+          JSON.parse(localStorage.getItem(userKey + '_' + today)),
+          today
+        );
       }
       if (bestRemote && !localState?.isSubmitted && !bestRemote.isSubmitted && localState) {
-        bestRemote = normalizeTriviaState(Object.assign({}, bestRemote, {
-          answers: Object.assign({}, bestRemote.answers, localState.answers)
-        }), today);
+        bestRemote = normalizeTriviaState(
+          Object.assign({}, bestRemote, {
+            answers: Object.assign({}, bestRemote.answers, localState.answers)
+          }),
+          today
+        );
       }
       if (bestRemote && progressScore(bestRemote, 'trivia') > progressScore(localState, 'trivia')) {
         _triviaOwner = userKey;
         _triviaState = bestRemote;
         if (!bestRemote.isSubmitted) {
-          var nextUnanswered = bestRemote.questionIndices.findIndex(function(_, index) {
+          var nextUnanswered = bestRemote.questionIndices.findIndex(function (_, index) {
             return !Object.hasOwn(bestRemote.answers, index);
           });
           if (nextUnanswered >= 0) bestRemote.currentIndex = nextUnanswered;
@@ -1120,7 +1294,10 @@
           localStorage.setItem(userKey + '_active', json);
         }
         if (_arcadeSubtab === 'trivia') renderTriviaView();
-      } else if (localState && progressScore(localState, 'trivia') > progressScore(bestRemote, 'trivia')) {
+      } else if (
+        localState &&
+        progressScore(localState, 'trivia') > progressScore(bestRemote, 'trivia')
+      ) {
         saveTriviaState(localState);
       }
     } catch (e) {
@@ -1152,7 +1329,7 @@
 
         awardTriviaResult(past);
         saveTriviaState(past);
-        getCandidateUserKeys('bb_trivia_').forEach(function(key) {
+        getCandidateUserKeys('bb_trivia_').forEach(function (key) {
           localStorage.removeItem(key + '_active');
         });
       }
@@ -1162,7 +1339,8 @@
   }
 
   function loadTriviaState(optDate) {
-    var today = (typeof optDate === 'string' && optDate) ? getTodayDateKey(optDate) : getTodayDateKey();
+    var today =
+      typeof optDate === 'string' && optDate ? getTodayDateKey(optDate) : getTodayDateKey();
     var uKey = getTriviaUserKey();
     _triviaOwner = uKey;
 
@@ -1208,7 +1386,13 @@
   function selectTriviaAnswer(optIndex) {
     if (_triviaState.isSubmitted || _triviaOwner !== getTriviaUserKey()) return;
     var question = BB_TRIVIA_QUESTIONS[_triviaState.questionIndices[_triviaState.currentIndex]];
-    if (!question || !Number.isInteger(optIndex) || optIndex < 0 || optIndex >= question.options.length) return;
+    if (
+      !question ||
+      !Number.isInteger(optIndex) ||
+      optIndex < 0 ||
+      optIndex >= question.options.length
+    )
+      return;
     _triviaState.answers[_triviaState.currentIndex] = optIndex;
     saveTriviaState(_triviaState);
     renderTriviaView();
@@ -1231,18 +1415,26 @@
   }
 
   async function submitTriviaQuiz() {
-    if (_triviaSubmitting || _triviaState.isSubmitted || _triviaOwner !== getTriviaUserKey()) return;
+    if (_triviaSubmitting || _triviaState.isSubmitted || _triviaOwner !== getTriviaUserKey())
+      return;
     _triviaSubmitting = true;
     var current = _triviaState;
     var owner = _triviaOwner;
     try {
       var result = normalizeTriviaState(current, current.dateKey);
       var answered = Object.keys(result.answers).length;
-      if (answered < 5 && typeof showConfirmModal === 'function' && !await showConfirmModal(
-        'You have answered ' + answered + ' of 5 questions. Unanswered questions receive 0 points. Submit now?',
-        'Submit Daily BB Trivia?',
-        { confirmText: 'Submit Now', cancelText: 'Review Answers' }
-      )) return;
+      if (
+        answered < 5 &&
+        typeof showConfirmModal === 'function' &&
+        !(await showConfirmModal(
+          'You have answered ' +
+            answered +
+            ' of 5 questions. Unanswered questions receive 0 points. Submit now?',
+          'Submit Daily BB Trivia?',
+          { confirmText: 'Submit Now', cancelText: 'Review Answers' }
+        ))
+      )
+        return;
       if (owner !== getTriviaUserKey() || _triviaState !== current || current.isSubmitted) return;
       result = normalizeTriviaState(current, current.dateKey);
       Object.assign(current, result, { isSubmitted: true, submittedAt: new Date().toISOString() });
@@ -1277,7 +1469,10 @@
   function ensureArcadePageDOM() {
     if (typeof document === 'undefined') return null;
     var page = document.getElementById('page-arcade');
-    var main = document.getElementById('app-main') || document.querySelector('.app-main') || document.querySelector('main');
+    var main =
+      document.getElementById('app-main') ||
+      document.querySelector('.app-main') ||
+      document.querySelector('main');
 
     if (!page) {
       page = document.createElement('section');
@@ -1324,7 +1519,7 @@
     if (!page) return;
 
     // Deactivate other tabs
-    document.querySelectorAll('.page').forEach(function(p) {
+    document.querySelectorAll('.page').forEach(function (p) {
       if (p !== page) p.classList.remove('active');
     });
     page.classList.add('active');
@@ -1332,7 +1527,11 @@
     var stats = getArcadeStats();
     updateArcadeHeaderBadge(stats);
     var owner = getArcadeUserKey();
-    Promise.all([fetchRemoteArcadeStats(), fetchRemoteWordleState(), fetchRemoteTriviaState()]).then(function() {
+    Promise.all([
+      fetchRemoteArcadeStats(),
+      fetchRemoteWordleState(),
+      fetchRemoteTriviaState()
+    ]).then(function () {
       if (owner !== getArcadeUserKey()) return;
       reconcileArcadeRewards();
       if (_arcadeSubtab === 'stats') renderStatsView();
@@ -1341,54 +1540,66 @@
 
     page.innerHTML =
       '<div class="arcade-container">' +
-        '<!-- Header Hero Card -->' +
-        '<div class="card page-header-card arcade-hero-card" style="margin-bottom:14px;">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px;">' +
-            '<div style="display:flex;align-items:center;gap:12px;">' +
-              '<div style="width:40px;height:40px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-                '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg>' +
-              '</div>' +
-              '<div>' +
-                '<div class="page-title" style="margin:0;">1stPJ Arcade</div>' +
-                '<div class="page-subtitle" style="margin:0;">Daily Wordle, Timed Trivia &amp; Gamified Syllabus Hub</div>' +
-              '</div>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:8px;">' +
-              '<div class="arcade-stat-pill" title="Current Daily Streak">' +
-                '<span style="font-weight:700;font-size:14px;color:var(--text);">' + (stats.streak || 0) + '</span>' +
-                '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="color:#f97316;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
-                '<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Streak</span>' +
-              '</div>' +
-              '<div class="arcade-stat-pill" title="Total Earned Credits">' +
-                '<span style="font-weight:700;font-size:14px;color:var(--gold);">' + (stats.credits || 0) + '</span>' +
-                '<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Credits</span>' +
-              '</div>' +
-            '</div>' +
-          '</div>' +
-          '<div class="page-desc">Strengthen your Boys\' Brigade knowledge, awards syllabus, and company history! Play the Daily Wordle and answer BB Trivia to earn Credits and build your daily streak.</div>' +
-        '</div>' +
-
-        '<!-- Subtabs Bar -->' +
-        '<div class="arcade-nav-tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">' +
-          '<button type="button" class="arcade-tab-btn ' + (_arcadeSubtab === 'wordle' ? 'active' : '') + '" onclick="switchArcadeSubtab(\'wordle\')">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 3v18"/><path d="M15 3v18"/><path d="M3 9h18"/><path d="M3 15h18"/></svg> <span>Daily Wordle</span>' +
-          '</button>' +
-          '<button type="button" class="arcade-tab-btn ' + (_arcadeSubtab === 'trivia' ? 'active' : '') + '" onclick="switchArcadeSubtab(\'trivia\')">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg> <span>BB Trivia</span>' +
-          '</button>' +
-          '<button type="button" class="arcade-tab-btn ' + (_arcadeSubtab === 'stats' ? 'active' : '') + '" onclick="switchArcadeSubtab(\'stats\')">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> <span>Rewards &amp; Streaks</span>' +
-          '</button>' +
-          '<button type="button" class="arcade-tab-btn ' + (_arcadeSubtab === 'shop' ? 'active' : '') + '" onclick="switchArcadeSubtab(\'shop\')" title="Profile Cosmetic Shop">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> <span>Cosmetic Shop</span>' +
-          '</button>' +
-          '<button type="button" class="arcade-tab-btn ' + (_arcadeSubtab === 'leaderboard' ? 'active' : '') + '" onclick="switchArcadeSubtab(\'leaderboard\')" title="Arcade Leaderboard">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg> <span>Leaderboard</span>' +
-          '</button>' +
-        '</div>' +
-
-        '<!-- Active Subtab Container -->' +
-        '<div id="arcade-subtab-container"></div>' +
+      '<!-- Header Hero Card -->' +
+      '<div class="card page-header-card arcade-hero-card" style="margin-bottom:14px;">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px;">' +
+      '<div style="display:flex;align-items:center;gap:12px;">' +
+      '<div style="width:40px;height:40px;border-radius:10px;background:rgba(217,163,35,0.15);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="10" y1="12" y2="12"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="15" x2="15.01" y1="13" y2="13"/><line x1="18" x2="18.01" y1="11" y2="11"/><rect width="20" height="12" x="2" y="6" rx="6"/></svg>' +
+      '</div>' +
+      '<div>' +
+      '<div class="page-title" style="margin:0;">1stPJ Arcade</div>' +
+      '<div class="page-subtitle" style="margin:0;">Daily Wordle, Timed Trivia &amp; Gamified Syllabus Hub</div>' +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<div class="arcade-stat-pill" title="Current Daily Streak">' +
+      '<span style="font-weight:700;font-size:14px;color:var(--text);">' +
+      (stats.streak || 0) +
+      '</span>' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="color:#f97316;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
+      '<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Streak</span>' +
+      '</div>' +
+      '<div class="arcade-stat-pill" title="Total Earned Credits">' +
+      '<span style="font-weight:700;font-size:14px;color:var(--gold);">' +
+      (stats.credits || 0) +
+      '</span>' +
+      '<span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">Credits</span>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="page-desc">Strengthen your Boys\' Brigade knowledge, awards syllabus, and company history! Play the Daily Wordle and answer BB Trivia to earn Credits and build your daily streak.</div>' +
+      '</div>' +
+      '<!-- Subtabs Bar -->' +
+      '<div class="arcade-nav-tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">' +
+      '<button type="button" class="arcade-tab-btn ' +
+      (_arcadeSubtab === 'wordle' ? 'active' : '') +
+      '" onclick="switchArcadeSubtab(\'wordle\')">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 3v18"/><path d="M15 3v18"/><path d="M3 9h18"/><path d="M3 15h18"/></svg> <span>Daily Wordle</span>' +
+      '</button>' +
+      '<button type="button" class="arcade-tab-btn ' +
+      (_arcadeSubtab === 'trivia' ? 'active' : '') +
+      '" onclick="switchArcadeSubtab(\'trivia\')">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg> <span>BB Trivia</span>' +
+      '</button>' +
+      '<button type="button" class="arcade-tab-btn ' +
+      (_arcadeSubtab === 'stats' ? 'active' : '') +
+      '" onclick="switchArcadeSubtab(\'stats\')">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> <span>Rewards &amp; Streaks</span>' +
+      '</button>' +
+      '<button type="button" class="arcade-tab-btn ' +
+      (_arcadeSubtab === 'shop' ? 'active' : '') +
+      '" onclick="switchArcadeSubtab(\'shop\')" title="Profile Cosmetic Shop">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> <span>Cosmetic Shop</span>' +
+      '</button>' +
+      '<button type="button" class="arcade-tab-btn ' +
+      (_arcadeSubtab === 'leaderboard' ? 'active' : '') +
+      '" onclick="switchArcadeSubtab(\'leaderboard\')" title="Arcade Leaderboard">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg> <span>Leaderboard</span>' +
+      '</button>' +
+      '</div>' +
+      '<!-- Active Subtab Container -->' +
+      '<div id="arcade-subtab-container"></div>' +
       '</div>';
 
     if (_arcadeSubtab === 'wordle') {
@@ -1398,7 +1609,10 @@
     } else if (_arcadeSubtab === 'shop') {
       if (typeof renderCosmeticShopView === 'function') {
         renderCosmeticShopView();
-      } else if (typeof window !== 'undefined' && typeof window.renderCosmeticShopView === 'function') {
+      } else if (
+        typeof window !== 'undefined' &&
+        typeof window.renderCosmeticShopView === 'function'
+      ) {
         window.renderCosmeticShopView();
       }
     } else if (_arcadeSubtab === 'leaderboard') {
@@ -1420,7 +1634,7 @@
     if (!container) return;
 
     var letterStates = {};
-    _wordleState.guesses.forEach(function(g) {
+    _wordleState.guesses.forEach(function (g) {
       for (var i = 0; i < 5; i++) {
         var char = g.guess[i];
         var state = g.evalResult[i];
@@ -1463,18 +1677,26 @@
     ];
 
     var kbHtml = '<div class="wordle-keyboard">';
-    keyboardLayout.forEach(function(row) {
+    keyboardLayout.forEach(function (row) {
       kbHtml += '<div class="wordle-kb-row">';
-      row.forEach(function(key) {
+      row.forEach(function (key) {
         var kClass = 'wordle-key';
         if (key === 'ENTER' || key === 'BACKSPACE') kClass += ' wide';
         if (letterStates[key]) kClass += ' ' + letterStates[key];
 
         var keyDisplay = key;
         if (key === 'BACKSPACE') {
-          keyDisplay = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>';
+          keyDisplay =
+            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>';
         }
-        kbHtml += '<button type="button" class="' + kClass + '" onclick="handleWordleKey(\'' + key + '\')">' + keyDisplay + '</button>';
+        kbHtml +=
+          '<button type="button" class="' +
+          kClass +
+          '" onclick="handleWordleKey(\'' +
+          key +
+          '\')">' +
+          keyDisplay +
+          '</button>';
       });
       kbHtml += '</div>';
     });
@@ -1485,17 +1707,19 @@
       if (_wordleState.hasWon) {
         statusBanner =
           '<div class="arcade-result-banner success">' +
-            '<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;">' +
-              '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-              '<span>Splendid! You solved today\'s Wordle!</span>' +
-            '</div>' +
-            '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">Awarded +15 Credits! Streak updated. Come back tomorrow for a fresh puzzle!</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;">' +
+          '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+          "<span>Splendid! You solved today's Wordle!</span>" +
+          '</div>' +
+          '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">Awarded +15 Credits! Streak updated. Come back tomorrow for a fresh puzzle!</div>' +
           '</div>';
       } else {
         statusBanner =
           '<div class="arcade-result-banner info">' +
-            '<div style="font-weight:700;font-size:16px;">Good effort! Today\'s word was: <strong>' + _wordleState.word + '</strong></div>' +
-            '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">Daily participation streak recorded. Come back tomorrow to conquer the next puzzle!</div>' +
+          '<div style="font-weight:700;font-size:16px;">Good effort! Today\'s word was: <strong>' +
+          _wordleState.word +
+          '</strong></div>' +
+          '<div style="font-size:12.5px;color:var(--text-secondary);margin-top:4px;">Daily participation streak recorded. Come back tomorrow to conquer the next puzzle!</div>' +
           '</div>';
       }
     }
@@ -1504,77 +1728,86 @@
 
     var sidePanelHtml =
       '<div class="wordle-side-panel">' +
-        '<div class="arcade-side-card wordle-banner-desktop">' +
-          (statusBanner ? statusBanner :
-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
-              '<div style="font-weight:700;font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
-                '<span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>' +
-                'Today\'s Challenge' +
-              '</div>' +
-              '<span class="badge badge-active" style="font-size:11px;">+15 Credits</span>' +
-            '</div>' +
-            '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
-              'Guess the 5-letter BB syllabus term in 6 tries. Letter tiles flip to reveal clues after each guess!' +
-            '</div>' +
-            '<div style="margin-top:10px;font-size:12px;color:var(--text-muted);display:flex;justify-content:space-between;">' +
-              '<span>Attempts used: <strong>' + _wordleState.guesses.length + ' / 6</strong></span>' +
-              '<span>Remaining: <strong>' + (_wordleState.maxTries - _wordleState.guesses.length) + '</strong></span>' +
-            '</div>'
-          ) +
-        '</div>' +
-
-        '<div class="arcade-side-card">' +
-          '<div class="arcade-side-title">' +
-            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
-            '<span>How to Play &amp; Tile Colors</span>' +
+      '<div class="arcade-side-card wordle-banner-desktop">' +
+      (statusBanner
+        ? statusBanner
+        : '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">' +
+          '<div style="font-weight:700;font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:6px;">' +
+          '<span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>' +
+          "Today's Challenge" +
           '</div>' +
-          '<div class="wordle-guide-row">' +
-            '<div class="wordle-guide-tile correct">B</div>' +
-            '<div class="wordle-guide-text"><strong>Green:</strong> Letter is in the word and in the <strong>correct spot</strong>.</div>' +
+          '<span class="badge badge-active" style="font-size:11px;">+15 Credits</span>' +
           '</div>' +
-          '<div class="wordle-guide-row">' +
-            '<div class="wordle-guide-tile present">R</div>' +
-            '<div class="wordle-guide-text"><strong>Gold:</strong> Letter is in the word, but in the <strong>wrong spot</strong>.</div>' +
+          '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
+          'Guess the 5-letter BB syllabus term in 6 tries. Letter tiles flip to reveal clues after each guess!' +
           '</div>' +
-          '<div class="wordle-guide-row">' +
-            '<div class="wordle-guide-tile absent">X</div>' +
-            '<div class="wordle-guide-text"><strong>Dark:</strong> Letter is <strong>not in the word</strong> in any spot.</div>' +
-          '</div>' +
-        '</div>' +
-
-
-        '<div class="arcade-side-card">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:16px;">🔥</span>' +
-              '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' + (stats.streak || 0) + ' Day Streak</span>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:16px;">🪙</span>' +
-              '<span style="font-size:13px;font-weight:700;color:var(--gold);">' + (stats.credits || 0) + ' Credits</span>' +
-            '</div>' +
-          '</div>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
-            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'trivia\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Play BB Trivia</button>' +
-            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'shop\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Cosmetic Shop</button>' +
-          '</div>' +
-        '</div>' +
+          '<div style="margin-top:10px;font-size:12px;color:var(--text-muted);display:flex;justify-content:space-between;">' +
+          '<span>Attempts used: <strong>' +
+          _wordleState.guesses.length +
+          ' / 6</strong></span>' +
+          '<span>Remaining: <strong>' +
+          (_wordleState.maxTries - _wordleState.guesses.length) +
+          '</strong></span>' +
+          '</div>') +
+      '</div>' +
+      '<div class="arcade-side-card">' +
+      '<div class="arcade-side-title">' +
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+      '<span>How to Play &amp; Tile Colors</span>' +
+      '</div>' +
+      '<div class="wordle-guide-row">' +
+      '<div class="wordle-guide-tile correct">B</div>' +
+      '<div class="wordle-guide-text"><strong>Green:</strong> Letter is in the word and in the <strong>correct spot</strong>.</div>' +
+      '</div>' +
+      '<div class="wordle-guide-row">' +
+      '<div class="wordle-guide-tile present">R</div>' +
+      '<div class="wordle-guide-text"><strong>Gold:</strong> Letter is in the word, but in the <strong>wrong spot</strong>.</div>' +
+      '</div>' +
+      '<div class="wordle-guide-row">' +
+      '<div class="wordle-guide-tile absent">X</div>' +
+      '<div class="wordle-guide-text"><strong>Dark:</strong> Letter is <strong>not in the word</strong> in any spot.</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="arcade-side-card">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="font-size:16px;">🔥</span>' +
+      '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' +
+      (stats.streak || 0) +
+      ' Day Streak</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="font-size:16px;">🪙</span>' +
+      '<span style="font-size:13px;font-weight:700;color:var(--gold);">' +
+      (stats.credits || 0) +
+      ' Credits</span>' +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'trivia\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Play BB Trivia</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'shop\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Cosmetic Shop</button>' +
+      '</div>' +
+      '</div>' +
       '</div>';
 
     container.innerHTML =
       '<div class="wordle-desktop-grid">' +
-        '<div class="card wordle-card wordle-game-card">' +
-          '<div style="text-align:center;margin-bottom:14px;width:100%;">' +
-            '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);">Daily Wordle</div>' +
-            '<div style="font-size:12px;color:var(--text-muted);">Guess today\'s 5-letter word in 6 tries. Green = correct spot, Gold = wrong spot.</div>' +
-          '</div>' +
-          '<div class="wordle-banner-mobile">' + statusBanner + '</div>' +
-          '<div class="wordle-board-wrapper">' +
-            '<div class="wordle-board">' + rowsHtml + '</div>' +
-          '</div>' +
-          kbHtml +
-        '</div>' +
-        sidePanelHtml +
+      '<div class="card wordle-card wordle-game-card">' +
+      '<div style="text-align:center;margin-bottom:14px;width:100%;">' +
+      '<div style="font-family:var(--font-headline);font-size:18px;font-weight:700;color:var(--text);">Daily Wordle</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);">Guess today\'s 5-letter word in 6 tries. Green = correct spot, Gold = wrong spot.</div>' +
+      '</div>' +
+      '<div class="wordle-banner-mobile">' +
+      statusBanner +
+      '</div>' +
+      '<div class="wordle-board-wrapper">' +
+      '<div class="wordle-board">' +
+      rowsHtml +
+      '</div>' +
+      '</div>' +
+      kbHtml +
+      '</div>' +
+      sidePanelHtml +
       '</div>';
   }
 
@@ -1590,54 +1823,81 @@
       if (!qObj) continue;
 
       var userAnsIdx = _triviaState.answers[i];
-      var isCorrect = (userAnsIdx === qObj.correct);
-      var isAnswered = (userAnsIdx !== undefined && userAnsIdx !== null);
+      var isCorrect = userAnsIdx === qObj.correct;
+      var isAnswered = userAnsIdx !== undefined && userAnsIdx !== null;
       var userAnsText = isAnswered ? qObj.options[userAnsIdx] : 'No answer submitted';
 
       reviewHtml +=
-        '<div class="card trivia-review-card" style="padding:14px 16px;margin-bottom:10px;background:var(--bg-card-subtle, rgba(255,255,255,0.03));border:1px solid ' + (isCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)') + ';border-radius:10px;">' +
-          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px;">' +
-            '<div style="font-weight:700;font-size:14px;color:var(--text);">' + (i + 1) + '. ' + qObj.q + '</div>' +
-            '<span class="badge ' + (isCorrect ? 'badge-active' : 'badge-inactive') + '" style="flex-shrink:0;">' + (isCorrect ? 'Correct' : 'Incorrect') + '</span>' +
-          '</div>' +
-          '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">' +
-            '<strong>Your answer:</strong> <span style="color:' + (isCorrect ? '#34d399' : '#f87171') + ';">' + userAnsText + '</span>' +
-            (!isCorrect ? ' &middot; <strong>Correct answer:</strong> <span style="color:#34d399;">' + qObj.options[qObj.correct] + '</span>' : '') +
-          '</div>' +
-          '<div class="trivia-expl-box ' + (isCorrect ? 'correct' : 'incorrect') + '" style="margin-top:6px;padding:8px 12px;font-size:12px;">' +
-            '<strong>Handbook Note:</strong> ' + qObj.expl +
-          '</div>' +
+        '<div class="card trivia-review-card" style="padding:14px 16px;margin-bottom:10px;background:var(--bg-card-subtle, rgba(255,255,255,0.03));border:1px solid ' +
+        (isCorrect ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)') +
+        ';border-radius:10px;">' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px;">' +
+        '<div style="font-weight:700;font-size:14px;color:var(--text);">' +
+        (i + 1) +
+        '. ' +
+        qObj.q +
+        '</div>' +
+        '<span class="badge ' +
+        (isCorrect ? 'badge-active' : 'badge-inactive') +
+        '" style="flex-shrink:0;">' +
+        (isCorrect ? 'Correct' : 'Incorrect') +
+        '</span>' +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">' +
+        '<strong>Your answer:</strong> <span style="color:' +
+        (isCorrect ? '#34d399' : '#f87171') +
+        ';">' +
+        userAnsText +
+        '</span>' +
+        (!isCorrect
+          ? ' &middot; <strong>Correct answer:</strong> <span style="color:#34d399;">' +
+            qObj.options[qObj.correct] +
+            '</span>'
+          : '') +
+        '</div>' +
+        '<div class="trivia-expl-box ' +
+        (isCorrect ? 'correct' : 'incorrect') +
+        '" style="margin-top:6px;padding:8px 12px;font-size:12px;">' +
+        '<strong>Handbook Note:</strong> ' +
+        qObj.expl +
+        '</div>' +
         '</div>';
     }
 
     container.innerHTML =
       '<div class="card trivia-card" style="padding:24px 20px;">' +
-        '<!-- Header Result Banner -->' +
-        '<div class="arcade-result-banner success" style="margin-bottom:18px;">' +
-          '<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;">' +
-            '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-            '<span>Today\'s BB Trivia Complete!</span>' +
-          '</div>' +
-          '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">' +
-            'You scored <strong>' + _triviaState.score + ' / 5</strong> (' + pct + '%) &middot; Awarded <strong>+' + earned + ' Credits</strong>. Daily streak recorded!' +
-          '</div>' +
-          '<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">' +
-            'You can only take the quiz once per day. Come back tomorrow for a fresh set of questions!' +
-          '</div>' +
-        '</div>' +
-
-        '<!-- Detailed Question Review Grid -->' +
-        '<div style="margin-bottom:18px;">' +
-          '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">Question Review &amp; Syllabus Explanations</div>' +
-          '<div class="trivia-review-grid">' + reviewHtml + '</div>' +
-        '</div>' +
-
-        '<!-- Footer Action Button -->' +
-        '<div style="text-align:center;">' +
-          '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'stats\')" style="padding:9px 24px;">' +
-            'View Streaks &amp; Credits' +
-          '</button>' +
-        '</div>' +
+      '<!-- Header Result Banner -->' +
+      '<div class="arcade-result-banner success" style="margin-bottom:18px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;">' +
+      '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#10b981;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+      "<span>Today's BB Trivia Complete!</span>" +
+      '</div>' +
+      '<div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">' +
+      'You scored <strong>' +
+      _triviaState.score +
+      ' / 5</strong> (' +
+      pct +
+      '%) &middot; Awarded <strong>+' +
+      earned +
+      ' Credits</strong>. Daily streak recorded!' +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);margin-top:6px;">' +
+      'You can only take the quiz once per day. Come back tomorrow for a fresh set of questions!' +
+      '</div>' +
+      '</div>' +
+      '<!-- Detailed Question Review Grid -->' +
+      '<div style="margin-bottom:18px;">' +
+      '<div style="font-family:var(--font-headline);font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">Question Review &amp; Syllabus Explanations</div>' +
+      '<div class="trivia-review-grid">' +
+      reviewHtml +
+      '</div>' +
+      '</div>' +
+      '<!-- Footer Action Button -->' +
+      '<div style="text-align:center;">' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'stats\')" style="padding:9px 24px;">' +
+      'View Streaks &amp; Credits' +
+      '</button>' +
+      '</div>' +
       '</div>';
   }
 
@@ -1660,97 +1920,119 @@
     var answeredTotal = Object.keys(_triviaState.answers).length;
 
     var optsHtml = '';
-    currentQ.options.forEach(function(opt, idx) {
-      var isSelected = (chosenAnswer === idx);
+    currentQ.options.forEach(function (opt, idx) {
+      var isSelected = chosenAnswer === idx;
       var optClass = 'trivia-opt-btn' + (isSelected ? ' selected' : '');
       optsHtml +=
-        '<button type="button" class="' + optClass + '" onclick="selectTriviaAnswer(' + idx + ')" aria-pressed="' + isSelected + '">' +
-          '<span class="opt-letter">' + String.fromCharCode(65 + idx) + '</span>' +
-          '<span class="opt-text">' + opt + '</span>' +
-          (isSelected ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto;color:var(--accent);"><polyline points="20 6 9 17 4 12"/></svg>' : '') +
+        '<button type="button" class="' +
+        optClass +
+        '" onclick="selectTriviaAnswer(' +
+        idx +
+        ')" aria-pressed="' +
+        isSelected +
+        '">' +
+        '<span class="opt-letter">' +
+        String.fromCharCode(65 + idx) +
+        '</span>' +
+        '<span class="opt-text">' +
+        opt +
+        '</span>' +
+        (isSelected
+          ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto;color:var(--accent);"><polyline points="20 6 9 17 4 12"/></svg>'
+          : '') +
         '</button>';
     });
 
-    var isLastQuestion = (currentIdx === 4);
+    var isLastQuestion = currentIdx === 4;
     var stats = getArcadeStats();
 
     var triviaSidePanelHtml =
       '<div class="trivia-side-panel">' +
-        '<div class="arcade-side-card">' +
-          '<div class="arcade-side-title">' +
-            '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>' +
-            '<span>Daily Quiz Rules</span>' +
-          '</div>' +
-          '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
-            '<div style="margin-bottom:6px;">&bull; <strong>5 Questions Daily:</strong> Selected each morning from the BB handbook.</div>' +
-            '<div style="margin-bottom:6px;">&bull; <strong>+5 Credits:</strong> Awarded for every correct answer (up to +25 Credits per day).</div>' +
-            '<div>&bull; <strong>1 Attempt Per Day:</strong> Take your time to review syllabus notes before submitting!</div>' +
-          '</div>' +
-        '</div>' +
-
-
-        '<div class="arcade-side-card">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:16px;">🔥</span>' +
-              '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' + (stats.streak || 0) + ' Day Streak</span>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:6px;">' +
-              '<span style="font-size:16px;">🪙</span>' +
-              '<span style="font-size:13px;font-weight:700;color:var(--gold);">' + (stats.credits || 0) + ' Credits</span>' +
-            '</div>' +
-          '</div>' +
-          '<div style="display:flex;gap:8px;">' +
-            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'wordle\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Play Wordle</button>' +
-            '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'shop\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Cosmetic Shop</button>' +
-          '</div>' +
-        '</div>' +
+      '<div class="arcade-side-card">' +
+      '<div class="arcade-side-title">' +
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>' +
+      '<span>Daily Quiz Rules</span>' +
+      '</div>' +
+      '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.5;">' +
+      '<div style="margin-bottom:6px;">&bull; <strong>5 Questions Daily:</strong> Selected each morning from the BB handbook.</div>' +
+      '<div style="margin-bottom:6px;">&bull; <strong>+5 Credits:</strong> Awarded for every correct answer (up to +25 Credits per day).</div>' +
+      '<div>&bull; <strong>1 Attempt Per Day:</strong> Take your time to review syllabus notes before submitting!</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="arcade-side-card">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="font-size:16px;">🔥</span>' +
+      '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">' +
+      (stats.streak || 0) +
+      ' Day Streak</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;">' +
+      '<span style="font-size:16px;">🪙</span>' +
+      '<span style="font-size:13px;font-weight:700;color:var(--gold);">' +
+      (stats.credits || 0) +
+      ' Credits</span>' +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'wordle\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Play Wordle</button>' +
+      '<button type="button" class="portal-btn portal-btn-secondary" onclick="switchArcadeSubtab(\'shop\')" style="flex:1;padding:8px 12px;font-size:12px;justify-content:center;">Cosmetic Shop</button>' +
+      '</div>' +
+      '</div>' +
       '</div>';
 
     container.innerHTML =
       '<div class="trivia-desktop-grid">' +
-        '<div class="card trivia-card">' +
-          '<!-- Header: Question Counter & Progress -->' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
-            '<div style="font-family:var(--font-headline);font-weight:700;color:var(--gold);font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">' +
-              'Question ' + (currentIdx + 1) + ' of 5' +
-            '</div>' +
-            '<div class="trivia-answered-badge">' +
-              '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">' + answeredTotal + ' of 5 answered</span>' +
-            '</div>' +
-          '</div>' +
-
-          '<!-- Progress Bar (Determinate: 20% on Q1, 100% on Q5) -->' +
-          '<div class="trivia-progress-track" role="progressbar" aria-valuenow="' + (currentIdx + 1) + '" aria-valuemin="1" aria-valuemax="5" aria-label="Quiz progress">' +
-            '<div id="trivia-progress-bar" class="trivia-progress-bar" style="width:' + progressPct + '%;"></div>' +
-          '</div>' +
-
-          '<!-- Question Prompt -->' +
-          '<div class="trivia-question-text">' + currentQ.q + '</div>' +
-
-          '<!-- Options List -->' +
-          '<div class="trivia-options-grid">' + optsHtml + '</div>' +
-
-          '<!-- Navigation Controls -->' +
-          '<div class="trivia-nav-row">' +
-            '<button type="button" class="portal-btn portal-btn-secondary trivia-nav-btn" onclick="prevTriviaQuestion()"' + (currentIdx === 0 ? ' disabled' : '') + '>' +
-              '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>' +
-              '<span>Previous</span>' +
-            '</button>' +
-
-            (isLastQuestion ?
-              '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn trivia-submit-btn" onclick="submitTriviaQuiz()">' +
-                '<span>Submit Quiz</span>' +
-                '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
-              '</button>' :
-              '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn" onclick="nextTriviaQuestion()">' +
-                '<span>Next</span>' +
-                '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' +
-              '</button>'
-            ) +
-          '</div>' +
-        '</div>' +
-        triviaSidePanelHtml +
+      '<div class="card trivia-card">' +
+      '<!-- Header: Question Counter & Progress -->' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +
+      '<div style="font-family:var(--font-headline);font-weight:700;color:var(--gold);font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">' +
+      'Question ' +
+      (currentIdx + 1) +
+      ' of 5' +
+      '</div>' +
+      '<div class="trivia-answered-badge">' +
+      '<span style="font-size:12px;font-weight:600;color:var(--text-secondary);">' +
+      answeredTotal +
+      ' of 5 answered</span>' +
+      '</div>' +
+      '</div>' +
+      '<!-- Progress Bar (Determinate: 20% on Q1, 100% on Q5) -->' +
+      '<div class="trivia-progress-track" role="progressbar" aria-valuenow="' +
+      (currentIdx + 1) +
+      '" aria-valuemin="1" aria-valuemax="5" aria-label="Quiz progress">' +
+      '<div id="trivia-progress-bar" class="trivia-progress-bar" style="width:' +
+      progressPct +
+      '%;"></div>' +
+      '</div>' +
+      '<!-- Question Prompt -->' +
+      '<div class="trivia-question-text">' +
+      currentQ.q +
+      '</div>' +
+      '<!-- Options List -->' +
+      '<div class="trivia-options-grid">' +
+      optsHtml +
+      '</div>' +
+      '<!-- Navigation Controls -->' +
+      '<div class="trivia-nav-row">' +
+      '<button type="button" class="portal-btn portal-btn-secondary trivia-nav-btn" onclick="prevTriviaQuestion()"' +
+      (currentIdx === 0 ? ' disabled' : '') +
+      '>' +
+      '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>' +
+      '<span>Previous</span>' +
+      '</button>' +
+      (isLastQuestion
+        ? '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn trivia-submit-btn" onclick="submitTriviaQuiz()">' +
+          '<span>Submit Quiz</span>' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' +
+          '</button>'
+        : '<button type="button" class="portal-btn portal-btn-primary trivia-nav-btn" onclick="nextTriviaQuestion()">' +
+          '<span>Next</span>' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>' +
+          '</button>') +
+      '</div>' +
+      '</div>' +
+      triviaSidePanelHtml +
       '</div>';
   }
 
@@ -1763,56 +2045,58 @@
 
     container.innerHTML =
       '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr));gap:clamp(10px, 2.5vw, 16px);margin-bottom:20px;width:100%;box-sizing:border-box;">' +
-        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
-          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(249,115,22,0.15);color:#f97316;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
-          '</div>' +
-          '<div style="min-width:0;flex:1;">' +
-            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Current Daily Streak</div>' +
-            '<div style="font-size:24px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.streak || 0) + ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
-          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(217,163,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>' +
-          '</div>' +
-          '<div style="min-width:0;flex:1;">' +
-            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Earned Credits</div>' +
-            '<div style="font-size:24px;font-weight:800;color:var(--gold);margin-top:2px;">' + (stats.credits || 0) + '</div>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
-          '<div style="width:48px;height:48px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-            '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
-          '</div>' +
-          '<div style="min-width:0;flex:1;">' +
-            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">All-Time Best Streak</div>' +
-            '<div style="font-size:24px;font-weight:800;color:var(--text);margin-top:2px;">' + (stats.bestStreak || 0) + ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
-          '</div>' +
-        '</div>' +
+      '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
+      '<div style="width:48px;height:48px;border-radius:12px;background:rgba(249,115,22,0.15);color:#f97316;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
       '</div>' +
-
+      '<div style="min-width:0;flex:1;">' +
+      '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Current Daily Streak</div>' +
+      '<div style="font-size:24px;font-weight:800;color:var(--text);margin-top:2px;">' +
+      (stats.streak || 0) +
+      ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
+      '<div style="width:48px;height:48px;border-radius:12px;background:rgba(217,163,35,0.15);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>' +
+      '</div>' +
+      '<div style="min-width:0;flex:1;">' +
+      '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Earned Credits</div>' +
+      '<div style="font-size:24px;font-weight:800;color:var(--gold);margin-top:2px;">' +
+      (stats.credits || 0) +
+      '</div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="card" style="display:flex;align-items:center;gap:14px;padding:clamp(14px, 3.5vw, 20px);box-sizing:border-box;min-width:0;">' +
+      '<div style="width:48px;height:48px;border-radius:12px;background:rgba(16,185,129,0.15);color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' +
+      '</div>' +
+      '<div style="min-width:0;flex:1;">' +
+      '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">All-Time Best Streak</div>' +
+      '<div style="font-size:24px;font-weight:800;color:var(--text);margin-top:2px;">' +
+      (stats.bestStreak || 0) +
+      ' <span style="font-size:13px;font-weight:500;color:var(--text-secondary);">days</span></div>' +
+      '</div>' +
+      '</div>' +
+      '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 280px), 1fr));gap:clamp(12px, 3vw, 16px);width:100%;box-sizing:border-box;">' +
-        '<div class="card" style="padding:clamp(14px, 4vw, 22px);box-sizing:border-box;word-break:break-word;overflow:hidden;min-width:0;">' +
-          '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">How Daily Streaks Work</div>' +
-          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
-            '<p style="margin-bottom:8px;"><strong>Consecutive Participation:</strong> Play either Daily Wordle or BB Trivia each calendar day to maintain and increment your streak. If you miss a calendar day, the streak resets to 0.</p>' +
-            '<p style="margin:0;">Building long streaks will be displayed on profile and 1stPJ Arcade leaderboard</p>' +
-          '</div>' +
-        '</div>' +
-
-        '<div class="card" style="padding:clamp(14px, 4vw, 22px);box-sizing:border-box;word-break:break-word;overflow:hidden;min-width:0;">' +
-          '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Credit Earning Rates &amp; Spending</div>' +
-          '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
-            '<ul style="margin:6px 0 12px 0;padding-left:18px;">' +
-              '<li style="margin-bottom:4px;"><strong>Daily Wordle:</strong> +15 Credits for successfully solving today\'s 5-letter word puzzle.</li>' +
-              '<li><strong>BB Trivia:</strong> +5 Credits for every correct multiple-choice answer (up to +25 Credits per 5-question round).</li>' +
-            '</ul>' +
-            '<p style="margin:0;">Spend your earned credits in the <strong>Cosmetic Shop</strong>.</p>' +
-          '</div>' +
-        '</div>' +
+      '<div class="card" style="padding:clamp(14px, 4vw, 22px);box-sizing:border-box;word-break:break-word;overflow:hidden;min-width:0;">' +
+      '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">How Daily Streaks Work</div>' +
+      '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
+      '<p style="margin-bottom:8px;"><strong>Consecutive Participation:</strong> Play either Daily Wordle or BB Trivia each calendar day to maintain and increment your streak. If you miss a calendar day, the streak resets to 0.</p>' +
+      '<p style="margin:0;">Building long streaks will be displayed on profile and 1stPJ Arcade leaderboard</p>' +
+      '</div>' +
+      '</div>' +
+      '<div class="card" style="padding:clamp(14px, 4vw, 22px);box-sizing:border-box;word-break:break-word;overflow:hidden;min-width:0;">' +
+      '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Credit Earning Rates &amp; Spending</div>' +
+      '<div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">' +
+      '<ul style="margin:6px 0 12px 0;padding-left:18px;">' +
+      '<li style="margin-bottom:4px;"><strong>Daily Wordle:</strong> +15 Credits for successfully solving today\'s 5-letter word puzzle.</li>' +
+      '<li><strong>BB Trivia:</strong> +5 Credits for every correct multiple-choice answer (up to +25 Credits per 5-question round).</li>' +
+      '</ul>' +
+      '<p style="margin:0;">Spend your earned credits in the <strong>Cosmetic Shop</strong>.</p>' +
+      '</div>' +
+      '</div>' +
       '</div>';
   }
 
@@ -1820,7 +2104,7 @@
   var _arcadeLeaderboardCategory = 'streak'; // 'streak' | 'credits'
 
   function switchArcadeLeaderboardCategory(cat) {
-    _arcadeLeaderboardCategory = (cat === 'credits') ? 'credits' : 'streak';
+    _arcadeLeaderboardCategory = cat === 'credits' ? 'credits' : 'streak';
     renderArcadeLeaderboardView();
   }
 
@@ -1828,15 +2112,31 @@
     if (typeof getUniversalMemberAvatarHtml === 'function') {
       return getUniversalMemberAvatarHtml(name, email, size, { showPresence: true });
     }
-    if (typeof window !== 'undefined' && typeof window.getUniversalMemberAvatarHtml === 'function') {
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.getUniversalMemberAvatarHtml === 'function'
+    ) {
       return window.getUniversalMemberAvatarHtml(name, email, size, { showPresence: true });
     }
     var initial = (name || 'M').trim().charAt(0).toUpperCase();
     var colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#eab308'];
     var hash = 0;
-    for (var i = 0; i < (name || '').length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
+    for (var i = 0; i < (name || '').length; i++)
+      hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
     var color = colors[Math.abs(hash) % colors.length];
-    return '<span class="member-avatar-unified" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:' + color + ';display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:' + Math.round(size * 0.45) + 'px;">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : '?') + '</span>';
+    return (
+      '<span class="member-avatar-unified" style="width:' +
+      size +
+      'px;height:' +
+      size +
+      'px;border-radius:50%;background:' +
+      color +
+      ';display:inline-flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:' +
+      Math.round(size * 0.45) +
+      'px;">' +
+      (typeof escapeHtml === 'function' ? escapeHtml(initial) : '?') +
+      '</span>'
+    );
   }
 
   function arcadeCount(value) {
@@ -1846,11 +2146,16 @@
   function getLeaderboardMemberStats(member) {
     var key = 'bb_arcade_' + String(member.ic || member.email).replace(/[^a-zA-Z0-9_-]/g, '_');
     try {
-      var snapshot = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem(key)) : null;
+      var snapshot =
+        typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem(key)) : null;
       var stats = _arcadeLeaderboardStats.get(key) || snapshot;
       if (!stats || typeof stats !== 'object') return null;
       var today = getTodayDateKey();
-      return Object.assign({}, stats, { streak: [today, getYesterdayDateKey(today)].includes(stats.lastPlayedDate) ? stats.streak : 0 });
+      return Object.assign({}, stats, {
+        streak: [today, getYesterdayDateKey(today)].includes(stats.lastPlayedDate)
+          ? stats.streak
+          : 0
+      });
     } catch (_) {
       return null;
     }
@@ -1861,22 +2166,41 @@
   async function syncArcadeLeaderboard() {
     var client = getArcadeSupaClient();
     var owner = getArcadeUserKey();
-    if (!client || typeof client.batchConfigGet !== 'function' || owner === 'bb_arcade_guest' || _arcadeLeaderboardSync) return;
+    if (
+      !client ||
+      typeof client.batchConfigGet !== 'function' ||
+      owner === 'bb_arcade_guest' ||
+      _arcadeLeaderboardSync
+    )
+      return;
     try {
-      var roster = JSON.parse(localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members'));
+      var roster = JSON.parse(
+        localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members')
+      );
       if (!Array.isArray(roster)) return;
-      var keys = Array.from(new Set(roster.filter(function(member) {
-        return member && (member.ic || member.email) &&
-          !(typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member));
-      }).map(function(member) {
-        return 'bb_arcade_' + String(member.ic || member.email).replace(/[^a-zA-Z0-9_-]/g, '_');
-      })));
+      var keys = Array.from(
+        new Set(
+          roster
+            .filter(function (member) {
+              return (
+                member &&
+                (member.ic || member.email) &&
+                !(typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member))
+              );
+            })
+            .map(function (member) {
+              return (
+                'bb_arcade_' + String(member.ic || member.email).replace(/[^a-zA-Z0-9_-]/g, '_')
+              );
+            })
+        )
+      );
       var next = new Map();
       _arcadeLeaderboardSync = owner;
       for (var i = 0; i < keys.length; i += 40) {
         var slice = keys.slice(i, i + 40);
         var values = await client.batchConfigGet(slice);
-        slice.forEach(function(key) {
+        slice.forEach(function (key) {
           if (values && values[key] && typeof values[key] === 'object') next.set(key, values[key]);
         });
       }
@@ -1894,7 +2218,9 @@
     category = category || _arcadeLeaderboardCategory || 'streak';
 
     if (typeof cleanMembersCache === 'function') {
-      try { cleanMembersCache(); } catch (_) {}
+      try {
+        cleanMembersCache();
+      } catch (_) {}
     }
 
     var roster = [];
@@ -1906,42 +2232,64 @@
 
     var currentId = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : '';
     var currentName = currentId ? sessionGet('name') : '';
-    if (currentName) roster = roster.concat({
-      ic: currentId, email: sessionGet('email'), name: currentName, rank: sessionGet('rank'), squad: sessionGet('squad')
-    });
+    if (currentName)
+      roster = roster.concat({
+        ic: currentId,
+        email: sessionGet('email'),
+        name: currentName,
+        rank: sessionGet('rank'),
+        squad: sessionGet('squad')
+      });
 
     var seen = new Map();
-    roster.forEach(function(member) {
-      if (!member || !member.name || (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member))) return;
-      if (['deleted', 'archived_deleted'].includes(member.department) || member.rank === 'Deleted') return;
-      var id = String(member.ic || member.email || '').trim().toLowerCase();
+    roster.forEach(function (member) {
+      if (
+        !member ||
+        !member.name ||
+        (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member))
+      )
+        return;
+      if (['deleted', 'archived_deleted'].includes(member.department) || member.rank === 'Deleted')
+        return;
+      var id = String(member.ic || member.email || '')
+        .trim()
+        .toLowerCase();
       if (!id) return;
       var isCurrentUser = Boolean(currentId && id === String(currentId).trim().toLowerCase());
       var stats = isCurrentUser ? getArcadeStats() : getLeaderboardMemberStats(member);
       if (!stats || (!isCurrentUser && !(stats.credits > 0 || stats.streak > 0))) return;
-      var name = typeof window !== 'undefined' && typeof window.maskMemberNameForDirectory === 'function'
-        ? window.maskMemberNameForDirectory(member.name, isCurrentUser) : member.name;
+      var name =
+        typeof window !== 'undefined' && typeof window.maskMemberNameForDirectory === 'function'
+          ? window.maskMemberNameForDirectory(member.name, isCurrentUser)
+          : member.name;
       seen.set(id, {
-        name: name, email: member.email || '', rank: member.rank || 'Member',
+        name: name,
+        email: member.email || '',
+        rank: member.rank || 'Member',
         platoon: member.squad || member.platoon || 'General Section',
-        streak: arcadeCount(stats.streak), credits: arcadeCount(stats.credits), isCurrentUser: isCurrentUser
+        streak: arcadeCount(stats.streak),
+        credits: arcadeCount(stats.credits),
+        isCurrentUser: isCurrentUser
       });
     });
     var baseMembers = Array.from(seen.values());
 
     // Sort descending by selected metric
-    baseMembers.sort(function(a, b) {
-      var valA = (category === 'streak') ? (a.streak || 0) : (a.credits || 0);
-      var valB = (category === 'streak') ? (b.streak || 0) : (b.credits || 0);
+    baseMembers.sort(function (a, b) {
+      var valA = category === 'streak' ? a.streak || 0 : a.credits || 0;
+      var valB = category === 'streak' ? b.streak || 0 : b.credits || 0;
       if (valB !== valA) return valB - valA;
       return (a.name || '').localeCompare(b.name || '');
     });
 
     // Keep stable display order and share the rank when scores tie.
     var metric = category === 'streak' ? 'streak' : 'credits';
-    baseMembers.forEach(function(m, idx) {
+    baseMembers.forEach(function (m, idx) {
       m.rankIndex = idx + 1;
-      m.displayRank = idx > 0 && baseMembers[idx - 1][metric] === m[metric] ? baseMembers[idx - 1].displayRank : idx + 1;
+      m.displayRank =
+        idx > 0 && baseMembers[idx - 1][metric] === m[metric]
+          ? baseMembers[idx - 1].displayRank
+          : idx + 1;
     });
 
     return baseMembers;
@@ -1952,7 +2300,7 @@
     if (!container) return;
 
     var category = _arcadeLeaderboardCategory || 'streak';
-    var isStreak = (category === 'streak');
+    var isStreak = category === 'streak';
     var metricUnit = isStreak ? 'days' : 'Credits';
     var metricTitle = isStreak ? 'Daily Streak' : 'Available Credits';
 
@@ -1963,84 +2311,140 @@
 
     function renderPodiumPillar(item, stepNum) {
       if (!item) {
-        return '<div class="podium-column">' +
+        return (
+          '<div class="podium-column">' +
           '<div class="podium-header">' +
-            '<div class="podium-name" style="color:var(--text-muted);">-</div>' +
-            '<div class="podium-avatar-wrap"><div class="podium-avatar" style="width:44px;height:44px;background:var(--surface-tint);color:var(--text-muted);border:2px solid var(--border-subtle);">?</div></div>' +
+          '<div class="podium-name" style="color:var(--text-muted);">-</div>' +
+          '<div class="podium-avatar-wrap"><div class="podium-avatar" style="width:44px;height:44px;background:var(--surface-tint);color:var(--text-muted);border:2px solid var(--border-subtle);">?</div></div>' +
           '</div>' +
-          '<div class="podium-step podium-step-' + stepNum + '">' +
-            '<div class="podium-step-num">#' + stepNum + '</div>' +
-            '<div class="podium-step-val">-</div>' +
+          '<div class="podium-step podium-step-' +
+          stepNum +
+          '">' +
+          '<div class="podium-step-num">#' +
+          stepNum +
           '</div>' +
-        '</div>';
+          '<div class="podium-step-val">-</div>' +
+          '</div>' +
+          '</div>'
+        );
       }
 
-      var avatarSize = (stepNum === 1) ? 52 : 44;
+      var avatarSize = stepNum === 1 ? 52 : 44;
       var avatarHtml = getLeaderboardAvatarHtml(item.name, item.email, avatarSize, stepNum);
-      var val = isStreak ? (item.streak || 0) : (item.credits || 0);
-      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(item.name) : item.name;
-      var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(item.rank || '') : item.rank;
+      var val = isStreak ? item.streak || 0 : item.credits || 0;
+      var safeName = typeof escapeHtml === 'function' ? escapeHtml(item.name) : item.name;
+      var safeRank = typeof escapeHtml === 'function' ? escapeHtml(item.rank || '') : item.rank;
 
-      return '<div class="podium-column">' +
+      return (
+        '<div class="podium-column">' +
         '<div class="podium-header">' +
-          // 1. NAME IS DISPLAYED ON TOP OF PROFILE ICON/PICTURE
-          '<div class="podium-name" title="' + safeName + '">' +
-            safeName + (item.isCurrentUser ? ' <span style="color:var(--accent);font-size:11px;">(You)</span>' : '') +
-          '</div>' +
-          // 2. PROFILE ICON/PICTURE UNDER NAME
-          '<div class="podium-avatar-wrap">' +
-            avatarHtml +
-          '</div>' +
+        // 1. NAME IS DISPLAYED ON TOP OF PROFILE ICON/PICTURE
+        '<div class="podium-name" title="' +
+        safeName +
+        '">' +
+        safeName +
+        (item.isCurrentUser
+          ? ' <span style="color:var(--accent);font-size:11px;">(You)</span>'
+          : '') +
+        '</div>' +
+        // 2. PROFILE ICON/PICTURE UNDER NAME
+        '<div class="podium-avatar-wrap">' +
+        avatarHtml +
+        '</div>' +
         '</div>' +
         // 3. PODIUM PILLAR STEP
-        '<div class="podium-step podium-step-' + stepNum + '">' +
-          '<div class="podium-step-num">#' + item.displayRank + '</div>' +
-          '<div class="podium-step-val">' + val + ' ' + metricUnit + '</div>' +
-          (safeRank ? '<div class="podium-step-sub">' + safeRank + '</div>' : '') +
+        '<div class="podium-step podium-step-' +
+        stepNum +
+        '">' +
+        '<div class="podium-step-num">#' +
+        item.displayRank +
         '</div>' +
-      '</div>';
+        '<div class="podium-step-val">' +
+        val +
+        ' ' +
+        metricUnit +
+        '</div>' +
+        (safeRank ? '<div class="podium-step-sub">' + safeRank + '</div>' : '') +
+        '</div>' +
+        '</div>'
+      );
     }
 
     var top7 = members.slice(0, 7);
-    var currentUserItem = members.find(function(m) { return m.isCurrentUser; });
-    var isCurrentUserInTop7 = currentUserItem ? (currentUserItem.rankIndex <= 7) : false;
+    var currentUserItem = members.find(function (m) {
+      return m.isCurrentUser;
+    });
+    var isCurrentUserInTop7 = currentUserItem ? currentUserItem.rankIndex <= 7 : false;
 
     function renderLeaderboardRow(m, isUserPlacingCallout) {
       var isMe = !!m.isCurrentUser;
-      var val = isStreak ? (m.streak || 0) : (m.credits || 0);
-      var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name) : String(m.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      var safeRank = (typeof escapeHtml === 'function') ? escapeHtml(m.rank || 'Member') : (m.rank || 'Member');
-      var safePlatoon = (typeof escapeHtml === 'function') ? escapeHtml(m.platoon || '1st PJ') : (m.platoon || '1st PJ');
+      var val = isStreak ? m.streak || 0 : m.credits || 0;
+      var safeName =
+        typeof escapeHtml === 'function'
+          ? escapeHtml(m.name)
+          : String(m.name || '')
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;');
+      var safeRank =
+        typeof escapeHtml === 'function' ? escapeHtml(m.rank || 'Member') : m.rank || 'Member';
+      var safePlatoon =
+        typeof escapeHtml === 'function'
+          ? escapeHtml(m.platoon || '1st PJ')
+          : m.platoon || '1st PJ';
       var rowAvatar = getLeaderboardAvatarHtml(m.name, m.email, 34);
 
-
       var calloutBadge = isUserPlacingCallout
-        ? '<div style="font-size:11.5px;font-weight:700;color:var(--accent);margin-top:2px;">You are placed #' + m.displayRank + ' in 1st PJ Company</div>'
+        ? '<div style="font-size:11.5px;font-weight:700;color:var(--accent);margin-top:2px;">You are placed #' +
+          m.displayRank +
+          ' in 1st PJ Company</div>'
         : '';
 
-      return '<div class="arcade-leaderboard-row' + (isMe ? ' row-current-user' : '') + '">' +
+      return (
+        '<div class="arcade-leaderboard-row' +
+        (isMe ? ' row-current-user' : '') +
+        '">' +
         '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">' +
-          '<div class="arcade-leaderboard-rank' + (m.displayRank === 1 ? ' is-first' : '') + '">#' + m.displayRank + '</div>' +
-          '<div style="flex-shrink:0;">' + rowAvatar + '</div>' +
-          '<div style="min-width:0;flex:1;">' +
-            '<div style="font-weight:700;font-size:13.5px;color:var(--text-primary);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
-              '<span class="arcade-leaderboard-name">' + safeName + '</span>' +
-              (isMe ? '<span style="font-size:10px;font-weight:800;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:10px;">You</span>' : '') +
-            '</div>' +
-            '<div class="arcade-leaderboard-detail">' + safeRank + ' &bull; ' + safePlatoon + '</div>' +
-            calloutBadge +
-          '</div>' +
+        '<div class="arcade-leaderboard-rank' +
+        (m.displayRank === 1 ? ' is-first' : '') +
+        '">#' +
+        m.displayRank +
+        '</div>' +
+        '<div style="flex-shrink:0;">' +
+        rowAvatar +
+        '</div>' +
+        '<div style="min-width:0;flex:1;">' +
+        '<div style="font-weight:700;font-size:13.5px;color:var(--text-primary);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+        '<span class="arcade-leaderboard-name">' +
+        safeName +
+        '</span>' +
+        (isMe
+          ? '<span style="font-size:10px;font-weight:800;text-transform:uppercase;background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:10px;">You</span>'
+          : '') +
+        '</div>' +
+        '<div class="arcade-leaderboard-detail">' +
+        safeRank +
+        ' &bull; ' +
+        safePlatoon +
+        '</div>' +
+        calloutBadge +
+        '</div>' +
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;padding-left:12px;">' +
-          '<div class="arcade-leaderboard-score">' + val + '</div>' +
-          '<div class="arcade-leaderboard-unit">' + metricUnit + '</div>' +
+        '<div class="arcade-leaderboard-score">' +
+        val +
         '</div>' +
-      '</div>';
+        '<div class="arcade-leaderboard-unit">' +
+        metricUnit +
+        '</div>' +
+        '</div>' +
+        '</div>'
+      );
     }
 
-
     var listRowsHtml = '';
-    top7.forEach(function(m) {
+    top7.forEach(function (m) {
       listRowsHtml += renderLeaderboardRow(m, false);
     });
 
@@ -2051,42 +2455,47 @@
 
     var html =
       '<div style="display:flex;flex-direction:column;gap:16px;width:100%;">' +
-        // Category Pills
-        '<div class="arcade-leaderboard-switcher" role="group" aria-label="Leaderboard category">' +
-          '<button type="button" class="portal-btn ' + (isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') + '" onclick="switchArcadeLeaderboardCategory(\'streak\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
-            '<span>Daily Streak</span>' +
-          '</button>' +
-          '<button type="button" class="portal-btn ' + (!isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') + '" onclick="switchArcadeLeaderboardCategory(\'credits\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
-            '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
-            '<span>Credits</span>' +
-          '</button>' +
-        '</div>' +
-
-        // Leaderboard Podium
-        '<div class="card leaderboard-podium-card" style="width:100%;box-sizing:border-box;">' +
-          '<div style="text-align:center;margin-bottom:12px;">' +
-            '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Top 3 Champions &mdash; ' + metricTitle + '</div>' +
-            '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Official 1st Petaling Jaya Company Honor Roll</div>' +
-          '</div>' +
-
-          '<div class="leaderboard-podium-wrap">' +
-            renderPodiumPillar(top2, 2) +
-            renderPodiumPillar(top1, 1) +
-            renderPodiumPillar(top3, 3) +
-          '</div>' +
-        '</div>' +
-
-        // Top 7 List View
-        '<div class="arcade-leaderboard-card">' +
-          '<div class="arcade-leaderboard-heading">' +
-            '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">TOP 7 RANKINGS</div>' +
-            '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">' + (isStreak ? 'Active Consecutive Days' : 'Current Available Balance') + '</div>' +
-          '</div>' +
-          '<div class="arcade-leaderboard-list">' +
-            listRowsHtml +
-          '</div>' +
-        '</div>' +
+      // Category Pills
+      '<div class="arcade-leaderboard-switcher" role="group" aria-label="Leaderboard category">' +
+      '<button type="button" class="portal-btn ' +
+      (isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') +
+      '" onclick="switchArcadeLeaderboardCategory(\'streak\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' +
+      '<span>Daily Streak</span>' +
+      '</button>' +
+      '<button type="button" class="portal-btn ' +
+      (!isStreak ? 'portal-btn-primary' : 'portal-btn-secondary') +
+      '" onclick="switchArcadeLeaderboardCategory(\'credits\')" style="font-size:12.5px;padding:8px 18px;display:inline-flex;align-items:center;gap:6px;">' +
+      '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
+      '<span>Credits</span>' +
+      '</button>' +
+      '</div>' +
+      // Leaderboard Podium
+      '<div class="card leaderboard-podium-card" style="width:100%;box-sizing:border-box;">' +
+      '<div style="text-align:center;margin-bottom:12px;">' +
+      '<div style="font-family:var(--font-headline);font-size:18px;font-weight:800;color:var(--text-primary);letter-spacing:0.3px;">Top 3 Champions &mdash; ' +
+      metricTitle +
+      '</div>' +
+      '<div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Official 1st Petaling Jaya Company Honor Roll</div>' +
+      '</div>' +
+      '<div class="leaderboard-podium-wrap">' +
+      renderPodiumPillar(top2, 2) +
+      renderPodiumPillar(top1, 1) +
+      renderPodiumPillar(top3, 3) +
+      '</div>' +
+      '</div>' +
+      // Top 7 List View
+      '<div class="arcade-leaderboard-card">' +
+      '<div class="arcade-leaderboard-heading">' +
+      '<div style="font-family:var(--font-headline);font-size:14px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">TOP 7 RANKINGS</div>' +
+      '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:700;">' +
+      (isStreak ? 'Active Consecutive Days' : 'Current Available Balance') +
+      '</div>' +
+      '</div>' +
+      '<div class="arcade-leaderboard-list">' +
+      listRowsHtml +
+      '</div>' +
+      '</div>' +
       '</div>';
 
     container.innerHTML = html;
@@ -2094,7 +2503,7 @@
 
   // ── Global Physical Keyboard Listener for Wordle ──────────────────────────
   if (typeof document !== 'undefined') {
-    document.addEventListener('keydown', function(e) {
+    document.addEventListener('keydown', function (e) {
       if (_arcadeSubtab !== 'wordle') return;
       var arcadePage = document.getElementById('page-arcade');
       if (!arcadePage || !arcadePage.classList.contains('active')) return;
@@ -2114,7 +2523,7 @@
     });
 
     // Auto-update header and sync game states on DOM load
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       updateArcadeHeaderBadge();
       fetchRemoteArcadeStats();
       fetchRemoteWordleState();
@@ -2169,41 +2578,41 @@
   };
 
   if (typeof window !== 'undefined') {
-    window.BB_WORDLE_WORDS               = BB_WORDLE_WORDS;
-    window.ALL_WORDLE_WORDS              = ALL_WORDLE_WORDS;
-    window.BB_TRIVIA_QUESTIONS            = BB_TRIVIA_QUESTIONS;
-    window.getCandidateUserKeys           = getCandidateUserKeys;
-  window.getArcadeUserKey               = getArcadeUserKey;
-    window.getTriviaUserKey               = getTriviaUserKey;
-    window.getArcadeStats                 = getArcadeStats;
-    window.saveArcadeStats                = saveArcadeStats;
-    window.reconcileArcadeRewards         = reconcileArcadeRewards;
-  window.fetchRemoteWordleState         = fetchRemoteWordleState;
-  window.fetchRemoteTriviaState         = fetchRemoteTriviaState;
-    window.fetchRemoteArcadeStats         = fetchRemoteArcadeStats;
-    window.recordGameParticipation        = recordGameParticipation;
-    window.awardCredits                   = awardCredits;
-    window.updateArcadeHeaderBadge        = updateArcadeHeaderBadge;
-    window.handleWordleKey                = handleWordleKey;
-    window.submitWordleGuess              = submitWordleGuess;
-    window.initTrivia                     = initTrivia;
-    window.loadTriviaState                = loadTriviaState;
-    window.saveTriviaState                = saveTriviaState;
-    window.checkAndAutoSubmitPastTrivia   = checkAndAutoSubmitPastTrivia;
-    window.selectTriviaAnswer             = selectTriviaAnswer;
-    window.prevTriviaQuestion             = prevTriviaQuestion;
-    window.nextTriviaQuestion             = nextTriviaQuestion;
-    window.submitTriviaQuiz               = submitTriviaQuiz;
-    window.answerTrivia                   = answerTrivia;
-    window.ensureArcadePageDOM            = ensureArcadePageDOM;
-    window.renderArcadePage               = renderArcadePage;
-    window.switchArcadeSubtab             = switchArcadeSubtab;
+    window.BB_WORDLE_WORDS = BB_WORDLE_WORDS;
+    window.ALL_WORDLE_WORDS = ALL_WORDLE_WORDS;
+    window.BB_TRIVIA_QUESTIONS = BB_TRIVIA_QUESTIONS;
+    window.getCandidateUserKeys = getCandidateUserKeys;
+    window.getArcadeUserKey = getArcadeUserKey;
+    window.getTriviaUserKey = getTriviaUserKey;
+    window.getArcadeStats = getArcadeStats;
+    window.saveArcadeStats = saveArcadeStats;
+    window.reconcileArcadeRewards = reconcileArcadeRewards;
+    window.fetchRemoteWordleState = fetchRemoteWordleState;
+    window.fetchRemoteTriviaState = fetchRemoteTriviaState;
+    window.fetchRemoteArcadeStats = fetchRemoteArcadeStats;
+    window.recordGameParticipation = recordGameParticipation;
+    window.awardCredits = awardCredits;
+    window.updateArcadeHeaderBadge = updateArcadeHeaderBadge;
+    window.handleWordleKey = handleWordleKey;
+    window.submitWordleGuess = submitWordleGuess;
+    window.initTrivia = initTrivia;
+    window.loadTriviaState = loadTriviaState;
+    window.saveTriviaState = saveTriviaState;
+    window.checkAndAutoSubmitPastTrivia = checkAndAutoSubmitPastTrivia;
+    window.selectTriviaAnswer = selectTriviaAnswer;
+    window.prevTriviaQuestion = prevTriviaQuestion;
+    window.nextTriviaQuestion = nextTriviaQuestion;
+    window.submitTriviaQuiz = submitTriviaQuiz;
+    window.answerTrivia = answerTrivia;
+    window.ensureArcadePageDOM = ensureArcadePageDOM;
+    window.renderArcadePage = renderArcadePage;
+    window.switchArcadeSubtab = switchArcadeSubtab;
     window.switchArcadeLeaderboardCategory = switchArcadeLeaderboardCategory;
-    window.renderArcadeLeaderboardView    = renderArcadeLeaderboardView;
-    window.getArcadeLeaderboardData       = getArcadeLeaderboardData;
-    window.isValidWordleWord              = isValidWordleWord;
-    window.showWordleToast                = showWordleToast;
-    window.ArcadeModule                   = ArcadeModule;
+    window.renderArcadeLeaderboardView = renderArcadeLeaderboardView;
+    window.getArcadeLeaderboardData = getArcadeLeaderboardData;
+    window.isValidWordleWord = isValidWordleWord;
+    window.showWordleToast = showWordleToast;
+    window.ArcadeModule = ArcadeModule;
   }
 
   if (typeof global !== 'undefined') {
@@ -2214,5 +2623,4 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = ArcadeModule;
   }
-
 })();
