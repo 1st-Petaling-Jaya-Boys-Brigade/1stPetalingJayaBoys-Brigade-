@@ -6051,7 +6051,7 @@ function openSettingsModal() {
         + (isNativeAndroid ? (
           '<div class="settings-row" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border-card);">'
             + '<div style="flex:1;">'
-              + '<div class="settings-row-label">Instant Background Alerts (WhatsApp-Style)</div>'
+              + '<div class="settings-row-label">Instant Background Alerts</div>'
               + '<div class="settings-row-desc">Allow unrestricted battery &amp; autostart for real-time delivery when closed</div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">'
@@ -6426,7 +6426,7 @@ function renderStep2NotificationsHtml() {
           + '</div>'
           + '<div style="flex:1;">'
             + '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">'
-              + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Instant Background Alerts (WhatsApp-Style)</span>'
+              + '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">Instant Background Alerts</span>'
               + (isBatteryIgnored
                   ? '<span class="onboarding-status-pill granted" style="font-size:11px;padding:2px 8px;"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Unrestricted Active</span>'
                   : '<span class="onboarding-status-pill default" style="font-size:11px;padding:2px 8px;">Recommended for Instant Popups</span>')
@@ -6450,7 +6450,7 @@ function renderStep2NotificationsHtml() {
     + '<div class="onboarding-step-badge">Step 2 of 4 · Stay Connected</div>'
     + '<h3 class="onboarding-step-title">Device Pop-up Notifications &amp; Sound</h3>'
     + '<p class="onboarding-step-desc">' + (nativeApp
-      ? 'Instant real-time popups (WhatsApp-style) for company parade announcements, task assignments, and direct mentions even when your phone is locked or the app is closed.'
+      ? 'Instant real-time popups for company parade announcements, task assignments, and direct mentions even when your phone is locked or the app is closed.'
       : 'Receive pop-up notifications directly on your Windows, Mac, or mobile screen.')
     + '</p>'
     + '<div class="onboarding-grid">'
@@ -7024,6 +7024,8 @@ if (typeof window !== 'undefined') {
   window.handleOnboardingCalendarViewChange = handleOnboardingCalendarViewChange;
   window.handleOnboardingParticlesToggle  = handleOnboardingParticlesToggle;
   window.handleOnboardingParticlesModeChange = handleOnboardingParticlesModeChange;
+  window.renderStep2NotificationsHtml   = renderStep2NotificationsHtml;
+  window.getOnboardingStepContentHtml   = getOnboardingStepContentHtml;
   window.completeOnboardingWizard       = completeOnboardingWizard;
 }
 
@@ -7139,6 +7141,8 @@ if (typeof module !== 'undefined' && module.exports) {
     handleOnboardingCalendarViewChange,
     handleOnboardingParticlesToggle,
     handleOnboardingParticlesModeChange,
+    renderStep2NotificationsHtml,
+    getOnboardingStepContentHtml,
     completeOnboardingWizard
 };
 }
