@@ -14971,6 +14971,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(creatorNoIc.includes('creator-rgb-avatar'), 'Avatar without IC must include creator-rgb-avatar class');
     assert.ok(creatorNoIc.includes('avatar-outline-rgb'), 'Avatar without IC must include avatar-outline-rgb overlay');
 
+    const creatorNullIc = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', null, 24);
+    assert.ok(creatorNullIc.includes('creator-rgb-avatar'), 'Avatar with null IC must include creator-rgb-avatar class');
+    assert.ok(creatorNullIc.includes('avatar-outline-rgb'), 'Avatar with null IC must include avatar-outline-rgb overlay');
+
+    // Protect Creator outline against cache pollution by alt accounts
+    global._customAvatarOutlinesMap['jeshua koh'] = { style: 'none', target: 'jeshuakoh1601@gmail.com' };
+    const creatorPolluted = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', null, 24);
+    assert.ok(creatorPolluted.includes('creator-rgb-avatar'), 'Avatar must retain creator-rgb-avatar despite alt-account map pollution');
+    assert.ok(creatorPolluted.includes('avatar-outline-rgb'), 'Avatar must retain avatar-outline-rgb overlay despite alt-account map pollution');
+    await memberMod.saveMemberAvatarOutline('jeshuakoh2008@gmail.com', 'rgb', 'jeshuakoh2008@gmail.com', 'Jeshua Koh');
+
     const creatorWithEmail = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 24);
     assert.ok(creatorWithEmail.includes('creator-rgb-avatar'), 'Avatar with email must include creator-rgb-avatar class');
     assert.ok(creatorWithEmail.includes('avatar-outline-rgb'), 'Avatar with email must include avatar-outline-rgb overlay');

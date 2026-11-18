@@ -912,7 +912,16 @@ function paintProjectsList(container) {
       // Unique assignee initials/avatars stack
       var assigneesMap = {};
       pTasks.forEach(function(t) {
-        if (t.assignee_name) assigneesMap[t.assignee_name] = t.assignee_ic || '';
+        if (t.assignee_name && t.assignee_name.trim()) {
+          var aName = t.assignee_name.trim();
+          var aIc = (t.assignee_ic || '').trim();
+          if (!aIc && typeof isPortalCreator === 'function' && isPortalCreator(aName, aIc)) {
+            aIc = 'jeshuakoh2008@gmail.com';
+          }
+          if (!assigneesMap[aName] || (assigneesMap[aName].indexOf('@') === -1 && aIc)) {
+            assigneesMap[aName] = aIc || assigneesMap[aName] || '';
+          }
+        }
       });
       var assigneesList = Object.keys(assigneesMap);
       var avatarStackHtml = '<div class="project-assignees-stack">';
@@ -1272,14 +1281,18 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var cleanName = String(name || '').trim();
   var cleanIc = String(ic || '').trim();
   if (cleanName && (!cleanIc || cleanIc.indexOf('@') === -1)) {
-    var resolver = (typeof resolveMemberDirectoryInfo === 'function')
-      ? resolveMemberDirectoryInfo
-      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
-    if (resolver) {
-      var dirMember = resolver(cleanName || cleanIc);
-      if (dirMember) {
-        if (!cleanName && dirMember.name) cleanName = dirMember.name;
-        if (!cleanIc && (dirMember.email || dirMember.ic)) cleanIc = dirMember.email || dirMember.ic;
+    if (typeof isPortalCreator === 'function' && isPortalCreator(cleanName, cleanIc)) {
+      cleanIc = 'jeshuakoh2008@gmail.com';
+    } else {
+      var resolver = (typeof resolveMemberDirectoryInfo === 'function')
+        ? resolveMemberDirectoryInfo
+        : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+      if (resolver) {
+        var dirMember = resolver(cleanName || cleanIc);
+        if (dirMember) {
+          if (!cleanName && dirMember.name) cleanName = dirMember.name;
+          if (!cleanIc && (dirMember.email || dirMember.ic)) cleanIc = dirMember.email || dirMember.ic;
+        }
       }
     }
   }
@@ -2375,14 +2388,18 @@ function openTaskDetail(id) {
   var aName = t.assignee_name || 'Unassigned';
   var aIc = t.assignee_ic || '';
   if (aName && (!aIc || aIc.indexOf('@') === -1)) {
-    var aResolver = (typeof resolveMemberDirectoryInfo === 'function')
-      ? resolveMemberDirectoryInfo
-      : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
-    if (aResolver) {
-      var dirA = aResolver(aName || aIc);
-      if (dirA) {
-        if (!aName && dirA.name) aName = dirA.name;
-        if (!aIc && (dirA.email || dirA.ic)) aIc = dirA.email || dirA.ic;
+    if (typeof isPortalCreator === 'function' && isPortalCreator(aName, aIc)) {
+      aIc = 'jeshuakoh2008@gmail.com';
+    } else {
+      var aResolver = (typeof resolveMemberDirectoryInfo === 'function')
+        ? resolveMemberDirectoryInfo
+        : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+      if (aResolver) {
+        var dirA = aResolver(aName || aIc);
+        if (dirA) {
+          if (!aName && dirA.name) aName = dirA.name;
+          if (!aIc && (dirA.email || dirA.ic)) aIc = dirA.email || dirA.ic;
+        }
       }
     }
   }
@@ -4271,14 +4288,18 @@ async function selectTaskDetailAssignee(ic, name) {
   var aAvatar = document.querySelector('.tdm-assignee-avatar');
   if (aAvatar) {
     if (cleanName && (!cleanIc || cleanIc.indexOf('@') === -1)) {
-      var sResolver = (typeof resolveMemberDirectoryInfo === 'function')
-        ? resolveMemberDirectoryInfo
-        : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
-      if (sResolver) {
-        var dirS = sResolver(cleanName || cleanIc);
-        if (dirS) {
-          if (!cleanName && dirS.name) cleanName = dirS.name;
-          if (!cleanIc && (dirS.email || dirS.ic)) cleanIc = dirS.email || dirS.ic;
+      if (typeof isPortalCreator === 'function' && isPortalCreator(cleanName, cleanIc)) {
+        cleanIc = 'jeshuakoh2008@gmail.com';
+      } else {
+        var sResolver = (typeof resolveMemberDirectoryInfo === 'function')
+          ? resolveMemberDirectoryInfo
+          : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
+        if (sResolver) {
+          var dirS = sResolver(cleanName || cleanIc);
+          if (dirS) {
+            if (!cleanName && dirS.name) cleanName = dirS.name;
+            if (!cleanIc && (dirS.email || dirS.ic)) cleanIc = dirS.email || dirS.ic;
+          }
         }
       }
     }
