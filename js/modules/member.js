@@ -3829,15 +3829,28 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
     isCreator = (cleanKey === 'jeshuakoh2008@gmail.com' || cleanName === 'jeshua koh' || cleanKey === '080116-14-0615');
   }
 
-  // 1. Direct key match (by email, ic, or name)
+  // 1. Direct creator check
   var assigned = null;
-  if (cleanKey && _customAvatarOutlinesMap[cleanKey]) {
-    assigned = _customAvatarOutlinesMap[cleanKey];
-  } else if (cleanName && _customAvatarOutlinesMap[cleanName]) {
-    assigned = _customAvatarOutlinesMap[cleanName];
+  if (isCreator && _customAvatarOutlinesMap['jeshuakoh2008@gmail.com']) {
+    assigned = _customAvatarOutlinesMap['jeshuakoh2008@gmail.com'];
   }
 
-  // 2. Scan map entries if not found directly
+  // 2. Direct key match (by email, ic, or name)
+  if (!assigned) {
+    if (cleanKey && _customAvatarOutlinesMap[cleanKey]) {
+      var kEntry = _customAvatarOutlinesMap[cleanKey];
+      if (!isCreator || !kEntry.target || kEntry.target === 'jeshuakoh2008@gmail.com') {
+        assigned = kEntry;
+      }
+    } else if (cleanName && _customAvatarOutlinesMap[cleanName]) {
+      var nEntry = _customAvatarOutlinesMap[cleanName];
+      if (!isCreator || !nEntry.target || nEntry.target === 'jeshuakoh2008@gmail.com') {
+        assigned = nEntry;
+      }
+    }
+  }
+
+  // 3. Scan map entries if not found directly
   if (!assigned && (cleanKey || cleanName)) {
     var mapKeys = Object.keys(_customAvatarOutlinesMap);
     for (var i = 0; i < mapKeys.length; i++) {
@@ -3846,6 +3859,7 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
       if (entry && typeof entry === 'object') {
         var entryName = String(entry.name || '').trim().toLowerCase();
         var entryTarget = String(entry.target || k).trim().toLowerCase();
+        if (isCreator && entryTarget !== 'jeshuakoh2008@gmail.com') continue;
         if ((cleanName && entryName === cleanName) ||
             (cleanName && entryTarget === cleanName) ||
             (cleanKey && (entryTarget === cleanKey || entryName === cleanKey))) {
@@ -3856,7 +3870,7 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
     }
   }
 
-  // 3. Fallback: Lookup in member directory / caches to cross-resolve name <-> email/ic
+  // 4. Fallback: Lookup in member directory / caches to cross-resolve name <-> email/ic
   if (!assigned && (cleanName || cleanKey)) {
     var resolver = (typeof resolveMemberDirectoryInfo === 'function')
       ? resolveMemberDirectoryInfo
@@ -3892,22 +3906,33 @@ function getMemberAvatarOutline(emailOrIc, memberName) {
   };
 }
 
+function sanitizeAvatarOutlinesMap(map) {
+  if (!map || typeof map !== 'object') return;
+  // If 'jeshua koh' key exists and belongs to a non-creator target, delete it so it does not pollute creator
+  if (map['jeshua koh'] && map['jeshua koh'].target && map['jeshua koh'].target !== 'jeshuakoh2008@gmail.com') {
+    delete map['jeshua koh'];
+  }
+}
+
 async function loadCustomAvatarOutlines() {
   if (typeof localStorage !== 'undefined') {
     try {
       var cached = localStorage.getItem('bb_custom_avatar_outlines');
       if (cached) {
         _customAvatarOutlinesMap = JSON.parse(cached) || {};
+        sanitizeAvatarOutlinesMap(_customAvatarOutlinesMap);
       }
     } catch (_) {}
   }
 
+  sanitizeAvatarOutlinesMap(_customAvatarOutlinesMap);
   if (typeof global !== 'undefined') global._customAvatarOutlinesMap = _customAvatarOutlinesMap;
 
   if (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
     var snapOutlines = await supa.safeConfigGet('bb_custom_avatar_outlines');
     if (snapOutlines && typeof snapOutlines === 'object') {
       _customAvatarOutlinesMap = snapOutlines;
+      sanitizeAvatarOutlinesMap(_customAvatarOutlinesMap);
       if (typeof localStorage !== 'undefined') {
         try { localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(snapOutlines)); } catch (_) {}
       }
@@ -3926,6 +3951,7 @@ async function loadCustomAvatarOutlines() {
       var parsed = JSON.parse(res[0].value);
       if (parsed && typeof parsed === 'object') {
         _customAvatarOutlinesMap = parsed;
+        sanitizeAvatarOutlinesMap(_customAvatarOutlinesMap);
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(parsed));
         }
@@ -3980,7 +4006,11 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, ta
 
   _customAvatarOutlinesMap[cleanTarget] = entry;
   if (cleanName && cleanName !== cleanTarget) {
-    _customAvatarOutlinesMap[cleanName] = entry;
+    if (cleanName === 'jeshua koh' && cleanTarget !== 'jeshuakoh2008@gmail.com') {
+      // Do not allow non-creator accounts to overwrite the canonical creator key
+    } else {
+      _customAvatarOutlinesMap[cleanName] = entry;
+    }
   }
 
   if (typeof localStorage !== 'undefined') {
