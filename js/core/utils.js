@@ -885,8 +885,13 @@ async function validateFileSecurity(file, options) {
     var allowed = options.allowedTypes || [];
     var allowVideo = options.allowVideo === true || options.bucket === 'gallery' || options.bucket === 'story_highlights';
     var allowPdf = options.allowPdf === true || options.bucket === 'resources' || options.bucket === 'waivers';
+    var allowDocs = options.allowDocs === true || options.bucket === 'resources';
+    var docExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'txt', 'rtf'];
 
     var valid = false;
+    if (allowDocs && docExts.includes(ext)) {
+      valid = true;
+    }
     if (allowed.length > 0) {
       valid = allowed.some(function(t) {
         return (

@@ -167,23 +167,50 @@ function emitDatabaseError(code, method, status) {
 }
 
 function readDatabaseResponse(response) {
-  if (response.ok) return response.status === 204 ? null : response.json();
-  return response.text().then(function(body) {
-    var error = new Error(response.status >= 500 ? 'Database unavailable (HTTP ' + response.status + ').' : 'Database rejected the request.');
-    try {
-      var info = JSON.parse(body);
-      if (info && typeof info.code === 'string') {
-        error.code = info.code;
-        // Keep schema compatibility errors recognizable without returning row values.
-        if (['PGRST204', '42703'].includes(info.code) && typeof info.message === 'string') error.message = info.code + ': ' + info.message;
-        else error.message += ' (' + info.code + ')';
-      }
-    } catch (_) {}
-    error.status = response.status;
-    if (response.headers?.get('X-BB-Offline') === 'true') error.code = 'offline';
-    error.retryAfter = response.headers?.get('Retry-After');
-    throw error;
-  });
+  if (response.ok) {
+    if (response.status === 204) return null;
+    if (typeof response.json === 'function') {
+      return response.json().catch(function() {
+        if (typeof response.text === 'function') {
+          return response.text().then(function(body) {
+            if (!body || !body.trim()) return null;
+            try { return JSON.parse(body); } catch (_) { return body; }
+          });
+        }
+        return null;
+      });
+    }
+    if (typeof response.text === 'function') {
+      return response.text().then(function(body) {
+        if (!body || !body.trim()) return null;
+        try { return JSON.parse(body); } catch (_) { return body; }
+      });
+    }
+    return null;
+  }
+  if (typeof response.text === 'function') {
+    return response.text().then(function(body) {
+      var error = new Error(response.status >= 500 ? 'Database unavailable (HTTP ' + response.status + ').' : 'Database rejected the request.');
+      try {
+        var info = JSON.parse(body);
+        if (info && typeof info.code === 'string') {
+          error.code = info.code;
+          // Keep schema compatibility errors recognizable without returning row values.
+          if (['PGRST204', '42703'].includes(info.code) && typeof info.message === 'string') error.message = info.code + ': ' + info.message;
+          else error.message += ' (' + info.code + ')';
+        }
+      } catch (_) {}
+      error.status = response.status;
+      if (response.headers?.get('X-BB-Offline') === 'true') error.code = 'offline';
+      error.retryAfter = response.headers?.get('Retry-After');
+      throw error;
+    });
+  }
+  var error = new Error(response.status >= 500 ? 'Database unavailable (HTTP ' + response.status + ').' : 'Database rejected the request.');
+  error.status = response.status;
+  if (response.headers?.get('X-BB-Offline') === 'true') error.code = 'offline';
+  error.retryAfter = response.headers?.get('Retry-After');
+  return Promise.reject(error);
 }
 
 function cloneQueryData(value) {
@@ -468,12 +495,14 @@ const supa = {
   throttledFetch,
   MAX_CONCURRENT_REQUESTS,
 
-  post(path, body) {
-    return supa.req('POST', path, body);
+  post(path, body, extraHeaders, options) {
+    const headers = Object.assign({ Prefer: 'return=representation' }, extraHeaders);
+    return supa.req('POST', path, body, headers, options);
   },
 
-  patch(path, body) {
-    return supa.req('PATCH', path, body);
+  patch(path, body, extraHeaders, options) {
+    const headers = Object.assign({ Prefer: 'return=representation' }, extraHeaders);
+    return supa.req('PATCH', path, body, headers, options);
   },
 
   delete(path) {
@@ -762,7 +791,9 @@ const supa = {
       await validateFileSecurity(blob, {
         bucket: bucket,
         allowVideo: bucket === 'gallery' || bucket === 'story_highlights',
-        allowPdf: bucket === 'resources' || bucket === 'waivers'
+        allowPdf: bucket === 'resources' || bucket === 'waivers',
+        allowDocs: bucket === 'resources' || bucket === 'waivers',
+        allowImages: true
       });
     }
 
