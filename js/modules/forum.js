@@ -6697,6 +6697,15 @@ if (typeof window !== 'undefined') {
   window.handleForumMentionInput   = handleForumMentionInput;
   window.handleForumMentionKeyDown = handleForumMentionKeyDown;
   window.selectForumMentionCandidate = selectForumMentionCandidate;
+
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('bb_avatar_outlines_changed', function() {
+      if (typeof renderForumFeed === 'function') {
+        var fp = document.getElementById('page-forum');
+        if (fp && fp.style.display !== 'none') renderForumFeed();
+      }
+    });
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

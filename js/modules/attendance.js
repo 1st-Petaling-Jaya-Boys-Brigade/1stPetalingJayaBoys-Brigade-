@@ -1413,6 +1413,12 @@ if (typeof window !== 'undefined') {
   window.getAttendanceAchievementTier = _getTierFn;
   window.getTierStatusVisual = getTierStatusVisual;
   window.getPlatoonStyle = getPlatoonStyle;
+
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('bb_avatar_outlines_changed', function() {
+      if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard();
+    });
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {

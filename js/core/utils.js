@@ -1628,7 +1628,7 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
   }
 
   if (isCreator) {
-    var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
+    var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
     return '<span class="member-avatar-unified' + extraCls + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
       'J' + outlineHtml + cosmeticHtml + dotHtml +

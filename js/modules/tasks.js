@@ -1367,8 +1367,8 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var outlineInfo = (typeof getMemberAvatarOutline === 'function')
     ? getMemberAvatarOutline(cleanIc || cleanName, cleanName)
     : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
-  if (isCreator && (!outlineInfo || !outlineInfo.style || outlineInfo.style === 'none')) {
-    outlineInfo = { style: 'rgb', config: { className: 'avatar-outline-rgb' } };
+  if (!outlineInfo) {
+    outlineInfo = isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : { style: 'none' };
   }
 
   var outlineHtml = '';
@@ -1376,9 +1376,6 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   if (outlineInfo && outlineInfo.style && outlineInfo.style !== 'none' && outlineInfo.config && outlineInfo.config.className) {
     hasOutlineCls = ' has-custom-outline avatar-outline-container';
     outlineHtml = '<span class="avatar-outline-overlay ' + outlineInfo.config.className + '" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
-  } else if (isCreator && (!outlineInfo || outlineInfo.style === 'rgb')) {
-    hasOutlineCls = ' has-custom-outline avatar-outline-container';
-    outlineHtml = '<span class="avatar-outline-overlay avatar-outline-rgb" style="position:absolute;inset:0;border-radius:9999px;pointer-events:none;z-index:2;box-sizing:border-box;" aria-hidden="true"></span>';
   }
 
   var cosmeticInfo = (typeof getMemberCosmetic === 'function')
@@ -1416,7 +1413,7 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   }
 
   if (isCreator) {
-    var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
+    var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
     return '<span class="task-card-avatar' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
@@ -2505,7 +2502,7 @@ function openTaskDetail(id) {
     } else if (isCreator) {
       aAvatar.innerHTML = '';
       aAvatar.textContent = 'J';
-      var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
+      var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
       if (isRgb) {
         aAvatar.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       } else {
@@ -4403,7 +4400,7 @@ async function selectTaskDetailAssignee(ic, name) {
     } else if (isCreator) {
       aAvatar.innerHTML = '';
       aAvatar.textContent = 'J';
-      var isRgb = (outlineInfo && outlineInfo.style === 'rgb') || (!outlineInfo);
+      var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
       if (isRgb) {
         aAvatar.classList.add('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
       } else {
@@ -5745,6 +5742,14 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.fetchAllRemoteTasks        = fetchAllRemoteTasks;
   window.fetchDepartmentMembers     = fetchDepartmentMembers;
   window.refreshCurrentTasksView    = refreshCurrentTasksView;
+
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('bb_avatar_outlines_changed', function() {
+      if (typeof refreshCurrentTasksView === 'function') refreshCurrentTasksView();
+      if (typeof renderProjectsView === 'function') renderProjectsView();
+      if (typeof renderMyTasksView === 'function') renderMyTasksView();
+    });
+  }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
