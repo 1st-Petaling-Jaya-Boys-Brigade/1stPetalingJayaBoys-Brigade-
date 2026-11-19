@@ -523,8 +523,8 @@
       promises.push(sendFcmTopicPush('announcements', title, body, options));
     }
 
-    // 3. Department topic
-    if (params.targetDept) {
+    // 3. Department topic (Suppressed for personal 1-to-1 task assignments)
+    if (params.targetDept && params.type !== 'task_assigned') {
       var deptTopic = getDepartmentTopic(params.targetDept);
       if (deptTopic) {
         promises.push(sendFcmTopicPush(deptTopic, title, body, options));

@@ -8195,6 +8195,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const creatorDefaultAvatarHtml = adminMod.getAdminMemberAvatarHtml('Jeshua Koh', 'jeshuakoh2008@gmail.com', 48);
     assert.strictEqual(creatorDefaultAvatarHtml.includes('creator-rgb-avatar'), false, 'Creator with none outline does not have creator-rgb-avatar');
     assert.strictEqual(creatorDefaultAvatarHtml.includes('avatar-outline-overlay'), false, 'Creator with none outline does not have overlay');
+    await memberMod.saveMemberAvatarOutline('jeshuakoh2008@gmail.com', 'rgb', 'jeshuakoh2008@gmail.com');
     console.log('  ✔ Selecting Standard (None) properly applies default outline style without rotating RGB');
 
     // 7B. Universal Avatar Outline Resolution Across Projects & Tasks
@@ -10416,6 +10417,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       assignee_ic: '010101-14-1234',
       due_date: '2026-11-14'
     });
+    tasksMod.resetTasksFiltersToDefault();
     tasksMod.setMyTasksScopeFilter('all');
     tasksMod.renderMyTasksView();
     assert.ok(mockTasksContainer.innerHTML.includes('my-tasks-table'), 'Tasks view must render .my-tasks-table matching Image 1');
@@ -15365,6 +15367,81 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       if (match) postIdsSuite78.add(match[1]);
     });
     assert.strictEqual(postIdsSuite78.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite78.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  // =========================================================================
+  // Suite 79: Task Assignment Notification Isolation, Deduplication & Avatar Integrity
+  // =========================================================================
+  {
+    console.log('\n--- Suite 79: Task Assignment Notification Isolation, Deduplication & Avatar Integrity ---');
+
+    const tasksMod = require('../js/modules/tasks.js');
+    const utilsMod = require('../js/core/utils.js');
+
+    // 1. Task Assignment Notification Isolation (Assignee only; Non-assignees in same dept receive 0)
+    const indexJsScript = indexHtmlContent.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)[1];
+    assert.ok(indexJsScript.includes('syncTaskNotifications'), 'index.html must define syncTaskNotifications');
+    assert.ok(!indexJsScript.includes('t.department && myDept && myDept.toLowerCase() !== \'none\' && t.department.toLowerCase().trim() === myDept.toLowerCase().trim()'),
+      'syncTaskNotifications must NEVER assign task notifications based solely on matching department');
+
+    // 2. Temporary Task ID Sanitization in Notifications
+    assert.ok(indexJsScript.includes('!String(t.id).toLowerCase().startsWith(\'temp_\')'),
+      'syncTaskNotifications must sanitize temporary task IDs so TEMP_ is never displayed in notification snippets');
+
+    // 3. Task Deduplication across Optimistic Temp IDs and Server Records
+    const testTasks = [
+      { id: 49, title: 'Target Workbook Rework', project_name: 'Recruitment Programme', department: 'hq', status: 'planning' },
+      { id: 'temp_1795075389768_rwzy6', title: 'Target Workbook Rework', project_name: 'Recruitment Programme', department: 'hq', status: 'planning' },
+      { id: 'temp_unrelated_123', title: 'Brand New Unique Task', project_name: 'Recruitment Programme', department: 'hq', status: 'todo' }
+    ];
+    const deduped = tasksMod.deduplicateTasks(testTasks);
+    assert.strictEqual(deduped.length, 2, 'deduplicateTasks must remove fulfilled temporary task when real server task exists');
+    assert.strictEqual(deduped[0].id, 49, 'First task must be the landed server task with ID 49');
+    assert.strictEqual(deduped[1].id, 'temp_unrelated_123', 'Unrelated pending temporary task must be preserved');
+    console.log('  ✔ Task deduplication seamlessly eliminates duplicate cards when server tasks land');
+
+    // 4. Department Role Eligibility Rejects Deleted/Archived Accounts
+    const activeOfficer = { name: 'Captain America', rank: 'Captain', department: 'hq', att_section: 'Officer' };
+    const archivedAccount = { name: 'Jeshua Koh', rank: 'Deleted', department: 'deleted', ic: 'archived_1793871888417_jeshuakoh1601@gmail.com', att_section: 'Officer' };
+    assert.strictEqual(tasksMod.isMemberDepartmentRole(activeOfficer), true, 'Active officer must be department role eligible');
+    assert.strictEqual(tasksMod.isMemberDepartmentRole(archivedAccount), false, 'Archived account with rank Deleted must NOT be department role eligible');
+    console.log('  ✔ Department role validation strictly excludes archived and deleted member accounts');
+
+    // 5. Creator Identity and Avatar Visual Consistency
+    assert.strictEqual(utilsMod.isPortalCreator('Jeshua Koh', 'archived_1793871888417_jeshuakoh1601@gmail.com'), true,
+      'isPortalCreator must recognize Jeshua Koh even if an archived legacy email was passed');
+    assert.strictEqual(utilsMod.isPortalCreator('Tester Account', 'jeshuakoh1601@gmail.com'), false,
+      'isPortalCreator must return false for Tester Account');
+
+    const creatorAvatar = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', null, 24);
+    assert.ok(creatorAvatar.includes('#083830'), 'Creator avatar must have official green background (#083830)');
+    assert.ok(creatorAvatar.includes('>J<') || creatorAvatar.includes('>J'), 'Creator avatar must display initial J');
+    assert.ok(creatorAvatar.includes('avatar-outline-rgb'), 'Creator avatar must have signature RGB outline');
+
+    const creatorAvatarArchived = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', 'archived_1793871888417_jeshuakoh1601@gmail.com', 24);
+    assert.ok(creatorAvatarArchived.includes('#083830'), 'Creator avatar with archived IC must still have official green background');
+    assert.ok(creatorAvatarArchived.includes('avatar-outline-rgb'), 'Creator avatar with archived IC must still retain RGB outline');
+    console.log('  ✔ Creator identity resolves canonically to official RGB outline and green background across legacy records');
+
+    // 6. Push Notification Target Department Suppression for Task Assignments
+    const fcmJsContent = fs.readFileSync(path.join(__dirname, '../js/api/fcm.js'), 'utf8');
+    assert.ok(fcmJsContent.includes('params.targetDept && params.type !== \'task_assigned\''),
+      'sendPortalPushNotification must suppress department topic broadcast for task_assigned type');
+
+    const tasksJsContent = fs.readFileSync(path.join(__dirname, '../js/modules/tasks.js'), 'utf8');
+    assert.ok(!tasksJsContent.includes('targetDept: dept') && !tasksJsContent.includes('targetDept: t.department'),
+      'tasks.js task assignment dispatcher calls must NOT pass department topics');
+    console.log('  ✔ Task assignment push notifications route exclusively to target assignees without department broadcasting');
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite79 = new Set();
+    const postMatchesSuite79 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite79.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite79.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite79.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite79.size})`);
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
