@@ -15068,6 +15068,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const galleryMod = require('../js/modules/gallery.js');
     const tasksMod = require('../js/modules/tasks.js');
     const attendanceMod = require('../js/modules/attendance.js');
+    const sessionMod = require('../js/core/session.js');
 
     const broadcastEvents = [];
     const origBroadcast = supabaseMod.PortalRealtime.broadcast;
@@ -15304,6 +15305,53 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       assert.ok(broadcastEvents.some(e => e.entity === 'attendance' && e.action === 'update'),
         'cacheMasterAttendance must broadcast attendance update event across tabs and devices');
       console.log('  ✔ Master Attendance sync broadcasts immediately to refresh squad and leaderboard views');
+
+      // 11. Instant Real-Time Presence & Status Broadcast
+      broadcastEvents.length = 0;
+      let presenceDotsRefreshed = false;
+      global.window.refreshLivePresenceDots = () => { presenceDotsRefreshed = true; };
+      sessionMod.sessionSet('ic', 'test-ic');
+      sessionMod.sessionSet('email', 'tester@example.com');
+      sessionMod.sessionSet('name', 'Tester Account');
+      sessionMod.sessionSet('rank', 'Staff Sergeant');
+      await sessionMod.sendPresenceHeartbeat('online');
+      assert.ok(broadcastEvents.some(e => e.entity === 'presence' && e.action === 'update'),
+        'sendPresenceHeartbeat must broadcast presence update across tabs and devices');
+
+      supabaseMod.PortalRealtime.trigger('presence', 'update', {
+        key: 'tester@example.com',
+        member: { status: 'online', last_seen: Date.now(), name: 'Tester Account', email: 'tester@example.com' }
+      });
+      assert.ok(global.window._globalPresenceMap['tester@example.com'],
+        'PortalRealtime presence trigger must update global presence map');
+      assert.strictEqual(global.window._globalPresenceMap['tester@example.com'].status, 'online',
+        'Presence map status must be online');
+      assert.strictEqual(presenceDotsRefreshed, true,
+        'refreshLivePresenceDots must be invoked on presence update');
+      console.log('  ✔ Instant real-time presence broadcast and live status dot synchronization verified');
+
+      // 12. Collapsed Sidebar Top & Bottom Flush Connectivity (Image 1 fix)
+      const navCssContent = fs.readFileSync(path.join(__dirname, '../css/nav.css'), 'utf8');
+      assert.ok(navCssContent.includes('body.sidebar-collapsed .sidebar-overlay') && navCssContent.includes('.sidebar-overlay.collapsed'),
+        'nav.css must target collapsed sidebar overlay');
+      assert.ok(navCssContent.includes('padding: 0 !important;'),
+        'Collapsed sidebar overlay must have padding: 0 !important for uninterrupted connectivity');
+      assert.ok(navCssContent.includes('height: 100% !important;') && navCssContent.includes('border-radius: 0 !important;'),
+        'Collapsed sidebar panel must span full height with 0 border radius');
+      console.log('  ✔ Collapsed desktop sidebar connects flush at top header and viewport bottom with zero gaps');
+
+      // 13. Resource Pill Box Placement & Clean Badge Styling (Image 2 fix)
+      const compCssContent = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+      const resJsContent = fs.readFileSync(path.join(__dirname, '../js/modules/resources.js'), 'utf8');
+      assert.ok(compCssContent.includes('.resource-vis-badge'),
+        'components.css must define .resource-vis-badge class');
+      assert.ok(compCssContent.includes('.badge-public') && compCssContent.includes('.badge-nco') && compCssContent.includes('.badge-officer'),
+        'components.css must define public, nco, and officer badge classes');
+      assert.ok(resJsContent.includes('class="resource-vis-badge badge-public"'),
+        'resources.js must render clean .resource-vis-badge badge-public markup');
+      assert.ok(compCssContent.includes('.resource-preview-badge') && compCssContent.includes('background: transparent;'),
+        'resource-preview-badge must have transparent background without white container protrusion');
+      console.log('  ✔ Resources tab visibility pills render cleanly without container bleed or misalignment');
 
     } finally {
       supabaseMod.PortalRealtime.broadcast = origBroadcast;

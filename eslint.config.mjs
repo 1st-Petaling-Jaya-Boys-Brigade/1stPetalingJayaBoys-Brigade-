@@ -248,6 +248,7 @@ export default [
         isMinorSection: 'readonly',
         fetchMemberConsent: 'readonly',
         // Notification & Real-Time Sync Globals
+        PortalRealtime: 'readonly',
         setDismissedNotifId: 'readonly',
         renderNotifications: 'readonly',
         syncTaskNotifications: 'readonly',

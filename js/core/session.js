@@ -952,9 +952,7 @@ function recordUserActivity() {
   if (typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
     if (_localPresenceStatus === 'idle') {
       setLocalPresenceStatus('online');
-      if (typeof isLeaderTab === 'function' && isLeaderTab()) {
-        sendPresenceHeartbeat('online');
-      }
+      sendPresenceHeartbeat('online');
     }
   }
 }
@@ -1123,7 +1121,17 @@ async function sendPresenceHeartbeat(forcedStatus) {
       }
     } catch (_) {}
 
-    // 2. Persist to Supabase bb_config if leader tab
+    // 2. Broadcast presence change across tabs (0ms) and devices in real time
+    var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+      ? window.PortalRealtime
+      : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+    if (pr && typeof pr.broadcast === 'function') {
+      try {
+        pr.broadcast('presence', 'update', { key: key, member: payload });
+      } catch (_) {}
+    }
+
+    // 3. Persist to Supabase bb_config if leader tab
     if (typeof isLeaderTab === 'function' && isLeaderTab()) {
       var client = (typeof getSupabaseClient === 'function')
         ? getSupabaseClient()
@@ -1169,6 +1177,17 @@ function initPresenceTracking() {
     });
   }
 
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('bb:presence_updated', function(e) {
+      if (e && e.detail && typeof e.detail === 'object') {
+        _cachedPresenceMap = e.detail;
+        if (typeof refreshLivePresenceDots === 'function') {
+          refreshLivePresenceDots();
+        }
+      }
+    });
+  }
+
   // Periodic activity checker & remote presence sync (every 3 minutes)
   if (_presenceCheckTimer) clearInterval(_presenceCheckTimer);
   _presenceCheckTimer = setInterval(function() {
@@ -1189,16 +1208,12 @@ function initPresenceTracking() {
     if (idleTime >= PRESENCE_IDLE_TIMEOUT_MS || (isTabHidden && idleTime >= 2 * 60 * 1000)) {
       if (_localPresenceStatus !== 'idle') {
         setLocalPresenceStatus('idle');
-        if (typeof isLeaderTab === 'function' && isLeaderTab()) {
-          sendPresenceHeartbeat('idle');
-        }
+        sendPresenceHeartbeat('idle');
       }
     } else {
       if (_localPresenceStatus !== 'online') {
         setLocalPresenceStatus('online');
-        if (typeof isLeaderTab === 'function' && isLeaderTab()) {
-          sendPresenceHeartbeat('online');
-        }
+        sendPresenceHeartbeat('online');
       }
     }
   }, 180000);
@@ -1217,9 +1232,7 @@ function initPresenceTracking() {
     fetchRemoteMemberPresence(true).catch(function() {});
   }
   if (typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
-    if (typeof isLeaderTab === 'function' && isLeaderTab()) {
-      sendPresenceHeartbeat('online');
-    }
+    sendPresenceHeartbeat('online');
   }
 }
 
