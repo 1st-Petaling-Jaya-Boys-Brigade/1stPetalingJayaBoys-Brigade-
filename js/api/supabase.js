@@ -1287,6 +1287,16 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('cosmetics', 'update', record);
               } else if (key === 'bb_custom_avatar_outlines') {
                 triggerEntityUpdate('avatar_outlines', 'update', record);
+              } else if (key === 'bb_custom_forms' || key.startsWith('bb_form_responses')) {
+                triggerEntityUpdate('forms', 'update', record);
+              } else if (key === 'bb_resources') {
+                triggerEntityUpdate('resources', 'update', record);
+              } else if (key.startsWith('bb_arcade_')) {
+                triggerEntityUpdate('arcade', 'update', record);
+              } else if (key === 'bb_badges' || key === 'bb_member_badges' || key === 'bb_presidents_reqs' || key === 'bb_deleted_badges') {
+                triggerEntityUpdate('badges', 'update', record);
+              } else if (key === 'bb_story_highlights' || key.startsWith('bb_story_')) {
+                triggerEntityUpdate('gallery', 'update', record);
               } else if (key.startsWith('bb_notif_dismissed_')) {
                 triggerEntityUpdate('notifications', 'update', record);
               } else {
@@ -1352,7 +1362,7 @@ var PortalRealtime = (function() {
 
     _deltaSyncInFlight = true;
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines)&select=key,updated_at', { cache: false });
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights)&select=key,updated_at', { cache: false });
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r?.key) return;
@@ -1365,6 +1375,10 @@ var PortalRealtime = (function() {
             else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update');
             else if (r.key === 'bb_member_cosmetics') triggerEntityUpdate('cosmetics', 'update');
             else if (r.key === 'bb_custom_avatar_outlines') triggerEntityUpdate('avatar_outlines', 'update');
+            else if (r.key === 'bb_custom_forms') triggerEntityUpdate('forms', 'update');
+            else if (r.key === 'bb_resources') triggerEntityUpdate('resources', 'update');
+            else if (r.key === 'bb_badges') triggerEntityUpdate('badges', 'update');
+            else if (r.key === 'bb_story_highlights') triggerEntityUpdate('gallery', 'update');
           }
           _lastEntityTimestamps[r.key] = ts;
         });
@@ -1537,18 +1551,116 @@ var PortalRealtime = (function() {
       broadcastLocalChange(entity, action, data);
     }
 
-    if (entity === 'orders' || entity === 'forms') {
+    if (entity === 'orders') {
       var loadOrdersFn = (typeof window !== 'undefined' && typeof window.loadMemberOrders === 'function')
         ? window.loadMemberOrders
         : null;
       if (loadOrdersFn) {
         try { loadOrdersFn(); } catch (_) {}
       }
-      var loadAdminOrdersFn = (typeof window !== 'undefined' && typeof window.loadAdminOrders === 'function')
-        ? window.loadAdminOrders
-        : null;
-      if (loadAdminOrdersFn) {
-        try { loadAdminOrdersFn(); } catch (_) {}
+      if (typeof document !== 'undefined') {
+        var admOverlay = document.getElementById('admin-overlay');
+        var admPanel = document.getElementById('admin-panel');
+        var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+        if (isAdmOpen && typeof window !== 'undefined' && typeof window.renderAdminOrders === 'function') {
+          try { window.renderAdminOrders(true); } catch (_) {}
+        }
+      }
+      return;
+    }
+
+    if (entity === 'forms') {
+      if (typeof window !== 'undefined') {
+        if (typeof window.loadCustomForms === 'function') {
+          window.loadCustomForms(true).then(function() {
+            var pForms = document.getElementById('page-forms');
+            if (pForms && pForms.style.display !== 'none' && typeof window.renderFormsHub === 'function') {
+              window.renderFormsHub();
+            }
+            var admOverlay = document.getElementById('admin-overlay');
+            var admPanel = document.getElementById('admin-panel');
+            var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+            if (isAdmOpen && typeof window.renderAdminForms === 'function') {
+              window.renderAdminForms();
+            }
+          }).catch(function() {});
+        }
+        if (typeof window.renderGfResponsesTab === 'function') {
+          try { window.renderGfResponsesTab(); } catch (_) {}
+        }
+        if (typeof window.loadMemberOrders === 'function') {
+          try { window.loadMemberOrders(); } catch (_) {}
+        }
+      }
+      return;
+    }
+
+    if (entity === 'resources') {
+      if (typeof window !== 'undefined' && typeof window.loadResources === 'function') {
+        window.loadResources(true).then(function() {
+          var pRes = document.getElementById('page-resources');
+          if (pRes && pRes.style.display !== 'none' && typeof window.renderResourcesPage === 'function') {
+            window.renderResourcesPage();
+          }
+          var admOverlay = document.getElementById('admin-overlay');
+          var admPanel = document.getElementById('admin-panel');
+          var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+          if (isAdmOpen && typeof window.renderAdminResourcesList === 'function') {
+            window.renderAdminResourcesList();
+          }
+        }).catch(function() {});
+      }
+      return;
+    }
+
+    if (entity === 'arcade') {
+      if (typeof window !== 'undefined' && typeof window.syncArcadeLeaderboard === 'function') {
+        window.syncArcadeLeaderboard().then(function() {
+          if (typeof window.renderArcadeLeaderboardView === 'function') {
+            window.renderArcadeLeaderboardView();
+          }
+        }).catch(function() {});
+      }
+      return;
+    }
+
+    if (entity === 'badges') {
+      if (typeof window !== 'undefined') {
+        var pBadges = document.getElementById('page-badges');
+        if (pBadges && pBadges.style.display !== 'none' && typeof window.renderBadgesHub === 'function') {
+          try { window.renderBadgesHub(); } catch (_) {}
+        }
+        var presModal = document.getElementById('presidents-badge-modal');
+        if (presModal && presModal.style.display !== 'none' && typeof window.renderPresidentsTracker === 'function') {
+          var curIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : '';
+          if (curIc) window.renderPresidentsTracker(curIc).catch(function() {});
+        }
+        var admOverlay = document.getElementById('admin-overlay');
+        var admPanel = document.getElementById('admin-panel');
+        var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+        if (isAdmOpen) {
+          if (typeof window.renderAdminBadges === 'function') window.renderAdminBadges();
+          if (typeof window.renderAdminPresidentsReqs === 'function') window.renderAdminPresidentsReqs();
+        }
+      }
+      return;
+    }
+
+    if (entity === 'gallery' || entity === 'gallery_update') {
+      if (typeof window !== 'undefined' && typeof window.loadGallery === 'function') {
+        window.loadGallery(true).then(function() {
+          var pGal = document.getElementById('page-gallery');
+          if (pGal && pGal.style.display !== 'none' && typeof window.renderGallery === 'function') {
+            window.renderGallery();
+          }
+          var admOverlay = document.getElementById('admin-overlay');
+          var admPanel = document.getElementById('admin-panel');
+          var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+          if (isAdmOpen) {
+            if (typeof window.renderAdminGalleryGrid === 'function') window.renderAdminGalleryGrid();
+            if (typeof window.renderAdminStoryHighlightsList === 'function') window.renderAdminStoryHighlightsList();
+          }
+        }).catch(function() {});
       }
       return;
     }
@@ -1719,6 +1831,14 @@ var PortalRealtime = (function() {
           if (typeof window.refreshCurrentTasksView === 'function') {
             try { window.refreshCurrentTasksView(tid); } catch (_) {}
           }
+          if (typeof document !== 'undefined') {
+            var admOverlay = document.getElementById('admin-overlay');
+            var admPanel = document.getElementById('admin-panel');
+            var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+            if (isAdmOpen && typeof window.renderAdminTasks === 'function') {
+              try { window.renderAdminTasks(); } catch (_) {}
+            }
+          }
         }).catch(function() {});
       }
     } else if (entity === 'announcements') {
@@ -1854,14 +1974,16 @@ var PortalRealtime = (function() {
       }
 
       if (typeof document !== 'undefined') {
-        var admP = document.getElementById('page-admin');
-        if (admP && admP.style.display !== 'none') {
-          var loadAdminFn = (typeof window !== 'undefined' && typeof window.loadAdminMembers === 'function') ? window.loadAdminMembers : (typeof global !== 'undefined' && typeof global.loadAdminMembers === 'function' ? global.loadAdminMembers : null);
+        var admOverlay = document.getElementById('admin-overlay');
+        var admPanel = document.getElementById('admin-panel');
+        var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+        if (isAdmOpen) {
           var renderAdminFn = (typeof renderAdminList === 'function') ? renderAdminList : (typeof window !== 'undefined' ? window.renderAdminList : null);
-          if (loadAdminFn && renderAdminFn) {
-            loadAdminFn().then(function() {
-              renderAdminFn();
-            }).catch(function() {});
+          var loadAdminFn = (typeof window !== 'undefined' && typeof window.loadAdminMembers === 'function') ? window.loadAdminMembers : null;
+          if (loadAdminFn) {
+            loadAdminFn().catch(function() {});
+          } else if (renderAdminFn) {
+            renderAdminFn(true).catch(function() {});
           }
         }
       }

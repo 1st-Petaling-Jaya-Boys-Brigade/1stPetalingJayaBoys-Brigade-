@@ -1275,6 +1275,11 @@ async function deleteGalleryImage(idx, rowId) {
     if (typeof showToast === 'function') {
       showToast('Media deleted successfully.', 'success');
     }
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('gallery', 'delete', { id: rowId });
+    } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      global.PortalRealtime.broadcast('gallery', 'delete', { id: rowId });
+    }
   } catch (e) {
     console.error('deleteGalleryImage error:', e);
     // Rollback optimistic removal
@@ -1566,6 +1571,11 @@ async function saveStoryHighlights(newList) {
 
   renderStoryHighlightsReel();
   renderAdminStoryHighlights();
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    window.PortalRealtime.broadcast('gallery', 'highlights');
+  } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+    global.PortalRealtime.broadcast('gallery', 'highlights');
+  }
   return true;
 }
 

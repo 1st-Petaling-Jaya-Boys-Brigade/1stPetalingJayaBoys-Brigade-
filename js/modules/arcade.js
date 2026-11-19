@@ -526,6 +526,11 @@
             }
           }
         });
+        if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+          window.PortalRealtime.broadcast('arcade', 'update', { userKey: candKeys[0], stats: stats });
+        } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+          global.PortalRealtime.broadcast('arcade', 'update', { userKey: candKeys[0], stats: stats });
+        }
       }
     } catch (e) {
       console.warn('saveArcadeStats error:', e);
@@ -2199,6 +2204,7 @@
     window.renderArcadePage               = renderArcadePage;
     window.switchArcadeSubtab             = switchArcadeSubtab;
     window.switchArcadeLeaderboardCategory = switchArcadeLeaderboardCategory;
+    window.syncArcadeLeaderboard          = syncArcadeLeaderboard;
     window.renderArcadeLeaderboardView    = renderArcadeLeaderboardView;
     window.getArcadeLeaderboardData       = getArcadeLeaderboardData;
     window.isValidWordleWord              = isValidWordleWord;

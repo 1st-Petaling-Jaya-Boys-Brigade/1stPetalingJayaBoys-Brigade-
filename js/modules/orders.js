@@ -3389,6 +3389,12 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
     syncOrderStatusToGoogleSheet(orderNum, status);
     if (typeof showToast === 'function') showToast('Order status updated to ' + status + '.', 'success');
 
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('orders', 'update', { order_number: orderNum, status: status });
+    } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      global.PortalRealtime.broadcast('orders', 'update', { order_number: orderNum, status: status });
+    }
+
     // Real-time WhatsApp-style FCM push notification for order updates
     var orderDispatcher = (typeof sendPortalPushNotification === 'function')
       ? sendPortalPushNotification
@@ -4053,6 +4059,7 @@ if (typeof window !== 'undefined') {
   window.loadAndRenderPaymentEditor = loadAndRenderPaymentEditor;
   window.adminSavePaymentInfo = adminSavePaymentInfo;
   window.renderAdminOrders = renderAdminOrders;
+  window.loadAdminOrders = function() { return renderAdminOrders(true); };
   window.updateOrderStatus = updateOrderStatus;
   window.cancelUniformOrder = cancelUniformOrder;
   window.exportAdminOrdersToCsv = exportAdminOrdersToCsv;
@@ -4146,6 +4153,7 @@ if (typeof module !== 'undefined' && module.exports) {
     loadAndRenderPaymentEditor: loadAndRenderPaymentEditor,
     adminSavePaymentInfo: adminSavePaymentInfo,
     renderAdminOrders: renderAdminOrders,
+    loadAdminOrders: function() { return renderAdminOrders(true); },
     updateOrderStatus: updateOrderStatus,
     cancelUniformOrder: cancelUniformOrder,
     exportAdminOrdersToCsv: exportAdminOrdersToCsv,

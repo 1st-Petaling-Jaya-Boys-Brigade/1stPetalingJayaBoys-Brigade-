@@ -100,6 +100,11 @@ async function saveCustomForms(nextForms) {
     _customForms.splice(0, _customForms.length, ...payload);
     _customFormsRevision++;
     if (typeof client.recordConfigSnapshot === 'function') client.recordConfigSnapshot('bb_custom_forms', payload);
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      try { window.PortalRealtime.broadcast('forms', 'update', { count: payload.length }); } catch (_) {}
+    } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      try { global.PortalRealtime.broadcast('forms', 'update', { count: payload.length }); } catch (_) {}
+    }
     return true;
   } catch (_) {
     if (typeof showToast === 'function') showToast('Form changes could not be saved. Please try again.', 'error');
@@ -1449,6 +1454,10 @@ async function submitBuiltinForm(form) {
     }
     if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
       try { window.PortalRealtime.broadcast('orders', 'insert', payload); } catch (_) {}
+      try { window.PortalRealtime.broadcast('forms', 'response', payload); } catch (_) {}
+    } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      try { global.PortalRealtime.broadcast('orders', 'insert', payload); } catch (_) {}
+      try { global.PortalRealtime.broadcast('forms', 'response', payload); } catch (_) {}
     }
 
     setTimeout(function () {

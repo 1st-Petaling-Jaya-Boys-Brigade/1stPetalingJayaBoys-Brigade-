@@ -412,6 +412,11 @@ async function writeBadgeConfig(key, value) {
     var record = { key: key, value: JSON.stringify(value) };
     if (typeof client.upsert === 'function') await client.upsert('bb_config', record, 'key');
     else await client.req('POST', 'bb_config?on_conflict=key', record);
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('badges', 'update', { key: key });
+    } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      global.PortalRealtime.broadcast('badges', 'update', { key: key });
+    }
     return true;
   } catch (_) {
     if (typeof showToast === 'function') showToast('Badge changes could not be saved.', 'error');
@@ -543,6 +548,11 @@ async function upsertMemberBadges(ic, saved) {
       });
     }
     _memberBadgesCache[ic] = saved;
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('badges', 'update', { ic: ic });
+    } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      global.PortalRealtime.broadcast('badges', 'update', { ic: ic });
+    }
     return true;
   } catch (e) {
     console.error('upsertMemberBadges error:', e);

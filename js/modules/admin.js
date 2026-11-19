@@ -715,6 +715,11 @@
         action: 'member.verification_update', targetType: 'member', targetId: ic, actorRole: 'officer_admin',
         details: { verification_status: cleanVal }
       });
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('members', 'update', { ic: ic, field: 'verification_status', value: cleanVal });
+      } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+        global.PortalRealtime.broadcast('members', 'update', { ic: ic, field: 'verification_status', value: cleanVal });
+      }
       if (typeof showToast === 'function') showToast('Member verification updated.', 'success');
       await renderAdminList(true);
       return true;
@@ -1431,6 +1436,11 @@
       var memName = (_adminMembers && _adminMembers[ic] && _adminMembers[ic].name) || ic;
       if (typeof showToast === 'function') {
         showToast('Updated ' + field.replace(/_/g, ' ') + ' for ' + memName, 'success');
+      }
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('members', 'update', Object.assign({ ic: ic, field: field, value: cleanVal }, patchObj));
+      } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+        global.PortalRealtime.broadcast('members', 'update', Object.assign({ ic: ic, field: field, value: cleanVal }, patchObj));
       }
       renderAdminList();
       return true;
@@ -2930,6 +2940,7 @@
       list.querySelectorAll('[data-edit-ic]').forEach(function(row) {
         row.addEventListener('click', function(e) {
           if (e.target.closest('.adm-row-del-btn') || e.target.closest('input') || e.target.closest('select') || e.target.closest('button')) return;
+          if (typeof window !== 'undefined' && window.getSelection && window.getSelection().toString().trim().length > 0) return;
           openEditMember(row.getAttribute('data-edit-ic'));
         });
       });
@@ -3727,7 +3738,13 @@
       return false;
     }
     if (typeof cleanMembersCache === 'function') cleanMembersCache();
-    if (global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') global.PortalRealtime.broadcast('blocklist', 'update');
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('blocklist', 'update');
+      window.PortalRealtime.broadcast('members', 'update');
+    } else if (global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      global.PortalRealtime.broadcast('blocklist', 'update');
+      global.PortalRealtime.broadcast('members', 'update');
+    }
     if (typeof showToast === 'function') showToast('Deactivated ' + ids.length + ' account(s).', 'success');
     return true;
   }
@@ -4861,7 +4878,13 @@
       _blockedEmails = next;
       try { localStorage.setItem('bb_blocked_emails', JSON.stringify(next)); } catch (_) {}
       updateBlockedEmailsCountBadge();
-      if (global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') global.PortalRealtime.broadcast('blocklist', 'update');
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('blocklist', 'update');
+      window.PortalRealtime.broadcast('members', 'update');
+    } else if (global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      global.PortalRealtime.broadcast('blocklist', 'update');
+      global.PortalRealtime.broadcast('members', 'update');
+    }
       if (typeof verifyActiveMemberSession === 'function') verifyActiveMemberSession(true).catch(function() {});
       return next;
     } catch (_) {
@@ -5238,6 +5261,12 @@
     global.getMemberVerificationStatus = getMemberVerificationStatus;
     global.getRankInsigniaSvg        = getRankInsigniaSvg;
     global.renderStatusBadge         = renderStatusBadge;
+    global.renderAdminList           = renderAdminList;
+    global.loadAdminMembers          = async function() {
+      _adminMembersCache = null;
+      _adminMembersCacheTime = 0;
+      return renderAdminList(true);
+    };
     global.setAdminViewMode          = setAdminViewMode;
     global.getAdminViewMode          = getAdminViewMode;
     global._adminMembers            = _adminMembers;
@@ -5273,6 +5302,11 @@
       calcAge: calcAge,
       setAdminSort: setAdminSort,
       renderAdminList: renderAdminList,
+      loadAdminMembers: async function() {
+        _adminMembersCache = null;
+        _adminMembersCacheTime = 0;
+        return renderAdminList(true);
+      },
       setAdminMembersViewMode: setAdminMembersViewMode,
       getAdminMembersViewMode: getAdminMembersViewMode,
       toggleAdminMemberEditMode: toggleAdminMemberEditMode,

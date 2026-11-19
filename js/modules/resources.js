@@ -153,6 +153,11 @@ async function saveResources(list) {
 
   resources.splice(0, resources.length, ...JSON.parse(serialized));
   if (typeof supa.recordConfigSnapshot === 'function') supa.recordConfigSnapshot('bb_resources', resources);
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    window.PortalRealtime.broadcast('resources', 'update', { count: resources.length });
+  } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+    global.PortalRealtime.broadcast('resources', 'update', { count: resources.length });
+  }
   renderResourcesPage();
   renderAdminResourcesList();
 }
