@@ -4723,11 +4723,12 @@ function saveActiveTaskBrief() {
 async function saveTaskField(id, field, value) {
   var t = findManagedTask(id);
   if (!t) return;
-  if (!['title', 'description', 'priority', 'due_date', 'estimate', 'project_name', 'attachments', 'subtasks', 'links', 'status'].includes(field)) return;
+  if (!['title', 'description', 'priority', 'due_date', 'estimate', 'project_name', 'attachments', 'subtasks', 'links', 'status', 'assignee_name', 'assignee_ic'].includes(field)) return;
   if (field === 'status') return memberUpdateTaskStatus(id, value);
   if (field === 'attachments') return saveTaskAttachments(id, value);
   if (field === 'subtasks') return saveTaskSubtasks(id, value);
   if (field === 'links') return saveTaskLinks(id, value);
+  if (field === 'assignee_name') return selectTaskDetailAssignee(value);
 
   if (field === 'estimate') {
     t.estimate = value;
@@ -5129,9 +5130,11 @@ async function selectTaskDetailAssignee(ic, name) {
           var mentionRes = (typeof resolveMentionTargets === 'function')
             ? resolveMentionTargets('@' + cleanName)
             : { targetUsers: [] };
+          var assignEmail = '';
           if (Array.isArray(mentionRes.targetUsers)) {
             mentionRes.targetUsers.forEach(function(u) {
               if (u && targetList.indexOf(u) === -1) targetList.push(u);
+              if (u && u.indexOf('@') !== -1 && !assignEmail) assignEmail = u;
             });
           }
           assignDispatcher({
@@ -5144,6 +5147,38 @@ async function selectTaskDetailAssignee(ic, name) {
             targetId: tid
           }).catch(function() {});
         }
+      }
+      var prAssign = (typeof window !== 'undefined' && window.PortalRealtime)
+        ? window.PortalRealtime
+        : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+      if (prAssign && typeof prAssign.broadcast === 'function') {
+        try {
+          prAssign.broadcast('tasks', 'update', {
+            id: tid,
+            field: 'assignee_name',
+            value: cleanName,
+            assignee_name: cleanName,
+            assignee_ic: cleanIc,
+            assignee_email: (typeof assignEmail !== 'undefined') ? assignEmail : '',
+            title: (t && t.title) || 'Task Update',
+            creator_name: (typeof sessionGet === 'function' ? sessionGet('name') : '') || (t && t.creator_name) || 'Jeshua Koh',
+            creator_ic: (typeof sessionGet === 'function' ? sessionGet('ic') : '') || (t && t.creator_ic) || '',
+            task: t
+          });
+          if (cleanName && cleanName !== 'Unassigned') {
+            prAssign.broadcast('task_assigned', 'create', {
+              id: tid,
+              taskId: tid,
+              title: (t && t.title) || 'Task Update',
+              assignee_name: cleanName,
+              assignee_ic: cleanIc,
+              assignee_email: (typeof assignEmail !== 'undefined') ? assignEmail : '',
+              creator_name: (typeof sessionGet === 'function' ? sessionGet('name') : '') || (t && t.creator_name) || 'Jeshua Koh',
+              creator_ic: (typeof sessionGet === 'function' ? sessionGet('ic') : '') || (t && t.creator_ic) || '',
+              updated_at: new Date().toISOString()
+            });
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.warn('Failed to sync assignee in background:', err);
@@ -5848,6 +5883,30 @@ async function handleCreateTaskSubmit(e) {
                   tab: 'tasks'
                 }).catch(function() {});
               }
+            }
+            var createdAssignEmail = '';
+            if (typeof resolveMentionTargets === 'function') {
+              try {
+                var cRes = resolveMentionTargets('@' + assigneeName);
+                if (cRes && Array.isArray(cRes.targetUsers)) {
+                  cRes.targetUsers.forEach(function(u) {
+                    if (u && u.indexOf('@') !== -1 && !createdAssignEmail) createdAssignEmail = u;
+                  });
+                }
+              } catch (_) {}
+            }
+            if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+              window.PortalRealtime.broadcast('task_assigned', 'create', {
+                id: saved.id,
+                taskId: saved.id,
+                title: title,
+                assignee_name: assigneeName,
+                assignee_ic: assigneeIc,
+                assignee_email: createdAssignEmail,
+                creator_name: localTask.creator_name || 'Jeshua Koh',
+                creator_ic: localTask.creator_ic || '',
+                updated_at: saved.created_at || new Date().toISOString()
+              });
             }
           }
         } else if (!inserted) {

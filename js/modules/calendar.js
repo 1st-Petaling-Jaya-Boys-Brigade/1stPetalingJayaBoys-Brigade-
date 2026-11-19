@@ -163,12 +163,12 @@
   };
 
   var TYPE_BADGES = {
-    'parade':     { label: 'Regular Parade',   color: '#22c55e', bg: 'rgba(34,197,94,0.16)',   border: 'rgba(34,197,94,0.4)',  dot: '#22c55e' },
-    'noparade':   { label: 'No Parade',        color: '#ef4444', bg: 'rgba(239,68,68,0.16)',  border: 'rgba(239,68,68,0.4)',  dot: '#ef4444' },
-    'special':    { label: 'Special Event',    color: '#eab308', bg: 'rgba(234,179,8,0.18)',  border: 'rgba(234,179,8,0.4)',  dot: '#eab308' },
-    'camp':       { label: 'Camp / Outing',    color: '#06b6d4', bg: 'rgba(6,182,212,0.16)',  border: 'rgba(6,182,212,0.4)',  dot: '#06b6d4' },
-    'ceremonial': { label: 'Ceremonial',       color: '#a855f7', bg: 'rgba(168,85,247,0.16)', border: 'rgba(168,85,247,0.4)', dot: '#a855f7' },
-    'holiday':    { label: 'Public Holiday',   color: '#16a34a', bg: 'rgba(22,163,74,0.18)',  border: 'rgba(22,163,74,0.5)',  dot: '#16a34a' }
+    'parade':     { label: 'Regular Parade',   color: '#2563eb', bg: 'rgba(37,99,235,0.16)',   border: 'rgba(37,99,235,0.4)',  dot: '#2563eb' },
+    'noparade':   { label: 'No Parade',        color: '#dc2626', bg: 'rgba(220,38,38,0.16)',  border: 'rgba(220,38,38,0.4)',  dot: '#dc2626' },
+    'special':    { label: 'Special Event',    color: '#d97706', bg: 'rgba(217,119,6,0.18)',   border: 'rgba(217,119,6,0.4)',   dot: '#d97706' },
+    'camp':       { label: 'Camp / Outing',    color: '#0891b2', bg: 'rgba(8,145,178,0.16)',   border: 'rgba(8,145,178,0.4)',   dot: '#0891b2' },
+    'ceremonial': { label: 'Ceremonial',       color: '#7c3aed', bg: 'rgba(124,58,237,0.16)',  border: 'rgba(124,58,237,0.4)',  dot: '#7c3aed' },
+    'holiday':    { label: 'Public Holiday',   color: '#15803d', bg: 'rgba(21,128,61,0.18)',   border: 'rgba(21,128,61,0.5)',   dot: '#15803d' }
   };
 
   // ── Role Authorization Check ───────────────────────────────────────────────
@@ -947,16 +947,18 @@
       if (dayEvents.length > 0) {
         dayEvents.forEach(function(ev) {
           var isHol = ev.type === 'holiday';
-          var isNoParade = ev.type === 'noparade';
+          var isNoParade = ev.type === 'noparade' || (ev.title && ev.title.toLowerCase().includes('no parade'));
           var isCamp = ev.type === 'camp';
           var isCeremonial = ev.type === 'ceremonial';
+          var isSpecial = ev.type === 'special';
 
-          var barStyle = 'background:#d97706;color:#ffffff;';
-          if (isHol) barStyle = 'background:#137333;color:#ffffff;';
-          else if (isNoParade) barStyle = 'background:#dc2626;color:#ffffff;';
-          else if (isCamp) barStyle = 'background:#2563eb;color:#ffffff;';
-          else if (isCeremonial) barStyle = 'background:#7c3aed;color:#ffffff;';
-          else if (ev.type === 'parade') barStyle = 'background:var(--accent);color:#000000;font-weight:700;';
+          var barStyle = 'background:#1d4ed8;color:#ffffff;font-weight:700;';
+          if (isNoParade) barStyle = 'background:#dc2626;color:#ffffff;font-weight:700;';
+          else if (isHol) barStyle = 'background:#15803d;color:#ffffff;font-weight:700;';
+          else if (isCamp) barStyle = 'background:#0891b2;color:#ffffff;font-weight:700;';
+          else if (isCeremonial) barStyle = 'background:#7c3aed;color:#ffffff;font-weight:700;';
+          else if (isSpecial) barStyle = 'background:#d97706;color:#ffffff;font-weight:700;';
+          else if (ev.type === 'parade') barStyle = 'background:#1d4ed8;color:#ffffff;font-weight:700;';
 
           html += '<div class="cal-week-allday-pill" style="' + barStyle + '" title="' + escapeHtml(ev.title + (ev.kit && ev.kit !== 'None' ? ' (' + ev.kit + ')' : '')) + '">' + escapeHtml(ev.title) + '</div>';
         });
@@ -1104,15 +1106,17 @@
         if (shownCount >= maxShow) return;
         shownCount++;
         var isHoliday = ev.type === 'holiday';
-        var isNoParade = ev.type === 'noparade';
+        var isNoParade = ev.type === 'noparade' || (ev.title && ev.title.toLowerCase().includes('no parade'));
         var isCamp = ev.type === 'camp';
         var isCeremonial = ev.type === 'ceremonial';
+        var isSpecial = ev.type === 'special';
 
-        var pillCls = 'cal-m-pill-gold';
-        if (isHoliday) pillCls = 'cal-m-pill-green';
-        else if (isNoParade) pillCls = 'cal-m-pill-red';
+        var pillCls = 'cal-m-pill-blue';
+        if (isNoParade) pillCls = 'cal-m-pill-red';
+        else if (isHoliday) pillCls = 'cal-m-pill-green';
         else if (isCamp) pillCls = 'cal-m-pill-cyan';
         else if (isCeremonial) pillCls = 'cal-m-pill-purple';
+        else if (isSpecial) pillCls = 'cal-m-pill-gold';
 
         html += '<span class="cal-m-pill ' + pillCls + '" title="' + escapeHtml(ev.title) + '">' + escapeHtml(ev.title) + '</span>';
       });

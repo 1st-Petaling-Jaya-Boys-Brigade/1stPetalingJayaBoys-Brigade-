@@ -4466,20 +4466,22 @@ function syncTaskNotifications(tasks, isSilent) {
 
   var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
   var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
   if (!myName && typeof document !== 'undefined') {
     var sbName = document.getElementById('sidebar-user-name');
     if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member') {
       myName = sbName.textContent.trim();
     }
   }
-  if (!myName && typeof localStorage !== 'undefined') {
+  if ((!myName || !myIc || !myEmail) && typeof localStorage !== 'undefined') {
     try {
       var sess = JSON.parse(localStorage.getItem('bb_session') || '{}');
-      if (sess && sess.name) myName = sess.name;
+      if (!myName && sess && sess.name) myName = sess.name;
       if (!myIc && sess && sess.ic) myIc = sess.ic;
+      if (!myEmail && sess && sess.email) myEmail = sess.email;
     } catch (_) {}
   }
-  if (!myIc && !myName) return;
+  if (!myIc && !myName && !myEmail) return;
 
   // Check if member has department role
   var hasDept = false;
@@ -4633,7 +4635,7 @@ function syncTaskNotifications(tasks, isSilent) {
   });
 
   // 3. Mentions in Task Brief & Comments
-  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
+  if (!myEmail && typeof sessionGet === 'function') myEmail = sessionGet('email') || '';
   var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
   var myRank = (typeof sessionGet === 'function') ? (sessionGet('rank') || '') : '';
 
