@@ -247,6 +247,13 @@ function cacheMasterAttendance(data, fromStorage) {
       localStorage.setItem('bb_master_att_cache', snapshot);
     }
   } catch (_) {}
+  if (!fromStorage) {
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('attendance', 'update');
+    } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
+      global.PortalRealtime.broadcast('attendance', 'update');
+    }
+  }
   return data;
 }
 
@@ -1390,6 +1397,7 @@ if (typeof window !== 'undefined') {
   window.normalizeMemberName = normalizeMemberName;
   window.getMasterAttendanceData = getMasterAttendanceData;
   window.getMemberAttendanceRecord = getMemberAttendanceRecord;
+  window.cacheMasterAttendance = cacheMasterAttendance;
   window.loadMemberAttendanceStats = loadMemberAttendanceStats;
   window.refreshMemberAttendanceStats = refreshMemberAttendanceStats;
   window.toggleSquadRoster        = toggleSquadRoster;
@@ -1409,6 +1417,7 @@ if (typeof window !== 'undefined') {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    cacheMasterAttendance: cacheMasterAttendance,
     normalizeMemberName: normalizeMemberName,
     getMasterAttendanceData: getMasterAttendanceData,
     getMemberAttendanceRecord: getMemberAttendanceRecord,

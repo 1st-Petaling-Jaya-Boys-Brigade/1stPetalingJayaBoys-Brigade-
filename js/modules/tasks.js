@@ -1721,9 +1721,7 @@ async function renderTasksBoard(deptOrProject) {
 function refreshCurrentTasksView(affectedTaskId) {
   if (typeof document === 'undefined') return;
   var pTasks = document.getElementById('page-tasks');
-  if (!pTasks) return;
-
-  var isTasksActive = pTasks.classList.contains('active') || (pTasks.style && pTasks.style.display !== 'none');
+  var isTasksActive = pTasks && (pTasks.classList.contains('active') || (pTasks.style && pTasks.style.display !== 'none'));
   if (isTasksActive) {
     if (_tasksViewMode === 'mytasks') {
       if (typeof renderMyTasksView === 'function') renderMyTasksView();
@@ -1749,6 +1747,16 @@ function refreshCurrentTasksView(affectedTaskId) {
         if (prContainer && typeof paintProjectsList === 'function') paintProjectsList(prContainer);
       }
     }
+  }
+
+  var admOverlay = document.getElementById('admin-overlay');
+  var admPanel = document.getElementById('admin-panel');
+  var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+  var admTasksRenderer = (typeof window !== 'undefined' && typeof window.renderAdminTasks === 'function')
+    ? window.renderAdminTasks
+    : (typeof renderAdminTasks === 'function' ? renderAdminTasks : null);
+  if (isAdmOpen && admTasksRenderer) {
+    try { admTasksRenderer(_adminTaskFilter); } catch (_) {}
   }
 
   // Update open task detail modal in-place if viewing the affected task

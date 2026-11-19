@@ -15041,6 +15041,274 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 78: Universal Real-Time Collaboration & Multi-Device Live Synchronization
+  // =========================================================================
+  {
+    console.log('\n--- Suite 78: Universal Real-Time Collaboration & Multi-Device Live Synchronization ---');
+
+    const supabaseMod = require('../js/api/supabase.js');
+    const adminMod = require('../js/modules/admin.js');
+    const ordersMod = require('../js/modules/orders.js');
+    const formsMod = require('../js/modules/forms.js');
+    const resourcesMod = require('../js/modules/resources.js');
+    const arcadeMod = require('../js/modules/arcade.js');
+    const badgesMod = require('../js/modules/badges.js');
+    const galleryMod = require('../js/modules/gallery.js');
+    const tasksMod = require('../js/modules/tasks.js');
+    const attendanceMod = require('../js/modules/attendance.js');
+
+    const broadcastEvents = [];
+    const origBroadcast = supabaseMod.PortalRealtime.broadcast;
+    supabaseMod.PortalRealtime.broadcast = function(entity, action, data) {
+      broadcastEvents.push({ entity, action, data });
+      return origBroadcast(entity, action, data);
+    };
+
+    try {
+      // 1. Admin Member CRM Table & Profile Real-Time Mutations
+      broadcastEvents.length = 0;
+      const adminToken = global.crypto.randomUUID();
+      const adminEmail = 'admin@pjbb.org';
+      global.RBAC = {
+        getUserRole: () => 'super_admin',
+        hasModulePermission: () => true,
+        isSuperAdmin: () => true
+      };
+      global.getAdminMemberSignIn = () => 'proof-token';
+      global.sessionGet = (k) => (k === 'email' || k === 'ic' ? adminEmail : (k === 'role' ? 'super_admin' : null));
+      global.hasAdminModuleAccess = () => true;
+      global.window.hasAdminModuleAccess = () => true;
+
+      adminMod.setAdminSessionTokenForTesting(adminToken, {
+        role: 'super_admin', officerEmail: adminEmail, expiresAt: Date.now() + 7200000,
+        lastActiveAt: Date.now(), confirmed: true, scope: 'super_admin', permissions: []
+      });
+
+      global.supa = global.supa || {};
+      const _origSupaRpc = global.supa.rpc;
+      const _origSupaPatch = global.supa.patch;
+      const _origSupaPost = global.supa.post;
+      global.supa.rpc = async (route) => {
+        if (route === 'rpc_verify_admin_session') return { valid: true, officer_email: adminEmail, scope: 'super_admin', permissions: [] };
+        if (route === 'rpc_admin_save_member') return true;
+        return { success: true };
+      };
+      global.supa.patch = async () => [{ ic: 'test-ic-001' }];
+      global.supa.post = async () => [{ ic: 'test-ic-001' }];
+
+      // Populate member in admin memory
+      adminMod.getAdminMembers()['test-ic-001'] = {
+        ic: 'test-ic-001', name: 'Tester Account', rank: 'Staff Sergeant', section: 'Officer', squad: 'Officer', department: 'officers', verification_status: 'not_verified'
+      };
+
+      await adminMod.updateMemberVerificationStatus('test-ic-001', 'rejected');
+      assert.ok(broadcastEvents.some(e => e.entity === 'members' && e.action === 'update' && e.data?.field === 'verification_status' && e.data?.value === 'rejected'),
+        'updateMemberVerificationStatus must broadcast members update event');
+
+      broadcastEvents.length = 0;
+      await adminMod.updateMemberField('test-ic-001', 'rank', 'Warrant Officer');
+      assert.ok(broadcastEvents.some(e => e.entity === 'members' && e.action === 'update' && e.data?.field === 'rank' && e.data?.value === 'Warrant Officer'),
+        'updateMemberField must broadcast members update event');
+      console.log('  ✔ Admin Member CRM Table mutations (status, rank, squad) broadcast in real time');
+
+      // 2. Real-Time Admin Member Table Inbound Dispatcher
+      let adminListRefreshed = false;
+      global.window.renderAdminList = async (force) => {
+        if (force) adminListRefreshed = true;
+      };
+      global.window.loadAdminMembers = async () => {
+        adminListRefreshed = true;
+      };
+      mockElements['admin-overlay'] = { style: { display: 'block' } };
+      mockElements['admin-panel'] = { style: { display: 'block' } };
+
+      supabaseMod.PortalRealtime.trigger('members', 'update', { ic: 'test-ic-001', field: 'rank', value: 'Warrant Officer' });
+      assert.strictEqual(adminListRefreshed, true, 'triggerEntityUpdate(members) must invoke renderAdminList(true) when admin overlay is active');
+      console.log('  ✔ Real-Time Admin Member CRM Table refreshes live without manual reload');
+
+      // 3. Admin Uniform Orders & Member Order History Real-Time Sync
+      broadcastEvents.length = 0;
+      global.window.authorizeAdminMutation = async () => true;
+      global.window.hasAdminModuleAccess = () => true;
+      global.syncOrderStatusToGoogleSheet = () => {};
+
+      // Mock client for order patch
+      global.supa = global.supa || {};
+      const origSupaGet = global.supa.get;
+      const origOrdersSupaPatch = global.supa.patch;
+      global.supa.get = async (url) => {
+        if (url.includes('bb_orders')) return [{ order_number: 'BB-9999', status: 'pending', items: '{}', ic: 'test-user', email: 'test@example.com' }];
+        return [];
+      };
+      global.supa.patch = async () => [{ order_number: 'BB-9999', status: 'processing' }];
+
+      await ordersMod.updateOrderStatus('BB-9999', 'processing');
+      assert.ok(broadcastEvents.some(e => e.entity === 'orders' && e.action === 'update' && e.data?.order_number === 'BB-9999' && e.data?.status === 'processing'),
+        'updateOrderStatus must broadcast orders update event in real time');
+
+      let adminOrdersRefreshed = false;
+      let memberOrdersRefreshed = false;
+      global.window.renderAdminOrders = async () => { adminOrdersRefreshed = true; };
+      global.window.loadMemberOrders = async () => { memberOrdersRefreshed = true; };
+
+      supabaseMod.PortalRealtime.trigger('orders', 'update', { order_number: 'BB-9999', status: 'processing' });
+      assert.strictEqual(adminOrdersRefreshed, true, 'triggerEntityUpdate(orders) must refresh Admin Orders table');
+      assert.strictEqual(memberOrdersRefreshed, true, 'triggerEntityUpdate(orders) must refresh Member Order History');
+      global.supa.get = origSupaGet;
+      global.supa.patch = origOrdersSupaPatch;
+      console.log('  ✔ Admin Uniform Orders and Member Order History synchronize immediately in real time');
+
+      // 4. Custom Forms & Live Responses Real-Time Synchronization
+      broadcastEvents.length = 0;
+      global.supa.safeConfigUpdate = async (k, v) => v;
+      global.supa.recordConfigSnapshot = () => {};
+      global.supa.req = async () => [{ key: 'bb_custom_forms' }];
+
+      await formsMod.saveCustomForms([{ id: 'form-rt-1', title: 'Realtime Form' }]);
+      assert.ok(broadcastEvents.some(e => e.entity === 'forms' && e.action === 'update'),
+        'saveCustomForms must broadcast forms update event in real time');
+
+      let formsHubRefreshed = false;
+      let adminFormsRefreshed = false;
+      let gfResponsesRefreshed = false;
+      global.window.loadCustomForms = async () => [];
+      global.window.renderFormsHub = () => { formsHubRefreshed = true; };
+      global.window.renderAdminForms = () => { adminFormsRefreshed = true; };
+      global.window.renderGfResponsesTab = () => { gfResponsesRefreshed = true; };
+      mockElements['page-forms'] = { style: { display: 'block' } };
+
+      supabaseMod.PortalRealtime.trigger('forms', 'update', {});
+      await new Promise(r => setTimeout(r, 10));
+      assert.strictEqual(formsHubRefreshed, true, 'triggerEntityUpdate(forms) must refresh Member Forms Hub');
+      assert.strictEqual(adminFormsRefreshed, true, 'triggerEntityUpdate(forms) must refresh Admin Forms List');
+      assert.strictEqual(gfResponsesRefreshed, true, 'triggerEntityUpdate(forms) must refresh Google Forms responses tab');
+      console.log('  ✔ Custom Forms Builder & Live Form Responses stream in real time');
+
+      // 5. Company Resources Document Hub Real-Time Synchronization
+      broadcastEvents.length = 0;
+      global.supa.recordConfigSnapshot = () => {};
+      global.supa.req = async () => [{ key: 'bb_resources' }];
+
+      await resourcesMod.saveResources([{ id: 'res-rt-1', title: 'Realtime Document' }]);
+      assert.ok(broadcastEvents.some(e => e.entity === 'resources' && e.action === 'update'),
+        'saveResources must broadcast resources update event in real time');
+
+      let resourcesPageRefreshed = false;
+      let adminResourcesRefreshed = false;
+      global.window.loadResources = async () => [];
+      global.window.renderResourcesPage = () => { resourcesPageRefreshed = true; };
+      global.window.renderAdminResourcesList = () => { adminResourcesRefreshed = true; };
+      mockElements['page-resources'] = { style: { display: 'block' } };
+
+      supabaseMod.PortalRealtime.trigger('resources', 'update', {});
+      await new Promise(r => setTimeout(r, 10));
+      assert.strictEqual(resourcesPageRefreshed, true, 'triggerEntityUpdate(resources) must refresh Member Resources Page');
+      assert.strictEqual(adminResourcesRefreshed, true, 'triggerEntityUpdate(resources) must refresh Admin Resources List');
+      console.log('  ✔ Company Resources & Document Hub updates push live in real time');
+
+      // 6. Arcade Streaks, Credits & Leaderboards Real-Time Synchronization
+      broadcastEvents.length = 0;
+      global.getArcadeUserKey = () => 'bb_arcade_test';
+      arcadeMod.saveArcadeStats({ streak: 12, credits: 500, balanceUpdatedAt: Date.now() });
+      assert.ok(broadcastEvents.some(e => e.entity === 'arcade' && e.action === 'update'),
+        'saveArcadeStats must broadcast arcade update event in real time');
+
+      let arcadeLeaderboardSynced = false;
+      let arcadeLeaderboardRendered = false;
+      global.window.syncArcadeLeaderboard = async () => { arcadeLeaderboardSynced = true; };
+      global.window.renderArcadeLeaderboardView = () => { arcadeLeaderboardRendered = true; };
+
+      supabaseMod.PortalRealtime.trigger('arcade', 'update', {});
+      await new Promise(r => setTimeout(r, 10));
+      assert.strictEqual(arcadeLeaderboardSynced, true, 'triggerEntityUpdate(arcade) must sync arcade leaderboard');
+      assert.strictEqual(arcadeLeaderboardRendered, true, 'triggerEntityUpdate(arcade) must render arcade leaderboard view');
+      console.log('  ✔ Arcade Streaks, Credits, and Leaderboards synchronize immediately in real time');
+
+      // 7. Badges & President's Award Tracker Real-Time Synchronization
+      broadcastEvents.length = 0;
+      global.sessionGet = (k) => (k === 'ic' ? 'test-member-ic' : null);
+      global.supa.get = async () => [{ id: 'mb-1' }];
+      global.supa.patch = async () => [{}];
+      global.supa.post = async () => [{}];
+      global.supa.upsert = async () => [{}];
+      global.window.supa = global.supa;
+
+      await badgesMod.upsertMemberBadges('test-member-ic', { drill_basic: { basicDate: '2026-11-01' } });
+      assert.ok(broadcastEvents.some(e => e.entity === 'badges' && e.action === 'update' && e.data?.ic === 'test-member-ic'),
+        'upsertMemberBadges must broadcast badges update event in real time');
+
+      let badgesHubRefreshed = false;
+      let presidentsTrackerRefreshed = false;
+      let adminBadgesRefreshed = false;
+      global.window.renderBadgesHub = () => { badgesHubRefreshed = true; };
+      global.window.renderPresidentsTracker = async () => { presidentsTrackerRefreshed = true; };
+      global.window.renderAdminBadges = () => { adminBadgesRefreshed = true; };
+      mockElements['page-badges'] = { style: { display: 'block' } };
+      mockElements['presidents-badge-modal'] = { style: { display: 'block' } };
+
+      supabaseMod.PortalRealtime.trigger('badges', 'update', { ic: 'test-member-ic' });
+      assert.strictEqual(badgesHubRefreshed, true, 'triggerEntityUpdate(badges) must refresh Badges Hub');
+      assert.strictEqual(presidentsTrackerRefreshed, true, 'triggerEntityUpdate(badges) must refresh President Award tracker');
+      assert.strictEqual(adminBadgesRefreshed, true, 'triggerEntityUpdate(badges) must refresh Admin Badges panel');
+      console.log('  ✔ Badges and President Award Tracker synchronize live in real time');
+
+      // 8. Photo & Video Gallery Real-Time Synchronization
+      broadcastEvents.length = 0;
+      galleryMod.galleryImages.length = 0;
+      galleryMod.galleryImages.push({ id: 'img-1', url: 'https://example.com/test.jpg', type: 'image' });
+      await galleryMod.deleteGalleryImage(0, 'img-1');
+      assert.ok(broadcastEvents.some(e => e.entity === 'gallery' && e.action === 'delete' && e.data?.id === 'img-1'),
+        'deleteGalleryImage must broadcast gallery delete event in real time');
+
+      let galleryLoaded = false;
+      let galleryRendered = false;
+      let adminGalleryRendered = false;
+      global.window.loadGallery = async () => { galleryLoaded = true; };
+      global.window.renderGallery = () => { galleryRendered = true; };
+      global.window.renderAdminGalleryGrid = () => { adminGalleryRendered = true; };
+      mockElements['page-gallery'] = { style: { display: 'block' } };
+
+      supabaseMod.PortalRealtime.trigger('gallery', 'delete', { id: 'img-1' });
+      await new Promise(r => setTimeout(r, 10));
+      assert.strictEqual(galleryLoaded, true, 'triggerEntityUpdate(gallery) must call loadGallery');
+      assert.strictEqual(galleryRendered, true, 'triggerEntityUpdate(gallery) must render gallery');
+      assert.strictEqual(adminGalleryRendered, true, 'triggerEntityUpdate(gallery) must render admin gallery grid');
+      console.log('  ✔ Photo & Video Gallery updates push live across devices in real time');
+
+      // 9. Admin Tasks View Real-Time Synchronization
+      let adminTasksRefreshed = false;
+      global.window.renderAdminTasks = () => { adminTasksRefreshed = true; };
+      mockElements['page-tasks'] = { classList: { contains: () => false }, style: { display: 'none' } };
+      mockElements['admin-overlay'] = { style: { display: 'block' } };
+      mockElements['admin-panel'] = { style: { display: 'block' } };
+
+      tasksMod.refreshCurrentTasksView('task-101');
+      assert.strictEqual(adminTasksRefreshed, true, 'refreshCurrentTasksView must refresh Admin Tasks list when Admin Panel is open');
+      console.log('  ✔ Admin Tasks View updates in real time alongside Member Task Boards');
+
+      // 10. Master Attendance Real-Time Cache Sync
+      broadcastEvents.length = 0;
+      attendanceMod.cacheMasterAttendance({ lastSynced: new Date().toISOString(), squads: {}, platoons: {} }, false);
+      assert.ok(broadcastEvents.some(e => e.entity === 'attendance' && e.action === 'update'),
+        'cacheMasterAttendance must broadcast attendance update event across tabs and devices');
+      console.log('  ✔ Master Attendance sync broadcasts immediately to refresh squad and leaderboard views');
+
+    } finally {
+      supabaseMod.PortalRealtime.broadcast = origBroadcast;
+    }
+
+    // 11. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite78 = new Set();
+    const postMatchesSuite78 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite78.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite78.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite78.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite78.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
