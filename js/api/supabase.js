@@ -1828,6 +1828,66 @@ var PortalRealtime = (function() {
       return;
     }
 
+    if (entity === 'task_subtasks' || (entity === 'tasks' && action === 'subtasks_update')) {
+      var sTid = data ? (data.taskId || data.id) : null;
+      if (sTid && data && Array.isArray(data.subtasks)) {
+        if (typeof window !== 'undefined') {
+          window._taskSubtasksMap = window._taskSubtasksMap || {};
+          window._taskSubtasksMap[sTid] = data.subtasks;
+          try { localStorage.setItem('bb_task_subtasks_' + sTid, JSON.stringify(data.subtasks)); } catch (_) {}
+          var curSubActive = window._activeDetailTaskId;
+          if (String(curSubActive) === String(sTid) && typeof window.renderTaskSubtasks === 'function') {
+            window.renderTaskSubtasks(sTid);
+          }
+          try { window.dispatchEvent(new CustomEvent('bb_task_subtasks_changed', { detail: data })); } catch (_) {}
+        }
+        if (typeof global !== 'undefined' && global._taskSubtasksMap) {
+          global._taskSubtasksMap[sTid] = data.subtasks;
+        }
+      }
+      return;
+    }
+
+    if (entity === 'task_attachments' || (entity === 'tasks' && action === 'attachments_update')) {
+      var aTid = data ? (data.taskId || data.id) : null;
+      if (aTid && data && Array.isArray(data.attachments)) {
+        if (typeof window !== 'undefined') {
+          window._taskAttachmentsMap = window._taskAttachmentsMap || {};
+          window._taskAttachmentsMap[aTid] = data.attachments;
+          try { localStorage.setItem('bb_task_attachments_' + aTid, JSON.stringify(data.attachments)); } catch (_) {}
+          var curAttActive = window._activeDetailTaskId;
+          if (String(curAttActive) === String(aTid) && typeof window.renderTaskAttachments === 'function') {
+            window.renderTaskAttachments(aTid);
+          }
+          try { window.dispatchEvent(new CustomEvent('bb_task_attachments_changed', { detail: data })); } catch (_) {}
+        }
+        if (typeof global !== 'undefined' && global._taskAttachmentsMap) {
+          global._taskAttachmentsMap[aTid] = data.attachments;
+        }
+      }
+      return;
+    }
+
+    if (entity === 'task_links' || (entity === 'tasks' && action === 'links_update')) {
+      var lTid = data ? (data.taskId || data.id) : null;
+      if (lTid && data && Array.isArray(data.links)) {
+        if (typeof window !== 'undefined') {
+          window._taskLinksMap = window._taskLinksMap || {};
+          window._taskLinksMap[lTid] = data.links;
+          try { localStorage.setItem('bb_task_links_' + lTid, JSON.stringify(data.links)); } catch (_) {}
+          var curLnkActive = window._activeDetailTaskId;
+          if (String(curLnkActive) === String(lTid) && typeof window.renderTaskLinks === 'function') {
+            window.renderTaskLinks(lTid);
+          }
+          try { window.dispatchEvent(new CustomEvent('bb_task_links_changed', { detail: data })); } catch (_) {}
+        }
+        if (typeof global !== 'undefined' && global._taskLinksMap) {
+          global._taskLinksMap[lTid] = data.links;
+        }
+      }
+      return;
+    }
+
     if (entity === 'calendar') {
       if (typeof window !== 'undefined' && typeof window.loadCalendarEvents === 'function') {
         window.loadCalendarEvents().then(function() {
@@ -1917,9 +1977,22 @@ var PortalRealtime = (function() {
           } else if (existingT) {
             if (data.status) existingT.status = data.status;
             if (data.field && data.value !== undefined) existingT[data.field] = data.value;
+            if (data.field === 'estimate' || data.estimate) {
+              var estVal = data.estimate || data.value;
+              existingT.estimate = estVal;
+              if (window._taskMap && window._taskMap[tIdStr]) {
+                window._taskMap[tIdStr].estimate = estVal;
+              }
+              if (String(window._activeDetailTaskId) === tIdStr) {
+                var estEl = document.querySelector('.tdm-estimate-val');
+                if (estEl) estEl.textContent = estVal || 'Estimate';
+              }
+            }
+            if (data.description) existingT.description = data.description;
             if (window._taskMap && window._taskMap[tIdStr]) {
               if (data.status) window._taskMap[tIdStr].status = data.status;
               if (data.field && data.value !== undefined) window._taskMap[tIdStr][data.field] = data.value;
+              if (data.description) window._taskMap[tIdStr].description = data.description;
             }
           }
           if (typeof window.refreshCurrentTasksView === 'function') {
@@ -2203,6 +2276,7 @@ var PortalRealtime = (function() {
     },
     broadcast: broadcastLocalChange,
     trigger: triggerEntityUpdate,
+    triggerEntityUpdate: triggerEntityUpdate,
     checkDeltaSync: checkDeltaSync
   };
 })();
