@@ -15549,7 +15549,202 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 81: Real-Time Task Estimates, Subtasks, Links & Attachments Durability
+  // =========================================================================
+  {
+    console.log('\n--- Suite 81: Real-Time Task Estimates, Subtasks, Links & Attachments Durability ---');
+
+    const tasksMod = require('../js/modules/tasks.js');
+    const supaMod = require('../js/api/supabase.js');
+
+    // 1. Task Estimates Extraction & Description Metadata Preservation
+    const taskWithDescEst = {
+      id: 101,
+      title: 'Full test for Portal before launch',
+      project_name: 'Portal Development',
+      description: 'Implement full test coverage.\n\n[Project: Portal Development | Estimate: 3h 30m]'
+    };
+    const taskWithFieldEst = {
+      id: 102,
+      title: 'Bug fixes - mentions',
+      estimate: '1d 4h',
+      description: 'Clean up mentions popover.'
+    };
+    const taskWithHoursEst = {
+      id: 103,
+      title: 'Notification for mobile',
+      estimated_hours: '4h',
+      description: 'Ensure FCM notifications arrive.'
+    };
+
+    assert.strictEqual(tasksMod.getTaskEstimate(taskWithDescEst), '3h 30m', 'getTaskEstimate must extract estimate from description metadata tag');
+    assert.strictEqual(tasksMod.getTaskEstimate(taskWithFieldEst), '1d 4h', 'getTaskEstimate must extract estimate from estimate property');
+    assert.strictEqual(tasksMod.getTaskEstimate(taskWithHoursEst), '4h', 'getTaskEstimate must extract estimate from estimated_hours property');
+
+    const builtDesc = tasksMod.buildTaskDescriptionWithMeta({ project_name: 'Portal Development', estimate: '2d' }, 'Initial description text');
+    assert.ok(builtDesc.includes('[Project: Portal Development | Estimate: 2d]'), 'buildTaskDescriptionWithMeta must preserve both project and estimate tags');
+    assert.ok(builtDesc.startsWith('Initial description text'), 'buildTaskDescriptionWithMeta must preserve body content');
+    console.log('  ✔ Task estimate parsing and multi-tag metadata envelope serialization verified');
+
+    // 2. Subtasks CRUD, In-Memory Caching & bb_config Persistence
+    const subtaskTid = 'test_task_81_sub';
+    const subtask1 = { id: 'st_1', text: 'test1', completed: false };
+    const subtask2 = { id: 'st_2', text: 'test2', completed: true };
+    const subtasksList = [subtask1, subtask2];
+
+    let supaUpsertPayload = null;
+    let realtimeBroadcastMsg = null;
+
+    global.supa = {
+      req: async (_method, endpoint, body) => {
+        supaUpsertPayload = { endpoint, body };
+        return [{ key: body.key, value: body.value }];
+      },
+      upsert: async (table, payload) => {
+        supaUpsertPayload = { table, payload };
+        return [payload];
+      },
+      get: async (endpoint) => {
+        if (endpoint.includes('bb_task_subtasks_' + subtaskTid)) {
+          return [{ key: 'bb_task_subtasks_' + subtaskTid, value: JSON.stringify(subtasksList) }];
+        }
+        if (endpoint.includes('bb_task_links_' + subtaskTid)) {
+          return [{ key: 'bb_task_links_' + subtaskTid, value: JSON.stringify([{ id: 'lnk_1', title: 'https://github.com', url: 'https://github.com' }]) }];
+        }
+        if (endpoint.includes('bb_task_attachments_' + subtaskTid)) {
+          return [{ key: 'bb_task_attachments_' + subtaskTid, value: JSON.stringify([{ id: 'att_1', name: 'diagram.png', size: '60.2 KB', url: 'blob:...' }]) }];
+        }
+        return [];
+      },
+      patch: async () => [{ id: subtaskTid }],
+      delete: async () => [{ id: subtaskTid }]
+    };
+
+    global.PortalRealtime = {
+      broadcast: (entity, action, data) => {
+        realtimeBroadcastMsg = { entity, action, data };
+      }
+    };
+    if (typeof window !== 'undefined') window.PortalRealtime = global.PortalRealtime;
+
+    await tasksMod.saveTaskSubtasks(subtaskTid, subtasksList);
+    const retrievedSubtasks = tasksMod.getTaskSubtasks(subtaskTid);
+    assert.strictEqual(retrievedSubtasks.length, 2, 'getTaskSubtasks must retrieve saved subtasks');
+    assert.strictEqual(retrievedSubtasks[0].text, 'test1', 'First subtask must be test1');
+    assert.strictEqual(retrievedSubtasks[1].completed, true, 'Second subtask must be completed');
+    assert.ok(supaUpsertPayload && (supaUpsertPayload.payload || supaUpsertPayload.body).key === 'bb_task_subtasks_' + subtaskTid,
+      'saveTaskSubtasks must persist to Supabase bb_config under key bb_task_subtasks_<taskId>');
+    assert.ok(realtimeBroadcastMsg && realtimeBroadcastMsg.entity === 'task_subtasks',
+      'saveTaskSubtasks must broadcast task_subtasks update via PortalRealtime');
+    console.log('  ✔ Subtasks CRUD, localStorage caching, and Supabase bb_config persistence verified');
+
+    // 3. Links CRUD, Validation & bb_config Persistence
+    const linkTid = 'test_task_81_lnk';
+    const linkItem = { id: 'l_1', title: 'POR-2 Full test for Portal before launch', url: '', created_at: new Date().toISOString() };
+    const linkHttp = { id: 'l_2', title: 'https://portal.1stpj.org/docs', url: 'https://portal.1stpj.org/docs', created_at: new Date().toISOString() };
+    const linksList = [linkItem, linkHttp];
+
+    await tasksMod.saveTaskLinks(linkTid, linksList);
+    const retrievedLinks = tasksMod.getTaskLinks(linkTid);
+    assert.strictEqual(retrievedLinks.length, 2, 'getTaskLinks must return saved links');
+    assert.strictEqual(retrievedLinks[0].title, 'POR-2 Full test for Portal before launch', 'Internal task link title preserved');
+    assert.strictEqual(retrievedLinks[1].url, 'https://portal.1stpj.org/docs', 'External HTTP link URL preserved');
+    assert.ok(supaUpsertPayload && (supaUpsertPayload.payload || supaUpsertPayload.body).key === 'bb_task_links_' + linkTid,
+      'saveTaskLinks must persist to Supabase bb_config under key bb_task_links_<taskId>');
+    assert.ok(realtimeBroadcastMsg && realtimeBroadcastMsg.entity === 'task_links',
+      'saveTaskLinks must broadcast task_links update via PortalRealtime');
+    console.log('  ✔ Related task and web links persistence, memory caching, and real-time broadcast verified');
+
+    // 4. Attachments Persistence & Secure File Architecture
+    const attTid = 'test_task_81_att';
+    const attachmentItem = {
+      id: 'att_99',
+      name: 'WhatsApp Image 2026-11-18 at 10.15.30.png',
+      size: '60.2 KB',
+      url: 'blob:https://portal.1stpj.org/uuid-1234',
+      path: 'tasks/' + attTid + '/1795085908_WhatsApp_Image.png',
+      uploadedAt: new Date().toISOString()
+    };
+    await tasksMod.saveTaskAttachments(attTid, [attachmentItem]);
+    const retrievedAtts = tasksMod.getTaskAttachments(attTid);
+    assert.strictEqual(retrievedAtts.length, 1, 'getTaskAttachments must return saved attachments');
+    assert.strictEqual(retrievedAtts[0].name, 'WhatsApp Image 2026-11-18 at 10.15.30.png', 'Attachment filename preserved');
+    assert.strictEqual(retrievedAtts[0].size, '60.2 KB', 'Attachment formatted file size preserved');
+    assert.ok(supaUpsertPayload && (supaUpsertPayload.payload || supaUpsertPayload.body).key === 'bb_task_attachments_' + attTid,
+      'saveTaskAttachments must persist to Supabase bb_config under key bb_task_attachments_<taskId>');
+    assert.ok(realtimeBroadcastMsg && realtimeBroadcastMsg.entity === 'task_attachments',
+      'saveTaskAttachments must broadcast task_attachments update via PortalRealtime');
+    console.log('  ✔ Task attachments durability, byte sizing, and Supabase bb_config persistence verified');
+
+    // 5. Real-Time Engine (supabase.js triggerEntityUpdate) for Subtasks, Links, Attachments & Estimates
+    let realtimeSubtasksRendered = false;
+    let realtimeLinksRendered = false;
+    let realtimeAttsRendered = false;
+
+    if (typeof window !== 'undefined') {
+      window._activeDetailTaskId = 'rt_task_test_1';
+      window.renderTaskSubtasks = (tid) => { if (tid === 'rt_task_test_1') realtimeSubtasksRendered = true; };
+      window.renderTaskLinks = (tid) => { if (tid === 'rt_task_test_1') realtimeLinksRendered = true; };
+      window.renderTaskAttachments = (tid) => { if (tid === 'rt_task_test_1') realtimeAttsRendered = true; };
+    }
+
+    supaMod.PortalRealtime.triggerEntityUpdate('task_subtasks', 'update', { taskId: 'rt_task_test_1', subtasks: [{ id: 's1', text: 'Live subtask' }] });
+    assert.strictEqual(realtimeSubtasksRendered, true, 'triggerEntityUpdate must re-render active task subtasks in real time');
+
+    supaMod.PortalRealtime.triggerEntityUpdate('task_links', 'update', { taskId: 'rt_task_test_1', links: [{ id: 'l1', title: 'Live link' }] });
+    assert.strictEqual(realtimeLinksRendered, true, 'triggerEntityUpdate must re-render active task links in real time');
+
+    supaMod.PortalRealtime.triggerEntityUpdate('task_attachments', 'update', { taskId: 'rt_task_test_1', attachments: [{ id: 'a1', name: 'live.png' }] });
+    assert.strictEqual(realtimeAttsRendered, true, 'triggerEntityUpdate must re-render active task attachments in real time');
+
+    console.log('  ✔ PortalRealtime instant multi-device event routing for subtasks, links, and attachments verified');
+
+    // 6. Parallel Batch Prefetching of Remote Task Details
+    let detailsFetched = false;
+    global.supa.get = async (endpoint) => {
+      if (endpoint.includes('bb_config?key=like.')) {
+        detailsFetched = true;
+        return [
+          { key: 'bb_task_attachments_task_1', value: JSON.stringify([{ id: 'a1', name: 'spec.pdf' }]) },
+          { key: 'bb_task_subtasks_task_1', value: JSON.stringify([{ id: 's1', text: 'Check spec', completed: true }]) },
+          { key: 'bb_task_links_task_1', value: JSON.stringify([{ id: 'l1', title: 'PR #355' }]) },
+          { key: 'bb_task_comments_task_1', value: JSON.stringify([{ id: 'c1', text: 'Looks great!' }]) }
+        ];
+      }
+      return [];
+    };
+
+    await tasksMod.fetchAllRemoteTaskDetails(true);
+    assert.strictEqual(detailsFetched, true, 'fetchAllRemoteTaskDetails must query bb_config with parallel batch queries');
+    const prefetchedSubs = tasksMod.getTaskSubtasks('task_1');
+    const prefetchedLnks = tasksMod.getTaskLinks('task_1');
+    const prefetchedAtts = tasksMod.getTaskAttachments('task_1');
+    assert.strictEqual(prefetchedSubs.length, 1, 'Prefetched subtasks stored in memory map');
+    assert.strictEqual(prefetchedLnks.length, 1, 'Prefetched links stored in memory map');
+    assert.strictEqual(prefetchedAtts.length, 1, 'Prefetched attachments stored in memory map');
+    console.log('  ✔ Parallel batch prefetching of task subtasks, links, attachments, and comments verified');
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite81 = new Set();
+    const postMatchesSuite81 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite81.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite81.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite81.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite81.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
+  for (const h of process._getActiveHandles()) {
+    if (h && typeof h.destroy === 'function') {
+      try { h.destroy(); } catch (_) {}
+    }
+    if (h && typeof h.close === 'function') {
+      try { h.close(); } catch (_) {}
+    }
+  }
   process.exit(0);
 })().catch(err => {
   console.error('\n✖ Test failed:', err);

@@ -140,15 +140,28 @@ function getPriorityIconSvg(priority, size) {
 }
 
 /**
+ * Extracts estimate value from task object (property or description tag)
+ */
+function getTaskEstimate(t) {
+  if (!t) return '';
+  if (t.estimate && String(t.estimate).trim()) return String(t.estimate).trim();
+  if (t.estimated_hours != null && String(t.estimated_hours).trim()) {
+    var rawHours = String(t.estimated_hours).trim();
+    return /^[0-9]+(\.[0-9]+)?$/.test(rawHours) ? rawHours + 'h' : rawHours;
+  }
+  if (t.description) {
+    var match = t.description.match(/Estimate:\s*([^\]|\n\r]+)/i);
+    if (match && match[1] && match[1].trim()) return match[1].trim();
+  }
+  return '';
+}
+
+/**
  * Ensures project tag and estimate tag are never stripped when updating descriptions
  */
 function buildTaskDescriptionWithMeta(t, rawCleanDesc) {
   var pName = (t && t.project_name && t.project_name.trim()) ? t.project_name.trim() : (getTaskProjectName(t) || _activeProject || '');
-  var est = (t && t.estimate) || '';
-  if (!est && t && t.description) {
-    var estMatch = t.description.match(/\[Estimate:\s*([^\]|]+)/i);
-    if (estMatch && estMatch[1]) est = estMatch[1].trim();
-  }
+  var est = getTaskEstimate(t);
   var body = (rawCleanDesc || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
   var tags = [];
   if (pName && pName !== 'General Project' && !pName.toLowerCase().includes('sprint')) {
@@ -1517,9 +1530,10 @@ function renderColumnsFromTasks(tasksList) {
         metaRowHtml = '<div class="task-card-meta-row">' + projectPillHtml + dueBadge + '</div>';
       }
 
+      var taskEst = getTaskEstimate(t);
       var estimateHtml = '';
-      if (t.estimate) {
-        var safeEst = (typeof escapeHtml === 'function') ? escapeHtml(t.estimate) : t.estimate;
+      if (taskEst) {
+        var safeEst = (typeof escapeHtml === 'function') ? escapeHtml(taskEst) : taskEst;
         estimateHtml = '<span class="task-card-estimate-pill" title="Estimated time">'
           + '<svg class="ui-icon-xs" width="11" height="11" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
           + '<span>' + safeEst + '</span>'
@@ -1887,8 +1901,8 @@ function refreshCurrentTasksView(affectedTaskId) {
         }
       }
       var estValEl = document.querySelector('.tdm-estimate-val');
-      if (estValEl && curT.estimate !== undefined) {
-        estValEl.textContent = curT.estimate || 'Estimate';
+      if (estValEl) {
+        estValEl.textContent = getTaskEstimate(curT) || 'Estimate';
       }
     } else if (_deletedTaskIds[String(activeModalId)] || (_allLoadedTasks && _allLoadedTasks.length > 0)) {
       if (typeof closeTaskDetail === 'function') closeTaskDetail();
@@ -1923,6 +1937,9 @@ async function fetchAllRemoteTasks(andRerender) {
       _taskMap = {};
       _allLoadedTasks.forEach(function(t) {
         _taskMap[t.id] = t;
+        if (!t.estimate) {
+          t.estimate = getTaskEstimate(t);
+        }
         var p = getTaskProjectName(t);
         if (p && p !== 'General Project' && !p.toLowerCase().includes('sprint') && _companyProjects.indexOf(p) === -1) {
           _companyProjects.push(p);
@@ -1930,6 +1947,9 @@ async function fetchAllRemoteTasks(andRerender) {
       });
       if (typeof window !== 'undefined') window._taskMap = _taskMap;
       try { if (typeof localStorage !== 'undefined') localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
+
+      // Batch prefetch of task details (attachments, subtasks, links, comments)
+      fetchAllRemoteTaskDetails().catch(function() {});
 
       if (andRerender && typeof document !== 'undefined') {
         refreshCurrentTasksView();
@@ -2550,7 +2570,7 @@ function openTaskDetail(id) {
   }
 
   // Estimate Pill matching Image 2
-  var estStr = t.estimate || 'Estimate';
+  var estStr = getTaskEstimate(t) || 'Estimate';
   var estValEl = document.querySelector('.tdm-estimate-val');
   if (estValEl) estValEl.textContent = estStr;
 
@@ -2570,13 +2590,20 @@ function openTaskDetail(id) {
   };
   renderTaskComments(id);
   renderTaskAttachments(id);
+  renderTaskSubtasks(id);
+  renderTaskLinks(id);
+
   if (typeof fetchRemoteTaskComments === 'function') {
-    fetchRemoteTaskComments(id).then(function() {
-      var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
-      if (activeId === id && typeof renderTaskComments === 'function') {
-        renderTaskComments(id);
-      }
-    }).catch(function() {});
+    fetchRemoteTaskComments(id).catch(function() {});
+  }
+  if (typeof fetchRemoteTaskAttachments === 'function') {
+    fetchRemoteTaskAttachments(id).catch(function() {});
+  }
+  if (typeof fetchRemoteTaskSubtasks === 'function') {
+    fetchRemoteTaskSubtasks(id).catch(function() {});
+  }
+  if (typeof fetchRemoteTaskLinks === 'function') {
+    fetchRemoteTaskLinks(id).catch(function() {});
   }
   if (typeof _activeTaskPollTimer !== 'undefined' && _activeTaskPollTimer) {
     clearInterval(_activeTaskPollTimer);
@@ -2590,6 +2617,15 @@ function openTaskDetail(id) {
     }
     if (typeof fetchRemoteTaskComments === 'function') {
       fetchRemoteTaskComments(curActiveId).catch(function() {});
+    }
+    if (typeof fetchRemoteTaskSubtasks === 'function') {
+      fetchRemoteTaskSubtasks(curActiveId).catch(function() {});
+    }
+    if (typeof fetchRemoteTaskLinks === 'function') {
+      fetchRemoteTaskLinks(curActiveId).catch(function() {});
+    }
+    if (typeof fetchRemoteTaskAttachments === 'function') {
+      fetchRemoteTaskAttachments(curActiveId).catch(function() {});
     }
   }, 4000);
 }
@@ -2660,44 +2696,441 @@ async function insertTaskDescLink() {
   else if (typeof showToast === 'function') showToast('Enter a valid link.', 'warning');
 }
 
+var _taskSubtasksMap = {};
+var _taskLinksMap = {};
+
+/**
+ * Retrieves subtasks array for a given task ID from memory, localStorage, or task object
+ * @param {string|number} taskId
+ * @returns {Array<Object>}
+ */
+function getTaskSubtasks(taskId) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return [];
+  if (_taskSubtasksMap[tid] && Array.isArray(_taskSubtasksMap[tid])) {
+    return _taskSubtasksMap[tid];
+  }
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
+  if (t && Array.isArray(t.subtasks)) {
+    _taskSubtasksMap[tid] = t.subtasks;
+    return t.subtasks;
+  }
+  try {
+    var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_task_subtasks_' + tid) : null;
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        _taskSubtasksMap[tid] = parsed;
+        if (t) t.subtasks = parsed;
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Persists subtasks for a given task ID into memory, localStorage, and Supabase bb_config
+ * @param {string|number} taskId
+ * @param {Array<Object>} subtasks
+ */
+async function saveTaskSubtasks(taskId, subtasks) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid || !Array.isArray(subtasks)) return;
+  _taskSubtasksMap[tid] = subtasks;
+  if (typeof window !== 'undefined') {
+    window._taskSubtasksMap = window._taskSubtasksMap || {};
+    window._taskSubtasksMap[tid] = subtasks;
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_task_subtasks_' + tid, JSON.stringify(subtasks));
+    }
+  } catch (_) {}
+
+  var t = findManagedTask(tid);
+  if (t) t.subtasks = subtasks;
+
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var payload = {
+        key: 'bb_task_subtasks_' + tid,
+        value: JSON.stringify(subtasks),
+        updated_at: new Date().toISOString()
+      };
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', payload, 'key');
+      } else {
+        await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+      }
+    } catch (e) {
+      console.warn('saveTaskSubtasks remote error:', e);
+    }
+  }
+
+  var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+    ? window.PortalRealtime
+    : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+  if (pr && typeof pr.broadcast === 'function') {
+    try {
+      pr.broadcast('task_subtasks', 'update', { taskId: tid, subtasks: subtasks });
+    } catch (_) {}
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('bb_task_subtasks_changed', { detail: { taskId: tid, subtasks: subtasks } }));
+    } catch (_) {}
+  }
+}
+
+/**
+ * Fetches persisted subtasks for a task ID from Supabase bb_config
+ * @param {string|number} taskId
+ */
+async function fetchRemoteTaskSubtasks(taskId) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return [];
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_task_subtasks_' + encodeURIComponent(tid) + '&select=value', { cache: false });
+      if (Array.isArray(rows) && rows.length && rows[0].value) {
+        var parsed = JSON.parse(rows[0].value);
+        if (Array.isArray(parsed)) {
+          _taskSubtasksMap[tid] = parsed;
+          if (typeof window !== 'undefined') {
+            window._taskSubtasksMap = window._taskSubtasksMap || {};
+            window._taskSubtasksMap[tid] = parsed;
+          }
+          try { localStorage.setItem('bb_task_subtasks_' + tid, JSON.stringify(parsed)); } catch (_) {}
+          var curActiveId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+          if (String(curActiveId) === tid && typeof renderTaskSubtasks === 'function') {
+            renderTaskSubtasks(tid);
+          }
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('fetchRemoteTaskSubtasks error:', e);
+    }
+  }
+  return getTaskSubtasks(tid);
+}
+
+/**
+ * Renders the interactive subtasks list in the task brief modal
+ * @param {string|number} taskId
+ */
+function renderTaskSubtasks(taskId) {
+  if (typeof document === 'undefined') return;
+  var list = document.querySelector('.tb-subtasks-list');
+  if (!list) return;
+  var tid = String(taskId || _activeDetailTaskId || '');
+  var subtasks = getTaskSubtasks(tid);
+
+  if (!subtasks.length) {
+    list.innerHTML = '';
+    return;
+  }
+
+  var html = '';
+  subtasks.forEach(function(st) {
+    var safeText = (typeof escapeHtml === 'function') ? escapeHtml(st.text || '') : (st.text || '');
+    var isDone = Boolean(st.completed);
+    var textStyle = isDone ? 'text-decoration:line-through;opacity:0.6;' : '';
+    html += '<div class="tb-subtask-item" data-subtask-id="' + st.id + '" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-subtle);">'
+      + '<input type="checkbox" ' + (isDone ? 'checked' : '') + ' style="cursor:pointer;" onchange="toggleTaskSubtask(\'' + tid + '\', \'' + st.id + '\', this.checked)" title="Mark subtask completed" aria-label="Mark subtask completed" />'
+      + '<span contenteditable="true" style="outline:none;flex:1;font-size:13px;' + textStyle + '" onblur="handleSubtaskTextBlur(\'' + tid + '\', \'' + st.id + '\', this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}">' + safeText + '</span>'
+      + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;font-size:16px;line-height:1;" onclick="deleteTaskSubtask(\'' + tid + '\', \'' + st.id + '\')" title="Delete subtask" aria-label="Delete subtask">&times;</button>'
+      + '</div>';
+  });
+  list.innerHTML = html;
+}
+
 /**
  * Adds an interactive subtask item to the active task brief (Image 5)
  */
 function addActiveTaskSubtask(text) {
-  if (typeof document === 'undefined') return;
-  var list = document.querySelector('.tb-subtasks-list');
-  if (!list) return;
-  var item = document.createElement('div');
-  item.className = 'tb-subtask-item';
-  item.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-subtle);';
-  item.innerHTML = '<input type="checkbox" style="cursor:pointer;" onchange="this.nextElementSibling.style.textDecoration = this.checked ? \'line-through\' : \'none\'; this.nextElementSibling.style.opacity = this.checked ? \'0.6\' : \'1\';" />'
-    + '<span contenteditable="true" style="outline:none;flex:1;font-size:13px;" placeholder="Sub-task title...">' + (typeof escapeHtml === 'function' ? escapeHtml(text || 'New sub-task') : (text || 'New sub-task')) + '</span>'
-    + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;" onclick="this.parentElement.remove()" title="Delete subtask">&times;</button>';
-  list.appendChild(item);
-  var span = item.querySelector('span');
-  if (span) span.focus();
+  var tid = _activeDetailTaskId;
+  if (!tid) return;
+  var subtasks = getTaskSubtasks(tid);
+  var newId = 'sub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  var subtask = {
+    id: newId,
+    text: (text || '').trim() || 'New sub-task',
+    completed: false,
+    created_at: new Date().toISOString()
+  };
+  subtasks.push(subtask);
+  saveTaskSubtasks(tid, subtasks);
+  renderTaskSubtasks(tid);
+
+  if (typeof document !== 'undefined') {
+    var item = document.querySelector('.tb-subtask-item[data-subtask-id="' + newId + '"] span');
+    if (item) {
+      item.focus();
+      if (!text) {
+        try {
+          var range = document.createRange();
+          range.selectNodeContents(item);
+          var sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        } catch (_) {}
+      }
+    }
+  }
 }
 
 /**
- * Links a related task in the task brief (Image 5)
+ * Toggles a subtask's completion checkbox
+ */
+function toggleTaskSubtask(taskId, subtaskId, isChecked) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return;
+  var subtasks = getTaskSubtasks(tid);
+  var st = subtasks.find(function(x) { return String(x.id) === String(subtaskId); });
+  if (st) {
+    st.completed = Boolean(isChecked);
+    saveTaskSubtasks(tid, subtasks);
+    renderTaskSubtasks(tid);
+  }
+}
+
+/**
+ * Handles blur event on editable subtask title
+ */
+function handleSubtaskTextBlur(taskId, subtaskId, el) {
+  if (!el) return;
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return;
+  var newText = (el.textContent || '').trim();
+  var subtasks = getTaskSubtasks(tid);
+  var st = subtasks.find(function(x) { return String(x.id) === String(subtaskId); });
+  if (st && st.text !== newText) {
+    st.text = newText || 'Sub-task';
+    saveTaskSubtasks(tid, subtasks);
+  }
+}
+
+/**
+ * Deletes a subtask item from a task
+ */
+function deleteTaskSubtask(taskId, subtaskId) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return;
+  var subtasks = getTaskSubtasks(tid);
+  var filtered = subtasks.filter(function(x) { return String(x.id) !== String(subtaskId); });
+  saveTaskSubtasks(tid, filtered);
+  renderTaskSubtasks(tid);
+  if (typeof showToast === 'function') showToast('Subtask deleted', 'info', 1000);
+}
+
+/**
+ * Retrieves related links array for a task ID from memory, localStorage, or task object
+ * @param {string|number} taskId
+ * @returns {Array<Object>}
+ */
+function getTaskLinks(taskId) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return [];
+  if (_taskLinksMap[tid] && Array.isArray(_taskLinksMap[tid])) {
+    return _taskLinksMap[tid];
+  }
+  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
+  if (t && Array.isArray(t.links)) {
+    _taskLinksMap[tid] = t.links;
+    return t.links;
+  }
+  try {
+    var raw = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_task_links_' + tid) : null;
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        _taskLinksMap[tid] = parsed;
+        if (t) t.links = parsed;
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Persists links for a given task ID into memory, localStorage, and Supabase bb_config
+ * @param {string|number} taskId
+ * @param {Array<Object>} links
+ */
+async function saveTaskLinks(taskId, links) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid || !Array.isArray(links)) return;
+  _taskLinksMap[tid] = links;
+  if (typeof window !== 'undefined') {
+    window._taskLinksMap = window._taskLinksMap || {};
+    window._taskLinksMap[tid] = links;
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_task_links_' + tid, JSON.stringify(links));
+    }
+  } catch (_) {}
+
+  var t = findManagedTask(tid);
+  if (t) t.links = links;
+
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var payload = {
+        key: 'bb_task_links_' + tid,
+        value: JSON.stringify(links),
+        updated_at: new Date().toISOString()
+      };
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', payload, 'key');
+      } else {
+        await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+      }
+    } catch (e) {
+      console.warn('saveTaskLinks remote error:', e);
+    }
+  }
+
+  var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+    ? window.PortalRealtime
+    : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+  if (pr && typeof pr.broadcast === 'function') {
+    try {
+      pr.broadcast('task_links', 'update', { taskId: tid, links: links });
+    } catch (_) {}
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('bb_task_links_changed', { detail: { taskId: tid, links: links } }));
+    } catch (_) {}
+  }
+}
+
+/**
+ * Fetches persisted links for a task ID from Supabase bb_config
+ * @param {string|number} taskId
+ */
+async function fetchRemoteTaskLinks(taskId) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return [];
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_task_links_' + encodeURIComponent(tid) + '&select=value', { cache: false });
+      if (Array.isArray(rows) && rows.length && rows[0].value) {
+        var parsed = JSON.parse(rows[0].value);
+        if (Array.isArray(parsed)) {
+          _taskLinksMap[tid] = parsed;
+          if (typeof window !== 'undefined') {
+            window._taskLinksMap = window._taskLinksMap || {};
+            window._taskLinksMap[tid] = parsed;
+          }
+          try { localStorage.setItem('bb_task_links_' + tid, JSON.stringify(parsed)); } catch (_) {}
+          var curActiveId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+          if (String(curActiveId) === tid && typeof renderTaskLinks === 'function') {
+            renderTaskLinks(tid);
+          }
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('fetchRemoteTaskLinks error:', e);
+    }
+  }
+  return getTaskLinks(tid);
+}
+
+/**
+ * Renders the links section in the task brief modal
+ * @param {string|number} taskId
+ */
+function renderTaskLinks(taskId) {
+  if (typeof document === 'undefined') return;
+  var emptyNotice = document.querySelector('.tb-links-empty');
+  if (!emptyNotice) return;
+  var parentSection = emptyNotice.parentElement;
+  if (!parentSection) return;
+
+  var tid = String(taskId || _activeDetailTaskId || '');
+  var links = getTaskLinks(tid);
+
+  var list = parentSection.querySelector('.tb-links-list');
+  if (!list) {
+    list = document.createElement('div');
+    list.className = 'tb-links-list';
+    list.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;';
+    parentSection.appendChild(list);
+  }
+
+  if (!links.length) {
+    emptyNotice.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+
+  emptyNotice.style.display = 'none';
+  var html = '';
+  links.forEach(function(l) {
+    var rawUrl = (l.url || l.title || '').trim();
+    var isHttp = /^https?:\/\//i.test(rawUrl);
+    var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(l.title || rawUrl) : (l.title || rawUrl);
+    var linkAction = isHttp
+      ? 'window.open(\'' + encodeURI(rawUrl) + '\', \'_blank\', \'noopener,noreferrer\');'
+      : 'openTaskDetail(\'' + rawUrl.replace(/[^a-zA-Z0-9_-]/g, '') + '\');';
+
+    html += '<div class="tb-link-pill" data-link-id="' + l.id + '" style="display:inline-flex;align-items:center;gap:6px;background:var(--bg-card-subtle);border:1px solid var(--border-card);padding:4px 10px;border-radius:6px;font-size:12px;margin:2px 2px 2px 0;">'
+      + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
+      + '<button type="button" onclick="' + linkAction + '" style="background:none;border:none;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + safeTitle + '">' + safeTitle + '</button>'
+      + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;margin-left:4px;font-size:14px;line-height:1;" onclick="deleteTaskLink(\'' + tid + '\', \'' + l.id + '\')" title="Remove link" aria-label="Remove link">&times;</button>'
+      + '</div>';
+  });
+  list.innerHTML = html;
+}
+
+/**
+ * Links a related task or URL in the task brief (Image 5)
  */
 async function addActiveTaskLink() {
+  var tid = _activeDetailTaskId;
+  if (!tid) return;
   var urlOrTitle = null;
   if (typeof showPromptModal === 'function') {
     urlOrTitle = await showPromptModal('Add Related Link', 'https://... or related task ID', '', { confirmText: 'Add Link', cancelText: 'Cancel' });
   }
   if (!urlOrTitle || !urlOrTitle.trim()) return;
-  var emptyNotice = document.querySelector('.tb-links-empty');
-  if (emptyNotice) emptyNotice.style.display = 'none';
-  var section = document.querySelector('.tb-links-empty') ? document.querySelector('.tb-links-empty').parentElement : null;
-  if (section) {
-    var linkPill = document.createElement('div');
-    linkPill.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:var(--bg-card-subtle);border:1px solid var(--border-card);padding:4px 10px;border-radius:6px;font-size:12px;margin:4px 4px 4px 0;';
-    linkPill.innerHTML = '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
-      + '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(urlOrTitle.trim()) : urlOrTitle.trim()) + '</span>'
-      + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;margin-left:4px;" onclick="this.parentElement.remove()">&times;</button>';
-    section.appendChild(linkPill);
-  }
+  var links = getTaskLinks(tid);
+  var cleanVal = urlOrTitle.trim();
+  var newLink = {
+    id: 'lnk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    title: cleanVal,
+    url: /^https?:\/\//i.test(cleanVal) ? cleanVal : '',
+    created_at: new Date().toISOString()
+  };
+  links.push(newLink);
+  saveTaskLinks(tid, links);
+  renderTaskLinks(tid);
+  if (typeof showToast === 'function') showToast('Link added', 'success', 1200);
+}
+
+/**
+ * Deletes a related link from a task
+ */
+function deleteTaskLink(taskId, linkId) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return;
+  var links = getTaskLinks(tid);
+  var filtered = links.filter(function(x) { return String(x.id) !== String(linkId); });
+  saveTaskLinks(tid, filtered);
+  renderTaskLinks(tid);
+  if (typeof showToast === 'function') showToast('Link removed', 'info', 1000);
 }
 
 var _taskCommentsMap = {};
@@ -2828,6 +3261,98 @@ async function fetchAllRemoteTaskComments(force) {
   var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
   if (activeId && typeof renderTaskComments === 'function') {
     renderTaskComments(activeId);
+  }
+}
+
+/**
+ * Fetches all persisted task attachments, subtasks, links, and comments from Supabase bb_config
+ */
+var _isFetchingRemoteTaskDetails = false;
+var _lastFetchRemoteTaskDetailsTime = 0;
+
+async function fetchAllRemoteTaskDetails(force) {
+  var now = Date.now();
+  if (!force && (_isFetchingRemoteTaskDetails || (now - _lastFetchRemoteTaskDetailsTime < 5000))) return;
+  _isFetchingRemoteTaskDetails = true;
+  _lastFetchRemoteTaskDetailsTime = now;
+  var client = getSupaClient();
+  if (!client) {
+    _isFetchingRemoteTaskDetails = false;
+    return;
+  }
+  try {
+    var pAtts = client.get('bb_config?key=like.bb_task_attachments_*&select=key,value', { cache: false });
+    var pSubs = client.get('bb_config?key=like.bb_task_subtasks_*&select=key,value', { cache: false });
+    var pLnks = client.get('bb_config?key=like.bb_task_links_*&select=key,value', { cache: false });
+    var pCmts = client.get('bb_config?key=like.bb_task_comments_*&select=key,value', { cache: false });
+
+    var results = await Promise.allSettled([pAtts, pSubs, pLnks, pCmts]);
+
+    if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) {
+      results[0].value.forEach(function(r) {
+        if (!r.key || !r.value) return;
+        var tid = r.key.replace('bb_task_attachments_', '');
+        try {
+          var arr = JSON.parse(r.value);
+          if (Array.isArray(arr)) {
+            _taskAttachmentsMap[tid] = arr;
+            try { localStorage.setItem(r.key, r.value); } catch (_) {}
+          }
+        } catch (_) {}
+      });
+    }
+
+    if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
+      results[1].value.forEach(function(r) {
+        if (!r.key || !r.value) return;
+        var tid = r.key.replace('bb_task_subtasks_', '');
+        try {
+          var arr = JSON.parse(r.value);
+          if (Array.isArray(arr)) {
+            _taskSubtasksMap[tid] = arr;
+            try { localStorage.setItem(r.key, r.value); } catch (_) {}
+          }
+        } catch (_) {}
+      });
+    }
+
+    if (results[2].status === 'fulfilled' && Array.isArray(results[2].value)) {
+      results[2].value.forEach(function(r) {
+        if (!r.key || !r.value) return;
+        var tid = r.key.replace('bb_task_links_', '');
+        try {
+          var arr = JSON.parse(r.value);
+          if (Array.isArray(arr)) {
+            _taskLinksMap[tid] = arr;
+            try { localStorage.setItem(r.key, r.value); } catch (_) {}
+          }
+        } catch (_) {}
+      });
+    }
+
+    if (results[3].status === 'fulfilled' && Array.isArray(results[3].value)) {
+      results[3].value.forEach(function(r) {
+        if (!r.key || !r.value) return;
+        var tid = r.key.replace('bb_task_comments_', '');
+        try {
+          var arr = JSON.parse(r.value);
+          if (Array.isArray(arr)) {
+            _taskCommentsMap[tid] = arr;
+            try { localStorage.setItem(r.key, r.value); } catch (_) {}
+          }
+        } catch (_) {}
+      });
+    }
+
+    var activeModalId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+    if (activeModalId) {
+      if (typeof renderTaskAttachments === 'function') renderTaskAttachments(activeModalId);
+      if (typeof renderTaskSubtasks === 'function') renderTaskSubtasks(activeModalId);
+      if (typeof renderTaskLinks === 'function') renderTaskLinks(activeModalId);
+      if (typeof renderTaskComments === 'function') renderTaskComments(activeModalId);
+    }
+  } catch (_) {} finally {
+    _isFetchingRemoteTaskDetails = false;
   }
 }
 
@@ -3293,16 +3818,22 @@ async function handleTaskCommentSubmit(input) {
   }
 }
 
+var _taskAttachmentsMap = {};
+
 /**
  * Retrieves persisted attachments array for a given task ID
- * @param {string} taskId
+ * @param {string|number} taskId
  * @returns {Array<Object>}
  */
 function getTaskAttachments(taskId) {
-  var tid = taskId || _activeDetailTaskId;
+  var tid = String(taskId || _activeDetailTaskId || '');
   if (!tid) return [];
+  if (_taskAttachmentsMap[tid] && Array.isArray(_taskAttachmentsMap[tid])) {
+    return _taskAttachmentsMap[tid];
+  }
   var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
   if (t && Array.isArray(t.attachments)) {
+    _taskAttachmentsMap[tid] = t.attachments;
     return t.attachments;
   }
   try {
@@ -3310,6 +3841,7 @@ function getTaskAttachments(taskId) {
     if (raw) {
       var arr = JSON.parse(raw);
       if (Array.isArray(arr)) {
+        _taskAttachmentsMap[tid] = arr;
         if (t) t.attachments = arr;
         return arr;
       }
@@ -3319,21 +3851,93 @@ function getTaskAttachments(taskId) {
 }
 
 /**
- * Persists attachments array for a given task ID into memory, localStorage, and Supabase
- * @param {string} taskId
+ * Persists attachments array for a given task ID into memory, localStorage, and Supabase bb_config
+ * @param {string|number} taskId
  * @param {Array<Object>} attachments
  */
-function saveTaskAttachments(taskId, attachments) {
-  var tid = taskId || _activeDetailTaskId;
-  if (!tid || !findManagedTask(tid)) return;
+async function saveTaskAttachments(taskId, attachments) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return;
   var atts = Array.isArray(attachments) ? attachments : [];
+  _taskAttachmentsMap[tid] = atts;
+  if (typeof window !== 'undefined') {
+    window._taskAttachmentsMap = window._taskAttachmentsMap || {};
+    window._taskAttachmentsMap[tid] = atts;
+  }
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('bb_task_attachments_' + tid, JSON.stringify(atts));
     }
   } catch (_) {}
 
-  saveTaskField(tid, 'attachments', atts);
+  var t = findManagedTask(tid);
+  if (t) t.attachments = atts;
+
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var payload = {
+        key: 'bb_task_attachments_' + tid,
+        value: JSON.stringify(atts),
+        updated_at: new Date().toISOString()
+      };
+      if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', payload, 'key');
+      } else {
+        await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+      }
+    } catch (e) {
+      console.warn('saveTaskAttachments remote error:', e);
+    }
+  }
+
+  var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+    ? window.PortalRealtime
+    : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+  if (pr && typeof pr.broadcast === 'function') {
+    try {
+      pr.broadcast('task_attachments', 'update', { taskId: tid, attachments: atts });
+    } catch (_) {}
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(new CustomEvent('bb_task_attachments_changed', { detail: { taskId: tid, attachments: atts } }));
+    } catch (_) {}
+  }
+}
+
+/**
+ * Fetches persisted attachments for a task ID from Supabase bb_config
+ * @param {string|number} taskId
+ */
+async function fetchRemoteTaskAttachments(taskId) {
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return [];
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_task_attachments_' + encodeURIComponent(tid) + '&select=value', { cache: false });
+      if (Array.isArray(rows) && rows.length && rows[0].value) {
+        var parsed = JSON.parse(rows[0].value);
+        if (Array.isArray(parsed)) {
+          _taskAttachmentsMap[tid] = parsed;
+          if (typeof window !== 'undefined') {
+            window._taskAttachmentsMap = window._taskAttachmentsMap || {};
+            window._taskAttachmentsMap[tid] = parsed;
+          }
+          try { localStorage.setItem('bb_task_attachments_' + tid, JSON.stringify(parsed)); } catch (_) {}
+          var curActiveId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+          if (String(curActiveId) === tid && typeof renderTaskAttachments === 'function') {
+            renderTaskAttachments(tid);
+          }
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('fetchRemoteTaskAttachments error:', e);
+    }
+  }
+  return getTaskAttachments(tid);
 }
 
 /**
@@ -4119,8 +4723,104 @@ function saveActiveTaskBrief() {
 async function saveTaskField(id, field, value) {
   var t = findManagedTask(id);
   if (!t) return;
-  if (!['title', 'description', 'priority', 'due_date', 'estimate', 'project_name', 'attachments', 'status'].includes(field)) return;
+  if (!['title', 'description', 'priority', 'due_date', 'estimate', 'project_name', 'attachments', 'subtasks', 'links', 'status'].includes(field)) return;
   if (field === 'status') return memberUpdateTaskStatus(id, value);
+  if (field === 'attachments') return saveTaskAttachments(id, value);
+  if (field === 'subtasks') return saveTaskSubtasks(id, value);
+  if (field === 'links') return saveTaskLinks(id, value);
+
+  if (field === 'estimate') {
+    t.estimate = value;
+    var updatedDescEst = buildTaskDescriptionWithMeta(t, t.description);
+    t.description = updatedDescEst;
+    _taskMap[id] = t;
+    if (typeof window !== 'undefined') {
+      window._taskMap = window._taskMap || {};
+      window._taskMap[id] = t;
+    }
+    var loadedEst = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+    if (loadedEst) {
+      loadedEst.estimate = value;
+      loadedEst.description = updatedDescEst;
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks));
+      }
+    } catch (_) {}
+    if (_tasksViewMode === 'board') {
+      renderColumnsFromTasks(_allLoadedTasks);
+    } else if (_tasksViewMode === 'mytasks') {
+      renderMyTasksView();
+    } else if (_tasksViewMode === 'projects') {
+      renderProjectsView();
+    }
+    var estValEl = document.querySelector('.tdm-estimate-val');
+    if (estValEl) estValEl.textContent = value || 'Estimate';
+
+    var clientEst = getSupaClient();
+    if (clientEst) {
+      try {
+        await clientEst.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { description: updatedDescEst });
+        var prEst = (typeof window !== 'undefined' && window.PortalRealtime)
+          ? window.PortalRealtime
+          : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+        if (prEst && typeof prEst.broadcast === 'function') {
+          prEst.broadcast('tasks', 'update', { id: id, field: 'estimate', value: value, estimate: value, description: updatedDescEst });
+        }
+        if (typeof showToast === 'function') {
+          showToast('Estimate updated', 'info', 1000);
+        }
+      } catch (errEst) {
+        console.warn('Background patch error for estimate:', errEst);
+      }
+    }
+    return;
+  }
+
+  if (field === 'project_name') {
+    t.project_name = value;
+    var updatedDescProj = buildTaskDescriptionWithMeta(t, t.description);
+    t.description = updatedDescProj;
+    _taskMap[id] = t;
+    if (typeof window !== 'undefined') {
+      window._taskMap = window._taskMap || {};
+      window._taskMap[id] = t;
+    }
+    var loadedProj = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+    if (loadedProj) {
+      loadedProj.project_name = value;
+      loadedProj.description = updatedDescProj;
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks));
+      }
+    } catch (_) {}
+    if (_tasksViewMode === 'board') {
+      renderColumnsFromTasks(_allLoadedTasks);
+    } else if (_tasksViewMode === 'mytasks') {
+      renderMyTasksView();
+    } else if (_tasksViewMode === 'projects') {
+      renderProjectsView();
+    }
+    var clientProj = getSupaClient();
+    if (clientProj) {
+      try {
+        await clientProj.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { description: updatedDescProj });
+        var prProj = (typeof window !== 'undefined' && window.PortalRealtime)
+          ? window.PortalRealtime
+          : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+        if (prProj && typeof prProj.broadcast === 'function') {
+          prProj.broadcast('tasks', 'update', { id: id, field: 'project_name', value: value, description: updatedDescProj });
+        }
+      } catch (errProj) {
+        console.warn('Background patch error for project_name:', errProj);
+      }
+    }
+    return;
+  }
+
   var currentVal = t[field];
   if (currentVal === value) return;
   if (typeof currentVal === 'string' && typeof value === 'string' && currentVal.trim() === value.trim()) return;
@@ -4169,27 +4869,7 @@ async function saveTaskField(id, field, value) {
       }
     } catch (err) {
       console.warn('Background patch error for field ' + field + ':', err);
-      var errHandled = false;
-      if (field === 'estimate' || field === 'project_name') {
-        var pName = getTaskProjectName(t);
-        var est = t.estimate || '';
-        var rawDesc = (t.description || '').replace(/\s*\[Project:[^\]]*\]/gi, '').trim();
-        var extra = [];
-        if (pName) extra.push('Project: ' + pName);
-        if (est) extra.push('Estimate: ' + est);
-        var updatedDesc = rawDesc + (extra.length ? '\n\n[' + extra.join(' | ') + ']' : '');
-        try {
-          await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { description: updatedDesc });
-          errHandled = true;
-          if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-            window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: 'description', value: updatedDesc });
-          }
-          if (typeof showToast === 'function') {
-            showToast('Task updated', 'info', 1000);
-          }
-        } catch (_) {}
-      }
-      if (!errHandled && typeof showToast === 'function') {
+      if (typeof showToast === 'function') {
         showToast('Failed to save task update.', 'error');
       }
     }
@@ -4523,8 +5203,8 @@ function handleTaskDetailDueChange(val) {
 async function editTaskDetailEstimate(e) {
   if (e) e.stopPropagation();
   if (!_activeDetailTaskId) return;
-  var t = _taskMap[_activeDetailTaskId];
-  var currentEst = (t && t.estimate) || '';
+  var t = findManagedTask(_activeDetailTaskId);
+  var currentEst = getTaskEstimate(t);
   var newEst = null;
   if (typeof showPromptModal === 'function') {
     newEst = await showPromptModal('Set Task Estimate', 'e.g. 2h, 1d, 30m', currentEst, {
@@ -4639,6 +5319,14 @@ async function deleteActiveTask() {
   if (client && !String(taskId).startsWith('temp_')) {
     try {
       await client.delete('bb_tasks?id=eq.' + encodeURIComponent(taskId));
+      try {
+        await Promise.allSettled([
+          client.delete('bb_config?key=eq.bb_task_subtasks_' + encodeURIComponent(taskId)),
+          client.delete('bb_config?key=eq.bb_task_attachments_' + encodeURIComponent(taskId)),
+          client.delete('bb_config?key=eq.bb_task_links_' + encodeURIComponent(taskId)),
+          client.delete('bb_config?key=eq.bb_task_comments_' + encodeURIComponent(taskId))
+        ]);
+      } catch (_) {}
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
         window.PortalRealtime.broadcast('tasks', 'delete', { id: taskId });
       }
@@ -5743,11 +6431,56 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.fetchDepartmentMembers     = fetchDepartmentMembers;
   window.refreshCurrentTasksView    = refreshCurrentTasksView;
 
+  window.getTaskSubtasks            = getTaskSubtasks;
+  window.saveTaskSubtasks           = saveTaskSubtasks;
+  window.fetchRemoteTaskSubtasks    = fetchRemoteTaskSubtasks;
+  window.renderTaskSubtasks         = renderTaskSubtasks;
+  window.addActiveTaskSubtask       = addActiveTaskSubtask;
+  window.toggleTaskSubtask          = toggleTaskSubtask;
+  window.handleSubtaskTextBlur      = handleSubtaskTextBlur;
+  window.deleteTaskSubtask          = deleteTaskSubtask;
+  window._taskSubtasksMap           = _taskSubtasksMap;
+
+  window.getTaskLinks               = getTaskLinks;
+  window.saveTaskLinks              = saveTaskLinks;
+  window.fetchRemoteTaskLinks       = fetchRemoteTaskLinks;
+  window.renderTaskLinks            = renderTaskLinks;
+  window.addActiveTaskLink          = addActiveTaskLink;
+  window.deleteTaskLink             = deleteTaskLink;
+  window._taskLinksMap              = _taskLinksMap;
+
+  window.fetchRemoteTaskAttachments = fetchRemoteTaskAttachments;
+  window.fetchAllRemoteTaskDetails  = fetchAllRemoteTaskDetails;
+  window._taskAttachmentsMap        = _taskAttachmentsMap;
+  window.getTaskEstimate            = getTaskEstimate;
+  window.buildTaskDescriptionWithMeta = buildTaskDescriptionWithMeta;
+
   if (typeof window.addEventListener === 'function') {
     window.addEventListener('bb_avatar_outlines_changed', function() {
       if (typeof refreshCurrentTasksView === 'function') refreshCurrentTasksView();
       if (typeof renderProjectsView === 'function') renderProjectsView();
       if (typeof renderMyTasksView === 'function') renderMyTasksView();
+    });
+    window.addEventListener('bb_task_subtasks_changed', function(ev) {
+      var d = (ev && ev.detail) || {};
+      var tid = d.taskId;
+      if (tid && String(_activeDetailTaskId) === String(tid)) {
+        if (typeof renderTaskSubtasks === 'function') renderTaskSubtasks(tid);
+      }
+    });
+    window.addEventListener('bb_task_attachments_changed', function(ev) {
+      var d = (ev && ev.detail) || {};
+      var tid = d.taskId;
+      if (tid && String(_activeDetailTaskId) === String(tid)) {
+        if (typeof renderTaskAttachments === 'function') renderTaskAttachments(tid);
+      }
+    });
+    window.addEventListener('bb_task_links_changed', function(ev) {
+      var d = (ev && ev.detail) || {};
+      var tid = d.taskId;
+      if (tid && String(_activeDetailTaskId) === String(tid)) {
+        if (typeof renderTaskLinks === 'function') renderTaskLinks(tid);
+      }
     });
   }
 }
@@ -5872,6 +6605,24 @@ if (typeof module !== 'undefined' && module.exports) {
     cancelEditTaskComment,
     deleteTaskComment,
     isUserMentionedInComment,
+    getTaskSubtasks,
+    saveTaskSubtasks,
+    fetchRemoteTaskSubtasks,
+    renderTaskSubtasks,
+    addActiveTaskSubtask,
+    toggleTaskSubtask,
+    handleSubtaskTextBlur,
+    deleteTaskSubtask,
+    getTaskLinks,
+    saveTaskLinks,
+    fetchRemoteTaskLinks,
+    renderTaskLinks,
+    addActiveTaskLink,
+    deleteTaskLink,
+    fetchRemoteTaskAttachments,
+    fetchAllRemoteTaskDetails,
+    getTaskEstimate,
+    buildTaskDescriptionWithMeta,
     resetTasksFiltersToDefault,
     handleProjectsSearchInput,
     toggleProjectFilterMenu,
