@@ -4041,14 +4041,14 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, ta
   refreshActiveAvatarOutlines();
 
   // Re-render tasks board & project stacks if currently active
-  if (typeof window !== 'undefined' && typeof window.renderKanbanBoard === 'function') {
-    try { window.renderKanbanBoard(); } catch (_) {}
-  }
-  if (typeof window !== 'undefined' && typeof window.renderProjectsList === 'function') {
-    try { window.renderProjectsList(); } catch (_) {}
-  }
+  refreshAllAvatarOutlinesEverywhere(cleanTarget, validKey);
+
   if (typeof window !== 'undefined') {
-    try { window.dispatchEvent(new CustomEvent('bb_avatar_outlines_changed')); } catch (_) {}
+    try {
+      window.dispatchEvent(new CustomEvent('bb_avatar_outlines_changed', {
+        detail: { target: cleanTarget, name: cleanName, style: validKey, map: _customAvatarOutlinesMap }
+      }));
+    } catch (_) {}
   }
 
   var pr = (typeof window !== 'undefined' && window.PortalRealtime)
@@ -4056,7 +4056,13 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, ta
     : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
   if (pr && typeof pr.broadcast === 'function') {
     try {
-      pr.broadcast('avatar_outlines', 'update', { key: 'bb_custom_avatar_outlines', target: cleanTarget, style: validKey });
+      pr.broadcast('avatar_outlines', 'update', {
+        key: 'bb_custom_avatar_outlines',
+        target: cleanTarget,
+        name: cleanName,
+        style: validKey,
+        map: _customAvatarOutlinesMap
+      });
     } catch (_) {}
   }
 
@@ -4070,10 +4076,21 @@ function applyAvatarOutlineElement(containerEl, styleKey) {
 
   var overlay = containerEl.querySelector('.avatar-outline-overlay');
   if (validStyle === 'none' || !cfg || !cfg.className) {
-    containerEl.classList.remove('has-custom-outline');
+    containerEl.classList.remove('has-custom-outline', 'creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
+    var creatorChildren = containerEl.querySelectorAll('.creator-outline-avatar, .creator-snow-avatar, .creator-rgb-avatar');
+    if (creatorChildren && creatorChildren.length) {
+      creatorChildren.forEach(function(c) {
+        c.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
+      });
+    }
     if (overlay) {
       overlay.style.display = 'none';
       overlay.className = 'avatar-outline-overlay';
+      if (typeof overlay.remove === 'function') {
+        overlay.remove();
+      } else if (overlay.parentElement && typeof overlay.parentElement.removeChild === 'function') {
+        overlay.parentElement.removeChild(overlay);
+      }
     }
     return;
   }
@@ -4102,6 +4119,92 @@ function applyAvatarOutlineElement(containerEl, styleKey) {
     statusDot.style.zIndex = '10';
     containerEl.appendChild(statusDot);
   }
+}
+
+function refreshAllAvatarOutlinesEverywhere(targetId, newStyle) {
+  if (typeof document === 'undefined') return;
+
+  // 1. Refresh active user profile elements (Header, Sidebar, Profile Modal)
+  if (typeof refreshActiveAvatarOutlines === 'function') {
+    try { refreshActiveAvatarOutlines(); } catch (_) {}
+  }
+
+  // 2. Tasks and Projects Board
+  try {
+    if (typeof window !== 'undefined') {
+      var pTasks = document.getElementById('page-tasks');
+      if (pTasks && pTasks.style.display !== 'none') {
+        if (typeof window.refreshCurrentTasksView === 'function') {
+          window.refreshCurrentTasksView();
+        } else {
+          if (typeof window.renderProjectsView === 'function') window.renderProjectsView();
+          if (typeof window.renderTasksBoard === 'function') window.renderTasksBoard();
+          if (typeof window.renderMyTasksView === 'function') window.renderMyTasksView();
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 3. Support Forums
+  try {
+    if (typeof window !== 'undefined' && typeof window.renderForumFeed === 'function') {
+      var pForum = document.getElementById('page-forum');
+      if (pForum && pForum.style.display !== 'none') {
+        window.renderForumFeed();
+      }
+    }
+  } catch (_) {}
+
+  // 4. Leaderboard & Attendance
+  try {
+    if (typeof window !== 'undefined') {
+      if (typeof window.renderLeaderboard === 'function') window.renderLeaderboard();
+      if (typeof window.renderAttendanceView === 'function') window.renderAttendanceView();
+    }
+  } catch (_) {}
+
+  // 5. Admin Console Members CRM & Studio
+  try {
+    if (typeof window !== 'undefined' && typeof window.renderAdminMembers === 'function') {
+      var pAdmin = document.getElementById('page-admin');
+      if (pAdmin && pAdmin.style.display !== 'none') {
+        window.renderAdminMembers();
+      }
+    }
+  } catch (_) {}
+
+  // 6. Direct DOM Element Node Updates
+  try {
+    var cleanT = String(targetId || '').trim().toLowerCase();
+    var allAvatars = document.querySelectorAll(
+      '.task-card-avatar, .forum-avatar-mini, .admin-member-avatar, .member-avatar-unified, .tdm-assignee-avatar, .project-assignees-stack span, .nav-avatar-circle, .suc-avatar, #sidebar-user-avatar-ph'
+    );
+    if (allAvatars && allAvatars.length) {
+      allAvatars.forEach(function(av) {
+        var avTitle = (av.getAttribute('title') || av.getAttribute('aria-label') || '').toLowerCase();
+        var presDot = av.querySelector('.avatar-status-dot, .nav-avatar-status-dot');
+        var dotId = presDot ? (presDot.getAttribute('data-presence-id') || presDot.getAttribute('data-presence-name') || '').toLowerCase() : '';
+
+        var matches = false;
+        if (cleanT) {
+          if (dotId && (dotId === cleanT || dotId.indexOf(cleanT) !== -1 || cleanT.indexOf(dotId) !== -1)) matches = true;
+          if (avTitle && (avTitle.indexOf(cleanT) !== -1 || cleanT.indexOf(avTitle) !== -1)) matches = true;
+          if (cleanT.indexOf('jeshua') !== -1 && (avTitle.indexOf('jeshua') !== -1 || avTitle.indexOf('creator') !== -1)) matches = true;
+        } else {
+          matches = true;
+        }
+
+        if (matches) {
+          var memName = (presDot ? presDot.getAttribute('data-presence-name') : '') || av.getAttribute('title') || cleanT;
+          var memId = (presDot ? presDot.getAttribute('data-presence-id') : '') || cleanT;
+          var curOutline = (typeof getMemberAvatarOutline === 'function')
+            ? getMemberAvatarOutline(memId, memName)
+            : { style: (newStyle || 'none') };
+          applyAvatarOutlineElement(av, curOutline ? curOutline.style : (newStyle || 'none'));
+        }
+      });
+    }
+  } catch (_) {}
 }
 
 function refreshActiveAvatarOutlines() {
@@ -6986,6 +7089,13 @@ if (typeof window !== 'undefined') {
   window.saveMemberAvatarOutline        = saveMemberAvatarOutline;
   window.applyAvatarOutlineElement      = applyAvatarOutlineElement;
   window.refreshActiveAvatarOutlines    = refreshActiveAvatarOutlines;
+  window.refreshAllAvatarOutlinesEverywhere = refreshAllAvatarOutlinesEverywhere;
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('bb_avatar_outlines_changed', function(ev) {
+      var d = (ev && ev.detail) || {};
+      refreshAllAvatarOutlinesEverywhere(d.target, d.style);
+    });
+  }
   window._customAvatarOutlinesMap        = _customAvatarOutlinesMap;
   window.isCreatorSession               = isCreatorSession;
   window.renderMemberAvatar             = renderMemberAvatar;
@@ -7122,6 +7232,7 @@ if (typeof module !== 'undefined' && module.exports) {
     saveMemberAvatarOutline,
     applyAvatarOutlineElement,
     refreshActiveAvatarOutlines,
+    refreshAllAvatarOutlinesEverywhere,
     isCreatorSession,
     renderMemberAvatar,
     resetMemberAvatar,

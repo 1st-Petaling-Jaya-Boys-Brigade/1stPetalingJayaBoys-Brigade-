@@ -3144,7 +3144,13 @@ async function getJson(url) {
     console.log('\n[Member Avatar & Creator RGB Animation Verification]');
     const avatarDiag = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
-        // 1. Test renderMemberAvatar with Jeshua Koh (Creator)
+        // 1. Test renderMemberAvatar with Jeshua Koh (Creator with rgb outline)
+        const prevOutline = (typeof _customAvatarOutlinesMap !== 'undefined' && _customAvatarOutlinesMap['jeshuakoh2008@gmail.com'])
+          ? JSON.parse(JSON.stringify(_customAvatarOutlinesMap['jeshuakoh2008@gmail.com']))
+          : null;
+        if (typeof _customAvatarOutlinesMap !== 'undefined') {
+          _customAvatarOutlinesMap['jeshuakoh2008@gmail.com'] = { style: 'rgb', target: 'jeshuakoh2008@gmail.com' };
+        }
         if (typeof renderMemberAvatar === 'function') {
           renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
         }
@@ -3162,7 +3168,14 @@ async function getJson(url) {
         const sPhRegTitle = sPh ? sPh.getAttribute('title') : '';
         const sPhRegBg = sPh ? sPh.style.background : '';
 
-        // Reset back to creator
+        // Reset back to original custom outline state
+        if (typeof _customAvatarOutlinesMap !== 'undefined') {
+          if (prevOutline) {
+            _customAvatarOutlinesMap['jeshuakoh2008@gmail.com'] = prevOutline;
+          } else {
+            delete _customAvatarOutlinesMap['jeshuakoh2008@gmail.com'];
+          }
+        }
         if (typeof renderMemberAvatar === 'function') {
           renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
         }

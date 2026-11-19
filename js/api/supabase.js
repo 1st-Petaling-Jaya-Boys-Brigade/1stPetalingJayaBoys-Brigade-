@@ -1755,15 +1755,41 @@ var PortalRealtime = (function() {
     }
 
     if (entity === 'avatar_outlines') {
+      if (data && data.map && typeof data.map === 'object') {
+        if (typeof _customAvatarOutlinesMap !== 'undefined') {
+          _customAvatarOutlinesMap = data.map;
+        }
+        if (typeof window !== 'undefined') {
+          window._customAvatarOutlinesMap = data.map;
+          try { localStorage.setItem('bb_custom_avatar_outlines', JSON.stringify(data.map)); } catch (_) {}
+        }
+        if (typeof global !== 'undefined') {
+          global._customAvatarOutlinesMap = data.map;
+        }
+      }
       var loadOutFn = (typeof window !== 'undefined' && typeof window.loadCustomAvatarOutlines === 'function')
         ? window.loadCustomAvatarOutlines
         : (typeof global !== 'undefined' && typeof global.loadCustomAvatarOutlines === 'function' ? global.loadCustomAvatarOutlines : null);
+      var refreshAllFn = (typeof window !== 'undefined' && typeof window.refreshAllAvatarOutlinesEverywhere === 'function')
+        ? window.refreshAllAvatarOutlinesEverywhere
+        : (typeof global !== 'undefined' && typeof global.refreshAllAvatarOutlinesEverywhere === 'function' ? global.refreshAllAvatarOutlinesEverywhere : null);
       var refreshOutFn = (typeof window !== 'undefined' && typeof window.refreshActiveAvatarOutlines === 'function')
         ? window.refreshActiveAvatarOutlines
         : (typeof global !== 'undefined' && typeof global.refreshActiveAvatarOutlines === 'function' ? global.refreshActiveAvatarOutlines : null);
+
+      if (refreshAllFn) {
+        try { refreshAllFn(data ? data.target : null, data ? data.style : null); } catch (_) {}
+      } else if (refreshOutFn) {
+        try { refreshOutFn(); } catch (_) {}
+      }
+
       if (loadOutFn) {
         loadOutFn().then(function() {
-          if (refreshOutFn) refreshOutFn();
+          if (refreshAllFn) {
+            try { refreshAllFn(data ? data.target : null, data ? data.style : null); } catch (_) {}
+          } else if (refreshOutFn) {
+            try { refreshOutFn(); } catch (_) {}
+          }
         }).catch(function() {});
       }
       return;
