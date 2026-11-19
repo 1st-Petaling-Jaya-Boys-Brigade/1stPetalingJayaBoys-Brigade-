@@ -344,11 +344,11 @@ function renderResourcesPage() {
     // Visibility Badge
     var visBadge = '';
     if (r.visibility === 'nco') {
-      visBadge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(200,150,30,0.2);color:var(--accent);border:1px solid rgba(200,150,30,0.4);backdrop-filter:blur(4px);">🔒 NCO</span>';
+      visBadge = '<span class="resource-vis-badge badge-nco">🔒 NCO</span>';
     } else if (r.visibility === 'officer') {
-      visBadge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.2);color:var(--red);border:1px solid rgba(239,68,68,0.4);backdrop-filter:blur(4px);">🛡️ Officer</span>';
+      visBadge = '<span class="resource-vis-badge badge-officer">🛡️ Officer</span>';
     } else {
-      visBadge = '<span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;background:rgba(16,185,129,0.18);color:var(--green);border:1px solid rgba(16,185,129,0.4);backdrop-filter:blur(4px);">Public</span>';
+      visBadge = '<span class="resource-vis-badge badge-public">Public</span>';
     }
 
     var thumbUrl = accessible && isPublicResource(r.visibility) ? getResourceThumbnailUrl(r) : null;

@@ -4051,6 +4051,15 @@ async function saveMemberAvatarOutline(targetEmailOrIc, styleKey, actorEmail, ta
     try { window.dispatchEvent(new CustomEvent('bb_avatar_outlines_changed')); } catch (_) {}
   }
 
+  var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+    ? window.PortalRealtime
+    : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+  if (pr && typeof pr.broadcast === 'function') {
+    try {
+      pr.broadcast('avatar_outlines', 'update', { key: 'bb_custom_avatar_outlines', target: cleanTarget, style: validKey });
+    } catch (_) {}
+  }
+
   return { success: true, target: cleanTarget, style: validKey };
 }
 
@@ -4423,6 +4432,16 @@ async function removePfp(e) {
 
     var fileInp = document.getElementById('pfp-upload');
     if (fileInp) fileInp.value = '';
+
+    var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+    ? window.PortalRealtime
+    : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+    if (pr && typeof pr.broadcast === 'function') {
+      try {
+        pr.broadcast('members', 'update', { ic: id, photo_url: null, name: sessionGet('name') });
+        pr.broadcast('pfps', 'update', { key: 'bb_member_pfps' });
+      } catch (_) {}
+    }
 
     setRemovePfpButtonVisible(false);
   }
@@ -5055,6 +5074,15 @@ async function uploadPfp(input) {
         if (typeof showToast === 'function') showToast('Profile picture saved. Directory sync failed.', 'warning');
         return;
       }
+    }
+    var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+    ? window.PortalRealtime
+    : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+    if (pr && typeof pr.broadcast === 'function') {
+      try {
+        pr.broadcast('members', 'update', { ic: id, photo_url: pfpUrl, name: sessionGet('name') });
+        pr.broadcast('pfps', 'update', { key: 'bb_member_pfps' });
+      } catch (_) {}
     }
     if (typeof showToast === 'function') showToast('Profile picture updated successfully.', 'success');
   } catch (e) {

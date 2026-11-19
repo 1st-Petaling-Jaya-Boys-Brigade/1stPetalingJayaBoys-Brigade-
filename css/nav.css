@@ -1468,11 +1468,20 @@
 
   /* Collapsed (Unextended) Desktop Sidebar Mode */
   body.sidebar-collapsed .sidebar-overlay,
+  .sidebar-overlay.collapsed {
+    width: 60px !important;
+    padding: 0 !important;
+  }
+
   body.sidebar-collapsed .sidebar-panel,
-  .sidebar-overlay.collapsed,
   .sidebar-overlay.collapsed .sidebar-panel {
     width: 60px !important;
-    padding: 8px 6px 10px !important;
+    height: 100% !important;
+    padding: 10px 0 14px !important;
+    border-radius: 0 !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    box-sizing: border-box !important;
   }
 
   body.sidebar-collapsed .sidebar-nav {

@@ -1299,6 +1299,10 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('gallery', 'update', record);
               } else if (key.startsWith('bb_notif_dismissed_')) {
                 triggerEntityUpdate('notifications', 'update', record);
+              } else if (key === 'bb_member_presence') {
+                triggerEntityUpdate('presence', 'update', record);
+              } else if (key === 'bb_member_pfps') {
+                triggerEntityUpdate('pfps', 'update', record);
               } else {
                 triggerEntityUpdate('config', 'update', { key: key });
               }
@@ -1362,7 +1366,7 @@ var PortalRealtime = (function() {
 
     _deltaSyncInFlight = true;
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights)&select=key,updated_at', { cache: false });
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights,bb_member_presence,bb_member_pfps)&select=key,updated_at', { cache: false });
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r?.key) return;
@@ -1379,6 +1383,8 @@ var PortalRealtime = (function() {
             else if (r.key === 'bb_resources') triggerEntityUpdate('resources', 'update');
             else if (r.key === 'bb_badges') triggerEntityUpdate('badges', 'update');
             else if (r.key === 'bb_story_highlights') triggerEntityUpdate('gallery', 'update');
+            else if (r.key === 'bb_member_presence') triggerEntityUpdate('presence', 'update');
+            else if (r.key === 'bb_member_pfps') triggerEntityUpdate('pfps', 'update');
           }
           _lastEntityTimestamps[r.key] = ts;
         });
@@ -1549,6 +1555,57 @@ var PortalRealtime = (function() {
   function triggerEntityUpdate(entity, action, data, fromBroadcast) {
     if (!fromBroadcast) {
       broadcastLocalChange(entity, action, data);
+    }
+
+    if (entity === 'presence') {
+      if (data && data.key && data.member) {
+        if (typeof window !== 'undefined') {
+          if (!window._globalPresenceMap) window._globalPresenceMap = {};
+          window._globalPresenceMap[data.key] = data.member;
+          try {
+            var rawPres = localStorage.getItem('bb_member_presence');
+            var mapPres = rawPres ? JSON.parse(rawPres) : {};
+            mapPres[data.key] = data.member;
+            localStorage.setItem('bb_member_presence', JSON.stringify(mapPres));
+          } catch (_) {}
+          if (typeof window.dispatchEvent === 'function') {
+            window.dispatchEvent(new CustomEvent('bb:presence_updated', { detail: window._globalPresenceMap }));
+          }
+        }
+        if (typeof global !== 'undefined') {
+          if (!global._globalPresenceMap) global._globalPresenceMap = {};
+          global._globalPresenceMap[data.key] = data.member;
+        }
+        var refreshDotsFn = (typeof refreshLivePresenceDots === 'function')
+          ? refreshLivePresenceDots
+          : (typeof window !== 'undefined' && typeof window.refreshLivePresenceDots === 'function' ? window.refreshLivePresenceDots : null);
+        if (refreshDotsFn) {
+          try { refreshDotsFn(); } catch (_) {}
+        }
+      } else {
+        var fetchPresFn = (typeof fetchRemoteMemberPresence === 'function')
+          ? fetchRemoteMemberPresence
+          : (typeof window !== 'undefined' && typeof window.fetchRemoteMemberPresence === 'function' ? window.fetchRemoteMemberPresence : null);
+        if (fetchPresFn) {
+          fetchPresFn(true).catch(function() {});
+        }
+      }
+      return;
+    }
+
+    if (entity === 'pfps') {
+      var loadPfpsFn = (typeof loadMemberProfilePictures === 'function')
+        ? loadMemberProfilePictures
+        : (typeof window !== 'undefined' && typeof window.loadMemberProfilePictures === 'function' ? window.loadMemberProfilePictures : null);
+      if (loadPfpsFn) {
+        loadPfpsFn().then(function() {
+          if (typeof window !== 'undefined') {
+            if (typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+            if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView();
+          }
+        }).catch(function() {});
+      }
+      return;
     }
 
     if (entity === 'orders') {
@@ -1892,20 +1949,58 @@ var PortalRealtime = (function() {
           var memCache = JSON.parse(localStorage.getItem('bb_members_cache') || '[]');
           if (Array.isArray(memCache)) {
             var updatedCache = false;
+            var foundCache = false;
             memCache.forEach(function(m) {
               if (m.ic === data.ic || (data.name && m.name === data.name)) {
+                foundCache = true;
                 if (data.name !== undefined) m.name = data.name;
                 if (data.rank !== undefined) m.rank = data.rank;
                 if (data.squad !== undefined) m.squad = data.squad;
                 if (data.department !== undefined) m.department = data.department;
                 if (data.section !== undefined) m.section = data.section;
                 if (data.att_section !== undefined) m.att_section = data.att_section;
+                if (data.photo_url !== undefined) m.photo_url = data.photo_url;
                 updatedCache = true;
               }
             });
+            if (!foundCache) {
+              memCache.push(data);
+              updatedCache = true;
+            }
             if (updatedCache) localStorage.setItem('bb_members_cache', JSON.stringify(memCache));
           }
         } catch (_) {}
+
+        // Update in-memory department members cache if present
+        if (typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
+          window._cachedDepartmentMembers.forEach(function(m) {
+            if (m.ic === data.ic || (data.name && m.name === data.name)) {
+              if (data.name !== undefined) m.name = data.name;
+              if (data.rank !== undefined) m.rank = data.rank;
+              if (data.squad !== undefined) m.squad = data.squad;
+              if (data.department !== undefined) m.department = data.department;
+              if (data.section !== undefined) m.section = data.section;
+              if (data.att_section !== undefined) m.att_section = data.att_section;
+              if (data.photo_url !== undefined) m.photo_url = data.photo_url;
+            }
+          });
+        }
+
+        // Update profile picture cache map if photo_url changed
+        if (data.photo_url !== undefined && typeof _memberPfpsMap !== 'undefined') {
+          if (data.photo_url) {
+            _memberPfpsMap[data.ic.toLowerCase()] = data.photo_url;
+            if (data.name) _memberPfpsMap[data.name.trim().toLowerCase()] = data.photo_url;
+          } else {
+            delete _memberPfpsMap[data.ic.toLowerCase()];
+            if (data.name) delete _memberPfpsMap[data.name.trim().toLowerCase()];
+          }
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+            }
+          } catch (_) {}
+        }
       }
 
       var currentIc = sessGetFn ? (sessGetFn('ic') || sessGetFn('email')) : '';
@@ -1921,6 +2016,7 @@ var PortalRealtime = (function() {
           if (data.squad !== undefined && sessSetFn) sessSetFn('squad', data.squad, { localOnly: true });
           if (data.department !== undefined && sessSetFn) sessSetFn('department', data.department, { localOnly: true });
           if ((data.att_section || data.section) && sessSetFn) sessSetFn('section', data.att_section || data.section, { localOnly: true });
+          if (data.photo_url !== undefined && sessSetFn) sessSetFn('photo_url', data.photo_url, { localOnly: true });
 
           var sn = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-name') : null;
           if (sn && data.name) sn.textContent = data.name;
@@ -1940,6 +2036,42 @@ var PortalRealtime = (function() {
           var sb = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-badge') : null;
           if (sb) sb.textContent = badgeStr;
 
+          // Update active member profile view elements
+          if (typeof document !== 'undefined') {
+            var mNameEl = document.getElementById('m-name');
+            if (mNameEl && data.name) mNameEl.textContent = data.name;
+            var mRankEl = document.getElementById('m-rank');
+            if (mRankEl && effRank) mRankEl.textContent = effRank;
+            var mSquadEl = document.getElementById('m-squad');
+            if (mSquadEl && effSquad) mSquadEl.textContent = effSquad;
+            var mSecEl = document.getElementById('m-section');
+            if (mSecEl && effSec) mSecEl.textContent = effSec;
+
+            if (data.photo_url !== undefined) {
+              var mImg = document.getElementById('m-pfp-img');
+              var mPh = document.getElementById('m-pfp-ph');
+              var sImg = document.getElementById('sidebar-user-avatar-img');
+              var sPh = document.getElementById('sidebar-user-avatar-ph');
+              var nImg = document.getElementById('nav-avatar-img');
+              var nPh = document.getElementById('nav-avatar-placeholder');
+              if (data.photo_url) {
+                if (mImg) { mImg.src = data.photo_url; mImg.style.display = 'block'; }
+                if (mPh) mPh.style.display = 'none';
+                if (sImg) { sImg.src = data.photo_url; sImg.style.display = 'block'; }
+                if (sPh) sPh.style.display = 'none';
+                if (nImg) { nImg.src = data.photo_url; nImg.style.display = 'block'; }
+                if (nPh) nPh.style.display = 'none';
+              } else {
+                if (mImg) { mImg.src = ''; mImg.style.display = 'none'; }
+                if (mPh) mPh.style.display = 'flex';
+                if (sImg) { sImg.src = ''; sImg.style.display = 'none'; }
+                if (sPh) sPh.style.display = 'flex';
+                if (nImg) { nImg.src = ''; nImg.style.display = 'none'; }
+                if (nPh) nPh.style.display = 'flex';
+              }
+            }
+          }
+
           var rbacObj = (typeof RBAC !== 'undefined') ? RBAC : (typeof window !== 'undefined' && typeof window.RBAC !== 'undefined') ? window.RBAC : (typeof global !== 'undefined' ? global.RBAC : null);
           if (rbacObj && typeof rbacObj.renderHeaderRoleBadge === 'function') {
             try { rbacObj.renderHeaderRoleBadge(); } catch (_) {}
@@ -1957,6 +2089,9 @@ var PortalRealtime = (function() {
           if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
             try { window.syncSidebarAccess(); } catch (_) {}
           }
+          if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') {
+            try { window.updateNavUserHeader(); } catch (_) {}
+          }
         }
 
         if (!data || !data.department || !data.ic) {
@@ -1970,6 +2105,19 @@ var PortalRealtime = (function() {
           if (refreshProfileFn) {
             refreshProfileFn().catch(function() {});
           }
+        }
+      }
+
+      // Re-render task board, presence dots, and forum across all connected devices
+      if (typeof window !== 'undefined') {
+        if (typeof window.refreshCurrentTasksView === 'function') {
+          try { window.refreshCurrentTasksView(); } catch (_) {}
+        }
+        var refDots = (typeof refreshLivePresenceDots === 'function')
+          ? refreshLivePresenceDots
+          : (typeof window.refreshLivePresenceDots === 'function' ? window.refreshLivePresenceDots : null);
+        if (refDots) {
+          try { refDots(); } catch (_) {}
         }
       }
 
