@@ -15854,15 +15854,190 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
-console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
-  for (const h of process._getActiveHandles()) {
-    if (h && typeof h.destroy === 'function') {
-      try { h.destroy(); } catch (_) {}
-    }
-    if (h && typeof h.close === 'function') {
-      try { h.close(); } catch (_) {}
-    }
+  // =========================================================================
+  // SUITE 83: Subtask Focus Integrity, Cloud Storage Attachments & Task Creation Durability
+  // =========================================================================
+  {
+    console.log('\n--- Suite 83: Subtask Focus Integrity, Cloud Storage Attachments & Task Creation Durability ---');
+    const tasksMod = require('../js/modules/tasks.js');
+    const supaMod = require('../js/api/supabase.js');
+
+    // 1. Subtask Typing & Non-Destructive Focus Preservation
+    const testTaskId = 'task_suite83_focus';
+    tasksMod.saveTaskSubtasks(testTaskId, [
+      { id: 'sub_1', text: 'Draft agenda', completed: false },
+      { id: 'sub_2', text: 'Book logistics vehicle', completed: true }
+    ]);
+
+    // Setup mock DOM list container
+    const mockList = {
+      innerHTML: '',
+      children: [],
+      querySelectorAll: (sel) => {
+        if (sel === '.tb-subtask-item') {
+          return mockList.children;
+        }
+        return [];
+      },
+      querySelector: () => null,
+      contains: (el) => mockList.children.some(c => c === el || (c.span && c.span === el))
+    };
+
+    const mockSpan1 = {
+      textContent: 'Draft agenda',
+      style: { textDecoration: 'none', opacity: '1' }
+    };
+    const mockChk1 = { checked: false };
+    const mockItem1 = {
+      getAttribute: (attr) => attr === 'data-subtask-id' ? 'sub_1' : null,
+      querySelector: (sel) => sel.includes('checkbox') ? mockChk1 : (sel.includes('contenteditable') ? mockSpan1 : null),
+      span: mockSpan1
+    };
+
+    const mockSpan2 = {
+      textContent: 'Book logistics vehicle',
+      style: { textDecoration: 'line-through', opacity: '0.6' }
+    };
+    const mockChk2 = { checked: true };
+    const mockItem2 = {
+      getAttribute: (attr) => attr === 'data-subtask-id' ? 'sub_2' : null,
+      querySelector: (sel) => sel.includes('checkbox') ? mockChk2 : (sel.includes('contenteditable') ? mockSpan2 : null),
+      span: mockSpan2
+    };
+
+    mockList.children = [mockItem1, mockItem2];
+
+    const prevDoc = global.document;
+    global.document = {
+      querySelector: (sel) => {
+        if (sel === '.tb-subtasks-list') return mockList;
+        return null;
+      },
+      querySelectorAll: () => [],
+      activeElement: mockSpan1
+    };
+
+    // User types into subtask 1
+    mockSpan1.textContent = 'Draft agenda updated with details';
+    tasksMod.handleSubtaskTextInput(testTaskId, 'sub_1', mockSpan1);
+
+    const subtasksState = tasksMod.getTaskSubtasks(testTaskId);
+    assert.strictEqual(subtasksState[0].text, 'Draft agenda updated with details', 'In-memory subtask text updates instantly on input');
+
+    // While user is focused on mockSpan1, trigger renderTaskSubtasks
+    const prevInnerHTML = mockList.innerHTML;
+    tasksMod.renderTaskSubtasks(testTaskId);
+    // Non-destructive update must NOT overwrite innerHTML or destroy mockSpan1
+    assert.strictEqual(mockList.innerHTML, prevInnerHTML, 'Non-destructive live patching preserves active DOM elements without wiping innerHTML');
+    console.log('  ✔ Subtask typing updates in-memory immediately without cursor focus disruption');
+
+    // Restore original document
+    global.document = prevDoc;
+
+    // 2. Cloud Storage Attachments & Session Scoped Blob Protection
+    let openedUrl = null;
+    let toastMsg = null;
+    let _toastType = null;
+    global.window.open = (url) => { openedUrl = url; };
+    global.showToast = (msg, type) => { toastMsg = msg; _toastType = type; };
+
+    global.supa = supaMod.supa;
+    if (global.window) global.window.supa = supaMod.supa;
+
+    // A. Cloud Storage signed URL resolution
+    const mockAttTaskId = 'task_suite83_att';
+    tasksMod.saveTaskAttachments(mockAttTaskId, [
+      {
+        id: 'att_cloud_1',
+        name: 'Briefing.docx',
+        url: 'https://supabase.co/storage/v1/object/authenticated/resources/tasks/briefing.docx',
+        path: 'tasks/briefing.docx',
+        bucket: 'resources'
+      },
+      {
+        id: 'att_stale_blob',
+        name: 'OldScreenshot.png',
+        url: 'blob:https://1stpj.org/3894723984729384729',
+        path: ''
+      }
+    ]);
+
+    // Mock supa.createSignedUrl
+    supaMod.supa.createSignedUrl = async (bucket, path, _expiresIn) => {
+      assert.strictEqual(bucket, 'resources', 'Resolves against resources storage bucket');
+      assert.strictEqual(path, 'tasks/briefing.docx', 'Resolves correct object path');
+      return { signedUrl: 'https://supabase.co/storage/v1/object/sign/resources/tasks/briefing.docx?token=xyz' };
+    };
+
+    openedUrl = null;
+    await tasksMod.openTaskAttachment(mockAttTaskId, 'att_cloud_1');
+    assert.ok(openedUrl && openedUrl.includes('token=xyz'), 'Cloud storage attachment generates fresh signed URL for secure viewing');
+
+    // B. Expired / Inaccessible cross-session blob URL protection (avoids ERR_FILE_NOT_FOUND)
+    openedUrl = null;
+    toastMsg = null;
+    global.fetch = async (url) => {
+      if (url.startsWith('blob:')) throw new Error('File not found in session memory');
+      return { ok: true, status: 200 };
+    };
+
+    await tasksMod.openTaskAttachment(mockAttTaskId, 'att_stale_blob');
+    assert.strictEqual(openedUrl, null, 'Stale cross-session blob does not open broken browser tab');
+    assert.ok(toastMsg && toastMsg.includes('unavailable on this device'), 'Friendly toast warning displayed for stale cross-session blobs');
+    console.log('  ✔ Task attachments cloud storage signed URL resolution and cross-session blob safety verified');
+
+    // 3. Task Creation Persistence & Bigint Safety (No temp_ ID Patch Errors)
+    const tempId = 'temp_1795096123456_abcde';
+    const fakeCreatedTask = {
+      id: tempId,
+      title: 'Bootcamp 2027',
+      description: 'Annual training camp',
+      status: 'todo',
+      department: 'Secretariat',
+      priority: 'high'
+    };
+
+    tasksMod._allLoadedTasks.push(fakeCreatedTask);
+    tasksMod._taskMap[tempId] = fakeCreatedTask;
+
+    let patchedEndpoint = null;
+    let patchedBody = null;
+    supaMod.supa.patch = async (endpoint, body) => {
+      patchedEndpoint = endpoint;
+      patchedBody = body;
+      return [Object.assign({}, fakeCreatedTask, body)];
+    };
+
+    // Before creation confirms, updating status must NOT send `id=eq.temp_...` to PostgreSQL bigint column
+    patchedEndpoint = null;
+    await tasksMod.memberUpdateTaskStatus(tempId, 'inprogress');
+    assert.strictEqual(fakeCreatedTask.status, 'inprogress', 'Optimistic status update applies locally immediately');
+    assert.strictEqual(patchedEndpoint, null, 'Does not send invalid bigint temp_ ID patch to PostgreSQL');
+
+    // Attach server creation promise simulating background insert returning numeric ID 9876
+    fakeCreatedTask._creationPromise = Promise.resolve(9876);
+    fakeCreatedTask._realDbId = 9876;
+
+    // Now updating field resolves the real database ID and patches successfully
+    patchedEndpoint = null;
+    patchedBody = null;
+    await tasksMod.saveTaskField(tempId, 'estimate', '4h');
+    assert.ok(patchedEndpoint && patchedEndpoint.includes('id=eq.9876'), 'Resolves tempId to real numeric database ID 9876 before remote patch');
+    assert.ok(patchedBody && patchedBody.description && patchedBody.description.includes('4h'), 'Patches updated estimate metadata with real ID');
+    console.log('  ✔ Task creation temp ID resolution prevents PostgreSQL bigint 400 syntax errors');
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite83 = new Set();
+    const postMatchesSuite83 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite83.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite83.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite83.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite83.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
+
+console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
   console.error('\n✖ Test failed:', err);

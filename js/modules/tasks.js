@@ -2818,6 +2818,8 @@ async function fetchRemoteTaskSubtasks(taskId) {
   return getTaskSubtasks(tid);
 }
 
+var _subtaskDebounceTimer = null;
+
 /**
  * Renders the interactive subtasks list in the task brief modal
  * @param {string|number} taskId
@@ -2834,6 +2836,38 @@ function renderTaskSubtasks(taskId) {
     return;
   }
 
+  var activeEl = document.activeElement;
+  var isEditing = activeEl && list.contains(activeEl);
+
+  if (isEditing) {
+    var existingItems = list.querySelectorAll('.tb-subtask-item');
+    if (existingItems.length === subtasks.length) {
+      var match = true;
+      existingItems.forEach(function(item, idx) {
+        if (item.getAttribute('data-subtask-id') !== String(subtasks[idx].id)) match = false;
+      });
+      if (match) {
+        // Non-destructive live sync without destroying active editing span or cursor
+        existingItems.forEach(function(item, idx) {
+          var st = subtasks[idx];
+          var chk = item.querySelector('input[type="checkbox"]');
+          var span = item.querySelector('span[contenteditable]');
+          if (chk && chk.checked !== Boolean(st.completed)) {
+            chk.checked = Boolean(st.completed);
+          }
+          if (span && span !== activeEl) {
+            var isDone = Boolean(st.completed);
+            span.style.textDecoration = isDone ? 'line-through' : 'none';
+            span.style.opacity = isDone ? '0.6' : '1';
+            var safeText = st.text || '';
+            if (span.textContent !== safeText) span.textContent = safeText;
+          }
+        });
+        return;
+      }
+    }
+  }
+
   var html = '';
   subtasks.forEach(function(st) {
     var safeText = (typeof escapeHtml === 'function') ? escapeHtml(st.text || '') : (st.text || '');
@@ -2841,11 +2875,40 @@ function renderTaskSubtasks(taskId) {
     var textStyle = isDone ? 'text-decoration:line-through;opacity:0.6;' : '';
     html += '<div class="tb-subtask-item" data-subtask-id="' + st.id + '" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-subtle);">'
       + '<input type="checkbox" ' + (isDone ? 'checked' : '') + ' style="cursor:pointer;" onchange="toggleTaskSubtask(\'' + tid + '\', \'' + st.id + '\', this.checked)" title="Mark subtask completed" aria-label="Mark subtask completed" />'
-      + '<span contenteditable="true" style="outline:none;flex:1;font-size:13px;' + textStyle + '" onblur="handleSubtaskTextBlur(\'' + tid + '\', \'' + st.id + '\', this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}">' + safeText + '</span>'
+      + '<span contenteditable="true" style="outline:none;flex:1;font-size:13px;' + textStyle + '" oninput="handleSubtaskTextInput(\'' + tid + '\', \'' + st.id + '\', this)" onblur="handleSubtaskTextBlur(\'' + tid + '\', \'' + st.id + '\', this)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}">' + safeText + '</span>'
       + '<button type="button" style="background:transparent;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;font-size:16px;line-height:1;" onclick="deleteTaskSubtask(\'' + tid + '\', \'' + st.id + '\')" title="Delete subtask" aria-label="Delete subtask">&times;</button>'
       + '</div>';
   });
   list.innerHTML = html;
+}
+
+/**
+ * Handles live input typing on editable subtask title (prevents cursor loss)
+ */
+function handleSubtaskTextInput(taskId, subtaskId, el) {
+  if (!el) return;
+  var tid = String(taskId || _activeDetailTaskId || '');
+  if (!tid) return;
+  var newText = el.textContent || '';
+  var subtasks = getTaskSubtasks(tid);
+  var st = subtasks.find(function(x) { return String(x.id) === String(subtaskId); });
+  if (st) {
+    st.text = newText;
+    _taskSubtasksMap[tid] = subtasks;
+    if (typeof window !== 'undefined') {
+      window._taskSubtasksMap = window._taskSubtasksMap || {};
+      window._taskSubtasksMap[tid] = subtasks;
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_task_subtasks_' + tid, JSON.stringify(subtasks));
+      }
+    } catch (_) {}
+    if (_subtaskDebounceTimer) clearTimeout(_subtaskDebounceTimer);
+    _subtaskDebounceTimer = setTimeout(function() {
+      saveTaskSubtasks(tid, subtasks);
+    }, 1200);
+  }
 }
 
 /**
@@ -4001,21 +4064,24 @@ async function openTaskAttachment(taskId, attachmentId) {
 
   var rawUrl = (att.url || '').trim();
   var remotePath = (att.path || '').trim();
+  var bucket = att.bucket || 'resources';
+  var client = getSupaClient();
 
-  // If Supabase client is available, resolve a fresh signed URL for secure private storage
-  if (typeof supa !== 'undefined' && typeof supa.createSignedUrl === 'function') {
+  // If Supabase client is available, resolve a fresh signed URL for secure storage
+  if (client && typeof client.createSignedUrl === 'function') {
     var pathToSign = remotePath;
     if (!pathToSign && rawUrl) {
-      var match = rawUrl.match(/\/storage\/v1\/object\/(?:public|authenticated)\/resources\/(.+)$/);
-      if (match && match[1]) {
-        pathToSign = decodeURIComponent(match[1].split('?')[0]);
+      var match = rawUrl.match(/\/storage\/v1\/object\/(?:public|authenticated)\/([^/]+)\/(.+)$/);
+      if (match && match[2]) {
+        bucket = match[1];
+        pathToSign = decodeURIComponent(match[2].split('?')[0]);
       } else if (rawUrl.startsWith('tasks/')) {
         pathToSign = rawUrl;
       }
     }
     if (pathToSign) {
       try {
-        var signed = await supa.createSignedUrl('resources', pathToSign, 3600);
+        var signed = await client.createSignedUrl(bucket, pathToSign, 86400);
         if (signed && signed.signedUrl) {
           if (typeof window !== 'undefined' && window.open) {
             window.open(signed.signedUrl, '_blank', 'noopener,noreferrer');
@@ -4028,26 +4094,39 @@ async function openTaskAttachment(taskId, attachmentId) {
     }
   }
 
-  // Blob URLs
-  if (rawUrl.startsWith('blob:')) {
+  // Safe raster image / PDF / text data URLs (works across all browsers and offline)
+  if (/^data:(image\/(png|jpeg|jpg|gif|webp)|application\/pdf|text\/plain);base64,/i.test(rawUrl)) {
     if (typeof window !== 'undefined' && window.open) {
       window.open(rawUrl, '_blank', 'noopener,noreferrer');
     }
     return;
   }
 
-  // Safe raster image / PDF data URLs
-  if (/^data:(image\/(png|jpeg|jpg|gif|webp)|application\/pdf);base64,/i.test(rawUrl)) {
-    if (typeof window !== 'undefined' && window.open) {
-      window.open(rawUrl, '_blank', 'noopener,noreferrer');
-    }
-    return;
-  }
-
-  // Valid HTTP/HTTPS URLs
+  // Valid HTTP/HTTPS URLs (e.g. existing signed URLs or public URLs)
   if (/^https?:\/\//i.test(rawUrl)) {
     if (typeof window !== 'undefined' && window.open) {
       window.open(rawUrl, '_blank', 'noopener,noreferrer');
+    }
+    return;
+  }
+
+  // Blob URLs (scoped to session - check if accessible before attempting navigation)
+  if (rawUrl.startsWith('blob:')) {
+    var isLive = false;
+    try {
+      if (typeof fetch === 'function') {
+        var chk = await fetch(rawUrl, { method: 'HEAD' }).catch(function() { return fetch(rawUrl); });
+        if (chk && (chk.ok || chk.status === 200)) isLive = true;
+      }
+    } catch (_) {}
+    if (isLive) {
+      if (typeof window !== 'undefined' && window.open) {
+        window.open(rawUrl, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+    if (typeof showToast === 'function') {
+      showToast('This attachment was saved locally in another session and is unavailable on this device. Please re-upload the file.', 'warning', 5000);
     }
     return;
   }
@@ -4059,7 +4138,7 @@ async function openTaskAttachment(taskId, attachmentId) {
 }
 
 /**
- * Handles uploading 1 or more task attachments with storage upload and local fallback
+ * Handles uploading 1 or more task attachments with storage upload and cross-device fallback
  * @param {Event} event
  */
 async function handleTaskAttachmentUpload(event) {
@@ -4069,6 +4148,7 @@ async function handleTaskAttachmentUpload(event) {
   var tid = _activeDetailTaskId;
   if (!tid) return;
 
+  var client = getSupaClient();
   var attachments = getTaskAttachments(tid);
   var addedCount = 0;
 
@@ -4102,17 +4182,47 @@ async function handleTaskAttachmentUpload(event) {
 
     var remotePath = '';
     var fileUrl = '';
-    if (typeof supa !== 'undefined' && typeof supa.uploadFile === 'function') {
+    var targetBucket = 'resources';
+
+    if (client && typeof client.uploadFile === 'function') {
       try {
         var cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         remotePath = 'tasks/' + tid + '/' + Date.now() + '_' + cleanFileName;
-        await supa.uploadFile('resources', remotePath, file);
-        fileUrl = supa.fileUrl('resources', remotePath);
+        try {
+          await client.uploadFile(targetBucket, remotePath, file);
+        } catch (resErr) {
+          // If resources bucket fails or policy restricted, fallback to gallery bucket
+          console.warn('resources bucket upload fallback to gallery:', resErr);
+          targetBucket = 'gallery';
+          await client.uploadFile(targetBucket, remotePath, file);
+        }
+        if (typeof client.createSignedUrl === 'function') {
+          var signed = await client.createSignedUrl(targetBucket, remotePath, 86400 * 365);
+          if (signed && signed.signedUrl) {
+            fileUrl = signed.signedUrl;
+          }
+        }
+        if (!fileUrl && typeof client.fileUrl === 'function') {
+          fileUrl = client.fileUrl(targetBucket, remotePath);
+        }
       } catch (uploadErr) {
-        console.warn('Supabase storage upload fallback:', uploadErr);
+        console.warn('Supabase storage upload error:', uploadErr);
       }
     }
 
+    // Cross-device fallback: small files (< 400KB) converted to data URL if cloud storage was unreachable
+    if (!fileUrl && file.size && file.size <= 400 * 1024 && typeof FileReader !== 'undefined') {
+      try {
+        fileUrl = await new Promise(function(resolve) {
+          var reader = new FileReader();
+          reader.onload = function(e) { resolve((e && e.target && e.target.result) || ''); };
+          reader.onerror = function() { resolve(''); };
+          reader.readAsDataURL(file);
+        });
+      } catch (_) {}
+    }
+
+    // Local in-session URL fallback
     if (!fileUrl && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
       try {
         fileUrl = URL.createObjectURL(file);
@@ -4124,6 +4234,7 @@ async function handleTaskAttachmentUpload(event) {
       name: file.name,
       url: fileUrl || '',
       path: remotePath || '',
+      bucket: targetBucket,
       size: sz,
       uploadedAt: new Date().toISOString()
     };
@@ -4718,6 +4829,61 @@ function saveActiveTaskBrief() {
 }
 
 /**
+ * Resolves temporary optimistic task IDs to persisted database IDs before database queries
+ * @param {string|number} id
+ * @returns {Promise<string|number>}
+ */
+async function resolveRealTaskId(id) {
+  if (!id) return id;
+  var strId = String(id);
+  if (!strId.startsWith('temp_')) return id;
+
+  var t = findManagedTask(id);
+  if (t) {
+    if (t._realDbId && !String(t._realDbId).startsWith('temp_')) return t._realDbId;
+    if (t.id && !String(t.id).startsWith('temp_')) return t.id;
+    if (t._creationPromise) {
+      try {
+        var resolved = await t._creationPromise;
+        if (resolved && !String(resolved).startsWith('temp_')) {
+          t.id = resolved;
+          t._realDbId = resolved;
+          return resolved;
+        }
+      } catch (_) {}
+    }
+  }
+
+  // Look in _allLoadedTasks for matching task title
+  if (t && t.title) {
+    var match = _allLoadedTasks.find(function(x) {
+      return String(x.id) !== strId && !String(x.id).startsWith('temp_') && x.title === t.title;
+    });
+    if (match && match.id) {
+      t.id = match.id;
+      t._realDbId = match.id;
+      return match.id;
+    }
+    // Query PostgREST
+    var client = getSupaClient();
+    if (client) {
+      try {
+        var rows = await client.get('bb_tasks?title=eq.' + encodeURIComponent(t.title) + '&order=created_at.desc&limit=1');
+        if (Array.isArray(rows) && rows[0] && rows[0].id) {
+          t.id = rows[0].id;
+          t._realDbId = rows[0].id;
+          delete _taskMap[strId];
+          _taskMap[rows[0].id] = t;
+          return rows[0].id;
+        }
+      } catch (_) {}
+    }
+  }
+
+  return id;
+}
+
+/**
  * Saves a specific field on active task instantly with optimistic update
  */
 async function saveTaskField(id, field, value) {
@@ -4730,16 +4896,23 @@ async function saveTaskField(id, field, value) {
   if (field === 'links') return saveTaskLinks(id, value);
   if (field === 'assignee_name') return selectTaskDetailAssignee(value);
 
+  var effectiveId = id;
+  if (String(id).startsWith('temp_')) {
+    effectiveId = await resolveRealTaskId(id);
+  }
+
   if (field === 'estimate') {
     t.estimate = value;
     var updatedDescEst = buildTaskDescriptionWithMeta(t, t.description);
     t.description = updatedDescEst;
     _taskMap[id] = t;
+    if (effectiveId !== id) _taskMap[effectiveId] = t;
     if (typeof window !== 'undefined') {
       window._taskMap = window._taskMap || {};
       window._taskMap[id] = t;
+      if (effectiveId !== id) window._taskMap[effectiveId] = t;
     }
-    var loadedEst = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+    var loadedEst = _allLoadedTasks.find(function(x) { return String(x.id) === String(id) || String(x.id) === String(effectiveId); });
     if (loadedEst) {
       loadedEst.estimate = value;
       loadedEst.description = updatedDescEst;
@@ -4760,14 +4933,14 @@ async function saveTaskField(id, field, value) {
     if (estValEl) estValEl.textContent = value || 'Estimate';
 
     var clientEst = getSupaClient();
-    if (clientEst) {
+    if (clientEst && !String(effectiveId).startsWith('temp_')) {
       try {
-        await clientEst.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { description: updatedDescEst });
+        await clientEst.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), { description: updatedDescEst });
         var prEst = (typeof window !== 'undefined' && window.PortalRealtime)
           ? window.PortalRealtime
           : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
         if (prEst && typeof prEst.broadcast === 'function') {
-          prEst.broadcast('tasks', 'update', { id: id, field: 'estimate', value: value, estimate: value, description: updatedDescEst });
+          prEst.broadcast('tasks', 'update', { id: effectiveId, field: 'estimate', value: value, estimate: value, description: updatedDescEst });
         }
         if (typeof showToast === 'function') {
           showToast('Estimate updated', 'info', 1000);
@@ -4784,11 +4957,13 @@ async function saveTaskField(id, field, value) {
     var updatedDescProj = buildTaskDescriptionWithMeta(t, t.description);
     t.description = updatedDescProj;
     _taskMap[id] = t;
+    if (effectiveId !== id) _taskMap[effectiveId] = t;
     if (typeof window !== 'undefined') {
       window._taskMap = window._taskMap || {};
       window._taskMap[id] = t;
+      if (effectiveId !== id) window._taskMap[effectiveId] = t;
     }
-    var loadedProj = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+    var loadedProj = _allLoadedTasks.find(function(x) { return String(x.id) === String(id) || String(x.id) === String(effectiveId); });
     if (loadedProj) {
       loadedProj.project_name = value;
       loadedProj.description = updatedDescProj;
@@ -4806,14 +4981,14 @@ async function saveTaskField(id, field, value) {
       renderProjectsView();
     }
     var clientProj = getSupaClient();
-    if (clientProj) {
+    if (clientProj && !String(effectiveId).startsWith('temp_')) {
       try {
-        await clientProj.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { description: updatedDescProj });
+        await clientProj.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), { description: updatedDescProj });
         var prProj = (typeof window !== 'undefined' && window.PortalRealtime)
           ? window.PortalRealtime
           : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
         if (prProj && typeof prProj.broadcast === 'function') {
-          prProj.broadcast('tasks', 'update', { id: id, field: 'project_name', value: value, description: updatedDescProj });
+          prProj.broadcast('tasks', 'update', { id: effectiveId, field: 'project_name', value: value, description: updatedDescProj });
         }
       } catch (errProj) {
         console.warn('Background patch error for project_name:', errProj);
@@ -4827,11 +5002,13 @@ async function saveTaskField(id, field, value) {
   if (typeof currentVal === 'string' && typeof value === 'string' && currentVal.trim() === value.trim()) return;
   t[field] = value;
   _taskMap[id] = t;
+  if (effectiveId !== id) _taskMap[effectiveId] = t;
   if (typeof window !== 'undefined') {
     window._taskMap = window._taskMap || {};
     window._taskMap[id] = t;
+    if (effectiveId !== id) window._taskMap[effectiveId] = t;
   }
-  var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(id); });
+  var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(id) || String(x.id) === String(effectiveId); });
   if (loaded) loaded[field] = value;
   try {
     if (typeof localStorage !== 'undefined') {
@@ -4857,13 +5034,13 @@ async function saveTaskField(id, field, value) {
 
   // Background async patch with graceful fallback
   var client = getSupaClient();
-  if (client) {
+  if (client && !String(effectiveId).startsWith('temp_')) {
     var patch = {};
     patch[field] = value;
     try {
-      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), patch);
+      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), patch);
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-        window.PortalRealtime.broadcast('tasks', 'update', { id: id, field: field, value: value });
+        window.PortalRealtime.broadcast('tasks', 'update', { id: effectiveId, field: field, value: value });
       }
       if (typeof showToast === 'function') {
         showToast('Task updated', 'info', 1000);
@@ -5114,12 +5291,16 @@ async function selectTaskDetailAssignee(ic, name) {
   }
 
   // Background patch without refetching from server
+  var effectiveTid = tid;
+  if (String(tid).startsWith('temp_')) {
+    effectiveTid = await resolveRealTaskId(tid);
+  }
   var client = getSupaClient();
-  if (client) {
+  if (client && !String(effectiveTid).startsWith('temp_')) {
     try {
-      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(tid), { assignee_name: cleanName });
+      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveTid), { assignee_name: cleanName });
       if (cleanIc) {
-        try { await client.patch('bb_tasks?id=eq.' + encodeURIComponent(tid), { assignee_ic: cleanIc }); } catch (_) {}
+        try { await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveTid), { assignee_ic: cleanIc }); } catch (_) {}
       }
       if (cleanName && cleanName !== 'Unassigned') {
         var assignDispatcher = (typeof sendPortalPushNotification === 'function')
@@ -5401,8 +5582,12 @@ async function deleteActiveTask() {
  */
 async function memberUpdateTaskStatus(id, status, _dept) {
   var task = findManagedTask(id);
-  if (status === 'done') status = 'completed';
+  status = normalizeTaskStatus(status);
   if (!task || !STATUS_ORDER.includes(status) || normalizeTaskStatus(task.status) === status) return;
+  var effectiveId = id;
+  if (String(id).startsWith('temp_')) {
+    effectiveId = await resolveRealTaskId(id);
+  }
   var client = getSupaClient();
   if (!client || _taskStatusWrites.has(id)) return;
   _taskStatusWrites.add(id);
@@ -5412,17 +5597,21 @@ async function memberUpdateTaskStatus(id, status, _dept) {
     else if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
     else renderColumnsFromTasks(_allLoadedTasks);
   };
-  var cachedTask = _allLoadedTasks.find(function(row) { return String(row.id) === String(id); });
+  var cachedTask = _allLoadedTasks.find(function(row) { return String(row.id) === String(id) || String(row.id) === String(effectiveId); });
   task.status = status;
   if (cachedTask) cachedTask.status = status;
   if (_taskMap[id]) _taskMap[id].status = status;
+  if (effectiveId !== id && _taskMap[effectiveId]) _taskMap[effectiveId].status = status;
   try {
     paint();
-    await client.patch('bb_tasks?id=eq.' + encodeURIComponent(id), { status: status });
+    if (!String(effectiveId).startsWith('temp_')) {
+      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), { status: status });
+    }
   } catch (e) {
     task.status = oldStatus;
     if (cachedTask) cachedTask.status = oldStatus;
     if (_taskMap[id]) _taskMap[id].status = oldStatus;
+    if (effectiveId !== id && _taskMap[effectiveId]) _taskMap[effectiveId].status = oldStatus;
     paint();
     if (typeof showToast === 'function') {
       showToast('Failed to update task status.', 'error');
@@ -5431,18 +5620,18 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   } finally {
     _taskStatusWrites.delete(id);
   }
-  var current = _allLoadedTasks.find(function(row) { return String(row.id) === String(id); });
+  var current = _allLoadedTasks.find(function(row) { return String(row.id) === String(id) || String(row.id) === String(effectiveId); });
   if (current && current !== cachedTask) {
     current.status = status;
     paint();
   }
   try { localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-    window.PortalRealtime.broadcast('tasks', 'update', { id: id, status: status });
+    window.PortalRealtime.broadcast('tasks', 'update', { id: effectiveId, status: status });
   }
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
-      action: 'task.status_update', targetType: 'task', targetId: id,
+      action: 'task.status_update', targetType: 'task', targetId: effectiveId,
       details: { status: status, department: task.department }
     });
   }
@@ -5799,13 +5988,12 @@ async function handleCreateTaskSubmit(e) {
 
   if (typeof showToast === 'function') {
     showToast('Task created!', 'success', 1500);
-  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('tasks', 'create', localTask);
   }
 
   // 2. BACKGROUND REMOTE ASYNC PERSISTENCE
   var client = getSupaClient();
   if (client) {
-    (async function() {
+    localTask._creationPromise = (async function() {
       try {
         var payload = {
           title: title,
@@ -5853,16 +6041,36 @@ async function handleCreateTaskSubmit(e) {
           }
         }
 
-        var saved = Array.isArray(inserted) && inserted[0] ? inserted[0] : null;
+        var saved = Array.isArray(inserted) && inserted[0] ? inserted[0] : (inserted && inserted.id ? inserted : null);
+        if (!saved || !saved.id) {
+          try {
+            var fetched = await client.get('bb_tasks?title=eq.' + encodeURIComponent(title) + '&order=created_at.desc&limit=1');
+            if (Array.isArray(fetched) && fetched.length > 0 && fetched[0].id) {
+              saved = fetched[0];
+            }
+          } catch (_) {}
+        }
+
         if (saved && saved.id) {
           localTask.id = saved.id;
+          localTask._realDbId = saved.id;
           delete _taskMap[tempId];
           _taskMap[saved.id] = localTask;
           if (typeof window !== 'undefined' && window._taskMap) {
             delete window._taskMap[tempId];
             window._taskMap[saved.id] = localTask;
           }
+          if (typeof document !== 'undefined') {
+            var tempNodes = document.querySelectorAll('[data-task-id="' + tempId + '"]');
+            tempNodes.forEach(function(el) { el.setAttribute('data-task-id', String(saved.id)); });
+          }
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks));
+            }
+          } catch (_) {}
           if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+            window.PortalRealtime.broadcast('tasks', 'create', localTask);
             window.PortalRealtime.broadcast('tasks', 'reconcile', { tempId: tempId, task: saved });
           }
           if (assigneeName && assigneeName !== 'Unassigned') {
@@ -5909,12 +6117,42 @@ async function handleCreateTaskSubmit(e) {
               });
             }
           }
+          return saved.id;
         } else if (!inserted) {
           throw new Error('Server returned empty task response');
         }
       } catch (err) {
         console.error('Failed to persist task in background:', err);
-        // Optimistic update rollback: remove task from memory and re-render
+        var verifyClient = getSupaClient();
+        var doubleCheckRow = null;
+        if (verifyClient) {
+          try {
+            var chkRows = await verifyClient.get('bb_tasks?title=eq.' + encodeURIComponent(title) + '&order=created_at.desc&limit=1');
+            if (Array.isArray(chkRows) && chkRows[0] && chkRows[0].id) {
+              doubleCheckRow = chkRows[0];
+            }
+          } catch (_) {}
+        }
+        if (doubleCheckRow && doubleCheckRow.id) {
+          localTask.id = doubleCheckRow.id;
+          localTask._realDbId = doubleCheckRow.id;
+          delete _taskMap[tempId];
+          _taskMap[doubleCheckRow.id] = localTask;
+          if (typeof window !== 'undefined' && window._taskMap) {
+            delete window._taskMap[tempId];
+            window._taskMap[doubleCheckRow.id] = localTask;
+          }
+          if (typeof document !== 'undefined') {
+            var tempCards = document.querySelectorAll('[data-task-id="' + tempId + '"]');
+            tempCards.forEach(function(el) { el.setAttribute('data-task-id', String(doubleCheckRow.id)); });
+          }
+          if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+            window.PortalRealtime.broadcast('tasks', 'create', localTask);
+          }
+          return doubleCheckRow.id;
+        }
+
+        // Optimistic update rollback: remove task from memory and re-render only if truly failed
         _allLoadedTasks = _allLoadedTasks.filter(function(x) { return x.id !== tempId; });
         delete _taskMap[tempId];
         if (typeof window !== 'undefined' && window._taskMap) {
@@ -6497,6 +6735,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.addActiveTaskSubtask       = addActiveTaskSubtask;
   window.toggleTaskSubtask          = toggleTaskSubtask;
   window.handleSubtaskTextBlur      = handleSubtaskTextBlur;
+  window.handleSubtaskTextInput     = handleSubtaskTextInput;
   window.deleteTaskSubtask          = deleteTaskSubtask;
   window._taskSubtasksMap           = _taskSubtasksMap;
 
@@ -6513,6 +6752,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window._taskAttachmentsMap        = _taskAttachmentsMap;
   window.getTaskEstimate            = getTaskEstimate;
   window.buildTaskDescriptionWithMeta = buildTaskDescriptionWithMeta;
+  window.resolveRealTaskId          = resolveRealTaskId;
 
   if (typeof window.addEventListener === 'function') {
     window.addEventListener('bb_avatar_outlines_changed', function() {
@@ -6524,6 +6764,9 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
       var d = (ev && ev.detail) || {};
       var tid = d.taskId;
       if (tid && String(_activeDetailTaskId) === String(tid)) {
+        var act = (typeof document !== 'undefined') ? document.activeElement : null;
+        var sList = (typeof document !== 'undefined') ? document.querySelector('.tb-subtasks-list') : null;
+        if (act && sList && sList.contains(act)) return;
         if (typeof renderTaskSubtasks === 'function') renderTaskSubtasks(tid);
       }
     });
@@ -6671,6 +6914,7 @@ if (typeof module !== 'undefined' && module.exports) {
     addActiveTaskSubtask,
     toggleTaskSubtask,
     handleSubtaskTextBlur,
+    handleSubtaskTextInput,
     deleteTaskSubtask,
     getTaskLinks,
     saveTaskLinks,
@@ -6682,6 +6926,7 @@ if (typeof module !== 'undefined' && module.exports) {
     fetchAllRemoteTaskDetails,
     getTaskEstimate,
     buildTaskDescriptionWithMeta,
+    resolveRealTaskId,
     resetTasksFiltersToDefault,
     handleProjectsSearchInput,
     toggleProjectFilterMenu,
