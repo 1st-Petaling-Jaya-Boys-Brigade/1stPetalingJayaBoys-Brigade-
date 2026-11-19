@@ -15736,6 +15736,124 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Suite 82: PC Web/App Task Notifications, Store Contrast & Calendar Distinction ──
+  {
+    console.log('\n--- Suite 82: PC Web/App Task Assignment Notifications, Store Contrast & Calendar Distinction ---');
+
+    const tasksMod = require('../js/modules/tasks.js');
+    const supaMod = require('../js/api/supabase.js');
+    const calMod = require('../js/modules/calendar.js');
+    const cssContent = fs.readFileSync('css/components.css', 'utf8');
+
+    assert.ok(typeof tasksMod.selectTaskDetailAssignee === 'function', 'selectTaskDetailAssignee is available');
+
+    // 1. Store Product Card Badge High Contrast
+    assert.ok(cssContent.includes('.product-card-badge.cat'), '.product-card-badge.cat class exists in css/components.css');
+    assert.ok(cssContent.includes('background: rgba(15, 23, 42, 0.82)'), 'Product category badge has high contrast dark slate background');
+    assert.ok(cssContent.includes('color: #ffffff !important'), 'Product category badge text is forced white for guaranteed readability');
+    console.log('  ✔ Forms & Store category badge high contrast and white text readability verified');
+
+    // 2. Calendar Week View & Month View Distinct Color Coding
+    assert.strictEqual(calMod.TYPE_BADGES.parade.color, '#2563eb', 'Parade type badge uses royal blue color');
+    assert.strictEqual(calMod.TYPE_BADGES.noparade.color, '#dc2626', 'No Parade type badge uses crimson red color');
+    assert.notStrictEqual(calMod.TYPE_BADGES.parade.color, calMod.TYPE_BADGES.noparade.color, 'Parade and No Parade colors are distinct');
+
+    assert.ok(cssContent.includes('.cal-m-pill-blue'), '.cal-m-pill-blue exists for month parade pills');
+    assert.ok(cssContent.includes('.cal-m-pill-red'), '.cal-m-pill-red exists for month no parade pills');
+    assert.ok(cssContent.includes('[data-theme=\'light\'] .cal-m-pill-blue'), 'Light theme specific style exists for blue month parade pills');
+    assert.ok(cssContent.includes('[data-theme=\'light\'] .cal-m-pill-red'), 'Light theme specific style exists for red month no parade pills');
+    console.log('  ✔ Company Calendar distinct Royal Blue (Parade) and Crimson Red (No Parade) color coding verified');
+
+    // 3. PC Web & App Task Assignment Notifications Routing
+    let toastFired = null;
+    let desktopNotifFired = null;
+    let soundPlayed = false;
+    let notificationsRendered = false;
+
+    global._allPortalNotifications = [];
+    global.sessionGet = (key) => {
+      if (key === 'name') return 'Tester Account';
+      if (key === 'ic') return '990101-14-5555';
+      if (key === 'email') return 'tester@1stpj.org';
+      return '';
+    };
+
+    if (typeof window !== 'undefined') {
+      window._allPortalNotifications = global._allPortalNotifications;
+      window.sessionGet = global.sessionGet;
+      window.showToast = (msg, type) => { toastFired = { msg, type }; };
+      window.triggerPortalSystemNotification = (title, body, opts) => { desktopNotifFired = { title, body, opts }; };
+      window.playNotificationSound = () => { soundPlayed = true; };
+      window.renderNotifications = () => { notificationsRendered = true; };
+    }
+
+    // A. Assignment to someone else (should NOT trigger for Tester Account)
+    toastFired = null;
+    desktopNotifFired = null;
+    soundPlayed = false;
+    supaMod.PortalRealtime.triggerEntityUpdate('task_assigned', 'create', {
+      taskId: 'task_other_1',
+      title: 'Setup AV for parade',
+      assignee_name: 'Other Member',
+      assignee_ic: '010101-14-1111',
+      creator_name: 'Jeshua Koh',
+      creator_ic: '050505-14-2222'
+    });
+    assert.strictEqual(toastFired, null, 'Assignment to someone else must not trigger toast');
+    assert.strictEqual(desktopNotifFired, null, 'Assignment to someone else must not trigger desktop notification');
+    assert.strictEqual(soundPlayed, false, 'Assignment to someone else must not play sound');
+
+    // B. Assignment to self by self (should NOT trigger self-assignment notification)
+    toastFired = null;
+    desktopNotifFired = null;
+    soundPlayed = false;
+    supaMod.PortalRealtime.triggerEntityUpdate('task_assigned', 'create', {
+      taskId: 'task_self_1',
+      title: 'Review checklist',
+      assignee_name: 'Tester Account',
+      assignee_ic: '990101-14-5555',
+      creator_name: 'Tester Account',
+      creator_ic: '990101-14-5555'
+    });
+    assert.strictEqual(toastFired, null, 'Self-assignment must not trigger toast');
+    assert.strictEqual(desktopNotifFired, null, 'Self-assignment must not trigger desktop notification');
+
+    // C. Legitimate Task Assignment to Tester Account from Jeshua Koh
+    toastFired = null;
+    desktopNotifFired = null;
+    soundPlayed = false;
+    notificationsRendered = false;
+
+    supaMod.PortalRealtime.triggerEntityUpdate('task_assigned', 'create', {
+      taskId: 'task_tester_1',
+      title: 'Prepare NCO training deck',
+      assignee_name: 'Tester Account',
+      assignee_ic: '990101-14-5555',
+      assignee_email: 'tester@1stpj.org',
+      creator_name: 'Jeshua Koh',
+      creator_ic: '050505-14-2222'
+    });
+
+    assert.ok(toastFired, 'Legitimate task assignment must trigger in-app toast popup');
+    assert.ok(toastFired.msg.includes('Prepare NCO training deck'), 'Toast message mentions task title');
+    assert.ok(desktopNotifFired, 'Legitimate task assignment must trigger desktop system notification');
+    assert.strictEqual(desktopNotifFired.opts.force, true, 'Desktop notification dispatched with force: true');
+    assert.strictEqual(soundPlayed, true, 'Audio chime played upon task assignment');
+    assert.strictEqual(notificationsRendered, true, 'Notification dropdown and badge rendered');
+    assert.ok(global._allPortalNotifications.some(n => n.id === 'notif-task-task_tester_1'), 'Notification entry added to portal inbox');
+    console.log('  ✔ PC Web & App task assignment real-time dispatch, inbox entry, toast & desktop pop-up verified');
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite82 = new Set();
+    const postMatchesSuite82 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite82.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite82.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite82.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite82.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   for (const h of process._getActiveHandles()) {
     if (h && typeof h.destroy === 'function') {
