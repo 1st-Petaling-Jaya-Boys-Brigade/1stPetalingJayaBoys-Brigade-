@@ -112,7 +112,7 @@ try {
   if (typeof localStorage !== 'undefined') {
     var _cachedTasksData = JSON.parse(localStorage.getItem('bb_cached_tasks') || '[]');
     if (Array.isArray(_cachedTasksData) && _cachedTasksData.length) {
-      _allLoadedTasks = _cachedTasksData;
+      _allLoadedTasks = deduplicateTasks(_cachedTasksData);
       _allLoadedTasks.forEach(function(t) {
         if (t && t.id) _taskMap[t.id] = t;
       });
@@ -220,6 +220,49 @@ function getTaskProjectName(t) {
     return DEPT_CONFIG[t.department.toLowerCase()].label;
   }
   return '';
+}
+
+/**
+ * Safely deduplicates task items across temporary optimistic IDs and server-persisted records.
+ * Ensures that if a real database task already exists, any matching temporary optimistic task
+ * (matched by title and project/department) is seamlessly discarded.
+ * @param {Array<Object>} tasks
+ * @returns {Array<Object>}
+ */
+function deduplicateTasks(tasks) {
+  if (!Array.isArray(tasks)) return [];
+  var seenIds = Object.create(null);
+  var persistedKeys = Object.create(null);
+
+  // Pass 1: Index landed server tasks (non-temp IDs)
+  tasks.forEach(function(t) {
+    if (!t || !t.id) return;
+    var idStr = String(t.id).trim();
+    if (!idStr.toLowerCase().startsWith('temp_')) {
+      var titleKey = String(t.title || '').trim().toLowerCase();
+      var projKey = (t.project_name || getTaskProjectName(t) || '').trim().toLowerCase();
+      if (titleKey) {
+        persistedKeys[titleKey + '::' + projKey] = true;
+        persistedKeys[titleKey] = true;
+      }
+    }
+  });
+
+  // Pass 2: Filter out duplicate IDs and fulfilled temporary tasks
+  return tasks.filter(function(t) {
+    if (!t || !t.id) return false;
+    var idStr = String(t.id).trim();
+    if (seenIds[idStr]) return false;
+    if (idStr.toLowerCase().startsWith('temp_')) {
+      var titleKey = String(t.title || '').trim().toLowerCase();
+      var projKey = (t.project_name || getTaskProjectName(t) || '').trim().toLowerCase();
+      if (titleKey && (persistedKeys[titleKey + '::' + projKey] || persistedKeys[titleKey])) {
+        return false; // Already landed on server as a real task!
+      }
+    }
+    seenIds[idStr] = true;
+    return true;
+  });
 }
 
 /**
@@ -424,6 +467,10 @@ function findManagedTask(id) {
  */
 function isMemberDepartmentRole(m) {
   if (!m) return false;
+  var isDel = (typeof isDeletedOrTestAccount === 'function')
+    ? isDeletedOrTestAccount(m)
+    : (m.rank === 'Deleted' || m.department === 'deleted' || String(m.ic || '').toLowerCase().startsWith('archived_'));
+  if (isDel) return false;
   if (hasDepartmentRole(m)) return true;
 
   // Direct department name check
@@ -974,8 +1021,18 @@ async function renderProjectsView() {
     var tasks = res[0];
     if (Array.isArray(tasks)) {
       tasks = tasks.filter(function(t) { return t && !_deletedTaskIds[String(t.id)]; });
-      var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_') && !_deletedTaskIds[String(t.id)]; });
-      _allLoadedTasks = tasks.concat(pendingTemp);
+      var pendingTemp = _allLoadedTasks.filter(function(t) {
+        if (!t || !String(t.id).startsWith('temp_') || _deletedTaskIds[String(t.id)]) return false;
+        var tKey = String(t.title || '').trim().toLowerCase();
+        var tProj = (t.project_name || getTaskProjectName(t) || '').trim().toLowerCase();
+        return !tasks.some(function(r) {
+          if (!r || !r.title) return false;
+          var rKey = String(r.title).trim().toLowerCase();
+          var rProj = (r.project_name || getTaskProjectName(r) || '').trim().toLowerCase();
+          return rKey === tKey && (!tProj || !rProj || rProj === tProj);
+        });
+      });
+      _allLoadedTasks = deduplicateTasks(tasks.concat(pendingTemp));
       _taskMap = {};
       _allLoadedTasks.forEach(function(t) {
         _taskMap[t.id] = t;
@@ -1280,6 +1337,11 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   // Cross-resolve member identity so name or IC or email resolves canonically
   var cleanName = String(name || '').trim();
   var cleanIc = String(ic || '').trim();
+  if (cleanName.toLowerCase() === 'jeshua koh' || cleanIc.toLowerCase().startsWith('archived_')) {
+    if (typeof isPortalCreator === 'function' && isPortalCreator(cleanName, cleanIc)) {
+      cleanIc = 'jeshuakoh2008@gmail.com';
+    }
+  }
   if (cleanName && (!cleanIc || cleanIc.indexOf('@') === -1)) {
     if (typeof isPortalCreator === 'function' && isPortalCreator(cleanName, cleanIc)) {
       cleanIc = 'jeshuakoh2008@gmail.com';
@@ -1289,7 +1351,7 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
         : (typeof window !== 'undefined' && typeof window.resolveMemberDirectoryInfo === 'function' ? window.resolveMemberDirectoryInfo : null);
       if (resolver) {
         var dirMember = resolver(cleanName || cleanIc);
-        if (dirMember) {
+        if (dirMember && (typeof isDeletedOrTestAccount !== 'function' || !isDeletedOrTestAccount(dirMember))) {
           if (!cleanName && dirMember.name) cleanName = dirMember.name;
           if (!cleanIc && (dirMember.email || dirMember.ic)) cleanIc = dirMember.email || dirMember.ic;
         }
@@ -1305,6 +1367,9 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var outlineInfo = (typeof getMemberAvatarOutline === 'function')
     ? getMemberAvatarOutline(cleanIc || cleanName, cleanName)
     : (isCreator ? { style: 'rgb', config: { className: 'avatar-outline-rgb' } } : null);
+  if (isCreator && (!outlineInfo || !outlineInfo.style || outlineInfo.style === 'none')) {
+    outlineInfo = { style: 'rgb', config: { className: 'avatar-outline-rgb' } };
+  }
 
   var outlineHtml = '';
   var hasOutlineCls = '';
@@ -1380,6 +1445,7 @@ function getAssigneeAvatarBg(name) {
 }
 
 function renderColumnsFromTasks(tasksList) {
+  tasksList = deduplicateTasks(tasksList);
   var cols = { planning: [], todo: [], inprogress: [], inreview: [], completed: [] };
   (tasksList || []).forEach(function(t) {
     if (_activeProject && _activeProject.toLowerCase() !== 'all' && _activeProject.toLowerCase() !== 'all tasks') {
@@ -1845,8 +1911,18 @@ async function fetchAllRemoteTasks(andRerender) {
     var tasks = await client.get('bb_tasks?order=created_at.asc');
     if (Array.isArray(tasks)) {
       tasks = tasks.filter(function(t) { return t && !_deletedTaskIds[String(t.id)]; });
-      var pendingTemp = _allLoadedTasks.filter(function(t) { return String(t.id).startsWith('temp_') && !_deletedTaskIds[String(t.id)]; });
-      _allLoadedTasks = tasks.concat(pendingTemp);
+      var pendingTemp = _allLoadedTasks.filter(function(t) {
+        if (!t || !String(t.id).startsWith('temp_') || _deletedTaskIds[String(t.id)]) return false;
+        var tKey = String(t.title || '').trim().toLowerCase();
+        var tProj = (t.project_name || getTaskProjectName(t) || '').trim().toLowerCase();
+        return !tasks.some(function(r) {
+          if (!r || !r.title) return false;
+          var rKey = String(r.title).trim().toLowerCase();
+          var rProj = (r.project_name || getTaskProjectName(r) || '').trim().toLowerCase();
+          return rKey === tKey && (!tProj || !rProj || rProj === tProj);
+        });
+      });
+      _allLoadedTasks = deduplicateTasks(tasks.concat(pendingTemp));
       _taskMap = {};
       _allLoadedTasks.forEach(function(t) {
         _taskMap[t.id] = t;
@@ -4386,7 +4462,7 @@ async function selectTaskDetailAssignee(ic, name) {
             title: 'Task Assigned: ' + (t.title || 'Task Update'),
             body: 'You have been assigned to: ' + (t.title || 'Task Update'),
             targetUsers: targetList,
-            targetDept: t.department || '',
+            targetDept: null,
             tab: 'tasks',
             targetId: tid
           }).catch(function() {});
@@ -4811,17 +4887,27 @@ async function loadNewTaskAssigneeOptions() {
     }
   }
   if (myName) {
-    membersMap[myName] = { name: myName, ic: (typeof sessionGet === 'function' ? sessionGet('ic') : '') || '' };
+    var myIcVal = (typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email')) : '') || '';
+    if (typeof isPortalCreator === 'function' && isPortalCreator(myName, myIcVal)) {
+      myIcVal = 'jeshuakoh2008@gmail.com';
+    }
+    membersMap[myName] = { name: myName, ic: myIcVal };
   }
   if (Array.isArray(_cachedDepartmentMembers)) {
     _cachedDepartmentMembers.forEach(function(m) {
-      if (m && m.name && isMemberDepartmentRole(m)) membersMap[m.name] = m;
+      if (m && m.name && isMemberDepartmentRole(m)) {
+        if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return;
+        if (m.name.toLowerCase() === 'jeshua koh') m.ic = 'jeshuakoh2008@gmail.com';
+        membersMap[m.name] = m;
+      }
     });
   }
   _allLoadedTasks.forEach(function(t) {
     if (t.assignee_name && t.assignee_name !== 'Unassigned') {
       if (!membersMap[t.assignee_name]) {
-        membersMap[t.assignee_name] = { name: t.assignee_name, ic: t.assignee_ic || '' };
+        var aIc = t.assignee_ic || '';
+        if (t.assignee_name.toLowerCase() === 'jeshua koh') aIc = 'jeshuakoh2008@gmail.com';
+        membersMap[t.assignee_name] = { name: t.assignee_name, ic: aIc };
       }
     }
   });
@@ -4831,7 +4917,9 @@ async function loadNewTaskAssigneeOptions() {
     Object.keys(map).sort().forEach(function(k) {
       var m = map[k];
       var opt = document.createElement('option');
-      opt.value = m.ic || m.name;
+      var optVal = m.ic || m.name;
+      if (m.name && m.name.toLowerCase() === 'jeshua koh') optVal = 'jeshuakoh2008@gmail.com';
+      opt.value = optVal;
       opt.setAttribute('data-name', m.name);
       opt.textContent = m.name;
       sel.appendChild(opt);
@@ -4847,10 +4935,17 @@ async function loadNewTaskAssigneeOptions() {
       var timeoutPromise = new Promise(function(resolve) { setTimeout(function() { resolve([]); }, 2000); });
       var members = await Promise.race([fetchPromise, timeoutPromise]);
       if (Array.isArray(members) && members.length) {
-        var eligible = members.filter(isMemberDepartmentRole);
+        var eligible = members.filter(function(m) {
+          if (!m || !m.name) return false;
+          if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(m)) return false;
+          return isMemberDepartmentRole(m);
+        });
         _cachedDepartmentMembers = eligible;
         eligible.forEach(function(m) {
-          if (m && m.name) membersMap[m.name] = m;
+          if (!m || !m.name) return;
+          if (membersMap[m.name] && String(m.ic || '').toLowerCase().startsWith('archived_')) return;
+          if (m.name.toLowerCase() === 'jeshua koh') m.ic = 'jeshuakoh2008@gmail.com';
+          membersMap[m.name] = m;
         });
         renderSelect(membersMap);
       }
@@ -4892,6 +4987,11 @@ async function handleCreateTaskSubmit(e) {
   var assigneeIc = assEl ? assEl.value : '';
   var assigneeName = (assEl && assEl.selectedIndex >= 0 && assEl.options[assEl.selectedIndex].text) || '';
   if (assigneeName === 'Unassigned') assigneeName = '';
+  if (assigneeName) {
+    if (assigneeName.toLowerCase() === 'jeshua koh' || (typeof isPortalCreator === 'function' && isPortalCreator(assigneeName, ''))) {
+      assigneeIc = 'jeshuakoh2008@gmail.com';
+    }
+  }
 
   var priority = priorityEl ? priorityEl.value : 'medium';
   var due = dueEl ? dueEl.value : null;
@@ -5016,6 +5116,8 @@ async function handleCreateTaskSubmit(e) {
               priority: payload.priority,
               due_date: payload.due_date,
               assignee_name: payload.assignee_name,
+              assignee_ic: payload.assignee_ic || null,
+              creator_name: payload.creator_name || null,
               status: payload.status,
               created_at: payload.created_at
             };
@@ -5039,6 +5141,29 @@ async function handleCreateTaskSubmit(e) {
           if (typeof window !== 'undefined' && window._taskMap) {
             delete window._taskMap[tempId];
             window._taskMap[saved.id] = localTask;
+          }
+          if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+            window.PortalRealtime.broadcast('tasks', 'reconcile', { tempId: tempId, task: saved });
+          }
+          if (assigneeName && assigneeName !== 'Unassigned') {
+            var taskDispatcher = (typeof sendPortalPushNotification === 'function')
+              ? sendPortalPushNotification
+              : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+            if (taskDispatcher) {
+              var targetList = [assigneeIc, assigneeName].filter(Boolean);
+              var isSelf = (myName && assigneeName.toLowerCase().trim() === myName.toLowerCase().trim())
+                || (myIc && assigneeIc && assigneeIc === myIc);
+              if (!isSelf) {
+                taskDispatcher({
+                  type: 'task_assigned',
+                  title: 'Task Assigned: ' + title,
+                  body: (localTask.creator_name || 'An officer') + ' assigned a task: ' + title,
+                  targetUsers: targetList,
+                  targetDept: null,
+                  tab: 'tasks'
+                }).catch(function() {});
+              }
+            }
           }
         } else if (!inserted) {
           throw new Error('Server returned empty task response');
@@ -5250,7 +5375,7 @@ async function saveTask() {
         title: 'Task Assigned: ' + title,
         body: (payload.creator_name || 'An officer') + ' assigned a task: ' + title,
         targetUsers: targetUsers,
-        targetDept: dept,
+        targetDept: null,
         tab: 'tasks'
       }).catch(function(pushErr) {
         console.warn('Task assignment FCM push error:', pushErr);
@@ -5489,10 +5614,23 @@ if (typeof window !== 'undefined') {
   window.setProjectDisplayMode      = setProjectDisplayMode;
   window.renderTasksListView        = renderTasksListView;
   window._taskSearchQuery           = _taskSearchQuery;
-  window._allLoadedTasks            = _allLoadedTasks;
+  try {
+    Object.defineProperty(window, '_allLoadedTasks', {
+      get: function() { return _allLoadedTasks; },
+      set: function(v) { _allLoadedTasks = v; },
+      configurable: true
+    });
+    Object.defineProperty(window, '_taskMap', {
+      get: function() { return _taskMap; },
+      set: function(v) { _taskMap = v; },
+      configurable: true
+    });
+  } catch (_) {
+    window._allLoadedTasks            = _allLoadedTasks;
+    window._taskMap                   = _taskMap;
+  }
   window._adminTaskFilter           = _adminTaskFilter;
   window._allAdminTasks             = _allAdminTasks;
-  window._taskMap                   = _taskMap;
   window.checkIsNCO                 = checkIsNCO;
   window.switchTaskTab              = switchTaskTab;
   window.normalizeTaskStatus        = normalizeTaskStatus;
@@ -5602,6 +5740,8 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.isUserMentionedInComment   = isUserMentionedInComment;
   window.renderColumnsFromTasks     = renderColumnsFromTasks;
   window.getAssigneeAvatarHtml      = getAssigneeAvatarHtml;
+  window.deduplicateTasks           = deduplicateTasks;
+  window.isMemberDepartmentRole     = isMemberDepartmentRole;
   window.fetchAllRemoteTasks        = fetchAllRemoteTasks;
   window.fetchDepartmentMembers     = fetchDepartmentMembers;
   window.refreshCurrentTasksView    = refreshCurrentTasksView;
@@ -5613,17 +5753,27 @@ if (typeof module !== 'undefined' && module.exports) {
     fetchDepartmentMembers,
     refreshCurrentTasksView,
     getAssigneeAvatarHtml,
+    deduplicateTasks,
     DEPT_CONFIG,
     _activeTasksSection,
     _tasksViewMode,
     _projectDisplayMode,
     _currentDeptFilter,
-    _taskSearchQuery,
-    _allLoadedTasks,
+    get _taskSearchQuery() { return _taskSearchQuery; },
+    set _taskSearchQuery(v) { _taskSearchQuery = v; },
+    get _allLoadedTasks() { return _allLoadedTasks; },
+    set _allLoadedTasks(v) { _allLoadedTasks = v; },
     _cachedDepartmentMembers,
     _adminTaskFilter,
     _allAdminTasks,
-    _taskMap,
+    get _taskMap() { return _taskMap; },
+    set _taskMap(v) { _taskMap = v; },
+    get _myTasksScopeFilter() { return _myTasksScopeFilter; },
+    set _myTasksScopeFilter(v) { _myTasksScopeFilter = v; },
+    get _myTasksStatusFilter() { return _myTasksStatusFilter; },
+    set _myTasksStatusFilter(v) { _myTasksStatusFilter = v; },
+    get _myTasksProjectFilter() { return _myTasksProjectFilter; },
+    set _myTasksProjectFilter(v) { _myTasksProjectFilter = v; },
     checkIsNCO,
     hasDepartmentRole,
     switchTaskTab,

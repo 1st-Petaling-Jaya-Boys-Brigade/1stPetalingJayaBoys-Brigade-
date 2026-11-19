@@ -1846,7 +1846,28 @@ var PortalRealtime = (function() {
         }
 
         // Immediate 0ms local update for task cards/columns (instant Google Docs-style sync)
-        if (entity === 'tasks' && data && data.id) {
+        if (entity === 'tasks' && action === 'reconcile' && data && data.tempId && data.task) {
+          var rTempId = String(data.tempId);
+          var rRealId = String(data.task.id);
+          if (window._allLoadedTasks) {
+            var replaced = false;
+            window._allLoadedTasks = window._allLoadedTasks.map(function(t) {
+              if (String(t.id) === rTempId || String(t.id) === rRealId) {
+                replaced = true;
+                return Object.assign({}, t, data.task);
+              }
+              return t;
+            });
+            if (!replaced) window._allLoadedTasks.push(data.task);
+          }
+          if (window._taskMap) {
+            delete window._taskMap[rTempId];
+            window._taskMap[rRealId] = data.task;
+          }
+          if (typeof window.refreshCurrentTasksView === 'function') {
+            try { window.refreshCurrentTasksView(rRealId); } catch (_) {}
+          }
+        } else if (entity === 'tasks' && data && data.id) {
           var tIdStr = String(data.id);
           var allTasks = window._allLoadedTasks || [];
           var existingT = allTasks.find(function(t) { return String(t.id) === tIdStr; });
@@ -1856,7 +1877,14 @@ var PortalRealtime = (function() {
             }
             if (window._taskMap) delete window._taskMap[tIdStr];
           } else if (action === 'create' && data.title) {
-            if (!existingT && window._allLoadedTasks) {
+            var alreadyExists = allTasks.some(function(t) {
+              if (String(t.id) === tIdStr) return true;
+              if (String(t.id).startsWith('temp_') && String(data.id).startsWith('temp_')) {
+                return String(t.title).trim().toLowerCase() === String(data.title).trim().toLowerCase();
+              }
+              return false;
+            });
+            if (!alreadyExists && window._allLoadedTasks) {
               window._allLoadedTasks.push(data);
             }
             if (window._taskMap) window._taskMap[tIdStr] = data;

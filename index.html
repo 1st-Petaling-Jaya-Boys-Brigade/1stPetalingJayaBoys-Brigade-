@@ -4547,11 +4547,16 @@ function syncTaskNotifications(tasks, isSilent) {
       var tTs = new Date(t.created_at).getTime();
       if (!isNaN(tTs) && tTs < (accTs - 60000)) return;
     }
-    var myDept = (typeof sessionGet === 'function') ? (sessionGet('department') || '') : '';
-    var isAssigned = (t.assignee_ic && myIc && t.assignee_ic.indexOf(myIc) !== -1)
-      || (t.assignee_name && myName && t.assignee_name.toLowerCase().indexOf(myName.toLowerCase()) !== -1)
-      || (t.assignee && myName && t.assignee.toLowerCase().indexOf(myName.toLowerCase()) !== -1)
-      || (t.department && myDept && myDept.toLowerCase() !== 'none' && t.department.toLowerCase().trim() === myDept.toLowerCase().trim());
+    var isAssigned = false;
+    if (t.assignee_ic && myIc && (t.assignee_ic === myIc || t.assignee_ic.split(',').map(function(s) { return s.trim(); }).indexOf(myIc) !== -1)) {
+      isAssigned = true;
+    } else if (t.assignee_name && myName && t.assignee_name.toLowerCase().trim() === myName.toLowerCase().trim()) {
+      isAssigned = true;
+    } else if (t.assignee && myName && t.assignee.toLowerCase().trim() === myName.toLowerCase().trim()) {
+      isAssigned = true;
+    } else if (myEmail && ((t.assignee_email && t.assignee_email.toLowerCase().trim() === myEmail.toLowerCase().trim()) || (t.assignee_ic && t.assignee_ic.toLowerCase().trim() === myEmail.toLowerCase().trim()))) {
+      isAssigned = true;
+    }
     if (!isAssigned) return;
 
     // Do not notify creator when assigning tasks to themselves
@@ -4580,7 +4585,7 @@ function syncTaskNotifications(tasks, isSilent) {
           avatarMemberName: creatorName,
           avatarMemberIc: creatorIc,
           title: creatorName + ' assigned a task',
-          snippet: (t.id ? (String(t.id).toUpperCase() + ' - ') : '') + t.title,
+          snippet: ((t.id && !String(t.id).toLowerCase().startsWith('temp_')) ? (String(t.id).toUpperCase() + ' - ') : '') + (t.title || 'Task Update'),
           time: dMeta.time,
           unread: true,
           action: function() {
@@ -4692,7 +4697,7 @@ function syncTaskNotifications(tasks, isSilent) {
           timestamp: dMeta.timestamp,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
           title: (t.creator_name ? (t.creator_name + ' mentioned you in a task brief') : 'You were mentioned in a task brief'),
-          snippet: (t.id ? (String(t.id).toUpperCase() + ' - ') : '') + (t.title || cleanSnippet),
+          snippet: ((t.id && !String(t.id).toLowerCase().startsWith('temp_')) ? (String(t.id).toUpperCase() + ' - ') : '') + (t.title || cleanSnippet),
           time: dMeta.time,
           unread: true,
           action: function() {

@@ -1086,6 +1086,11 @@ function isPortalCreator(name, email) {
   var cleanEmail = String(email || '').trim().toLowerCase();
   var cleanName = String(name || '').trim().toLowerCase();
 
+  // Normalize any archived legacy/test accounts of the creator
+  if (cleanEmail.startsWith('archived_') && (cleanEmail.indexOf('jeshua') !== -1 || cleanName.indexOf('jeshua') !== -1)) {
+    cleanEmail = 'jeshuakoh2008@gmail.com';
+  }
+
   // 1. If explicit email is provided, check directly
   if (cleanEmail && cleanEmail.indexOf('@') !== -1) {
     return cleanEmail === 'jeshuakoh2008@gmail.com';
@@ -1097,8 +1102,8 @@ function isPortalCreator(name, email) {
   // 2. If explicit name is provided, verify it is 'jeshua koh'
   if (cleanName) {
     if (cleanName === 'jeshua koh') {
-      // If an explicit non-creator email was also passed along with the name, it's not the creator
-      if (cleanEmail && cleanEmail.indexOf('@') !== -1 && cleanEmail !== 'jeshuakoh2008@gmail.com') return false;
+      // If an explicit non-creator active email was also passed along with the name, it's not the creator
+      if (cleanEmail && cleanEmail.indexOf('@') !== -1 && !cleanEmail.startsWith('archived_') && cleanEmail !== 'jeshuakoh2008@gmail.com') return false;
       return true;
     }
     if (cleanName === '080116-14-0615' || cleanName === '080116140615') return true;
