@@ -157,18 +157,47 @@ function getTaskEstimate(t) {
 }
 
 /**
- * Ensures project tag and estimate tag are never stripped when updating descriptions
+ * Extracts creator name from task object (property or description tag)
+ */
+function getTaskCreatorName(t) {
+  if (!t) return 'Jeshua Koh';
+  if (t.creator_name && String(t.creator_name).trim()) return String(t.creator_name).trim();
+  if (t.description) {
+    var match = t.description.match(/\[(?:[^\]]*\|\s*)?Creator:\s*([^\]|]+)/i);
+    if (match && match[1] && match[1].trim()) return match[1].trim();
+  }
+  return 'Jeshua Koh';
+}
+
+/**
+ * Ensures project tag, estimate tag, and creator tag are never stripped when updating descriptions
  */
 function buildTaskDescriptionWithMeta(t, rawCleanDesc) {
-  var pName = (t && t.project_name && t.project_name.trim()) ? t.project_name.trim() : (getTaskProjectName(t) || _activeProject || '');
-  var est = getTaskEstimate(t);
-  var body = (rawCleanDesc || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
+  var pName = (t && t.project_name && t.project_name.trim())
+    ? t.project_name.trim()
+    : (getTaskProjectName(t) || (rawCleanDesc ? getTaskProjectName({ description: rawCleanDesc }) : '') || _activeProject || '');
+  var est = (t && t.estimate && String(t.estimate).trim())
+    ? String(t.estimate).trim()
+    : (getTaskEstimate(t) || (rawCleanDesc ? getTaskEstimate({ description: rawCleanDesc }) : '') || '');
+  var creator = '';
+  if (t && t.creator_name && String(t.creator_name).trim()) {
+    creator = String(t.creator_name).trim();
+  } else if (rawCleanDesc) {
+    var cMatch = rawCleanDesc.match(/\[(?:[^\]]*\|\s*)?Creator:\s*([^\]|]+)/i);
+    if (cMatch && cMatch[1] && cMatch[1].trim()) {
+      creator = cMatch[1].trim();
+    }
+  }
+  var body = (rawCleanDesc || '').replace(/\s*\[[^\]]*(?:Project:|Estimate:|Creator:)[^\]]*\]/gi, '').trim();
   var tags = [];
   if (pName && pName !== 'General Project' && !pName.toLowerCase().includes('sprint')) {
     tags.push('Project: ' + pName);
   }
   if (est) {
     tags.push('Estimate: ' + est);
+  }
+  if (creator) {
+    tags.push('Creator: ' + creator);
   }
   if (tags.length) {
     return body + (body ? '\n\n' : '') + '[' + tags.join(' | ') + ']';
@@ -1939,6 +1968,9 @@ async function fetchAllRemoteTasks(andRerender) {
         _taskMap[t.id] = t;
         if (!t.estimate) {
           t.estimate = getTaskEstimate(t);
+        }
+        if (!t.creator_name) {
+          t.creator_name = getTaskCreatorName(t);
         }
         var p = getTaskProjectName(t);
         if (p && p !== 'General Project' && !p.toLowerCase().includes('sprint') && _companyProjects.indexOf(p) === -1) {
@@ -5038,7 +5070,7 @@ async function saveTaskField(id, field, value) {
     var patch = {};
     patch[field] = value;
     try {
-      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), patch);
+      await patchTaskInDatabase(client, effectiveId, patch);
       if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
         window.PortalRealtime.broadcast('tasks', 'update', { id: effectiveId, field: field, value: value });
       }
@@ -5865,6 +5897,179 @@ async function loadNewTaskAssigneeOptions() {
 }
 
 /**
+ * Persists a task to Supabase bb_tasks with dynamic schema adaptability.
+ * If the remote PostgreSQL table lacks optional columns (e.g., creator_name,
+ * creator_ic, project_name, estimate, assignee_ic), it extracts the missing
+ * column, encodes its value safely into the task's description metadata tag
+ * ([Project: ... | Estimate: ... | Creator: ...]), removes the column from
+ * the payload, and retries the insert until it succeeds.
+ *
+ * @param {Object} client Supabase client instance
+ * @param {Object} rawPayload Task payload to insert
+ * @returns {Promise<Object>} Inserted task object/array from PostgREST
+ */
+async function persistTaskToDatabase(client, rawPayload) {
+  if (!client) throw new Error('Supabase client unavailable');
+  var currentPayload = Object.assign({}, rawPayload);
+
+  // Maximum retries equal to number of potentially optional columns + 2
+  for (var attempt = 0; attempt < 8; attempt++) {
+    try {
+      return await client.post('bb_tasks', currentPayload);
+    } catch (err) {
+      var errStr = err ? (err.message || String(err)) : '';
+      var errCode = err ? (err.code || '') : '';
+      var isSchemaErr = /PGRST204|42703/i.test(errCode) ||
+        /could not find the '([^']+)' column/i.test(errStr) ||
+        /column ['"]([^'"]+)['"] of/i.test(errStr) ||
+        /column ['"]([^'"]+)['"] does not exist/i.test(errStr) ||
+        /schema cache/i.test(errStr);
+
+      if (!isSchemaErr) {
+        throw err;
+      }
+
+      // Try to identify the specific missing column from the error message
+      var match = errStr.match(/could not find the '([^']+)' column/i) ||
+                  errStr.match(/column ['"]([^'"]+)['"] does not exist/i) ||
+                  errStr.match(/column ['"]([^'"]+)['"] of/i);
+      var missingCol = match ? match[1] : null;
+
+      if (missingCol && Object.prototype.hasOwnProperty.call(currentPayload, missingCol)) {
+        if (missingCol === 'creator_name' && currentPayload.creator_name) {
+          currentPayload.description = buildTaskDescriptionWithMeta(
+            { creator_name: currentPayload.creator_name },
+            currentPayload.description
+          );
+        } else if (missingCol === 'project_name' && currentPayload.project_name) {
+          currentPayload.description = buildTaskDescriptionWithMeta(
+            { project_name: currentPayload.project_name },
+            currentPayload.description
+          );
+        } else if (missingCol === 'estimate' && currentPayload.estimate) {
+          currentPayload.description = buildTaskDescriptionWithMeta(
+            { estimate: currentPayload.estimate },
+            currentPayload.description
+          );
+        }
+        delete currentPayload[missingCol];
+        continue;
+      }
+
+      // If specific column couldn't be parsed or was already deleted, progressively strip all optional columns
+      var optionalCols = ['creator_name', 'creator_ic', 'project_name', 'estimate', 'assignee_ic'];
+      var foundAny = false;
+      for (var i = 0; i < optionalCols.length; i++) {
+        var col = optionalCols[i];
+        if (Object.prototype.hasOwnProperty.call(currentPayload, col)) {
+          if (col === 'creator_name' && currentPayload.creator_name) {
+            currentPayload.description = buildTaskDescriptionWithMeta(
+              { creator_name: currentPayload.creator_name },
+              currentPayload.description
+            );
+          } else if (col === 'project_name' && currentPayload.project_name) {
+            currentPayload.description = buildTaskDescriptionWithMeta(
+              { project_name: currentPayload.project_name },
+              currentPayload.description
+            );
+          } else if (col === 'estimate' && currentPayload.estimate) {
+            currentPayload.description = buildTaskDescriptionWithMeta(
+              { estimate: currentPayload.estimate },
+              currentPayload.description
+            );
+          }
+          delete currentPayload[col];
+          foundAny = true;
+          break;
+        }
+      }
+
+      if (!foundAny) {
+        // If no optional columns remain, fall back strictly to guaranteed base schema
+        var basePayload = {
+          title: currentPayload.title,
+          description: currentPayload.description,
+          department: currentPayload.department || 'general',
+          priority: currentPayload.priority || 'medium',
+          due_date: currentPayload.due_date || null,
+          assignee_name: currentPayload.assignee_name || null,
+          status: currentPayload.status || 'todo',
+          created_at: currentPayload.created_at || new Date().toISOString()
+        };
+        return await client.post('bb_tasks', basePayload);
+      }
+    }
+  }
+
+  var finalBasePayload = {
+    title: rawPayload.title,
+    description: rawPayload.description,
+    department: rawPayload.department || 'general',
+    priority: rawPayload.priority || 'medium',
+    due_date: rawPayload.due_date || null,
+    assignee_name: rawPayload.assignee_name || null,
+    status: rawPayload.status || 'todo',
+    created_at: rawPayload.created_at || new Date().toISOString()
+  };
+  return await client.post('bb_tasks', finalBasePayload);
+}
+
+/**
+ * Patches a task in Supabase bb_tasks with dynamic schema adaptability.
+ * If the remote PostgreSQL table lacks optional columns, strips them and retries.
+ *
+ * @param {Object} client Supabase client instance
+ * @param {string|number} taskId Task ID to patch
+ * @param {Object} patchPayload Fields to patch
+ * @returns {Promise<any>}
+ */
+async function patchTaskInDatabase(client, taskId, patchPayload) {
+  if (!client) throw new Error('Supabase client unavailable');
+  var currentPatch = Object.assign({}, patchPayload);
+
+  for (var attempt = 0; attempt < 8; attempt++) {
+    try {
+      return await client.patch('bb_tasks?id=eq.' + encodeURIComponent(taskId), currentPatch);
+    } catch (err) {
+      var errStr = err ? (err.message || String(err)) : '';
+      var errCode = err ? (err.code || '') : '';
+      var isSchemaErr = /PGRST204|42703/i.test(errCode) ||
+        /could not find the '([^']+)' column/i.test(errStr) ||
+        /column ['"]([^'"]+)['"] of/i.test(errStr) ||
+        /column ['"]([^'"]+)['"] does not exist/i.test(errStr) ||
+        /schema cache/i.test(errStr);
+
+      if (!isSchemaErr) throw err;
+
+      var match = errStr.match(/could not find the '([^']+)' column/i) ||
+                  errStr.match(/column ['"]([^'"]+)['"] does not exist/i) ||
+                  errStr.match(/column ['"]([^'"]+)['"] of/i);
+      var missingCol = match ? match[1] : null;
+
+      if (missingCol && Object.prototype.hasOwnProperty.call(currentPatch, missingCol)) {
+        delete currentPatch[missingCol];
+        if (Object.keys(currentPatch).length === 0) return null;
+        continue;
+      }
+
+      var optionalCols = ['creator_name', 'creator_ic', 'project_name', 'estimate', 'assignee_ic'];
+      var foundAny = false;
+      for (var i = 0; i < optionalCols.length; i++) {
+        var col = optionalCols[i];
+        if (Object.prototype.hasOwnProperty.call(currentPatch, col)) {
+          delete currentPatch[col];
+          foundAny = true;
+          break;
+        }
+      }
+      if (!foundAny || Object.keys(currentPatch).length === 0) {
+        return null;
+      }
+    }
+  }
+}
+
+/**
  * Handles Create Task form submission
  * @param {Event} e
  */
@@ -6011,34 +6216,9 @@ async function handleCreateTaskSubmit(e) {
         if (estimate) payload.estimate = estimate;
         if (assigneeIc) payload.assignee_ic = assigneeIc;
 
-        var inserted;
-        try {
-          inserted = await client.post('bb_tasks', payload);
-        } catch (postErr) {
-          var errStr = postErr ? (postErr.message || String(postErr)) : '';
-          if (errStr.indexOf('column') !== -1 || postErr.code === 'PGRST204' || errStr.indexOf('project_name') !== -1 || errStr.indexOf('estimate') !== -1 || errStr.indexOf('assignee_ic') !== -1) {
-            var fallbackPayload = {
-              title: payload.title,
-              description: payload.description,
-              department: payload.department,
-              priority: payload.priority,
-              due_date: payload.due_date,
-              assignee_name: payload.assignee_name,
-              assignee_ic: payload.assignee_ic || null,
-              creator_name: payload.creator_name || null,
-              status: payload.status,
-              created_at: payload.created_at
-            };
-            var extraDetails = [];
-            if (projectName) extraDetails.push('Project: ' + projectName);
-            if (estimate) extraDetails.push('Estimate: ' + estimate);
-            if (extraDetails.length) {
-              fallbackPayload.description = (fallbackPayload.description ? fallbackPayload.description + '\n\n' : '') + '[' + extraDetails.join(' | ') + ']';
-            }
-            inserted = await client.post('bb_tasks', fallbackPayload);
-          } else {
-            throw postErr;
-          }
+        var inserted = await persistTaskToDatabase(client, payload);
+        if (payload.description && payload.description !== localTask.description) {
+          localTask.description = payload.description;
         }
 
         var saved = Array.isArray(inserted) && inserted[0] ? inserted[0] : (inserted && inserted.id ? inserted : null);
@@ -6301,7 +6481,7 @@ async function saveTask() {
   if (!client) return;
   try {
     if (editId) {
-      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(editId), payload);
+      await patchTaskInDatabase(client, editId, payload);
       if (typeof showToast === 'function') showToast('Task updated successfully!', 'success');
       if (typeof logAuditEvent === 'function') {
         logAuditEvent({
@@ -6312,13 +6492,13 @@ async function saveTask() {
         });
       }
     } else {
-      await client.post('bb_tasks', payload);
+      var taskRes = await persistTaskToDatabase(client, payload);
       if (typeof showToast === 'function') showToast('Task added successfully!', 'success');
       if (typeof logAuditEvent === 'function') {
         logAuditEvent({
           action: 'task.create',
           targetType: 'task',
-          targetId: title,
+          targetId: (taskRes && taskRes[0] && taskRes[0].id) || title,
           details: { title: title, department: dept }
         });
       }
@@ -6751,6 +6931,9 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.fetchAllRemoteTaskDetails  = fetchAllRemoteTaskDetails;
   window._taskAttachmentsMap        = _taskAttachmentsMap;
   window.getTaskEstimate            = getTaskEstimate;
+  window.getTaskCreatorName         = getTaskCreatorName;
+  window.persistTaskToDatabase      = persistTaskToDatabase;
+  window.patchTaskInDatabase        = patchTaskInDatabase;
   window.buildTaskDescriptionWithMeta = buildTaskDescriptionWithMeta;
   window.resolveRealTaskId          = resolveRealTaskId;
 
@@ -6925,6 +7108,9 @@ if (typeof module !== 'undefined' && module.exports) {
     fetchRemoteTaskAttachments,
     fetchAllRemoteTaskDetails,
     getTaskEstimate,
+    getTaskCreatorName,
+    persistTaskToDatabase,
+    patchTaskInDatabase,
     buildTaskDescriptionWithMeta,
     resolveRealTaskId,
     resetTasksFiltersToDefault,

@@ -16037,6 +16037,153 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // --- Suite 84: Dynamic Task Schema Resilience, creator_name Extraction & Adaptive Fallback ---
+  console.log('\n--- Suite 84: Dynamic Task Schema Resilience, creator_name Extraction & Adaptive Fallback ---');
+  {
+    // 1. getTaskCreatorName extraction from property, description tag, and fallback default
+    const taskWithProp = { title: 'T1', creator_name: 'Sgt Tan' };
+    assert.strictEqual(tasksMod.getTaskCreatorName(taskWithProp), 'Sgt Tan', 'Resolves creator name directly from creator_name property');
+
+    const taskWithTag = { title: 'T2', description: 'Brief details\n\n[Project: Recruitment | Creator: Alice Lim | Estimate: 3h]' };
+    assert.strictEqual(tasksMod.getTaskCreatorName(taskWithTag), 'Alice Lim', 'Extracts creator name from [Creator: ...] tag in description when property is absent');
+
+    const taskWithLegacyOnly = { title: 'T3', description: 'No tags at all' };
+    assert.strictEqual(tasksMod.getTaskCreatorName(taskWithLegacyOnly), 'Jeshua Koh', 'Falls back safely to Jeshua Koh default when no creator data exists');
+    console.log('  ✔ getTaskCreatorName accurately resolves creator from property, metadata tags, and canonical fallback');
+
+    // 2. buildTaskDescriptionWithMeta preserves creator tag and ensures clean serialization
+    const metaDesc = tasksMod.buildTaskDescriptionWithMeta(
+      { project_name: 'Camp 2027', estimate: '5h', creator_name: 'Daniel Wong' },
+      'Core briefing'
+    );
+    assert.ok(metaDesc.includes('Project: Camp 2027'), 'Includes project tag in metadata envelope');
+    assert.ok(metaDesc.includes('Estimate: 5h'), 'Includes estimate tag in metadata envelope');
+    assert.ok(metaDesc.includes('Creator: Daniel Wong'), 'Includes creator tag in metadata envelope');
+    assert.ok(metaDesc.startsWith('Core briefing'), 'Preserves raw description body text');
+
+    // Updating description keeps metadata intact without duplications
+    const reBuiltDesc = tasksMod.buildTaskDescriptionWithMeta(
+      { project_name: 'Camp 2027', estimate: '5h', creator_name: 'Daniel Wong' },
+      metaDesc
+    );
+    const creatorOccurrences = (reBuiltDesc.match(/Creator:\s*Daniel Wong/g) || []).length;
+    assert.strictEqual(creatorOccurrences, 1, 'Does not duplicate metadata tags on re-serialization');
+    console.log('  ✔ buildTaskDescriptionWithMeta accurately packages and deduplicates metadata envelopes');
+
+    // 3. persistTaskToDatabase: catches PGRST204 on missing creator_name, strips it, embeds into description, and succeeds
+    const attempts = [];
+    const mockClientPgrst204 = {
+      post: async (endpoint, payload) => {
+        attempts.push(Object.assign({}, payload));
+        if (payload.creator_name) {
+          const pgrstErr = new Error("PGRST204: Could not find the 'creator_name' column of 'bb_tasks' in the schema cache.");
+          pgrstErr.code = 'PGRST204';
+          pgrstErr.status = 400;
+          throw pgrstErr;
+        }
+        return [{ id: 7001, ...payload }];
+      }
+    };
+
+    const initialTaskPayload = {
+      title: 'Bootcamp 2027',
+      description: 'Annual training camp',
+      department: 'secretariat',
+      priority: 'high',
+      creator_name: 'Jeshua Koh',
+      assignee_name: 'Sgt Tan',
+      status: 'todo',
+      created_at: new Date().toISOString()
+    };
+
+    const insertResult = await tasksMod.persistTaskToDatabase(mockClientPgrst204, initialTaskPayload);
+    assert.ok(insertResult && insertResult[0] && insertResult[0].id === 7001, 'Successfully inserts task without throwing or rolling back');
+    assert.strictEqual(attempts.length, 2, 'Retries insert exactly once after stripping unmapped column');
+    assert.strictEqual(attempts[0].creator_name, 'Jeshua Koh', 'First attempt included creator_name');
+    assert.strictEqual(attempts[1].creator_name, undefined, 'Second attempt stripped creator_name');
+    assert.ok(attempts[1].description.includes('Creator: Jeshua Koh'), 'Second attempt preserved creator in description metadata');
+    console.log('  ✔ persistTaskToDatabase recovers seamlessly from PostgREST PGRST204 creator_name schema error');
+
+    // 4. persistTaskToDatabase: multi-column stripping (creator_name, estimate, project_name all missing in legacy DB)
+    const multiAttempts = [];
+    const mockClientMultiMissing = {
+      post: async (endpoint, payload) => {
+        multiAttempts.push(Object.assign({}, payload));
+        if (payload.creator_name) {
+          const err = new Error("Could not find the 'creator_name' column of 'bb_tasks' in the schema cache");
+          err.code = 'PGRST204';
+          throw err;
+        }
+        if (payload.estimate) {
+          const err = new Error("Could not find the 'estimate' column of 'bb_tasks' in the schema cache");
+          err.code = 'PGRST204';
+          throw err;
+        }
+        if (payload.project_name) {
+          const err = new Error("column 'project_name' of relation 'bb_tasks' does not exist");
+          err.code = '42703';
+          throw err;
+        }
+        return [{ id: 7002, ...payload }];
+      }
+    };
+
+    const complexPayload = {
+      title: 'Parade Flag Maintenance',
+      description: 'Inspect company colors',
+      department: 'logistics',
+      priority: 'medium',
+      creator_name: 'Jeshua Koh',
+      project_name: 'Logistics Project',
+      estimate: '2h',
+      status: 'todo',
+      created_at: new Date().toISOString()
+    };
+
+    const multiResult = await tasksMod.persistTaskToDatabase(mockClientMultiMissing, complexPayload);
+    assert.ok(multiResult && multiResult[0] && multiResult[0].id === 7002, 'Successfully inserts after multi-column stripping');
+    assert.strictEqual(multiAttempts.length, 4, 'Progressively strips creator_name, estimate, and project_name');
+    const finalPayload = multiAttempts[multiAttempts.length - 1];
+    assert.strictEqual(finalPayload.creator_name, undefined, 'Final payload omits creator_name');
+    assert.strictEqual(finalPayload.estimate, undefined, 'Final payload omits estimate');
+    assert.strictEqual(finalPayload.project_name, undefined, 'Final payload omits project_name');
+    assert.ok(finalPayload.description.includes('Creator: Jeshua Koh'), 'Description includes Creator tag');
+    assert.ok(finalPayload.description.includes('Estimate: 2h'), 'Description includes Estimate tag');
+    assert.ok(finalPayload.description.includes('Project: Logistics Project'), 'Description includes Project tag');
+    console.log('  ✔ persistTaskToDatabase cascades through multi-column schema mismatches and preserves all metadata');
+
+    // 5. patchTaskInDatabase: strips unmapped columns during task updates without failing
+    const patchAttempts = [];
+    const mockClientPatchErr = {
+      patch: async (endpoint, payload) => {
+        patchAttempts.push(Object.assign({}, payload));
+        if (payload.estimate) {
+          const err = new Error("Could not find the 'estimate' column of 'bb_tasks' in the schema cache");
+          err.code = 'PGRST204';
+          throw err;
+        }
+        return [{ ok: true }];
+      }
+    };
+
+    await tasksMod.patchTaskInDatabase(mockClientPatchErr, '7002', { estimate: '4h', priority: 'high' });
+    assert.strictEqual(patchAttempts.length, 2, 'Retries patch after stripping estimate column');
+    assert.strictEqual(patchAttempts[0].estimate, '4h', 'First patch included estimate');
+    assert.strictEqual(patchAttempts[1].estimate, undefined, 'Second patch stripped estimate');
+    assert.strictEqual(patchAttempts[1].priority, 'high', 'Second patch maintained valid priority column');
+    console.log('  ✔ patchTaskInDatabase strips unsupported columns on update without crashing or showing error toast');
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite84 = new Set();
+    const postMatchesSuite84 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite84.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite84.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite84.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite84.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
