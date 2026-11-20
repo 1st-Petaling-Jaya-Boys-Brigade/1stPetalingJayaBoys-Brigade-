@@ -1491,6 +1491,38 @@ async function finalizeMemberRegistration(data) {
     }
   } catch (_) {}
 
+  // Durable initialization of default Arcade stats (0 streak, 0 credits) for newly registered member
+  var arcadeKeys = [];
+  try {
+    var initialArcadeStats = {
+      credits: 0,
+      streak: 0,
+      bestStreak: 0,
+      lastPlayedDate: null,
+      balanceUpdatedAt: Date.now()
+    };
+    if (data.ic) arcadeKeys.push('bb_arcade_' + String(data.ic).replace(/[^a-zA-Z0-9_-]/g, '_'));
+    if (data.email && data.email !== data.ic) arcadeKeys.push('bb_arcade_' + String(data.email).replace(/[^a-zA-Z0-9_-]/g, '_'));
+    arcadeKeys.forEach(function(ak) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(ak, JSON.stringify(initialArcadeStats));
+        }
+      } catch (_) {}
+    });
+    if (client) {
+      if (typeof client.setConfig === 'function') {
+        for (var aki = 0; aki < arcadeKeys.length; aki++) {
+          client.setConfig(arcadeKeys[aki], initialArcadeStats).catch(function() {});
+        }
+      } else if (typeof client.upsert === 'function') {
+        for (var aki2 = 0; aki2 < arcadeKeys.length; aki2++) {
+          client.upsert('bb_config', { key: arcadeKeys[aki2], value: JSON.stringify(initialArcadeStats) }, 'key').catch(function() {});
+        }
+      }
+    }
+  } catch (_) {}
+
   // Store parental consent audit in bb_config if minor
   if (isMinor) {
     try {
@@ -1544,6 +1576,24 @@ async function finalizeMemberRegistration(data) {
   if (typeof localStorage !== 'undefined') {
     try {
       localStorage.setItem('bb_account_created_at_' + (data.ic || data.email).toLowerCase(), memberPayload.joined_at);
+      var rawCache = localStorage.getItem('bb_members_cache');
+      var memList = rawCache ? JSON.parse(rawCache) : [];
+      if (Array.isArray(memList)) {
+        var exists = memList.some(function(m) { return m && (m.ic === data.ic || (data.email && m.email === data.email)); });
+        if (!exists) {
+          memList.push({
+            ic: data.ic,
+            email: data.email,
+            name: data.name,
+            rank: data.rank,
+            squad: data.squad,
+            section: data.section,
+            att_section: data.section,
+            department: ''
+          });
+          localStorage.setItem('bb_members_cache', JSON.stringify(memList));
+        }
+      }
     } catch (_) {}
   }
 
@@ -1560,6 +1610,24 @@ async function finalizeMemberRegistration(data) {
     department: '',
     photo_url: ''
   };
+
+  // Broadcast member creation and arcade stats initialization in real time to all peers
+  try {
+    var pr = (typeof window !== 'undefined' && window.PortalRealtime)
+      ? window.PortalRealtime
+      : (typeof global !== 'undefined' && global.PortalRealtime ? global.PortalRealtime : null);
+    if (pr && typeof pr.broadcast === 'function') {
+      pr.broadcast('members', 'create', accountData);
+      pr.broadcast('arcade', 'update', {
+        userKey: arcadeKeys[0] || ('bb_arcade_' + String(data.ic || data.email).replace(/[^a-zA-Z0-9_-]/g, '_')),
+        keys: arcadeKeys,
+        stats: { credits: 0, streak: 0, bestStreak: 0, lastPlayedDate: null, balanceUpdatedAt: Date.now() },
+        ic: data.ic,
+        email: data.email,
+        name: data.name
+      });
+    }
+  } catch (_) {}
 
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({

@@ -16184,6 +16184,147 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Suite 85: Arcade Leaderboard Real-Time Synchronization, Dynamic Member Onboarding & Rankings
+  // ───────────────────────────────────────────────────────────────────────────
+  {
+    console.log('\n--- Suite 85: Arcade Leaderboard Real-Time Synchronization, Dynamic Member Onboarding & Rankings ---');
+    const arcadeMod = require('../js/modules/arcade.js');
+
+    // 1. Candidate keys resolver for IC and email
+    const candidateKeys = arcadeMod.getMemberArcadeCandidateKeys({ ic: '080101-14-1234', email: 'jeshua@example.com' });
+    assert.ok(candidateKeys.includes('bb_arcade_080101-14-1234'), 'Includes raw IC key');
+    assert.ok(candidateKeys.includes('bb_arcade_080101141234'), 'Includes digits-only IC key');
+    assert.ok(candidateKeys.includes('bb_arcade_jeshua_example_com'), 'Includes sanitized email key');
+    console.log('  ✔ getMemberArcadeCandidateKeys accurately resolves all IC and email candidate keys');
+
+    // 2. Newly registered member inclusion (0 credits, 0 streak)
+    const prevSessionGet = global.sessionGet;
+    const sessionMap = {
+      name: 'Jeshua Koh',
+      ic: 'jeshua@test.com',
+      email: 'jeshua@test.com',
+      rank: 'Sergeant',
+      squad: 'Hotel'
+    };
+    global.sessionGet = (key) => sessionMap[key] || '';
+    if (typeof window !== 'undefined') window.sessionGet = global.sessionGet;
+
+    const priorCache = localStorage.getItem('bb_members_cache');
+    const mockRoster = [
+      { name: 'Oliver Ling', ic: 'oliver@test.com', squad: 'Alpha', rank: 'Lance Corporal' },
+      { name: 'Jeshua Koh', ic: 'jeshua@test.com', squad: 'Hotel', rank: 'Sergeant' },
+      { name: 'Joash Lee', ic: 'joash@test.com', squad: 'Alpha', rank: 'Lance Corporal' },
+      { name: 'Jason K.', ic: 'jason@test.com', squad: 'Papa', rank: 'Corporal' },
+      { name: 'Tester Account', ic: 'tester@test.com', squad: 'General Section', rank: 'Warrant Officer' },
+      { name: 'New Recruit 1', ic: 'recruit1@test.com', squad: 'Junior', rank: 'Private' },
+      { name: 'New Recruit 2', ic: 'recruit2@test.com', squad: 'Senior', rank: 'Recruit' }
+    ];
+    localStorage.setItem('bb_members_cache', JSON.stringify(mockRoster));
+
+    // Configure known stats matching user screenshot (all 0 streak, varying credits)
+    const todayKey = arcadeMod.getTodayDateKey();
+    localStorage.setItem('bb_arcade_oliver_test_com', JSON.stringify({ credits: 195, streak: 0, lastPlayedDate: '2026-01-01' }));
+    localStorage.setItem('bb_arcade_jeshua_test_com', JSON.stringify({ credits: 170, streak: 0, lastPlayedDate: '2026-01-01' }));
+    localStorage.setItem('bb_arcade_joash_test_com', JSON.stringify({ credits: 40, streak: 0, lastPlayedDate: '2026-01-01' }));
+    localStorage.setItem('bb_arcade_jason_test_com', JSON.stringify({ credits: 35, streak: 0, lastPlayedDate: '2026-01-01' }));
+    localStorage.setItem('bb_arcade_tester_test_com', JSON.stringify({ credits: 30, streak: 0, lastPlayedDate: '2026-01-01' }));
+    // Recruits have NO prior local storage (simulate newly registered accounts with 0 credits / 0 streak)
+
+    const streakData = arcadeMod.getArcadeLeaderboardData('streak');
+    assert.strictEqual(streakData.length, 7, 'All 7 members including new recruits with 0 credits/streak must appear on leaderboard');
+    assert.ok(streakData.some(m => m.name.includes('Recruit 1')), 'New Recruit 1 is present on leaderboard');
+    assert.ok(streakData.some(m => m.name.includes('Recruit 2')), 'New Recruit 2 is present on leaderboard');
+
+    // 3. Secondary tiebreaker sorting: streak ties sorted by credits DESC
+    // Oliver (195 credits) must be #1, Jeshua (170) must be #2, Joash (40) must be #3, Jason (35) must be #4, Tester (30) must be #5
+    assert.strictEqual(streakData[0].name.includes('Oliver'), true, 'Oliver Ling with highest credits ranks 1st on streak tie');
+    assert.strictEqual(streakData[1].name.includes('Jeshua'), true, 'Jeshua Koh ranks 2nd on streak tie');
+    assert.strictEqual(streakData[2].name.includes('Joash'), true, 'Joash Lee ranks 3rd on streak tie');
+    assert.strictEqual(streakData[3].name.includes('Jason'), true, 'Jason K. ranks 4th on streak tie');
+    console.log('  ✔ Leaderboard sorting leverages secondary metric (credits) to eliminate alphabetical bias on streak ties');
+
+    // 4. Podium step rendering integrity: step numbers #1, #2, #3 distinct without duplicate #1 on steps 2 & 3
+    let arcadeContainer = document.getElementById('arcade-subtab-container');
+    if (!arcadeContainer) {
+      arcadeContainer = document.createElement('div');
+      arcadeContainer.id = 'arcade-subtab-container';
+      document.body.appendChild(arcadeContainer);
+    }
+    arcadeMod.renderArcadeLeaderboardView();
+    const renderedHtml = arcadeContainer.innerHTML;
+    assert.ok(renderedHtml.includes('podium-step-1'), 'Step 1 pillar rendered');
+    assert.ok(renderedHtml.includes('podium-step-2'), 'Step 2 pillar rendered');
+    assert.ok(renderedHtml.includes('podium-step-3'), 'Step 3 pillar rendered');
+    assert.ok(renderedHtml.includes('#1</div>'), 'Step 1 displays #1');
+    assert.ok(renderedHtml.includes('#2</div>'), 'Step 2 displays #2');
+    assert.ok(renderedHtml.includes('#3</div>'), 'Step 3 displays #3');
+    console.log('  ✔ Podium pillars render distinct step numbers #1, #2, #3 without duplicate #1 step badges');
+
+    // 5. Playing game immediately updates in-memory leaderboard & broadcasts
+    let broadcastSent = null;
+    global.PortalRealtime = {
+      broadcast: (entity, action, payload) => {
+        broadcastSent = { entity, action, payload };
+      }
+    };
+    const playerStats = {
+      credits: 250,
+      streak: 5,
+      bestStreak: 5,
+      lastPlayedDate: todayKey,
+      balanceUpdatedAt: Date.now()
+    };
+    global.sessionSet('ic', 'jeshua@test.com', { localOnly: true });
+    global.sessionSet('email', 'jeshua@test.com', { localOnly: true });
+    global.sessionSet('name', 'Jeshua Koh', { localOnly: true });
+
+    arcadeMod.saveArcadeStats(playerStats);
+    assert.ok(broadcastSent, 'saveArcadeStats broadcasts real-time update');
+    assert.strictEqual(broadcastSent.entity, 'arcade', 'Broadcasts under arcade entity');
+    assert.strictEqual(broadcastSent.action, 'update', 'Broadcasts update action');
+    assert.strictEqual(broadcastSent.payload.stats.credits, 250, 'Broadcast contains updated credits');
+    assert.strictEqual(broadcastSent.payload.stats.streak, 5, 'Broadcast contains updated streak');
+
+    const updatedLeaderboard = arcadeMod.getArcadeLeaderboardData('streak');
+    assert.strictEqual(updatedLeaderboard[0].name.includes('Jeshua'), true, 'Jeshua Koh immediately leads streak leaderboard after playing game');
+    assert.strictEqual(updatedLeaderboard[0].streak, 5, 'Jeshua Koh reflects 5 days streak immediately');
+    console.log('  ✔ saveArcadeStats updates in-memory leaderboard and broadcasts real-time updates immediately');
+
+    // 6. Real-time broadcast receipt on other devices applies instantly
+    global.sessionSet('ic', 'oliver@test.com', { localOnly: true });
+    global.sessionSet('email', 'oliver@test.com', { localOnly: true });
+    global.sessionSet('name', 'Oliver Ling', { localOnly: true });
+
+    // Simulate receiving real-time event that Jason K. won 300 credits and 7 streak
+    arcadeMod.applyRealtimeArcadeStats({
+      userKey: 'bb_arcade_jason_test_com',
+      keys: ['bb_arcade_jason_test_com'],
+      stats: { credits: 300, streak: 7, bestStreak: 7, lastPlayedDate: todayKey, balanceUpdatedAt: Date.now() + 100 }
+    });
+
+    const liveData = arcadeMod.getArcadeLeaderboardData('streak');
+    assert.strictEqual(liveData[0].name.includes('Jason'), true, 'Jason K. immediately moves to #1 on other users screen via real-time update');
+    assert.strictEqual(liveData[0].streak, 7, 'Jason K. displays 7 days streak in real time');
+    console.log('  ✔ applyRealtimeArcadeStats synchronizes remote member gameplay instantly across all connected devices');
+
+    // Restore prior state
+    global.sessionGet = prevSessionGet;
+    if (typeof window !== 'undefined') window.sessionGet = prevSessionGet;
+    if (priorCache) localStorage.setItem('bb_members_cache', priorCache);
+    else localStorage.removeItem('bb_members_cache');
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite85 = new Set();
+    const postMatchesSuite85 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite85.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite85.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite85.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite85.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
 console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   process.exit(0);
 })().catch(err => {
