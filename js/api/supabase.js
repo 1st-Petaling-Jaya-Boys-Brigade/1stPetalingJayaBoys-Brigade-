@@ -1132,8 +1132,23 @@ var PortalRealtime = (function() {
     } catch (_) {}
   }
 
+  var _lastBroadcastTimes = {};
+  var _BROADCAST_THROTTLE_MS = 1500;
+
   function broadcastLocalChange(entity, action, data) {
-    var msgId = _realtimeTabId + ':' + entity + ':' + Date.now() + ':' + (++_refCounter);
+    var now = Date.now();
+    // Flood protection: drop rapid bursts for the same entity
+    if (_lastBroadcastTimes[entity] && (now - _lastBroadcastTimes[entity] < _BROADCAST_THROTTLE_MS)) {
+      return;
+    }
+    _lastBroadcastTimes[entity] = now;
+
+    var msgId = _realtimeTabId + ':' + entity + ':' + now + ':' + (++_refCounter);
+    _seenRealtimeMsgIds.add(msgId);
+    if (_seenRealtimeMsgIds.size > 256) {
+      var firstKey = _seenRealtimeMsgIds.keys().next().value;
+      _seenRealtimeMsgIds.delete(firstKey);
+    }
 
     // 1. Cross-Tab Local BroadcastChannel (Same Device, 0ms)
     if (_broadcastChannel) {
@@ -1180,6 +1195,19 @@ var PortalRealtime = (function() {
     }
   }
 
+  function disconnectWebSocket() {
+    clearTimeout(_reconnectTimer);
+    if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+    if (_ws) {
+      try {
+        _ws.onclose = null;
+        _ws.onerror = null;
+        _ws.close();
+      } catch (_) {}
+      _ws = null;
+    }
+  }
+
   // 2. Supabase Realtime WebSocket Connection (Instant cross-device push)
   function connectWebSocket() {
     if (typeof WebSocket === 'undefined') return;
@@ -1222,7 +1250,6 @@ var PortalRealtime = (function() {
                 { event: '*', schema: 'public', table: 'bb_config' },
                 { event: '*', schema: 'public', table: 'bb_tasks' },
                 { event: '*', schema: 'public', table: 'bb_announcements' },
-                { event: '*', schema: 'public', table: 'bb_members' },
                 { event: '*', schema: 'public', table: 'bb_orders' }
               ]
             }
@@ -1276,7 +1303,7 @@ var PortalRealtime = (function() {
                 try {
                   _broadcastChannel.postMessage({
                     type: 'PORTAL_REALTIME_CHANGE',
-                    senderId: _realtimeTabId,
+                    senderId: bPayload.senderId || _realtimeTabId,
                     msgId: bPayload.msgId || (_realtimeTabId + ':' + bPayload.entity + ':' + Date.now()),
                     entity: bPayload.entity,
                     action: bPayload.action || 'update',
@@ -1299,52 +1326,52 @@ var PortalRealtime = (function() {
             if (table === 'bb_config') {
               var key = record.key || oldRecord.key || '';
               if (key === 'bb_forum_posts') {
-                triggerEntityUpdate('forum', 'update', record);
+                triggerEntityUpdate('forum', 'update', record, true);
               } else if (key === 'bb_company_calendar') {
-                triggerEntityUpdate('calendar', 'update', record);
+                triggerEntityUpdate('calendar', 'update', record, true);
               } else if (key.startsWith('bb_task_comments_')) {
-                triggerEntityUpdate('comments', 'update', { key: key });
+                triggerEntityUpdate('comments', 'update', { key: key }, true);
               } else if (key === 'bb_projects') {
-                triggerEntityUpdate('projects', 'update');
+                triggerEntityUpdate('projects', 'update', null, true);
               } else if (key === 'bb_announcements' || key.startsWith('bb_announcements_')) {
-                triggerEntityUpdate('announcements', 'update', record);
+                triggerEntityUpdate('announcements', 'update', record, true);
               } else if (key === 'bb_admin_roles') {
-                triggerEntityUpdate('roles', 'update', record);
+                triggerEntityUpdate('roles', 'update', record, true);
               } else if (key === 'bb_blocked_emails' || key === 'bb_deleted_members') {
-                triggerEntityUpdate('blocklist', 'update');
+                triggerEntityUpdate('blocklist', 'update', null, true);
               } else if (key === 'bb_master_attendance') {
-                triggerEntityUpdate('attendance', 'update');
+                triggerEntityUpdate('attendance', 'update', null, true);
               } else if (key === 'bb_member_cosmetics') {
-                triggerEntityUpdate('cosmetics', 'update', record);
+                triggerEntityUpdate('cosmetics', 'update', record, true);
               } else if (key === 'bb_custom_avatar_outlines') {
-                triggerEntityUpdate('avatar_outlines', 'update', record);
+                triggerEntityUpdate('avatar_outlines', 'update', record, true);
               } else if (key === 'bb_custom_forms' || key.startsWith('bb_form_responses')) {
-                triggerEntityUpdate('forms', 'update', record);
+                triggerEntityUpdate('forms', 'update', record, true);
               } else if (key === 'bb_resources') {
-                triggerEntityUpdate('resources', 'update', record);
+                triggerEntityUpdate('resources', 'update', record, true);
               } else if (key.startsWith('bb_arcade_')) {
-                triggerEntityUpdate('arcade', 'update', record);
+                triggerEntityUpdate('arcade', 'update', record, true);
               } else if (key === 'bb_badges' || key === 'bb_member_badges' || key === 'bb_presidents_reqs' || key === 'bb_deleted_badges') {
-                triggerEntityUpdate('badges', 'update', record);
+                triggerEntityUpdate('badges', 'update', record, true);
               } else if (key === 'bb_story_highlights' || key.startsWith('bb_story_')) {
-                triggerEntityUpdate('gallery', 'update', record);
+                triggerEntityUpdate('gallery', 'update', record, true);
               } else if (key.startsWith('bb_notif_dismissed_')) {
-                triggerEntityUpdate('notifications', 'update', record);
+                triggerEntityUpdate('notifications', 'update', record, true);
               } else if (key === 'bb_member_presence') {
-                triggerEntityUpdate('presence', 'update', record);
+                triggerEntityUpdate('presence', 'update', record, true);
               } else if (key === 'bb_member_pfps') {
-                triggerEntityUpdate('pfps', 'update', record);
+                triggerEntityUpdate('pfps', 'update', record, true);
               } else {
-                triggerEntityUpdate('config', 'update', { key: key });
+                triggerEntityUpdate('config', 'update', { key: key }, true);
               }
             } else if (table === 'bb_tasks') {
-              triggerEntityUpdate('tasks', evType || 'update', record);
+              triggerEntityUpdate('tasks', evType || 'update', record, true);
             } else if (table === 'bb_announcements') {
-              triggerEntityUpdate('announcements', evType || 'update', record);
+              triggerEntityUpdate('announcements', evType || 'update', record, true);
             } else if (table === 'bb_members') {
-              triggerEntityUpdate('members', evType || 'update', record);
+              triggerEntityUpdate('members', evType || 'update', record, true);
             } else if (table === 'bb_orders') {
-              triggerEntityUpdate('orders', evType || 'update', record);
+              triggerEntityUpdate('orders', evType || 'update', record, true);
             }
           }
         } catch (_) {}
@@ -1403,19 +1430,19 @@ var PortalRealtime = (function() {
           if (!r?.key) return;
           var ts = r.updated_at || '';
           if (_lastEntityTimestamps[r.key] && _lastEntityTimestamps[r.key] !== ts) {
-            if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update');
-            else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update');
-            else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update');
-            else if (r.key === 'bb_projects') triggerEntityUpdate('projects', 'update');
-            else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update');
-            else if (r.key === 'bb_member_cosmetics') triggerEntityUpdate('cosmetics', 'update');
-            else if (r.key === 'bb_custom_avatar_outlines') triggerEntityUpdate('avatar_outlines', 'update');
-            else if (r.key === 'bb_custom_forms') triggerEntityUpdate('forms', 'update');
-            else if (r.key === 'bb_resources') triggerEntityUpdate('resources', 'update');
-            else if (r.key === 'bb_badges') triggerEntityUpdate('badges', 'update');
-            else if (r.key === 'bb_story_highlights') triggerEntityUpdate('gallery', 'update');
-            else if (r.key === 'bb_member_presence') triggerEntityUpdate('presence', 'update');
-            else if (r.key === 'bb_member_pfps') triggerEntityUpdate('pfps', 'update');
+            if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update', null, true);
+            else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update', null, true);
+            else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update', null, true);
+            else if (r.key === 'bb_projects') triggerEntityUpdate('projects', 'update', null, true);
+            else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update', null, true);
+            else if (r.key === 'bb_member_cosmetics') triggerEntityUpdate('cosmetics', 'update', null, true);
+            else if (r.key === 'bb_custom_avatar_outlines') triggerEntityUpdate('avatar_outlines', 'update', null, true);
+            else if (r.key === 'bb_custom_forms') triggerEntityUpdate('forms', 'update', null, true);
+            else if (r.key === 'bb_resources') triggerEntityUpdate('resources', 'update', null, true);
+            else if (r.key === 'bb_badges') triggerEntityUpdate('badges', 'update', null, true);
+            else if (r.key === 'bb_story_highlights') triggerEntityUpdate('gallery', 'update', null, true);
+            else if (r.key === 'bb_member_presence') triggerEntityUpdate('presence', 'update', null, true);
+            else if (r.key === 'bb_member_pfps') triggerEntityUpdate('pfps', 'update', null, true);
           }
           _lastEntityTimestamps[r.key] = ts;
         });
@@ -1433,7 +1460,7 @@ var PortalRealtime = (function() {
         if (Array.isArray(orderRows) && orderRows.length) {
           var ordKey = orderRows.map(function(o) { return o.id + ':' + (o.status || ''); }).join('|');
           if (_lastEntityTimestamps['bb_orders_latest'] && _lastEntityTimestamps['bb_orders_latest'] !== ordKey) {
-            triggerEntityUpdate('orders', 'update');
+            triggerEntityUpdate('orders', 'update', null, true);
           }
           _lastEntityTimestamps['bb_orders_latest'] = ordKey;
         }
@@ -1446,7 +1473,7 @@ var PortalRealtime = (function() {
           var cts = cr.updated_at || '';
           if (_lastEntityTimestamps[cr.key] && _lastEntityTimestamps[cr.key] !== cts) {
             var cTid = cr.key.replace('bb_task_comments_', '');
-            triggerEntityUpdate('comments', 'update', { taskId: cTid });
+            triggerEntityUpdate('comments', 'update', { taskId: cTid }, true);
           }
           _lastEntityTimestamps[cr.key] = cts;
         });
@@ -1456,7 +1483,7 @@ var PortalRealtime = (function() {
       if (Array.isArray(annRows) && annRows.length) {
         var annKey = (annRows[0].id || '') + ':' + (annRows[0].created_at || '');
         if (_lastEntityTimestamps['bb_announcements_latest'] && _lastEntityTimestamps['bb_announcements_latest'] !== annKey) {
-          triggerEntityUpdate('announcements', 'create', annRows[0]);
+          triggerEntityUpdate('announcements', 'create', annRows[0], true);
         }
         _lastEntityTimestamps['bb_announcements_latest'] = annKey;
       }
@@ -1465,7 +1492,7 @@ var PortalRealtime = (function() {
       if (Array.isArray(taskRows)) {
         var taskFp = taskRows.map(function(t) { return t.id + ':' + (t.status || ''); }).join('|');
         if (_lastEntityTimestamps['bb_tasks_fingerprint'] && _lastEntityTimestamps['bb_tasks_fingerprint'] !== taskFp) {
-          triggerEntityUpdate('tasks', 'update');
+          triggerEntityUpdate('tasks', 'update', null, true);
         }
         _lastEntityTimestamps['bb_tasks_fingerprint'] = taskFp;
       }
@@ -1483,7 +1510,7 @@ var PortalRealtime = (function() {
       if (Array.isArray(memberRows) && memberRows.length) {
         var mKey = (memberRows[0].ic || '') + ':' + (memberRows[0].updated_at || '');
         if (_lastEntityTimestamps['bb_members_latest'] && _lastEntityTimestamps['bb_members_latest'] !== mKey) {
-          triggerEntityUpdate('members', 'update', memberRows[0]);
+          triggerEntityUpdate('members', 'update', memberRows[0], true);
         }
         _lastEntityTimestamps['bb_members_latest'] = mKey;
       }
@@ -1502,18 +1529,19 @@ var PortalRealtime = (function() {
         var activeTaskRow = await client.get('bb_tasks?id=eq.' + encodeURIComponent(activeTid) + '&select=id,title,description,status,priority,due_date,estimate', { cache: false });
         if (Array.isArray(activeTaskRow)) {
           if (activeTaskRow.length === 0) {
-            triggerEntityUpdate('tasks', 'delete', { id: activeTid });
+            triggerEntityUpdate('tasks', 'delete', { id: activeTid }, true);
           } else {
             var at = activeTaskRow[0];
             var atKey = [at.id, at.title, at.status, at.priority, at.due_date, at.estimate, (at.description || '').length].join(':');
             if (_lastEntityTimestamps['bb_task_active_' + activeTid] && _lastEntityTimestamps['bb_task_active_' + activeTid] !== atKey) {
-              triggerEntityUpdate('tasks', 'update', at);
+              triggerEntityUpdate('tasks', 'update', at, true);
             }
             _lastEntityTimestamps['bb_task_active_' + activeTid] = atKey;
           }
         }
       }
-      _deltaSyncBackoff = 5000;
+      var isWsActive = _ws && _ws.readyState === WebSocket.OPEN;
+      _deltaSyncBackoff = isWsActive ? 60000 : 25000;
     } catch (_) {
       // Back off on error to prevent database saturation
       _deltaSyncBackoff = Math.min(120000, _deltaSyncBackoff * 2);
@@ -1525,13 +1553,14 @@ var PortalRealtime = (function() {
 
   function scheduleNextDeltaSync(delayMs) {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 5000);
+    _deltaSyncTimer = setTimeout(checkDeltaSync, delayMs || 25000);
   }
 
   function startDeltaSync() {
     if (_deltaSyncTimer) clearTimeout(_deltaSyncTimer);
-    _deltaSyncBackoff = 5000;
-    scheduleNextDeltaSync(5000);
+    var isWsActive = _ws && _ws.readyState === WebSocket.OPEN;
+    _deltaSyncBackoff = isWsActive ? 60000 : 25000;
+    scheduleNextDeltaSync(_deltaSyncBackoff);
   }
 
   if (typeof document !== 'undefined' && document.addEventListener) {
@@ -2461,6 +2490,7 @@ var PortalRealtime = (function() {
       connectWebSocket();
       startDeltaSync();
     },
+    disconnect: disconnectWebSocket,
     broadcast: broadcastLocalChange,
     trigger: triggerEntityUpdate,
     triggerEntityUpdate: triggerEntityUpdate,
