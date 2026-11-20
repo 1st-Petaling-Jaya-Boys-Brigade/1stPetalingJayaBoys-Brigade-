@@ -622,13 +622,13 @@ const supa = {
     return getSupaClient();
   },
 
-  async batchConfigGet(keys) {
+  async batchConfigGet(keys, options) {
     if (!Array.isArray(keys) || keys.length === 0) return {};
     const client = this && typeof this.get === 'function' ? this : supa;
     const inClause = keys.map(k => encodeURIComponent(k)).join(',');
     const result = {};
     try {
-      const rows = await client.get('bb_config?key=in.(' + inClause + ')&select=key,value');
+      const rows = await client.get('bb_config?key=in.(' + inClause + ')&select=key,value', options);
       if (Array.isArray(rows)) {
         rows.forEach(r => {
           if (!r || !r.key) return;
@@ -1731,12 +1731,26 @@ var PortalRealtime = (function() {
     }
 
     if (entity === 'arcade') {
-      if (typeof window !== 'undefined' && typeof window.syncArcadeLeaderboard === 'function') {
-        window.syncArcadeLeaderboard().then(function() {
-          if (typeof window.renderArcadeLeaderboardView === 'function') {
-            window.renderArcadeLeaderboardView();
-          }
+      var applyArcadeFn = (typeof window !== 'undefined' && typeof window.applyRealtimeArcadeStats === 'function')
+        ? window.applyRealtimeArcadeStats
+        : (typeof global !== 'undefined' && typeof global.applyRealtimeArcadeStats === 'function' ? global.applyRealtimeArcadeStats : null);
+      if (applyArcadeFn && data) {
+        try { applyArcadeFn(data); } catch (_) {}
+      }
+
+      var syncArcadeFn = (typeof window !== 'undefined' && typeof window.syncArcadeLeaderboard === 'function')
+        ? window.syncArcadeLeaderboard
+        : (typeof global !== 'undefined' && typeof global.syncArcadeLeaderboard === 'function' ? global.syncArcadeLeaderboard : null);
+      var renderArcadeFn = (typeof window !== 'undefined' && typeof window.renderArcadeLeaderboardView === 'function')
+        ? window.renderArcadeLeaderboardView
+        : (typeof global !== 'undefined' && typeof global.renderArcadeLeaderboardView === 'function' ? global.renderArcadeLeaderboardView : null);
+
+      if (syncArcadeFn) {
+        syncArcadeFn().then(function() {
+          if (renderArcadeFn) renderArcadeFn();
         }).catch(function() {});
+      } else if (renderArcadeFn) {
+        renderArcadeFn();
       }
       return;
     }
@@ -2451,7 +2465,7 @@ var PortalRealtime = (function() {
         }
       }
 
-      // Re-render task board, presence dots, and forum across all connected devices
+      // Re-render task board, presence dots, arcade leaderboard, and forum across all connected devices
       if (typeof window !== 'undefined') {
         if (typeof window.refreshCurrentTasksView === 'function') {
           try { window.refreshCurrentTasksView(); } catch (_) {}
@@ -2461,6 +2475,16 @@ var PortalRealtime = (function() {
           : (typeof window.refreshLivePresenceDots === 'function' ? window.refreshLivePresenceDots : null);
         if (refDots) {
           try { refDots(); } catch (_) {}
+        }
+        var pArcadeEl = document.getElementById('page-arcade');
+        if (pArcadeEl && (pArcadeEl.classList.contains('active') || pArcadeEl.style.display !== 'none')) {
+          if (typeof window.syncArcadeLeaderboard === 'function') {
+            window.syncArcadeLeaderboard().then(function() {
+              if (typeof window.renderArcadeLeaderboardView === 'function') window.renderArcadeLeaderboardView();
+            }).catch(function() {});
+          } else if (typeof window.renderArcadeLeaderboardView === 'function') {
+            window.renderArcadeLeaderboardView();
+          }
         }
       }
 

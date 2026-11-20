@@ -505,12 +505,18 @@
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem(k, JSON.stringify(stats));
         }
+        _arcadeLeaderboardStats.set(k, stats);
       });
       if (typeof sessionSet === 'function') {
         sessionSet('game_streak', String(stats.streak || 0), { localOnly: true });
         sessionSet('game_credits', String(stats.credits || 0), { localOnly: true });
       }
       updateArcadeHeaderBadge(stats);
+
+      // Immediate UI update on sender device if viewing leaderboard
+      if (_arcadeSubtab === 'leaderboard' && typeof renderArcadeLeaderboardView === 'function') {
+        try { renderArcadeLeaderboardView(); } catch (_) {}
+      }
 
       // Async sync to Supabase bb_config if logged in
       var client = getArcadeSupaClient();
@@ -526,10 +532,18 @@
             }
           }
         });
+        var broadcastPayload = {
+          userKey: candKeys[0],
+          keys: candKeys,
+          stats: stats,
+          ic: (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '',
+          email: (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '',
+          name: (typeof sessionGet === 'function') ? (sessionGet('name') || '') : ''
+        };
         if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-          window.PortalRealtime.broadcast('arcade', 'update', { userKey: candKeys[0], stats: stats });
+          window.PortalRealtime.broadcast('arcade', 'update', broadcastPayload);
         } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
-          global.PortalRealtime.broadcast('arcade', 'update', { userKey: candKeys[0], stats: stats });
+          global.PortalRealtime.broadcast('arcade', 'update', broadcastPayload);
         }
       }
     } catch (e) {
@@ -1848,17 +1862,64 @@
     return Number.isFinite(Number(value)) ? Math.max(0, Math.floor(Number(value))) : 0;
   }
 
+  function getMemberArcadeCandidateKeys(member, prefix) {
+    var pfx = prefix || 'bb_arcade_';
+    var candidates = [];
+    if (!member || typeof member !== 'object') return candidates;
+    var addCandidate = function(id) {
+      if (!id || typeof id !== 'string') return;
+      var clean = id.trim();
+      if (!clean) return;
+      var k1 = pfx + clean.replace(/[^a-zA-Z0-9_-]/g, '_');
+      if (!candidates.includes(k1)) candidates.push(k1);
+      var digitsOnly = clean.replace(/[^0-9]/g, '');
+      if (digitsOnly && digitsOnly.length >= 6) {
+        var k2 = pfx + digitsOnly;
+        if (!candidates.includes(k2)) candidates.push(k2);
+      }
+    };
+    addCandidate(member.ic);
+    addCandidate(member.email);
+    return candidates;
+  }
+
   function getLeaderboardMemberStats(member) {
-    var key = 'bb_arcade_' + String(member.ic || member.email).replace(/[^a-zA-Z0-9_-]/g, '_');
-    try {
-      var snapshot = typeof localStorage !== 'undefined' ? JSON.parse(localStorage.getItem(key)) : null;
+    if (!member) return null;
+    var candKeys = getMemberArcadeCandidateKeys(member);
+    var bestStats = null;
+    for (var i = 0; i < candKeys.length; i++) {
+      var key = candKeys[i];
+      var snapshot = null;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          var raw = localStorage.getItem(key);
+          if (raw) snapshot = JSON.parse(raw);
+        }
+      } catch (_) {}
       var stats = _arcadeLeaderboardStats.get(key) || snapshot;
-      if (!stats || typeof stats !== 'object') return null;
-      var today = getTodayDateKey();
-      return Object.assign({}, stats, { streak: [today, getYesterdayDateKey(today)].includes(stats.lastPlayedDate) ? stats.streak : 0 });
-    } catch (_) {
-      return null;
+      if (stats && typeof stats === 'object') {
+        if (!bestStats) {
+          bestStats = stats;
+        } else {
+          var sVer = Number(stats.balanceUpdatedAt) || 0;
+          var bVer = Number(bestStats.balanceUpdatedAt) || 0;
+          if (sVer > bVer || (sVer === bVer && ((Number(stats.credits) || 0) > (Number(bestStats.credits) || 0) || (Number(stats.streak) || 0) > (Number(bestStats.streak) || 0)))) {
+            bestStats = stats;
+          }
+        }
+      }
     }
+    var today = getTodayDateKey();
+    var yesterday = getYesterdayDateKey(today);
+    if (!bestStats) {
+      return { credits: 0, streak: 0, bestStreak: 0, lastPlayedDate: null };
+    }
+    var validStreak = (bestStats.lastPlayedDate === today || bestStats.lastPlayedDate === yesterday) ? (Number(bestStats.streak) || 0) : 0;
+    return Object.assign({}, bestStats, {
+      credits: arcadeCount(bestStats.credits),
+      streak: validStreak,
+      bestStreak: Math.max(arcadeCount(bestStats.bestStreak), validStreak)
+    });
   }
 
   var _arcadeLeaderboardStats = new Map();
@@ -1866,32 +1927,83 @@
   async function syncArcadeLeaderboard() {
     var client = getArcadeSupaClient();
     var owner = getArcadeUserKey();
-    if (!client || typeof client.batchConfigGet !== 'function' || owner === 'bb_arcade_guest' || _arcadeLeaderboardSync) return;
+    if (!client || typeof client.batchConfigGet !== 'function' || _arcadeLeaderboardSync) return;
     try {
-      var roster = JSON.parse(localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members'));
+      _arcadeLeaderboardSync = owner || 'sync';
+      var roster = null;
+      if (typeof client.get === 'function') {
+        try {
+          var remoteMems = await client.get('bb_members?select=ic,name,rank,department,email,section,att_section,squad,platoon,role&order=name.asc');
+          if (Array.isArray(remoteMems) && remoteMems.length > 0) {
+            roster = remoteMems;
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_members_cache', JSON.stringify(roster));
+            }
+          }
+        } catch (_) {}
+      }
+      if (!roster) {
+        try {
+          var raw = (typeof localStorage !== 'undefined') ? (localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members')) : null;
+          if (raw) roster = JSON.parse(raw);
+        } catch (_) {}
+      }
       if (!Array.isArray(roster)) return;
-      var keys = Array.from(new Set(roster.filter(function(member) {
-        return member && (member.ic || member.email) &&
-          !(typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member));
-      }).map(function(member) {
-        return 'bb_arcade_' + String(member.ic || member.email).replace(/[^a-zA-Z0-9_-]/g, '_');
-      })));
-      var next = new Map();
-      _arcadeLeaderboardSync = owner;
-      for (var i = 0; i < keys.length; i += 40) {
-        var slice = keys.slice(i, i + 40);
-        var values = await client.batchConfigGet(slice);
+
+      var allKeys = [];
+      roster.forEach(function(member) {
+        if (!member || (!member.ic && !member.email)) return;
+        if (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member)) return;
+        var cand = getMemberArcadeCandidateKeys(member);
+        cand.forEach(function(k) {
+          if (!allKeys.includes(k)) allKeys.push(k);
+        });
+      });
+
+      var next = new Map(_arcadeLeaderboardStats);
+      for (var i = 0; i < allKeys.length; i += 40) {
+        var slice = allKeys.slice(i, i + 40);
+        var values = await client.batchConfigGet(slice, { cache: false });
         slice.forEach(function(key) {
-          if (values && values[key] && typeof values[key] === 'object') next.set(key, values[key]);
+          if (values && values[key] && typeof values[key] === 'object') {
+            next.set(key, values[key]);
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem(key, JSON.stringify(values[key]));
+              }
+            } catch (_) {}
+          }
         });
       }
-      if (owner !== getArcadeUserKey()) return;
       _arcadeLeaderboardStats = next;
       if (_arcadeSubtab === 'leaderboard') renderArcadeLeaderboardView();
     } catch (_) {
       // Keep the existing leaderboard while the network is unavailable.
     } finally {
       _arcadeLeaderboardSync = null;
+    }
+  }
+
+  function applyRealtimeArcadeStats(payload) {
+    if (!payload || !payload.stats) return;
+    var keysToUpdate = Array.isArray(payload.keys) ? payload.keys.slice() : [];
+    if (payload.userKey && !keysToUpdate.includes(payload.userKey)) keysToUpdate.push(payload.userKey);
+    if (payload.ic || payload.email) {
+      var memberKeys = getMemberArcadeCandidateKeys({ ic: payload.ic, email: payload.email });
+      memberKeys.forEach(function(mk) {
+        if (!keysToUpdate.includes(mk)) keysToUpdate.push(mk);
+      });
+    }
+    keysToUpdate.forEach(function(k) {
+      _arcadeLeaderboardStats.set(k, payload.stats);
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(k, JSON.stringify(payload.stats));
+        }
+      } catch (_) {}
+    });
+    if (_arcadeSubtab === 'leaderboard' && typeof renderArcadeLeaderboardView === 'function') {
+      try { renderArcadeLeaderboardView(); } catch (_) {}
     }
   }
 
@@ -1904,45 +2016,77 @@
 
     var roster = [];
     try {
-      var raw = localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members');
-      var saved = JSON.parse(raw);
-      if (Array.isArray(saved)) roster = saved;
+      var raw = (typeof localStorage !== 'undefined') ? (localStorage.getItem('bb_members_cache') || localStorage.getItem('bb_all_members')) : null;
+      var saved = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(saved)) roster = saved.slice();
     } catch (_) {}
 
-    var currentId = typeof sessionGet === 'function' ? sessionGet('ic') || sessionGet('email') : '';
-    var currentName = currentId ? sessionGet('name') : '';
-    if (currentName) roster = roster.concat({
-      ic: currentId, email: sessionGet('email'), name: currentName, rank: sessionGet('rank'), squad: sessionGet('squad')
-    });
+    var currentId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email') || '') : '';
+    var currentName = currentId && typeof sessionGet === 'function' ? sessionGet('name') : '';
+    if (currentName) {
+      roster.push({
+        ic: currentId,
+        email: typeof sessionGet === 'function' ? sessionGet('email') : '',
+        name: currentName,
+        rank: typeof sessionGet === 'function' ? sessionGet('rank') : '',
+        squad: typeof sessionGet === 'function' ? sessionGet('squad') : ''
+      });
+    }
 
     var seen = new Map();
+    var seenKeys = new Set();
+    var curIc = String(currentId || '').trim().toLowerCase();
+    var curEmail = String(typeof sessionGet === 'function' ? (sessionGet('email') || '') : '').trim().toLowerCase();
+
     roster.forEach(function(member) {
       if (!member || !member.name || (typeof isDeletedOrTestAccount === 'function' && isDeletedOrTestAccount(member))) return;
       if (['deleted', 'archived_deleted'].includes(member.department) || member.rank === 'Deleted') return;
-      var id = String(member.ic || member.email || '').trim().toLowerCase();
-      if (!id) return;
-      var isCurrentUser = Boolean(currentId && id === String(currentId).trim().toLowerCase());
+
+      var mIc = String(member.ic || '').trim().toLowerCase();
+      var mEmail = String(member.email || '').trim().toLowerCase();
+      var primaryKey = mIc || mEmail;
+      if (!primaryKey) return;
+      if (seenKeys.has(primaryKey) || (mEmail && seenKeys.has(mEmail)) || (mIc && seenKeys.has(mIc))) return;
+
+      var isCurrentUser = Boolean((curIc && (mIc === curIc || mEmail === curIc)) || (curEmail && (mEmail === curEmail || mIc === curEmail)));
       var stats = isCurrentUser ? getArcadeStats() : getLeaderboardMemberStats(member);
-      if (!stats || (!isCurrentUser && !(stats.credits > 0 || stats.streak > 0))) return;
+      if (!stats) return;
+
       var name = typeof window !== 'undefined' && typeof window.maskMemberNameForDirectory === 'function'
         ? window.maskMemberNameForDirectory(member.name, isCurrentUser) : member.name;
-      seen.set(id, {
-        name: name, email: member.email || '', rank: member.rank || 'Member',
+
+      seenKeys.add(primaryKey);
+      if (mIc) seenKeys.add(mIc);
+      if (mEmail) seenKeys.add(mEmail);
+
+      seen.set(primaryKey, {
+        id: primaryKey,
+        name: name,
+        email: member.email || '',
+        ic: member.ic || '',
+        rank: member.rank || 'Member',
         platoon: member.squad || member.platoon || 'General Section',
-        streak: arcadeCount(stats.streak), credits: arcadeCount(stats.credits), isCurrentUser: isCurrentUser
+        streak: arcadeCount(stats.streak),
+        credits: arcadeCount(stats.credits),
+        isCurrentUser: isCurrentUser
       });
     });
     var baseMembers = Array.from(seen.values());
 
-    // Sort descending by selected metric
+    // Sort descending by primary metric, tiebreak by secondary metric, then alphabetical by name
     baseMembers.sort(function(a, b) {
-      var valA = (category === 'streak') ? (a.streak || 0) : (a.credits || 0);
-      var valB = (category === 'streak') ? (b.streak || 0) : (b.credits || 0);
-      if (valB !== valA) return valB - valA;
+      var priA = (category === 'streak') ? (a.streak || 0) : (a.credits || 0);
+      var priB = (category === 'streak') ? (b.streak || 0) : (b.credits || 0);
+      if (priB !== priA) return priB - priA;
+
+      var secA = (category === 'streak') ? (a.credits || 0) : (a.streak || 0);
+      var secB = (category === 'streak') ? (b.credits || 0) : (b.streak || 0);
+      if (secB !== secA) return secB - secA;
+
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    // Keep stable display order and share the rank when scores tie.
+    // Keep stable display order and share the rank when primary score ties.
     var metric = category === 'streak' ? 'streak' : 'credits';
     baseMembers.forEach(function(m, idx) {
       m.rankIndex = idx + 1;
@@ -1999,7 +2143,7 @@
         '</div>' +
         // 3. PODIUM PILLAR STEP
         '<div class="podium-step podium-step-' + stepNum + '">' +
-          '<div class="podium-step-num">#' + item.displayRank + '</div>' +
+          '<div class="podium-step-num">#' + stepNum + '</div>' +
           '<div class="podium-step-val">' + val + ' ' + metricUnit + '</div>' +
           (safeRank ? '<div class="podium-step-sub">' + safeRank + '</div>' : '') +
         '</div>' +
@@ -2166,8 +2310,11 @@
     renderArcadePage: renderArcadePage,
     switchArcadeSubtab: switchArcadeSubtab,
     switchArcadeLeaderboardCategory: switchArcadeLeaderboardCategory,
+    syncArcadeLeaderboard: syncArcadeLeaderboard,
     renderArcadeLeaderboardView: renderArcadeLeaderboardView,
     getArcadeLeaderboardData: getArcadeLeaderboardData,
+    getMemberArcadeCandidateKeys: getMemberArcadeCandidateKeys,
+    applyRealtimeArcadeStats: applyRealtimeArcadeStats,
     isValidWordleWord: isValidWordleWord,
     showWordleToast: showWordleToast,
     WORDLE_DICTIONARY_SET: WORDLE_DICTIONARY_SET
@@ -2178,13 +2325,14 @@
     window.ALL_WORDLE_WORDS              = ALL_WORDLE_WORDS;
     window.BB_TRIVIA_QUESTIONS            = BB_TRIVIA_QUESTIONS;
     window.getCandidateUserKeys           = getCandidateUserKeys;
-  window.getArcadeUserKey               = getArcadeUserKey;
+    window.getMemberArcadeCandidateKeys   = getMemberArcadeCandidateKeys;
+    window.getArcadeUserKey               = getArcadeUserKey;
     window.getTriviaUserKey               = getTriviaUserKey;
     window.getArcadeStats                 = getArcadeStats;
     window.saveArcadeStats                = saveArcadeStats;
     window.reconcileArcadeRewards         = reconcileArcadeRewards;
-  window.fetchRemoteWordleState         = fetchRemoteWordleState;
-  window.fetchRemoteTriviaState         = fetchRemoteTriviaState;
+    window.fetchRemoteWordleState         = fetchRemoteWordleState;
+    window.fetchRemoteTriviaState         = fetchRemoteTriviaState;
     window.fetchRemoteArcadeStats         = fetchRemoteArcadeStats;
     window.recordGameParticipation        = recordGameParticipation;
     window.awardCredits                   = awardCredits;
@@ -2207,6 +2355,7 @@
     window.syncArcadeLeaderboard          = syncArcadeLeaderboard;
     window.renderArcadeLeaderboardView    = renderArcadeLeaderboardView;
     window.getArcadeLeaderboardData       = getArcadeLeaderboardData;
+    window.applyRealtimeArcadeStats       = applyRealtimeArcadeStats;
     window.isValidWordleWord              = isValidWordleWord;
     window.showWordleToast                = showWordleToast;
     window.ArcadeModule                   = ArcadeModule;
@@ -2215,6 +2364,11 @@
   if (typeof global !== 'undefined') {
     global.getArcadeStats = getArcadeStats;
     global.saveArcadeStats = saveArcadeStats;
+    global.getMemberArcadeCandidateKeys = getMemberArcadeCandidateKeys;
+    global.applyRealtimeArcadeStats = applyRealtimeArcadeStats;
+    global.syncArcadeLeaderboard = syncArcadeLeaderboard;
+    global.renderArcadeLeaderboardView = renderArcadeLeaderboardView;
+    global.getArcadeLeaderboardData = getArcadeLeaderboardData;
   }
 
   if (typeof module !== 'undefined' && module.exports) {
