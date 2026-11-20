@@ -116,6 +116,8 @@ function _setLeaderState(newState) {
         : null;
     if (_isLeader && pr && typeof pr.connect === 'function') {
       try { pr.connect(); } catch (_) {}
+    } else if (!_isLeader && pr && typeof pr.disconnect === 'function' && typeof BroadcastChannel !== 'undefined') {
+      try { pr.disconnect(); } catch (_) {}
     }
   }
 }

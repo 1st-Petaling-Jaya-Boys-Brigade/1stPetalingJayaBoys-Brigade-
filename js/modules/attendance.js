@@ -218,7 +218,7 @@ async function getMasterAttendanceData(forceRefresh) {
         var value = rows[0].value;
         var parsed = typeof value === 'string' ? JSON.parse(value) : value;
         if (sanitizer) parsed = sanitizer(parsed);
-        if (parsed) return cacheMasterAttendance(parsed);
+        if (parsed) return cacheMasterAttendance(parsed, false, true);
       }
     } catch (_) {}
     return fallback;
@@ -230,7 +230,7 @@ async function getMasterAttendanceData(forceRefresh) {
   }
 }
 
-function cacheMasterAttendance(data, fromStorage) {
+function cacheMasterAttendance(data, fromStorage, noBroadcast) {
   var prevTime = Date.parse(_masterAttendanceCache && _masterAttendanceCache.lastSynced);
   var nextTime = Date.parse(data.lastSynced);
   if (Number.isFinite(prevTime) && (!Number.isFinite(nextTime) || nextTime < prevTime)) return _masterAttendanceCache;
@@ -247,7 +247,7 @@ function cacheMasterAttendance(data, fromStorage) {
       localStorage.setItem('bb_master_att_cache', snapshot);
     }
   } catch (_) {}
-  if (!fromStorage) {
+  if (!fromStorage && !noBroadcast) {
     if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
       window.PortalRealtime.broadcast('attendance', 'update');
     } else if (typeof global !== 'undefined' && global.PortalRealtime && typeof global.PortalRealtime.broadcast === 'function') {
@@ -966,7 +966,7 @@ async function triggerMasterSheetFetch() {
     } else {
       data = await window.fetchMasterAttendanceFromGAS();
     }
-    cacheMasterAttendance(data);
+    cacheMasterAttendance(data, false, false);
     refreshVisibleAttendance();
     await renderAdminMasterSheetPanel();
 

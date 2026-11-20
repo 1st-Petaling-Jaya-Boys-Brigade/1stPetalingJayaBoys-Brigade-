@@ -123,5 +123,24 @@ const supaApi = require('../js/api/supabase.js');
   assert.strictEqual(hit.testKey, 'cachedValue', 'safeConfigGet returns in-memory snapshot immediately without network roundtrip');
 
   console.log('  ✔ ThrottledFetch AbortSignal queue cleanup and single-flight snapshot caching verified');
+
+  // ── 6. Anti-Storm Broadcast Deduplication & Attendance Safe Caching ──────────
+  const attendanceMod = require('../js/modules/attendance.js');
+  let broadcastCount = 0;
+  global.window = global.window || {};
+  global.window.PortalRealtime = {
+    broadcast: () => { broadcastCount++; }
+  };
+
+  // Caching attendance from remote read with noBroadcast=true must NOT broadcast
+  attendanceMod.cacheMasterAttendance({ lastSynced: new Date().toISOString(), squads: [] }, false, true);
+  assert.strictEqual(broadcastCount, 0, 'Reading/fetching attendance data from remote must NOT trigger Realtime broadcasts');
+
+  // Explicit local update without noBroadcast DOES broadcast
+  attendanceMod.cacheMasterAttendance({ lastSynced: new Date(Date.now() + 1000).toISOString(), squads: [] }, false, false);
+  assert.strictEqual(broadcastCount, 1, 'Local mutation MUST broadcast to peers');
+  console.log('  ✔ Attendance cache isolation verified: remote fetch/caching prevents infinite broadcast cascade');
+
   console.log('\n🎉 ALL MULTI-TAB CONCURRENCY STRESS TESTS PASSED 100%!\n');
+  process.exit(0);
 })();
