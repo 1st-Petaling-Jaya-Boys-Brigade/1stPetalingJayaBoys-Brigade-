@@ -132,12 +132,12 @@ const supaApi = require('../js/api/supabase.js');
     broadcast: () => { broadcastCount++; }
   };
 
-  // Caching attendance without explicit local mutation flag must NEVER broadcast
-  attendanceMod.cacheMasterAttendance({ lastSynced: new Date().toISOString(), squads: [] }, true);
-  assert.strictEqual(broadcastCount, 0, 'Reading/caching attendance data must NOT trigger Realtime broadcasts');
+  // Caching attendance from remote read with noBroadcast=true must NOT broadcast
+  attendanceMod.cacheMasterAttendance({ lastSynced: new Date().toISOString(), squads: [] }, false, true);
+  assert.strictEqual(broadcastCount, 0, 'Reading/fetching attendance data from remote must NOT trigger Realtime broadcasts');
 
-  // Explicit local mutation DOES broadcast
-  attendanceMod.cacheMasterAttendance({ lastSynced: new Date(Date.now() + 1000).toISOString(), squads: [] }, false, true);
+  // Explicit local update without noBroadcast DOES broadcast
+  attendanceMod.cacheMasterAttendance({ lastSynced: new Date(Date.now() + 1000).toISOString(), squads: [] }, false, false);
   assert.strictEqual(broadcastCount, 1, 'Local mutation MUST broadcast to peers');
   console.log('  ✔ Attendance cache isolation verified: remote fetch/caching prevents infinite broadcast cascade');
 
