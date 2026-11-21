@@ -2191,7 +2191,36 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   sessionSet('joined', m.joined_at || '');
   sessionSet('created_at', m.created_at || m.joined_at || '');
   sessionSet('department', m.department || '');
-  sessionSet('photo_url', m.photo_url || '');
+  var normPhoto = m.photo_url ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(m.photo_url) : m.photo_url) : '';
+  sessionSet('photo_url', normPhoto);
+  var cleanFn = (m.ic || userEmail || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+  if (normPhoto) {
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem('bb_pfp_' + cleanFn, normPhoto); } catch (_) {}
+    }
+    if (typeof _memberPfpsMap !== 'undefined') {
+      if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = normPhoto;
+      if (userEmail) _memberPfpsMap[userEmail.toLowerCase()] = normPhoto;
+      if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = normPhoto;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+        }
+      } catch (_) {}
+    }
+  } else {
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.removeItem('bb_pfp_' + cleanFn); } catch (_) {}
+    }
+    if (typeof _memberPfpsMap !== 'undefined') {
+      if (m.ic) delete _memberPfpsMap[m.ic.toLowerCase()];
+      if (userEmail) delete _memberPfpsMap[userEmail.toLowerCase()];
+      if (m.name) delete _memberPfpsMap[m.name.trim().toLowerCase()];
+    }
+  }
+  if (typeof loadMemberProfilePictures === 'function') {
+    loadMemberProfilePictures().catch(function() {});
+  }
 
   // Synchronize mobile topic subscriptions with active member identity
   if (typeof syncMobileDeviceSubscriptions === 'function') {
@@ -4414,9 +4443,12 @@ function resetMemberAvatar() {
   var defaultSvg = '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
   var defaultLgSvg = '<svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 
+  var sImg = document.getElementById('sidebar-user-avatar-img');
+  if (sImg) { sImg.src = ''; sImg.style.display = 'none'; }
   var sPh = document.getElementById('sidebar-user-avatar-ph');
   if (sPh) {
     sPh.innerHTML = defaultSvg;
+    sPh.style.display = 'flex';
     sPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
     sPh.style.background = '';
     sPh.style.color = '';
@@ -4424,9 +4456,12 @@ function resetMemberAvatar() {
     sPh.removeAttribute('aria-label');
   }
 
+  var mImg = document.getElementById('m-pfp-img');
+  if (mImg) { mImg.src = ''; mImg.style.display = 'none'; }
   var mPh = document.getElementById('m-pfp-ph');
   if (mPh) {
     mPh.innerHTML = defaultLgSvg;
+    mPh.style.display = 'flex';
     mPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
     mPh.style.background = '';
     mPh.style.color = '';
@@ -4434,15 +4469,21 @@ function resetMemberAvatar() {
     mPh.removeAttribute('aria-label');
   }
 
+  var nImg = document.getElementById('nav-avatar-img');
+  if (nImg) { nImg.src = ''; nImg.style.display = 'none'; }
   var nPh = document.getElementById('nav-avatar-placeholder');
   if (nPh) {
     nPh.innerHTML = defaultSvg;
+    nPh.style.display = 'flex';
     nPh.classList.remove('creator-outline-avatar', 'creator-snow-avatar', 'creator-rgb-avatar');
     nPh.style.background = '';
     nPh.style.color = '';
     nPh.title = 'Guest Member';
     nPh.removeAttribute('aria-label');
   }
+
+  var setImg = document.getElementById('settings-pfp-img');
+  if (setImg) { setImg.src = ''; setImg.style.display = 'none'; }
 
   // Purge any active cosmetic badges and outline overlays from avatar wrappers on logout
   var navCircle = document.querySelector('.nav-avatar-circle');
@@ -4474,11 +4515,13 @@ function hasActiveCustomPhoto() {
   }
   var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   if (id) {
+    if (typeof sessionGet === 'function') {
+      var sPhoto = sessionGet('photo_url');
+      if (sPhoto && sPhoto.length > 5 && !sPhoto.endsWith('#')) return true;
+      if (sPhoto === '' || sPhoto === null) return false;
+    }
     var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     if (typeof localStorage !== 'undefined' && localStorage.getItem('bb_pfp_' + cleanFileName)) {
-      return true;
-    }
-    if (typeof sessionGet === 'function' && (sessionGet('pfp_cache_' + cleanFileName) || sessionGet('photo_url'))) {
       return true;
     }
   }
@@ -4537,7 +4580,13 @@ async function removePfp(e) {
     for (var i = 0; i < targetFileNames.length; i++) {
       if (!await client.deleteFile('avatars', targetFileNames[i])) throw new Error('Storage rejected deletion');
     }
-    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: null });
+    var updateFilter = (ic && email && ic !== email)
+      ? ('bb_members?or=(ic.eq.' + encodeURIComponent(ic) + ',email.eq.' + encodeURIComponent(email) + ')')
+      : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
+    var updated = await client.patch(updateFilter, { photo_url: null });
+    if (!updated || (Array.isArray(updated) && updated.length === 0)) {
+      updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic || id), { photo_url: null });
+    }
     if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
   } catch (_) {
     if (typeof showToast === 'function') showToast('Profile photo removal could not be confirmed. Please retry.', 'error');
@@ -4557,10 +4606,28 @@ async function removePfp(e) {
     }
   });
   if (typeof sessionSet === 'function') {
-    sessionSet('photo_url', null);
+    sessionSet('photo_url', '');
   }
 
-  // 2. Update the directory avatar index.
+  // 2. Update local member cache
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var rawMems = localStorage.getItem('bb_members_cache');
+      if (rawMems) {
+        var memArr = JSON.parse(rawMems);
+        if (Array.isArray(memArr)) {
+          memArr.forEach(function(m) {
+            if (m && ((ic && m.ic === ic) || (email && m.email === email) || (m.ic === id))) {
+              m.photo_url = null;
+            }
+          });
+          localStorage.setItem('bb_members_cache', JSON.stringify(memArr));
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Update the directory avatar index.
   var directorySyncFailed = false;
   try {
     if (typeof _memberPfpsMap !== 'undefined') {
@@ -4646,7 +4713,7 @@ async function renderDashboard() {
 
   try {
     var client = getSupa();
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
+    var data = await client.get('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')&select=*');
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!data || !data.length) throw new Error('Member record unavailable');
 
@@ -4740,58 +4807,121 @@ async function renderDashboard() {
     renderMemberAvatar(m.name, displayEmail);
     setRemovePfpButtonVisible();
 
-    // Load profile avatar from Supabase Storage / local cache
+    // Load profile avatar: Authoritative remote profile picture from Supabase bb_members
     try {
-      var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-      var cachedPfp = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_pfp_' + cleanFileName) : null;
-      if (!cachedPfp && typeof sessionGet === 'function') {
-        cachedPfp = sessionGet('pfp_cache_' + cleanFileName);
-      }
-      if (cachedPfp) {
-        var cImg = document.getElementById('m-pfp-img');
-        var cPh  = document.getElementById('m-pfp-ph');
-        if (cImg) { cImg.src = cachedPfp; cImg.style.display = 'block'; }
-        if (cPh)  cPh.style.display = 'none';
-        var csImg = document.getElementById('sidebar-user-avatar-img');
-        var csPh  = document.getElementById('sidebar-user-avatar-ph');
-        if (csImg) { csImg.src = cachedPfp; csImg.style.display = 'block'; }
-        if (csPh)  csPh.style.display = 'none';
-        var cNavImg = document.getElementById('nav-avatar-img');
-        var cNavPh  = document.getElementById('nav-avatar-placeholder');
-        if (cNavImg) { cNavImg.src = cachedPfp; cNavImg.style.display = 'block'; }
-        if (cNavPh)  cNavPh.style.display = 'none';
-        if (typeof sessionSet === 'function') sessionSet('photo_url', cachedPfp, { localOnly: true });
-        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
-        setRemovePfpButtonVisible(true);
-      }
+      var cleanFileName = (m.ic || m.email || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+      var authoritativePhoto = (typeof normalizeAvatarUrl === 'function')
+        ? normalizeAvatarUrl(m.photo_url)
+        : (m.photo_url || '');
 
-      var pfpUrl = client.fileUrl('avatars', cleanFileName);
-      var testImg = new Image();
-      testImg.onload = function() {
-        if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+      var applyAvatarPhoto = function(url) {
+        var normUrl = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(url) : url;
         var img = document.getElementById('m-pfp-img');
         var ph  = document.getElementById('m-pfp-ph');
-        if (img) { img.src = pfpUrl; img.style.display = 'block'; }
+        if (img) { img.src = normUrl; img.style.display = 'block'; }
         if (ph)  ph.style.display = 'none';
         var sImg = document.getElementById('sidebar-user-avatar-img');
         var sPh  = document.getElementById('sidebar-user-avatar-ph');
-        if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
+        if (sImg) { sImg.src = normUrl; sImg.style.display = 'block'; }
         if (sPh)  sPh.style.display = 'none';
         var nImg = document.getElementById('nav-avatar-img');
         var nPh  = document.getElementById('nav-avatar-placeholder');
-        if (nImg) { nImg.src = pfpUrl; nImg.style.display = 'block'; }
+        if (nImg) { nImg.src = normUrl; nImg.style.display = 'block'; }
         if (nPh)  nPh.style.display = 'none';
-        if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl, { localOnly: true });
+        if (typeof sessionSet === 'function') sessionSet('photo_url', normUrl, { localOnly: true });
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('bb_pfp_' + cleanFileName, normUrl); } catch (_) {}
+        }
+        if (typeof _memberPfpsMap !== 'undefined') {
+          if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = normUrl;
+          if (m.email) _memberPfpsMap[m.email.toLowerCase()] = normUrl;
+          if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = normUrl;
+          _memberPfpsMap[id.toLowerCase()] = normUrl;
+        }
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
         setRemovePfpButtonVisible(true);
       };
-      testImg.onerror = function() {
-        if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-        if (!hasActiveCustomPhoto()) {
-          setRemovePfpButtonVisible(false);
+
+      var applyNoPhoto = function() {
+        var img = document.getElementById('m-pfp-img');
+        var ph  = document.getElementById('m-pfp-ph');
+        if (img) { img.src = ''; img.style.display = 'none'; }
+        if (ph)  ph.style.display = 'flex';
+        var sImg = document.getElementById('sidebar-user-avatar-img');
+        var sPh  = document.getElementById('sidebar-user-avatar-ph');
+        if (sImg) { sImg.src = ''; sImg.style.display = 'none'; }
+        if (sPh)  sPh.style.display = 'flex';
+        var nImg = document.getElementById('nav-avatar-img');
+        var nPh  = document.getElementById('nav-avatar-placeholder');
+        if (nImg) { nImg.src = ''; nImg.style.display = 'none'; }
+        if (nPh)  nPh.style.display = 'flex';
+        if (typeof sessionSet === 'function') sessionSet('photo_url', '', { localOnly: true });
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.removeItem('bb_pfp_' + cleanFileName); } catch (_) {}
         }
+        if (typeof _memberPfpsMap !== 'undefined') {
+          if (m.ic) delete _memberPfpsMap[m.ic.toLowerCase()];
+          if (m.email) delete _memberPfpsMap[m.email.toLowerCase()];
+          if (m.name) delete _memberPfpsMap[m.name.trim().toLowerCase()];
+          delete _memberPfpsMap[id.toLowerCase()];
+        }
+        setRemovePfpButtonVisible(false);
+        renderMemberAvatar(m.name, displayEmail);
+        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
       };
-      testImg.src = pfpUrl + '?t=' + Date.now();
+
+      if (authoritativePhoto) {
+        var testImg = new Image();
+        testImg.onload = function() {
+          if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+          applyAvatarPhoto(authoritativePhoto);
+        };
+        testImg.onerror = function() {
+          if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+          var publicStorageUrl = (typeof client.fileUrl === 'function')
+            ? client.fileUrl('avatars', cleanFileName, { private: false }) + '?t=' + Date.now()
+            : '';
+          if (publicStorageUrl && publicStorageUrl !== authoritativePhoto) {
+            var retryImg = new Image();
+            retryImg.onload = function() {
+              if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+              applyAvatarPhoto(publicStorageUrl);
+            };
+            retryImg.onerror = function() {
+              if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+              applyNoPhoto();
+            };
+            retryImg.src = publicStorageUrl;
+          } else {
+            applyNoPhoto();
+          }
+        };
+        testImg.src = authoritativePhoto;
+        if (testImg.complete && testImg.naturalWidth > 0) {
+          applyAvatarPhoto(authoritativePhoto);
+        }
+      } else {
+        var fallbackStorageUrl = (typeof client.fileUrl === 'function')
+          ? client.fileUrl('avatars', cleanFileName, { private: false }) + '?t=' + Date.now()
+          : '';
+        if (fallbackStorageUrl) {
+          var unlinkedImg = new Image();
+          unlinkedImg.onload = function() {
+            if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+            applyAvatarPhoto(fallbackStorageUrl);
+            try {
+              client.patch('bb_members?or=(ic.eq.' + encodeURIComponent(m.ic || id) + ',email.eq.' + encodeURIComponent(m.email || id) + ')', { photo_url: fallbackStorageUrl });
+            } catch (_) {}
+          };
+          unlinkedImg.onerror = function() {
+            if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+            applyNoPhoto();
+          };
+          unlinkedImg.src = fallbackStorageUrl;
+        } else {
+          applyNoPhoto();
+        }
+      }
     } catch (e) {}
 
     _renderedMemberId = id;
@@ -5183,55 +5313,75 @@ async function uploadPfp(input) {
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
     var client = getSupa();
-    var cleanFileName = id.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    var curIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
+    var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
+    var curName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+    var cleanFileName = (curIc || curEmail || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     await client.uploadFile('avatars', cleanFileName, cleanBlob);
-    var signed = typeof client.createSignedUrl === 'function'
-      ? await client.createSignedUrl('avatars', cleanFileName, 86400)
-      : null;
-    var pfpUrl = signed && signed.signedUrl
-      ? signed.signedUrl
-      : client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now();
-    var updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(id), { photo_url: pfpUrl });
+
+    var publicUrl = (typeof client.fileUrl === 'function')
+      ? client.fileUrl('avatars', cleanFileName, { private: false })
+      : '';
+    var pfpUrl = (publicUrl ? publicUrl + '?t=' + Date.now() : '');
+    if (!pfpUrl) {
+      var signed = typeof client.createSignedUrl === 'function'
+        ? await client.createSignedUrl('avatars', cleanFileName, 86400)
+        : null;
+      pfpUrl = (signed && signed.signedUrl) ? signed.signedUrl : (client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now());
+    }
+
+    var patchFilter = (curIc && curEmail && curIc !== curEmail)
+      ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')')
+      : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
+    var updated = await client.patch(patchFilter, { photo_url: pfpUrl });
+    if (!updated || (Array.isArray(updated) && updated.length === 0)) {
+      updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(curIc || id), { photo_url: pfpUrl });
+    }
     if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
+    var normUrl = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(pfpUrl) : pfpUrl;
     var img = document.getElementById('m-pfp-img');
     var ph  = document.getElementById('m-pfp-ph');
-    if (img) { img.src = pfpUrl; img.style.display = 'block'; }
+    if (img) { img.src = normUrl; img.style.display = 'block'; }
     if (ph)  ph.style.display = 'none';
     var sImg = document.getElementById('sidebar-user-avatar-img');
     var sPh  = document.getElementById('sidebar-user-avatar-ph');
-    if (sImg) { sImg.src = pfpUrl; sImg.style.display = 'block'; }
+    if (sImg) { sImg.src = normUrl; sImg.style.display = 'block'; }
     if (sPh)  sPh.style.display = 'none';
     var navAvatarImg = document.getElementById('nav-avatar-img');
     var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
-    if (navAvatarImg) { navAvatarImg.src = pfpUrl; navAvatarImg.style.display = 'block'; }
+    if (navAvatarImg) { navAvatarImg.src = normUrl; navAvatarImg.style.display = 'block'; }
     if (navAvatarPh)  navAvatarPh.style.display = 'none';
-    if (typeof sessionSet === 'function') sessionSet('photo_url', pfpUrl);
+    if (typeof sessionSet === 'function') sessionSet('photo_url', normUrl);
     if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
     setRemovePfpButtonVisible(true);
 
-    // Store only a confirmed upload in the offline avatar cache.
-    if (typeof sessionSet === 'function') {
+    // Store confirmed upload in offline avatar cache
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem('bb_pfp_' + cleanFileName, normUrl); } catch (_) {}
       try {
-        var reader = new FileReader();
-        reader.onloadend = function() {
-          if (reader.result && (sessionGet('ic') || sessionGet('email')) === id && sessionGet('photo_url') === pfpUrl) {
-            sessionSet('pfp_cache_' + cleanFileName, reader.result, { localOnly: true });
-            if (typeof localStorage !== 'undefined') {
-              try { localStorage.setItem('bb_pfp_' + cleanFileName, reader.result); } catch (_) {}
-            }
+        var rawCache = localStorage.getItem('bb_members_cache');
+        if (rawCache) {
+          var cacheArr = JSON.parse(rawCache);
+          if (Array.isArray(cacheArr)) {
+            cacheArr.forEach(function(m) {
+              if (m && ((curIc && m.ic === curIc) || (curEmail && m.email === curEmail) || m.ic === id)) {
+                m.photo_url = normUrl;
+              }
+            });
+            localStorage.setItem('bb_members_cache', JSON.stringify(cacheArr));
           }
-        };
-        reader.readAsDataURL(cleanBlob);
+        }
       } catch (_) {}
     }
 
-    // Synchronize the directory avatar index after the member record is saved.
+    // Synchronize the directory avatar index across identifiers
     if (typeof _memberPfpsMap !== 'undefined') {
-      _memberPfpsMap[id.toLowerCase()] = pfpUrl;
-      var curName = sessionGet('name');
-      if (curName) _memberPfpsMap[curName.trim().toLowerCase()] = pfpUrl;
+      _memberPfpsMap[id.toLowerCase()] = normUrl;
+      if (curIc) _memberPfpsMap[curIc.toLowerCase()] = normUrl;
+      if (curEmail) _memberPfpsMap[curEmail.toLowerCase()] = normUrl;
+      if (curName) _memberPfpsMap[curName.trim().toLowerCase()] = normUrl;
       try {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
@@ -5247,12 +5397,12 @@ async function uploadPfp(input) {
       }
     }
     var pr = (typeof window !== 'undefined' && window.PortalRealtime)
-    ? window.PortalRealtime
-    : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
+      ? window.PortalRealtime
+      : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
     if (pr && typeof pr.broadcast === 'function') {
       try {
-        pr.broadcast('members', 'update', { ic: id, photo_url: pfpUrl, name: sessionGet('name') });
-        pr.broadcast('pfps', 'update', { key: 'bb_member_pfps' });
+        pr.broadcast('members', 'update', { ic: curIc || id, email: curEmail || id, name: curName || sessionGet('name'), photo_url: normUrl });
+        pr.broadcast('pfps', 'update', { key: 'bb_member_pfps', id: curIc || id, email: curEmail || id, name: curName, photo_url: normUrl });
       } catch (_) {}
     }
     if (typeof showToast === 'function') showToast('Profile picture updated successfully.', 'success');
@@ -5271,10 +5421,15 @@ async function refreshLoggedInUserProfile() {
   if (typeof sessionGet !== 'function') return;
   var id = sessionGet('ic') || sessionGet('email');
   if (!id) return;
+  var curEmail = sessionGet('email');
+  var curIc = sessionGet('ic');
   try {
     var client = getSupa();
     if (!client || typeof client.get !== 'function') return;
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=ic,email,name,rank,squad,section,department,att_section,joined_at');
+    var query = (curIc && curEmail && curIc !== curEmail)
+      ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at,photo_url')
+      : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at,photo_url');
+    var data = await client.get(query);
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!data || data.length === 0 || (data[0] && (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))) {
       if (typeof forceKickDeletedAccount === 'function') {
@@ -5297,13 +5452,67 @@ async function refreshLoggedInUserProfile() {
         var sb = document.getElementById('sidebar-user-badge');
         if (sb) sb.textContent = m.rank || 'Member';
       }
+
+      var cleanFileName = (m.ic || m.email || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
       if (m.photo_url) {
-        if (sessionGet('photo_url') !== m.photo_url) sessionSet('photo_url', m.photo_url, { localOnly: true });
-        if (typeof _memberPfpsMap !== 'undefined') {
-          _memberPfpsMap[id.toLowerCase()] = m.photo_url;
-          if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = m.photo_url;
+        var normPhoto = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(m.photo_url) : m.photo_url;
+        if (sessionGet('photo_url') !== normPhoto) sessionSet('photo_url', normPhoto, { localOnly: true });
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('bb_pfp_' + cleanFileName, normPhoto); } catch (_) {}
         }
+        if (typeof _memberPfpsMap !== 'undefined') {
+          _memberPfpsMap[id.toLowerCase()] = normPhoto;
+          if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = normPhoto;
+          if (m.email) _memberPfpsMap[m.email.toLowerCase()] = normPhoto;
+          if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = normPhoto;
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+            }
+          } catch (_) {}
+        }
+        var mImg = document.getElementById('m-pfp-img');
+        var mPh  = document.getElementById('m-pfp-ph');
+        if (mImg && mImg.src !== normPhoto) { mImg.src = normPhoto; mImg.style.display = 'block'; }
+        if (mPh)  mPh.style.display = 'none';
+        var sImg = document.getElementById('sidebar-user-avatar-img');
+        var sPh  = document.getElementById('sidebar-user-avatar-ph');
+        if (sImg && sImg.src !== normPhoto) { sImg.src = normPhoto; sImg.style.display = 'block'; }
+        if (sPh)  sPh.style.display = 'none';
+        var nImg = document.getElementById('nav-avatar-img');
+        var nPh  = document.getElementById('nav-avatar-placeholder');
+        if (nImg && nImg.src !== normPhoto) { nImg.src = normPhoto; nImg.style.display = 'block'; }
+        if (nPh)  nPh.style.display = 'none';
+        if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(true);
+        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+      } else if (m.photo_url === null || m.photo_url === '') {
+        if (sessionGet('photo_url')) sessionSet('photo_url', '', { localOnly: true });
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.removeItem('bb_pfp_' + cleanFileName); } catch (_) {}
+        }
+        if (typeof _memberPfpsMap !== 'undefined') {
+          delete _memberPfpsMap[id.toLowerCase()];
+          if (m.ic) delete _memberPfpsMap[m.ic.toLowerCase()];
+          if (m.email) delete _memberPfpsMap[m.email.toLowerCase()];
+          if (m.name) delete _memberPfpsMap[m.name.trim().toLowerCase()];
+        }
+        var mImgNo = document.getElementById('m-pfp-img');
+        var mPhNo  = document.getElementById('m-pfp-ph');
+        if (mImgNo) { mImgNo.src = ''; mImgNo.style.display = 'none'; }
+        if (mPhNo)  mPhNo.style.display = 'flex';
+        var sImgNo = document.getElementById('sidebar-user-avatar-img');
+        var sPhNo  = document.getElementById('sidebar-user-avatar-ph');
+        if (sImgNo) { sImgNo.src = ''; sImgNo.style.display = 'none'; }
+        if (sPhNo)  sPhNo.style.display = 'flex';
+        var nImgNo = document.getElementById('nav-avatar-img');
+        var nPhNo  = document.getElementById('nav-avatar-placeholder');
+        if (nImgNo) { nImgNo.src = ''; nImgNo.style.display = 'none'; }
+        if (nPhNo)  nPhNo.style.display = 'flex';
+        if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(false);
+        if (typeof renderMemberAvatar === 'function') renderMemberAvatar(m.name, m.email);
+        if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
       }
+
       if (m.department !== undefined && sessionGet('department') !== (m.department || '')) {
         sessionSet('department', m.department || '', { localOnly: true });
       }

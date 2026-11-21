@@ -1499,10 +1499,10 @@ var PortalRealtime = (function() {
 
       var memberRows = null;
       try {
-        memberRows = await client.get('bb_members?select=ic,updated_at&order=updated_at.desc&limit=1', { cache: false });
+        memberRows = await client.get('bb_members?select=ic,email,name,photo_url,updated_at&order=updated_at.desc&limit=1', { cache: false });
       } catch (_) {
         try {
-          memberRows = await client.get('bb_members?select=ic&limit=1', { cache: false });
+          memberRows = await client.get('bb_members?select=ic,email,name,photo_url&limit=1', { cache: false });
         } catch (__) {
           memberRows = null;
         }
@@ -1654,6 +1654,26 @@ var PortalRealtime = (function() {
     }
 
     if (entity === 'pfps') {
+      if (data && data.photo_url !== undefined && typeof _memberPfpsMap !== 'undefined') {
+        var normPhoto = data.photo_url ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(data.photo_url) : data.photo_url) : null;
+        var pfpId = data.ic || data.id || data.email;
+        if (normPhoto) {
+          if (pfpId) _memberPfpsMap[pfpId.toLowerCase()] = normPhoto;
+          if (data.ic) _memberPfpsMap[data.ic.toLowerCase()] = normPhoto;
+          if (data.email) _memberPfpsMap[data.email.toLowerCase()] = normPhoto;
+          if (data.name) _memberPfpsMap[data.name.trim().toLowerCase()] = normPhoto;
+        } else {
+          if (pfpId) delete _memberPfpsMap[pfpId.toLowerCase()];
+          if (data.ic) delete _memberPfpsMap[data.ic.toLowerCase()];
+          if (data.email) delete _memberPfpsMap[data.email.toLowerCase()];
+          if (data.name) delete _memberPfpsMap[data.name.trim().toLowerCase()];
+        }
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+          }
+        } catch (_) {}
+      }
       var loadPfpsFn = (typeof loadMemberProfilePictures === 'function')
         ? loadMemberProfilePictures
         : (typeof window !== 'undefined' && typeof window.loadMemberProfilePictures === 'function' ? window.loadMemberProfilePictures : null);
@@ -1662,6 +1682,7 @@ var PortalRealtime = (function() {
           if (typeof window !== 'undefined') {
             if (typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
             if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView();
+            if (typeof window.renderArcadeLeaderboardView === 'function') window.renderArcadeLeaderboardView();
           }
         }).catch(function() {});
       }
@@ -2345,11 +2366,14 @@ var PortalRealtime = (function() {
 
         // Update profile picture cache map if photo_url changed
         if (data.photo_url !== undefined && typeof _memberPfpsMap !== 'undefined') {
-          if (data.photo_url) {
-            _memberPfpsMap[data.ic.toLowerCase()] = data.photo_url;
-            if (data.name) _memberPfpsMap[data.name.trim().toLowerCase()] = data.photo_url;
+          var normPfp = data.photo_url ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(data.photo_url) : data.photo_url) : null;
+          if (normPfp) {
+            _memberPfpsMap[data.ic.toLowerCase()] = normPfp;
+            if (data.email) _memberPfpsMap[data.email.toLowerCase()] = normPfp;
+            if (data.name) _memberPfpsMap[data.name.trim().toLowerCase()] = normPfp;
           } else {
             delete _memberPfpsMap[data.ic.toLowerCase()];
+            if (data.email) delete _memberPfpsMap[data.email.toLowerCase()];
             if (data.name) delete _memberPfpsMap[data.name.trim().toLowerCase()];
           }
           try {
@@ -2360,11 +2384,18 @@ var PortalRealtime = (function() {
         }
       }
 
-      var currentIc = sessGetFn ? (sessGetFn('ic') || sessGetFn('email')) : '';
+      var currentIc = sessGetFn ? (sessGetFn('ic') || '') : '';
+      var currentEmail = sessGetFn ? (sessGetFn('email') || '') : '';
       var currentName = sessGetFn ? sessGetFn('name') : '';
-      var isMe = (data && data.ic && currentIc && data.ic.toLowerCase() === currentIc.toLowerCase()) ||
-                 (data && data.name && currentName && data.name.toLowerCase() === currentName.toLowerCase()) ||
-                 !data || !data.ic;
+      var isMe = false;
+      if (data) {
+        if (data.ic && ((currentIc && data.ic.toLowerCase() === currentIc.toLowerCase()) || (currentEmail && data.ic.toLowerCase() === currentEmail.toLowerCase()))) isMe = true;
+        if (data.email && ((currentEmail && data.email.toLowerCase() === currentEmail.toLowerCase()) || (currentIc && data.email.toLowerCase() === currentIc.toLowerCase()))) isMe = true;
+        if (data.name && currentName && data.name.trim().toLowerCase() === currentName.trim().toLowerCase()) isMe = true;
+        if (!data.ic && !data.email && !data.name) isMe = true;
+      } else {
+        isMe = true;
+      }
 
       if (isMe) {
         if (data && data.ic) {
@@ -2373,7 +2404,17 @@ var PortalRealtime = (function() {
           if (data.squad !== undefined && sessSetFn) sessSetFn('squad', data.squad, { localOnly: true });
           if (data.department !== undefined && sessSetFn) sessSetFn('department', data.department, { localOnly: true });
           if ((data.att_section || data.section) && sessSetFn) sessSetFn('section', data.att_section || data.section, { localOnly: true });
-          if (data.photo_url !== undefined && sessSetFn) sessSetFn('photo_url', data.photo_url, { localOnly: true });
+          if (data.photo_url !== undefined && sessSetFn) {
+            var normPhoto = data.photo_url ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(data.photo_url) : data.photo_url) : '';
+            sessSetFn('photo_url', normPhoto, { localOnly: true });
+            var cleanFn = (data.ic || currentIc || currentEmail || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+            if (typeof localStorage !== 'undefined') {
+              try {
+                if (normPhoto) localStorage.setItem('bb_pfp_' + cleanFn, normPhoto);
+                else localStorage.removeItem('bb_pfp_' + cleanFn);
+              } catch (_) {}
+            }
+          }
 
           var sn = (typeof document !== 'undefined') ? document.getElementById('sidebar-user-name') : null;
           if (sn && data.name) sn.textContent = data.name;
@@ -2411,13 +2452,18 @@ var PortalRealtime = (function() {
               var sPh = document.getElementById('sidebar-user-avatar-ph');
               var nImg = document.getElementById('nav-avatar-img');
               var nPh = document.getElementById('nav-avatar-placeholder');
-              if (data.photo_url) {
-                if (mImg) { mImg.src = data.photo_url; mImg.style.display = 'block'; }
+              var setImg = document.getElementById('settings-pfp-img');
+              var setPh = document.getElementById('settings-pfp-ph');
+              var activeNormPhoto = data.photo_url ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(data.photo_url) : data.photo_url) : '';
+              if (activeNormPhoto) {
+                if (mImg) { mImg.src = activeNormPhoto; mImg.style.display = 'block'; }
                 if (mPh) mPh.style.display = 'none';
-                if (sImg) { sImg.src = data.photo_url; sImg.style.display = 'block'; }
+                if (sImg) { sImg.src = activeNormPhoto; sImg.style.display = 'block'; }
                 if (sPh) sPh.style.display = 'none';
-                if (nImg) { nImg.src = data.photo_url; nImg.style.display = 'block'; }
+                if (nImg) { nImg.src = activeNormPhoto; nImg.style.display = 'block'; }
                 if (nPh) nPh.style.display = 'none';
+                if (setImg) { setImg.src = activeNormPhoto; setImg.style.display = 'block'; }
+                if (setPh) setPh.style.display = 'none';
               } else {
                 if (mImg) { mImg.src = ''; mImg.style.display = 'none'; }
                 if (mPh) mPh.style.display = 'flex';
@@ -2425,8 +2471,17 @@ var PortalRealtime = (function() {
                 if (sPh) sPh.style.display = 'flex';
                 if (nImg) { nImg.src = ''; nImg.style.display = 'none'; }
                 if (nPh) nPh.style.display = 'flex';
+                if (setImg) { setImg.src = ''; setImg.style.display = 'none'; }
+                if (setPh) setPh.style.display = 'flex';
               }
+              if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(!!activeNormPhoto);
+              if (typeof renderMemberAvatar === 'function' && !activeNormPhoto) renderMemberAvatar(data.name || currentName, currentEmail);
             }
+          }
+
+          if (typeof window !== 'undefined') {
+            if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView();
+            if (typeof window.renderArcadeLeaderboardView === 'function') window.renderArcadeLeaderboardView();
           }
 
           var rbacObj = (typeof RBAC !== 'undefined') ? RBAC : (typeof window !== 'undefined' && typeof window.RBAC !== 'undefined') ? window.RBAC : (typeof global !== 'undefined' ? global.RBAC : null);
@@ -2526,6 +2581,9 @@ var PortalRealtime = (function() {
 if (typeof window !== 'undefined') {
   window.PortalRealtime = PortalRealtime;
 }
+if (typeof global !== 'undefined') {
+  global.PortalRealtime = PortalRealtime;
+}
 
 // Attach to window for global access across the app
 if (typeof window !== 'undefined') {
@@ -2543,6 +2601,7 @@ if (typeof module !== 'undefined' && module.exports) {
     PortalRealtime,
     broadcastRealtime: PortalRealtime.broadcast,
     triggerRealtime: PortalRealtime.trigger,
+    triggerEntityUpdate: PortalRealtime.trigger,
     supa,
     getSupaClient,
     getSupa: getSupaClient,

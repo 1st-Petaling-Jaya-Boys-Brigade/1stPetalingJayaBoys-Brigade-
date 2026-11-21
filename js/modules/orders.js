@@ -1249,7 +1249,7 @@ async function populateOrderBar(ic) {
   if (!client || !client.get) return;
 
   try {
-    var data = await client.get('bb_members?ic=eq.' + encodeURIComponent(ic) + '&select=name,rank,squad');
+    var data = await client.get('bb_members?or=(ic.eq.' + encodeURIComponent(ic) + ',email.eq.' + encodeURIComponent(ic) + ')&select=name,rank,squad,photo_url');
     if (!data || !data.length) return;
     var m = data[0];
 
@@ -1265,10 +1265,15 @@ async function populateOrderBar(ic) {
       if (squadIl) squadIl.textContent = m.squad ? m.squad + ' Platoon \xb7' : '';
       if (squadEl) squadEl.textContent = m.squad ? m.squad + ' Platoon' : '\u2014';
 
-      // Load profile picture from Supabase Storage
+      // Load profile picture from Supabase Storage / member record
       try {
-        if (typeof client.fileUrl === 'function') {
-          var pfpUrl = client.fileUrl('avatars', ic + '.jpg');
+        var pfpUrl = (m && m.photo_url)
+          ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(m.photo_url) : m.photo_url)
+          : ((typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(m.name, ic) : null);
+        if (!pfpUrl && typeof client.fileUrl === 'function') {
+          pfpUrl = client.fileUrl('avatars', ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg', { private: false });
+        }
+        if (pfpUrl) {
           var testImg = new Image();
           testImg.onload = function () {
             var img = document.getElementById('order-pfp-img');
@@ -1279,7 +1284,7 @@ async function populateOrderBar(ic) {
             }
             if (ph) ph.style.display = 'none';
           };
-          testImg.src = pfpUrl + '?t=' + Date.now();
+          testImg.src = pfpUrl.includes('?') ? pfpUrl : (pfpUrl + '?t=' + Date.now());
         }
       } catch (ePfp) {}
     }
