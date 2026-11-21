@@ -3908,12 +3908,18 @@ window.addEventListener('visibilitychange', function() {
     if (typeof verifyActiveMemberSession === 'function' && typeof sessionGet === 'function' && sessionGet('ic')) {
       verifyActiveMemberSession().catch(function() {});
     }
+    if (typeof refreshLoggedInUserProfile === 'function' && typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email'))) {
+      refreshLoggedInUserProfile().catch(function() {});
+    }
     if (typeof PortalRealtime !== 'undefined' && typeof PortalRealtime.checkDeltaSync === 'function') PortalRealtime.checkDeltaSync();
   }
 });
 window.addEventListener('focus', function() {
   if (typeof verifyActiveMemberSession === 'function' && typeof sessionGet === 'function' && sessionGet('ic')) {
     verifyActiveMemberSession().catch(function() {});
+  }
+  if (typeof refreshLoggedInUserProfile === 'function' && typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email'))) {
+    refreshLoggedInUserProfile().catch(function() {});
   }
   if (typeof PortalRealtime !== 'undefined' && typeof PortalRealtime.checkDeltaSync === 'function') PortalRealtime.checkDeltaSync();
 });
@@ -5343,13 +5349,31 @@ function updateNavUserHeader() {
       var displayName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
       photoUrl = getMemberAvatarUrl(displayName, ic);
     }
-    if (photoUrl && avatarImg) {
-      avatarImg.src = photoUrl;
-      avatarImg.style.display = 'block';
+    var sAvatarImg = document.getElementById('sidebar-user-avatar-img');
+    var sAvatarPh = document.getElementById('sidebar-user-avatar-ph');
+    if (photoUrl) {
+      var normHeaderPhoto = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(photoUrl) : photoUrl;
+      if (avatarImg) {
+        avatarImg.src = normHeaderPhoto;
+        avatarImg.style.display = 'block';
+      }
       if (avatarPh) avatarPh.style.display = 'none';
+      if (sAvatarImg) {
+        sAvatarImg.src = normHeaderPhoto;
+        sAvatarImg.style.display = 'block';
+      }
+      if (sAvatarPh) sAvatarPh.style.display = 'none';
     } else {
-      if (avatarImg) avatarImg.style.display = 'none';
+      if (avatarImg) {
+        avatarImg.src = '';
+        avatarImg.style.display = 'none';
+      }
       if (avatarPh) avatarPh.style.display = 'flex';
+      if (sAvatarImg) {
+        sAvatarImg.src = '';
+        sAvatarImg.style.display = 'none';
+      }
+      if (sAvatarPh) sAvatarPh.style.display = 'flex';
       var mName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
       var mEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
       if (typeof renderMemberAvatar === 'function') {

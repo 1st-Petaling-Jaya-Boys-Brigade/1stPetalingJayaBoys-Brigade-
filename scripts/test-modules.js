@@ -16325,7 +16325,278 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
-console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
+  // Suite 86: Universal Cross-Device Profile Picture Real-Time Synchronization & Cache Invalidation
+  {
+    console.log('\n--- Suite 86: Universal Cross-Device Profile Picture Real-Time Synchronization & Cache Invalidation ---');
+
+    const utilsMod = require('../js/core/utils.js');
+    const memberMod = require('../js/modules/member.js');
+    const supaMod = require('../js/api/supabase.js');
+    const sessionMod = require('../js/core/session.js');
+
+    global.sessionGet = sessionMod.sessionGet;
+    if (typeof window !== 'undefined') window.sessionGet = sessionMod.sessionGet;
+    global.sessionSet = sessionMod.sessionSet;
+    if (typeof window !== 'undefined') window.sessionSet = sessionMod.sessionSet;
+
+    // 1. normalizeAvatarUrl transforms authenticated storage URLs to public URLs
+    const rawAuthUrl = 'https://abcdef.supabase.co/storage/v1/object/authenticated/avatars/chickenfans0_gmail_com.jpg';
+    const normalizedUrl = utilsMod.normalizeAvatarUrl(rawAuthUrl);
+    assert.strictEqual(
+      normalizedUrl,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/chickenfans0_gmail_com.jpg',
+      'normalizeAvatarUrl must replace authenticated path with public path to prevent 401 image load failures'
+    );
+    assert.strictEqual(
+      utilsMod.normalizeAvatarUrl('https://example.com/cat.jpg'),
+      'https://example.com/cat.jpg',
+      'normalizeAvatarUrl preserves external HTTP/HTTPS avatar URLs'
+    );
+    assert.strictEqual(
+      utilsMod.normalizeAvatarUrl('', 'tester.jpg').includes('/storage/v1/object/public/avatars/tester.jpg'),
+      true,
+      'normalizeAvatarUrl creates public avatar URL from fallback file name'
+    );
+    console.log('  ✔ normalizeAvatarUrl reliably bridges authenticated storage paths to public object URLs');
+
+    // 2. loadMemberProfilePictures warms up cache from both bb_config and bb_members
+    const mockSupaClient = {
+      get: async (endpoint) => {
+        if (endpoint.includes('bb_config')) {
+          return [{
+            value: JSON.stringify({
+              'oliver@test.com': 'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg'
+            })
+          }];
+        }
+        if (endpoint.includes('bb_members')) {
+          return [
+            {
+              ic: '080101-14-1234',
+              email: 'chickenfans0@gmail.com',
+              name: 'Oliver Ling Chee Sheng',
+              photo_url: 'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg'
+            },
+            {
+              ic: '090202-14-5678',
+              email: 'jayden@test.com',
+              name: 'Jayden Wong',
+              photo_url: 'https://abcdef.supabase.co/storage/v1/object/public/avatars/jayden.jpg'
+            }
+          ];
+        }
+        return [];
+      }
+    };
+    global.supa = mockSupaClient;
+    if (typeof window !== 'undefined') window.supa = mockSupaClient;
+
+    const pfpsMap = await utilsMod.loadMemberProfilePictures();
+    assert.strictEqual(
+      pfpsMap['chickenfans0@gmail.com'],
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'loadMemberProfilePictures maps member by email'
+    );
+    assert.strictEqual(
+      pfpsMap['080101-14-1234'],
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'loadMemberProfilePictures maps member by IC'
+    );
+    assert.strictEqual(
+      pfpsMap['oliver ling chee sheng'],
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'loadMemberProfilePictures maps member by full name'
+    );
+    console.log('  ✔ loadMemberProfilePictures populates multi-identifier directory avatar map across all devices');
+
+    // 3. getMemberAvatarUrl respects explicit no-photo status and never leaks stale localStorage
+    localStorage.setItem('bb_pfp_chickenfans0_gmail_com.jpg', 'data:image/jpeg;base64,STALE_MAN_IN_SUIT_PHOTO');
+    global.sessionSet('ic', '080101-14-1234', { localOnly: true });
+    global.sessionSet('email', 'chickenfans0@gmail.com', { localOnly: true });
+    global.sessionSet('name', 'Oliver Ling Chee Sheng', { localOnly: true });
+    global.sessionSet('photo_url', '', { localOnly: true }); // Explicitly no photo
+
+    const noPhotoAvatar = utilsMod.getMemberAvatarUrl('Oliver Ling Chee Sheng', 'chickenfans0@gmail.com');
+    assert.strictEqual(
+      noPhotoAvatar,
+      null,
+      'When user explicitly has no photo, getMemberAvatarUrl must return null and NOT serve stale localStorage photo'
+    );
+
+    // Now set active cat photo in session
+    global.sessionSet('photo_url', 'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg', { localOnly: true });
+    const freshPhotoAvatar = utilsMod.getMemberAvatarUrl('Oliver Ling Chee Sheng', 'chickenfans0@gmail.com');
+    assert.strictEqual(
+      freshPhotoAvatar,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'getMemberAvatarUrl returns authoritative active photo URL'
+    );
+    console.log('  ✔ getMemberAvatarUrl serves authoritative photo and blocks stale offline cache leaks');
+
+    // 4. refreshLoggedInUserProfile queries photo_url and updates active DOM avatars
+    const mockMImg = document.createElement('img');
+    mockMImg.src = 'data:image/jpeg;base64,STALE_MAN_IN_SUIT_PHOTO';
+    mockMImg.style.display = 'block';
+
+    const mockMPh = document.createElement('div');
+    mockMPh.style.display = 'none';
+
+    const mockSImg = document.createElement('img');
+    mockSImg.src = 'data:image/jpeg;base64,STALE_MAN_IN_SUIT_PHOTO';
+    mockSImg.style.display = 'block';
+
+    const mockSPh = document.createElement('div');
+    mockSPh.style.display = 'none';
+
+    const mockNImg = document.createElement('img');
+    mockNImg.src = 'data:image/jpeg;base64,STALE_MAN_IN_SUIT_PHOTO';
+    mockNImg.style.display = 'block';
+
+    const mockNPh = document.createElement('div');
+    mockNPh.style.display = 'none';
+
+    const mockSetImg = document.createElement('img');
+    mockSetImg.src = '';
+    mockSetImg.style.display = 'none';
+
+    const mockSetPh = document.createElement('div');
+    mockSetPh.style.display = 'flex';
+
+    const originalGetEl = document.getElementById;
+    document.getElementById = (id) => {
+      if (id === 'm-pfp-img') return mockMImg;
+      if (id === 'm-pfp-ph') return mockMPh;
+      if (id === 'sidebar-user-avatar-img') return mockSImg;
+      if (id === 'sidebar-user-avatar-ph') return mockSPh;
+      if (id === 'nav-avatar-img') return mockNImg;
+      if (id === 'nav-avatar-placeholder') return mockNPh;
+      if (id === 'settings-pfp-img') return mockSetImg;
+      if (id === 'settings-pfp-ph') return mockSetPh;
+      return originalGetEl.call(document, id);
+    };
+
+    // Simulate remote member record having the new cat photo
+    global.getSupa = () => ({
+      get: async (endpoint) => {
+        if (endpoint.includes('bb_members')) {
+          return [{
+            ic: '080101-14-1234',
+            email: 'chickenfans0@gmail.com',
+            name: 'Oliver Ling Chee Sheng',
+            rank: 'Lance Corporal',
+            squad: 'Alpha',
+            section: 'Senior',
+            photo_url: 'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg'
+          }];
+        }
+        return [];
+      }
+    });
+
+    await memberMod.refreshLoggedInUserProfile();
+    assert.strictEqual(
+      global.sessionGet('photo_url'),
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'refreshLoggedInUserProfile synchronizes remote cat photo into active session'
+    );
+    assert.strictEqual(
+      mockMImg.src,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'Member ID card photo element immediately updates to cat photo'
+    );
+    assert.strictEqual(
+      mockSImg.src,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'Sidebar user avatar element immediately updates to cat photo'
+    );
+    assert.strictEqual(
+      mockNImg.src,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
+      'Top navbar avatar element immediately updates to cat photo'
+    );
+    console.log('  ✔ refreshLoggedInUserProfile replaces stale local photos across all avatar elements on device');
+
+    // 5. Real-Time Cross-Device Broadcast Updates
+    // Simulate mobile client uploading a new photo and broadcasting via realtime
+    supaMod.triggerEntityUpdate('members', 'update', {
+      ic: '080101-14-1234',
+      email: 'chickenfans0@gmail.com',
+      name: 'Oliver Ling Chee Sheng',
+      photo_url: 'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_realtime_cat.jpg'
+    }, true);
+
+    assert.strictEqual(
+      global.sessionGet('photo_url'),
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_realtime_cat.jpg',
+      'Real-time broadcast receipt instantly updates session on PC'
+    );
+    assert.strictEqual(
+      mockMImg.src,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_realtime_cat.jpg',
+      'Real-time broadcast receipt instantly updates member ID card photo without reload'
+    );
+    assert.strictEqual(
+      mockSImg.src,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_realtime_cat.jpg',
+      'Real-time broadcast receipt instantly updates sidebar avatar without reload'
+    );
+    assert.strictEqual(
+      mockNImg.src,
+      'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_realtime_cat.jpg',
+      'Real-time broadcast receipt instantly updates top navbar avatar without reload'
+    );
+
+    // Simulate member deleting photo on mobile -> PC instantly purges and restores initials avatar
+    supaMod.triggerEntityUpdate('members', 'update', {
+      ic: '080101-14-1234',
+      email: 'chickenfans0@gmail.com',
+      name: 'Oliver Ling Chee Sheng',
+      photo_url: null
+    }, true);
+
+    assert.strictEqual(
+      global.sessionGet('photo_url'),
+      '',
+      'Real-time delete event clears session photo_url'
+    );
+    assert.strictEqual(
+      mockMImg.style.display,
+      'none',
+      'Member ID card image element hidden on photo deletion'
+    );
+    assert.strictEqual(
+      mockMPh.style.display,
+      'flex',
+      'Member ID card placeholder element displayed on photo deletion'
+    );
+    assert.strictEqual(
+      mockSImg.style.display,
+      'none',
+      'Sidebar avatar image element hidden on photo deletion'
+    );
+    assert.strictEqual(
+      mockSPh.style.display,
+      'flex',
+      'Sidebar avatar placeholder element displayed on photo deletion'
+    );
+    console.log('  ✔ Real-time multi-device avatar broadcast instantly synchronizes uploads and removals with 0ms lag');
+
+    // Restore document.getElementById
+    document.getElementById = originalGetEl;
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite86 = new Set();
+    const postMatchesSuite86 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite86.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite86.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite86.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite86.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
+  await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);
 })().catch(err => {
   console.error('\n✖ Test failed:', err);

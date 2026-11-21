@@ -1363,16 +1363,24 @@ function resolveMemberDirectoryInfo(nameOrId) {
   var q = String(nameOrId).trim().toLowerCase();
 
   // 1. Current active member session
-  if (typeof sessionGet === 'function') {
-    var sName = String(sessionGet('name') || '').trim().toLowerCase();
-    var sEmail = String(sessionGet('email') || '').trim().toLowerCase();
-    var sIc = String(sessionGet('ic') || '').trim().toLowerCase();
+  var sessGetFn = (typeof sessionGet === 'function')
+    ? sessionGet
+    : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+      ? window.sessionGet
+      : (typeof global !== 'undefined' && typeof global.sessionGet === 'function')
+        ? global.sessionGet
+        : null;
+
+  if (sessGetFn) {
+    var sName = String(sessGetFn('name') || '').trim().toLowerCase();
+    var sEmail = String(sessGetFn('email') || '').trim().toLowerCase();
+    var sIc = String(sessGetFn('ic') || '').trim().toLowerCase();
     if (q === sName || q === sEmail || q === sIc || (sName && isNameMatch(sName, q))) {
       return {
-        name: sessionGet('name'),
-        email: sessionGet('email'),
-        ic: sessionGet('ic'),
-        photo_url: sessionGet('photo_url')
+        name: sessGetFn('name'),
+        email: sessGetFn('email'),
+        ic: sessGetFn('ic'),
+        photo_url: sessGetFn('photo_url')
       };
     }
   }
@@ -1430,22 +1438,63 @@ var _memberPfpsMap = (function() {
   return {};
 })();
 
+/**
+ * Normalizes Supabase Storage avatar URLs so they can be reliably rendered in HTML <img> tags.
+ * Converts authenticated endpoint URLs into public object URLs since the avatars bucket is public.
+ * @param {string} url - Target photo URL
+ * @param {string} [fallbackFileName] - Optional file name inside avatars bucket
+ * @returns {string} Normalized public URL or empty string
+ */
+function normalizeAvatarUrl(url, fallbackFileName) {
+  if (!url) {
+    if (fallbackFileName) {
+      var client = (typeof supa !== 'undefined') ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null);
+      if (client && typeof client.fileUrl === 'function') {
+        return client.fileUrl('avatars', fallbackFileName, { private: false });
+      }
+    }
+    return '';
+  }
+  var clean = String(url).trim();
+  // Automatically convert private/authenticated avatar URLs to public URLs since avatars bucket is public
+  if (clean.includes('/storage/v1/object/authenticated/avatars/')) {
+    clean = clean.replace('/storage/v1/object/authenticated/avatars/', '/storage/v1/object/public/avatars/');
+  }
+  return clean;
+}
+
 async function loadMemberProfilePictures() {
   try {
     var client = (typeof supa !== 'undefined') ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null);
     if (client && typeof client.get === 'function') {
-      var rows = await client.get('bb_config?key=eq.bb_member_pfps&select=value');
-      if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
-        var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+      var promises = [
+        client.get('bb_config?key=eq.bb_member_pfps&select=value'),
+        client.get('bb_members?photo_url=not.is.null&select=ic,email,name,photo_url')
+      ];
+      var results = await Promise.allSettled(promises);
+      if (results[0].status === 'fulfilled' && Array.isArray(results[0].value) && results[0].value.length > 0 && results[0].value[0].value) {
+        var parsed = typeof results[0].value[0].value === 'string' ? JSON.parse(results[0].value[0].value) : results[0].value[0].value;
         if (parsed && typeof parsed === 'object') {
-          Object.assign(_memberPfpsMap, parsed);
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
-            }
-          } catch (_) {}
+          Object.keys(parsed).forEach(function(k) {
+            if (parsed[k]) _memberPfpsMap[k.toLowerCase()] = normalizeAvatarUrl(parsed[k]);
+          });
         }
       }
+      if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
+        results[1].value.forEach(function(m) {
+          if (m && m.photo_url) {
+            var norm = normalizeAvatarUrl(m.photo_url);
+            if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = norm;
+            if (m.email) _memberPfpsMap[m.email.toLowerCase()] = norm;
+            if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = norm;
+          }
+        });
+      }
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
+        }
+      } catch (_) {}
     }
   } catch (err) {
     console.warn('loadMemberProfilePictures error:', err);
@@ -1458,12 +1507,42 @@ function getMemberAvatarUrl(name, ic) {
   var cleanNm = (name || '').trim();
   var cleanId = (ic || '').trim();
 
-  // Check centralized sync map first
+  // If this is the current active session user, their session state is authoritative
+  var sessGetFn = (typeof sessionGet === 'function')
+    ? sessionGet
+    : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+      ? window.sessionGet
+      : (typeof global !== 'undefined' && typeof global.sessionGet === 'function')
+        ? global.sessionGet
+        : null;
+
+  var currentName = sessGetFn ? (sessGetFn('name') || '') : '';
+  var currentEmail = sessGetFn ? (sessGetFn('email') || '') : '';
+  var currentIc = sessGetFn ? (sessGetFn('ic') || '') : '';
+
+  var isCurrent = false;
+  if (cleanNm && currentName && cleanNm.toLowerCase() === currentName.trim().toLowerCase()) {
+    isCurrent = true;
+  } else if (cleanId && ((currentIc && cleanId.toLowerCase() === currentIc.toLowerCase()) || (currentEmail && cleanId.toLowerCase() === currentEmail.toLowerCase()))) {
+    isCurrent = true;
+  }
+
+  if (isCurrent && sessGetFn) {
+    var sPhoto = sessGetFn('photo_url');
+    if (sPhoto) return normalizeAvatarUrl(sPhoto);
+    // If the current user has explicitly no photo, do NOT return stale cache, map or localStorage
+    if (sPhoto === '' || sPhoto === null) return null;
+    var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    var cachedPfp = sessGetFn('pfp_cache_' + cleanFn);
+    if (cachedPfp) return normalizeAvatarUrl(cachedPfp);
+  }
+
+  // Check centralized sync map for other members
   if (cleanId && _memberPfpsMap[cleanId.toLowerCase()]) {
-    return _memberPfpsMap[cleanId.toLowerCase()];
+    return normalizeAvatarUrl(_memberPfpsMap[cleanId.toLowerCase()]);
   }
   if (cleanNm && _memberPfpsMap[cleanNm.toLowerCase()]) {
-    return _memberPfpsMap[cleanNm.toLowerCase()];
+    return normalizeAvatarUrl(_memberPfpsMap[cleanNm.toLowerCase()]);
   }
 
   // Cross-resolve member directory info when either identifier is missing
@@ -1471,31 +1550,12 @@ function getMemberAvatarUrl(name, ic) {
   if (resolved) {
     if (!cleanNm && resolved.name) cleanNm = resolved.name;
     if (!cleanId && (resolved.email || resolved.ic)) cleanId = resolved.email || resolved.ic;
-    if (resolved.photo_url) return resolved.photo_url;
-    if (resolved.ic && _memberPfpsMap[resolved.ic.toLowerCase()]) return _memberPfpsMap[resolved.ic.toLowerCase()];
-    if (resolved.email && _memberPfpsMap[resolved.email.toLowerCase()]) return _memberPfpsMap[resolved.email.toLowerCase()];
-    if (resolved.name && _memberPfpsMap[resolved.name.trim().toLowerCase()]) return _memberPfpsMap[resolved.name.trim().toLowerCase()];
-  }
-
-  var currentName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
-  var currentEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
-  var currentIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
-
-  var isCurrent = false;
-  if (cleanNm && currentName && cleanNm.toLowerCase() === currentName.trim().toLowerCase()) {
-    isCurrent = true;
-  } else if (cleanId && ((currentIc && cleanId === currentIc) || (currentEmail && cleanId === currentEmail))) {
-    isCurrent = true;
-  }
-
-  if (isCurrent) {
-    if (typeof sessionGet === 'function') {
-      var sPhoto = sessionGet('photo_url');
-      if (sPhoto) return sPhoto;
-      var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-      var cachedPfp = sessionGet('pfp_cache_' + cleanFn);
-      if (cachedPfp) return cachedPfp;
-    }
+    if (resolved.photo_url) return normalizeAvatarUrl(resolved.photo_url);
+    if (resolved.ic && _memberPfpsMap[resolved.ic.toLowerCase()]) return normalizeAvatarUrl(_memberPfpsMap[resolved.ic.toLowerCase()]);
+    if (resolved.email && _memberPfpsMap[resolved.email.toLowerCase()]) return normalizeAvatarUrl(_memberPfpsMap[resolved.email.toLowerCase()]);
+    if (resolved.name && _memberPfpsMap[resolved.name.trim().toLowerCase()]) return normalizeAvatarUrl(_memberPfpsMap[resolved.name.trim().toLowerCase()]);
+    // If directory info explicitly indicates no photo, do not fall back to stale localStorage
+    if (resolved.photo_url === '' || resolved.photo_url === null) return null;
   }
 
   if (typeof localStorage !== 'undefined') {
@@ -1510,7 +1570,7 @@ function getMemberAvatarUrl(name, ic) {
       }
       for (var i = 0; i < keys.length; i++) {
         var cached = localStorage.getItem('bb_pfp_' + keys[i]);
-        if (cached) return cached;
+        if (cached) return normalizeAvatarUrl(cached);
       }
     } catch (_) {}
   }
@@ -2800,8 +2860,12 @@ if (typeof window !== 'undefined') {
     global.cleanMembersCache = cleanMembersCache;
   }
   window._memberPfpsMap       = _memberPfpsMap;
+  window.normalizeAvatarUrl   = normalizeAvatarUrl;
   window.loadMemberProfilePictures = loadMemberProfilePictures;
   window.getMemberAvatarUrl   = getMemberAvatarUrl;
+  if (typeof global !== 'undefined') {
+    global.normalizeAvatarUrl = normalizeAvatarUrl;
+  }
   window.getDeviceSecurityInfo = getDeviceSecurityInfo;
   window.computeIntegrityMetadata = computeIntegrityMetadata;
   window.verifySubresourceIntegrity = verifySubresourceIntegrity;
@@ -2868,6 +2932,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isBrightColor: isBrightColor,
     isNameConflict: isNameConflict,
     _memberPfpsMap: _memberPfpsMap,
+    normalizeAvatarUrl: normalizeAvatarUrl,
     loadMemberProfilePictures: loadMemberProfilePictures,
     getMemberAvatarUrl: getMemberAvatarUrl,
     getUniversalMemberAvatarHtml: getUniversalMemberAvatarHtml,

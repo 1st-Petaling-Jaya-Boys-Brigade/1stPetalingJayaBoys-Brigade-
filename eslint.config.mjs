@@ -88,6 +88,7 @@ export default [
         renderMemberAvatar: 'readonly',
         resetMemberAvatar: 'readonly',
         _memberPfpsMap: 'readonly',
+        normalizeAvatarUrl: 'readonly',
         loadMemberProfilePictures: 'readonly',
         refreshLoggedInUserProfile: 'readonly',
         verifyActiveMemberSession: 'readonly',
