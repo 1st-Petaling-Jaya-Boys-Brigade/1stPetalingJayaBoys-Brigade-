@@ -16791,6 +16791,138 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Suite 88: Profile Picture Fit, Aspect-Ratio Geometry & Cross-Tab Synchronization ──
+  {
+    console.log('\n--- Suite 88: Profile Picture Fit, Aspect-Ratio Geometry & Cross-Tab Synchronization ---');
+    const utilsMod = require('../js/core/utils.js');
+    const memberMod = require('../js/modules/member.js');
+
+    // 1. stripExifAndCompress center-square crops avatar images to 1:1 ratio
+    let capturedCanvas = null;
+    const origCreateElement = global.document.createElement;
+    global.document.createElement = (tag) => {
+      if (tag === 'canvas') {
+        capturedCanvas = {
+          width: 0,
+          height: 0,
+          getContext: () => ({
+            fillStyle: '',
+            fillRect: () => {},
+            drawImage: (img, sx, sy, sw, sh, dx, dy, dw, dh) => {
+              capturedCanvas._drawArgs = { sx, sy, sw, sh, dx, dy, dw, dh };
+            }
+          }),
+          toBlob: (cb) => cb(new Blob(['fake-bytes'], { type: 'image/jpeg' })),
+          toDataURL: () => 'data:image/jpeg;base64,fake'
+        };
+        return capturedCanvas;
+      }
+      return origCreateElement ? origCreateElement(tag) : {};
+    };
+
+    const origImage = global.Image;
+    global.Image = function() {
+      const imgInst = {
+        set src(v) {
+          setTimeout(() => { if (this.onload) this.onload(); }, 5);
+        },
+        naturalWidth: 1920,
+        naturalHeight: 1080
+      };
+      return imgInst;
+    };
+
+    const validJpegBytes = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
+    const compressed = await utilsMod.stripExifAndCompress(new Blob([validJpegBytes], { type: 'image/jpeg' }), {
+      maxDimension: 512,
+      quality: 0.85,
+      bucket: 'avatars'
+    });
+
+    assert.strictEqual(compressed.width, 512, 'Avatar width constrained to 512px');
+    assert.strictEqual(compressed.height, 512, 'Avatar height is strictly 1:1 equal to width (512px)');
+    assert.ok(capturedCanvas._drawArgs, 'drawImage received crop parameters');
+    assert.strictEqual(capturedCanvas._drawArgs.sw, 1080, 'Center-square crop width equals min(w, h)');
+    assert.strictEqual(capturedCanvas._drawArgs.sh, 1080, 'Center-square crop height equals min(w, h)');
+    assert.strictEqual(capturedCanvas._drawArgs.sx, 420, 'Horizontal center offset sx = (1920 - 1080) / 2 = 420');
+    assert.strictEqual(capturedCanvas._drawArgs.sy, 0, 'Vertical offset sy = 0');
+    console.log('  ✔ stripExifAndCompress center-crops non-square photos to 1:1 aspect ratio for avatars');
+
+    // Restore Image and document.createElement
+    global.Image = origImage;
+    global.document.createElement = origCreateElement;
+
+    // 2. renderMemberAvatar mutual exclusivity: placeholder is hidden when image is active
+    const createMockEl = (initialStyle = {}, isImg = false) => {
+      const classList = new Set();
+      return {
+        style: Object.assign({}, initialStyle),
+        textContent: '',
+        title: '',
+        src: isImg ? 'https://example.com/photo.jpg' : '',
+        setAttribute: () => {},
+        getAttribute: () => null,
+        classList: {
+          add: (...classes) => classes.forEach(c => classList.add(c)),
+          remove: (...classes) => classes.forEach(c => classList.delete(c)),
+          contains: (c) => classList.has(c)
+        }
+      };
+    };
+    const mockElements = {
+      'sidebar-user-avatar-ph': createMockEl({ display: 'flex' }),
+      'sidebar-user-avatar-img': createMockEl({ display: 'block' }, true),
+      'm-pfp-ph': createMockEl({ display: 'flex' }),
+      'm-pfp-img': createMockEl({ display: 'block' }, true),
+      'nav-avatar-placeholder': createMockEl({ display: 'flex' }),
+      'nav-avatar-img': createMockEl({ display: 'block' }, true)
+    };
+    const origGetElem = global.document.getElementById;
+    const origQuerySel = global.document.querySelector;
+    global.document.getElementById = (id) => mockElements[id] || null;
+    global.document.querySelector = () => ({ parentElement: {}, querySelector: () => null, style: {} });
+
+    memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
+    assert.strictEqual(mockElements['sidebar-user-avatar-ph'].style.display, 'none', 'Sidebar placeholder hidden when image is active');
+    assert.strictEqual(mockElements['m-pfp-ph'].style.display, 'none', 'ID card placeholder hidden when image is active');
+    assert.strictEqual(mockElements['nav-avatar-placeholder'].style.display, 'none', 'Header placeholder hidden when image is active');
+
+    // Now test with inactive image: placeholders become visible
+    mockElements['sidebar-user-avatar-img'].style.display = 'none';
+    mockElements['m-pfp-img'].style.display = 'none';
+    mockElements['nav-avatar-img'].style.display = 'none';
+    memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
+    assert.strictEqual(mockElements['sidebar-user-avatar-ph'].style.display, 'flex', 'Sidebar placeholder shown when image is hidden');
+    assert.strictEqual(mockElements['m-pfp-ph'].style.display, 'flex', 'ID card placeholder shown when image is hidden');
+    assert.strictEqual(mockElements['nav-avatar-placeholder'].style.display, 'flex', 'Header placeholder shown when image is hidden');
+    global.document.getElementById = origGetElem;
+    global.document.querySelector = origQuerySel;
+    console.log('  ✔ renderMemberAvatar enforces strict mutual exclusivity between avatar images and placeholders');
+
+    // 3. CSS absolute positioning and 1:1 aspect-ratio geometry verification
+    const navCssText = fs.readFileSync(path.join(__dirname, '../css/nav.css'), 'utf8');
+    const compCssText = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+
+    assert.ok(navCssText.includes('.nav-avatar-circle img'), 'nav.css styles .nav-avatar-circle img');
+    assert.ok(navCssText.includes('position: absolute !important'), 'nav avatar image and placeholder positioned absolute to prevent flex row splitting');
+    assert.ok(compCssText.includes('#m-pfp-ring'), 'components.css styles #m-pfp-ring');
+    assert.ok(compCssText.includes('#m-pfp-img'), 'components.css styles #m-pfp-img');
+    assert.ok(compCssText.includes('aspect-ratio: 1 / 1 !important'), 'components.css enforces aspect-ratio: 1 / 1 !important');
+    assert.ok(compCssText.includes('.task-card-avatar'), 'components.css styles .task-card-avatar');
+    assert.ok(compCssText.includes('.member-avatar-unified'), 'components.css styles .member-avatar-unified');
+    console.log('  ✔ CSS enforces aspect-ratio: 1 / 1 and absolute layering to prevent split-oval avatar bugs');
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite88 = new Set();
+    const postMatchesSuite88 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite88.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite88.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite88.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite88.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);

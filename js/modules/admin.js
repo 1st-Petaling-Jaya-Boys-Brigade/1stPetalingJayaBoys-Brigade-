@@ -2207,8 +2207,8 @@
     }
 
     if (photoUrl) {
-      return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
-        '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;" alt="' + safeName + '"/>' +
+      return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+        '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;display:block;border-radius:50%;" alt="' + safeName + '"/>' +
         outlineHtml +
         cosmeticHtml +
         dotHtml +
@@ -2218,7 +2218,7 @@
     if (isCreator) {
       var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
       var creatorCls = isRgb ? 'creator-outline-avatar creator-rgb-avatar' : '';
-      return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+      return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
         '<span class="' + creatorCls + ' admin-member-avatar-initial" style="width:100%;height:100%;border-radius:50%;background:#083830;color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">J</span>' +
         outlineHtml +
         cosmeticHtml +
@@ -2234,7 +2234,7 @@
       ? getMemberAvatarColor(cleanNm)
       : '#0284c7';
 
-    return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
+    return '<span class="admin-member-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;border-radius:50%;position:relative;overflow:visible;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" title="' + tooltip + '" aria-label="' + tooltip + '">' +
       '<span class="admin-member-avatar-initial" style="width:100%;height:100%;border-radius:50%;background:' + color + ';color:#ffffff;font-size:' + fs + 'px;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + '</span>' +
       outlineHtml +
       cosmeticHtml +

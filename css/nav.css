@@ -543,6 +543,10 @@
 .nav-avatar-circle {
   width: 38px;
   height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
   border-radius: 50%;
   background: var(--bg-card-subtle);
   border: 2px solid var(--border-card);
@@ -561,18 +565,26 @@
   }
 }
 
-.nav-avatar-circle img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
+.nav-avatar-circle img,
+#nav-avatar-img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
 }
 
-.nav-avatar-placeholder {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  overflow: hidden;
+.nav-avatar-placeholder,
+#nav-avatar-placeholder {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1199,6 +1211,9 @@
 .suc-avatar {
   width: 36px;
   height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
   background: var(--bg-card-subtle);
   border: 1.5px solid var(--accent);
@@ -1206,7 +1221,32 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
   overflow: hidden;
+}
+
+.suc-avatar img,
+#sidebar-user-avatar-img {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+
+#sidebar-user-avatar-ph {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .suc-info {

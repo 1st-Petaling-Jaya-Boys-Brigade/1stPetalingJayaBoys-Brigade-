@@ -11898,6 +11898,8 @@ body.light-theme .tb-mention-pill,
 .project-assignees-stack .task-card-avatar {
   overflow: visible !important;
   position: relative !important;
+  aspect-ratio: 1 / 1 !important;
+  flex-shrink: 0 !important;
 }
 
 .task-card-avatar img,
@@ -11907,6 +11909,61 @@ body.light-theme .tb-mention-pill,
 .tdm-assignee-avatar img,
 .project-assignee-avatar img {
   border-radius: 50% !important;
+  object-fit: cover !important;
+  aspect-ratio: 1 / 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+}
+
+/* Universal Profile Picture & Avatar Geometry Normalization */
+#m-pfp-ring {
+  position: relative !important;
+  width: 58px !important;
+  height: 58px !important;
+  min-width: 58px !important;
+  min-height: 58px !important;
+  aspect-ratio: 1 / 1 !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+}
+
+#m-pfp-img,
+#m-pfp-ph {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+
+#settings-pfp-preview-wrap {
+  position: relative !important;
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px !important;
+  min-height: 64px !important;
+  aspect-ratio: 1 / 1 !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+}
+
+#settings-pfp-img,
+#settings-pfp-ph {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+
+#order-pfp-img,
+#order-pfp-ph {
+  aspect-ratio: 1 / 1 !important;
   object-fit: cover !important;
 }
 

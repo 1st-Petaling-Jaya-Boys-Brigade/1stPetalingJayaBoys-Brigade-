@@ -1948,7 +1948,7 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var styleAttr = extraStyle ? (' ' + extraStyle) : '';
 
   if (!name || name === 'Unassigned') {
-    return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;line-height:1;' + styleAttr + '" title="Unassigned" aria-label="Unassigned">U</span>';
+    return '<span class="task-card-avatar" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;font-size:' + fs + 'px;background:var(--surface-tint-hover);color:var(--text-muted);cursor:default;line-height:1;' + styleAttr + '" title="Unassigned" aria-label="Unassigned">U</span>';
   }
 
   // Cross-resolve member identity so name or IC or email resolves canonically
@@ -2026,18 +2026,18 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var overflowRule = 'visible';
 
   if (photoUrl) {
-    return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
+    return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '"><img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
 
   if (isCreator) {
     var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
-    return '<span class="task-card-avatar' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
+    return '<span class="task-card-avatar' + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">J' + outlineHtml + cosmeticHtml + dotHtml + '</span>';
   }
 
   var initial = (typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(cleanName) : (cleanName.trim().charAt(0).toUpperCase() || '?');
   var color = (typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(cleanName) : getAssigneeAvatarBg(cleanName);
-  return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml + '</span>';
+  return '<span class="task-card-avatar' + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;font-size:' + fs + 'px;background:' + color + ';color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + tooltip + '" aria-label="' + tooltip + '">' + (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml + '</span>';
 }
 
 function getAssigneeAvatarBg(name) {

@@ -996,7 +996,23 @@ async function stripExifAndCompress(source, options) {
         var w = img.naturalWidth || img.width || 1200;
         var h = img.naturalHeight || img.height || 800;
 
-        if (w > maxDim || h > maxDim) {
+        var opts = options || {};
+        var isAvatar = (opts.bucket === 'avatars' || opts.squareCrop === true);
+        var sx = 0;
+        var sy = 0;
+        var sw = w;
+        var sh = h;
+
+        if (isAvatar) {
+          // Center-crop to 1:1 square for avatars so profile photos never distort or stretch
+          var cropSize = Math.min(w, h);
+          sx = Math.round((w - cropSize) / 2);
+          sy = Math.round((h - cropSize) / 2);
+          sw = cropSize;
+          sh = cropSize;
+          w = Math.min(maxDim, cropSize);
+          h = w;
+        } else if (w > maxDim || h > maxDim) {
           if (w > h) {
             h = Math.round((h * maxDim) / w);
             w = maxDim;
@@ -1013,7 +1029,7 @@ async function stripExifAndCompress(source, options) {
         if (ctx) {
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, w, h);
-          ctx.drawImage(img, 0, 0, w, h);
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
         }
 
         if (typeof canvas.toBlob === 'function') {
@@ -1534,8 +1550,8 @@ function getMemberAvatarUrl(name, ic) {
   if (isCurrent && sessGetFn) {
     var sPhoto = sessGetFn('photo_url');
     if (sPhoto) return normalizeAvatarUrl(sPhoto);
-    // If the current user has explicitly no photo, do NOT return stale cache, map or localStorage
-    if (sPhoto === '' || sPhoto === null) return null;
+    // If current logged-in user explicitly has no photo (empty string), do NOT return stale cache or localStorage
+    if (sPhoto === '') return null;
     var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     var cachedPfp = sessGetFn('pfp_cache_' + cleanFn);
     if (cachedPfp) return normalizeAvatarUrl(cachedPfp);
@@ -1690,8 +1706,8 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
   var overflowRule = 'visible';
 
   if (photoUrl) {
-    return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
-      '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' +
+    return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;padding:0;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
+      '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(photoUrl) : photoUrl) + '" style="width:100%;height:100%;aspect-ratio:1/1;object-fit:cover;border-radius:9999px;display:block;" alt="' + safeName + '"/>' +
       outlineHtml + cosmeticHtml + dotHtml +
     '</span>';
   }
@@ -1699,7 +1715,7 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
   if (isCreator) {
     var isRgb = (outlineInfo && outlineInfo.style === 'rgb');
     var creatorCls = isRgb ? ' creator-outline-avatar creator-rgb-avatar' : '';
-    return '<span class="member-avatar-unified' + extraCls + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
+    return '<span class="member-avatar-unified' + extraCls + creatorCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;font-size:' + fs + 'px;background:#083830;color:#ffffff;overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
       'J' + outlineHtml + cosmeticHtml + dotHtml +
     '</span>';
   }
@@ -1712,7 +1728,7 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     : '#047857';
 
   var initialTextColor = (typeof isBrightColor === 'function' && isBrightColor(color)) ? '#1e293b' : '#ffffff';
-  return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;font-size:' + fs + 'px;background:' + color + ';color:' + initialTextColor + ';overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
+  return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;font-size:' + fs + 'px;background:' + color + ';color:' + initialTextColor + ';overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
     (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml +
   '</span>';
 }
