@@ -90,6 +90,7 @@ export default [
         _memberPfpsMap: 'readonly',
         normalizeAvatarUrl: 'readonly',
         loadMemberProfilePictures: 'readonly',
+        refreshPortalAvatarsEverywhere: 'readonly',
         refreshLoggedInUserProfile: 'readonly',
         verifyActiveMemberSession: 'readonly',
         forceKickDeletedAccount: 'readonly',

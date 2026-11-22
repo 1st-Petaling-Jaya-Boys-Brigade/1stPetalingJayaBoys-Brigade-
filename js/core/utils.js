@@ -1550,19 +1550,21 @@ function getMemberAvatarUrl(name, ic) {
   if (isCurrent && sessGetFn) {
     var sPhoto = sessGetFn('photo_url');
     if (sPhoto) return normalizeAvatarUrl(sPhoto);
-    // If current logged-in user explicitly has no photo (empty string), do NOT return stale cache or localStorage
     if (sPhoto === '') return null;
     var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     var cachedPfp = sessGetFn('pfp_cache_' + cleanFn);
     if (cachedPfp) return normalizeAvatarUrl(cachedPfp);
   }
 
-  // Check centralized sync map for other members
-  if (cleanId && _memberPfpsMap[cleanId.toLowerCase()]) {
-    return normalizeAvatarUrl(_memberPfpsMap[cleanId.toLowerCase()]);
-  }
-  if (cleanNm && _memberPfpsMap[cleanNm.toLowerCase()]) {
-    return normalizeAvatarUrl(_memberPfpsMap[cleanNm.toLowerCase()]);
+  // Check centralized sync map for other members or fallback
+  var pfpMap = (typeof _memberPfpsMap !== 'undefined') ? _memberPfpsMap : ((typeof window !== 'undefined' && window._memberPfpsMap) ? window._memberPfpsMap : null);
+  if (pfpMap) {
+    if (cleanId && pfpMap[cleanId.toLowerCase()]) {
+      return normalizeAvatarUrl(pfpMap[cleanId.toLowerCase()]);
+    }
+    if (cleanNm && pfpMap[cleanNm.toLowerCase()]) {
+      return normalizeAvatarUrl(pfpMap[cleanNm.toLowerCase()]);
+    }
   }
 
   // Cross-resolve member directory info when either identifier is missing
@@ -1571,11 +1573,11 @@ function getMemberAvatarUrl(name, ic) {
     if (!cleanNm && resolved.name) cleanNm = resolved.name;
     if (!cleanId && (resolved.email || resolved.ic)) cleanId = resolved.email || resolved.ic;
     if (resolved.photo_url) return normalizeAvatarUrl(resolved.photo_url);
-    if (resolved.ic && _memberPfpsMap[resolved.ic.toLowerCase()]) return normalizeAvatarUrl(_memberPfpsMap[resolved.ic.toLowerCase()]);
-    if (resolved.email && _memberPfpsMap[resolved.email.toLowerCase()]) return normalizeAvatarUrl(_memberPfpsMap[resolved.email.toLowerCase()]);
-    if (resolved.name && _memberPfpsMap[resolved.name.trim().toLowerCase()]) return normalizeAvatarUrl(_memberPfpsMap[resolved.name.trim().toLowerCase()]);
-    // If directory info explicitly indicates no photo, do not fall back to stale localStorage
-    if (resolved.photo_url === '' || resolved.photo_url === null) return null;
+    if (pfpMap) {
+      if (resolved.ic && pfpMap[resolved.ic.toLowerCase()]) return normalizeAvatarUrl(pfpMap[resolved.ic.toLowerCase()]);
+      if (resolved.email && pfpMap[resolved.email.toLowerCase()]) return normalizeAvatarUrl(pfpMap[resolved.email.toLowerCase()]);
+      if (resolved.name && pfpMap[resolved.name.trim().toLowerCase()]) return normalizeAvatarUrl(pfpMap[resolved.name.trim().toLowerCase()]);
+    }
   }
 
   if (typeof localStorage !== 'undefined') {
@@ -1644,6 +1646,14 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     photoUrl = getMemberAvatarUrl(cleanNm, cleanId);
   } else if (typeof window !== 'undefined' && typeof window.getMemberAvatarUrl === 'function') {
     photoUrl = window.getMemberAvatarUrl(cleanNm, cleanId);
+  }
+  if (!photoUrl && typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap) {
+    if (cleanId && _memberPfpsMap[cleanId.toLowerCase()]) photoUrl = normalizeAvatarUrl(_memberPfpsMap[cleanId.toLowerCase()]);
+    else if (cleanNm && _memberPfpsMap[cleanNm.toLowerCase()]) photoUrl = normalizeAvatarUrl(_memberPfpsMap[cleanNm.toLowerCase()]);
+  }
+  if (!photoUrl && typeof window !== 'undefined' && window._memberPfpsMap) {
+    if (cleanId && window._memberPfpsMap[cleanId.toLowerCase()]) photoUrl = normalizeAvatarUrl(window._memberPfpsMap[cleanId.toLowerCase()]);
+    else if (cleanNm && window._memberPfpsMap[cleanNm.toLowerCase()]) photoUrl = normalizeAvatarUrl(window._memberPfpsMap[cleanNm.toLowerCase()]);
   }
 
   // 2. Custom Outline
@@ -1731,6 +1741,91 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
   return '<span class="member-avatar-unified' + extraCls + hasOutlineCls + '" style="width:' + sz + 'px;height:' + sz + 'px;min-width:' + sz + 'px;min-height:' + sz + 'px;aspect-ratio:1/1;flex-shrink:0;font-size:' + fs + 'px;background:' + color + ';color:' + initialTextColor + ';overflow:' + overflowRule + ';position:relative;cursor:pointer;line-height:1;display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;box-sizing:border-box;' + styleAttr + '" title="' + safeTooltip + '" aria-label="' + safeTooltip + '">' +
     (typeof escapeHtml === 'function' ? escapeHtml(initial) : initial) + outlineHtml + cosmeticHtml + dotHtml +
   '</span>';
+}
+
+/**
+ * Universal live-update dispatcher: refreshes avatar displays across all open portal tabs,
+ * headers, sidebars, member profiles, task boards, and leaderboards in real time.
+ */
+function refreshPortalAvatarsEverywhere() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  // 1. Update navigation, header & sidebar user avatars
+  if (typeof window.updateNavUserHeader === 'function') {
+    try { window.updateNavUserHeader(); } catch (_) {}
+  }
+
+  // 2. Update Member Hub & Settings avatars for active user
+  var sessGetFn = (typeof sessionGet === 'function') ? sessionGet : (window.sessionGet || null);
+  var curMyId = sessGetFn ? (sessGetFn('ic') || sessGetFn('email') || '') : '';
+  var curMyNm = sessGetFn ? (sessGetFn('name') || '') : '';
+  var myPhoto = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(curMyNm, curMyId) : null;
+  var mImg = document.getElementById('m-pfp-img');
+  var mPh  = document.getElementById('m-pfp-ph');
+  var sImg = document.getElementById('sidebar-user-avatar-img');
+  var sPh  = document.getElementById('sidebar-user-avatar-ph');
+  var nImg = document.getElementById('nav-avatar-img');
+  var nPh  = document.getElementById('nav-avatar-placeholder');
+  var setImg = document.getElementById('settings-pfp-img');
+  var setPh  = document.getElementById('settings-pfp-ph');
+  var ordImg = document.getElementById('order-pfp-img');
+  var ordPh  = document.getElementById('order-pfp-ph');
+
+  if (myPhoto) {
+    if (mImg) { mImg.src = myPhoto; mImg.style.display = 'block'; }
+    if (mPh)  mPh.style.display = 'none';
+    if (sImg) { sImg.src = myPhoto; sImg.style.display = 'block'; }
+    if (sPh)  sPh.style.display = 'none';
+    if (nImg) { nImg.src = myPhoto; nImg.style.display = 'block'; }
+    if (nPh)  nPh.style.display = 'none';
+    if (setImg) { setImg.src = myPhoto; setImg.style.display = 'block'; }
+    if (setPh)  setPh.style.display = 'none';
+    if (ordImg) { ordImg.src = myPhoto; ordImg.style.display = 'block'; }
+    if (ordPh)  ordPh.style.display = 'none';
+  } else {
+    if (mImg) { mImg.src = ''; mImg.style.display = 'none'; }
+    if (mPh)  mPh.style.display = 'flex';
+    if (sImg) { sImg.src = ''; sImg.style.display = 'none'; }
+    if (sPh)  sPh.style.display = 'flex';
+    if (nImg) { nImg.src = ''; nImg.style.display = 'none'; }
+    if (nPh)  nPh.style.display = 'flex';
+    if (setImg) { setImg.src = ''; setImg.style.display = 'none'; }
+    if (setPh)  setPh.style.display = 'flex';
+    if (ordImg) { ordImg.src = ''; ordImg.style.display = 'none'; }
+    if (ordPh)  ordPh.style.display = 'flex';
+  }
+
+  // 3. Re-render active Task views (Kanban Board cards, List view, My Tasks)
+  if (typeof window.refreshCurrentTasksView === 'function') {
+    try { window.refreshCurrentTasksView(); } catch (_) {}
+  }
+  if (typeof window.reRenderOpenTaskDetailBrief === 'function') {
+    try { window.reRenderOpenTaskDetailBrief(); } catch (_) {}
+  }
+
+  // 4. Update Projects Overview if visible or populated
+  var projContainer = document.querySelector('.projects-container');
+  if (projContainer && typeof window.paintProjectsList === 'function') {
+    try { window.paintProjectsList(projContainer); } catch (_) {}
+  }
+
+  // 5. Update Arcade Leaderboard
+  if (typeof window.renderArcadeLeaderboardView === 'function') {
+    try { window.renderArcadeLeaderboardView(); } catch (_) {}
+  }
+
+  // 6. Update Company Leaderboard (Attendance)
+  if (typeof window.renderCompanyLeaderboard === 'function') {
+    try { window.renderCompanyLeaderboard(); } catch (_) {}
+  }
+
+  // 7. Update Admin Console member list if open
+  var admOverlay = document.getElementById('admin-overlay');
+  var admPanel = document.getElementById('admin-panel');
+  var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
+  if (isAdmOpen && typeof window.renderAdminMembers === 'function') {
+    try { window.renderAdminMembers(); } catch (_) {}
+  }
 }
 
 /**
@@ -2883,8 +2978,10 @@ if (typeof window !== 'undefined') {
   window.normalizeAvatarUrl   = normalizeAvatarUrl;
   window.loadMemberProfilePictures = loadMemberProfilePictures;
   window.getMemberAvatarUrl   = getMemberAvatarUrl;
+  window.refreshPortalAvatarsEverywhere = refreshPortalAvatarsEverywhere;
   if (typeof global !== 'undefined') {
     global.normalizeAvatarUrl = normalizeAvatarUrl;
+    global.refreshPortalAvatarsEverywhere = refreshPortalAvatarsEverywhere;
   }
   window.getDeviceSecurityInfo = getDeviceSecurityInfo;
   window.computeIntegrityMetadata = computeIntegrityMetadata;
@@ -2955,6 +3052,7 @@ if (typeof module !== 'undefined' && module.exports) {
     normalizeAvatarUrl: normalizeAvatarUrl,
     loadMemberProfilePictures: loadMemberProfilePictures,
     getMemberAvatarUrl: getMemberAvatarUrl,
+    refreshPortalAvatarsEverywhere: refreshPortalAvatarsEverywhere,
     getUniversalMemberAvatarHtml: getUniversalMemberAvatarHtml,
     getDeviceSecurityInfo: getDeviceSecurityInfo,
     computeIntegrityMetadata: computeIntegrityMetadata,

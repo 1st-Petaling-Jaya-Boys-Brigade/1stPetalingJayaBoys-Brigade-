@@ -2194,6 +2194,13 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
   sessionSet('created_at', m.created_at || m.joined_at || '');
   sessionSet('department', m.department || '');
   var normPhoto = m.photo_url ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(m.photo_url) : m.photo_url) : '';
+  if (!normPhoto && typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap) {
+    normPhoto = _memberPfpsMap[(m.ic || '').toLowerCase()] || _memberPfpsMap[(userEmail || '').toLowerCase()] || _memberPfpsMap[(m.name || '').trim().toLowerCase()] || '';
+  }
+  if (!normPhoto && typeof localStorage !== 'undefined') {
+    var checkFn = (m.ic || userEmail || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    try { normPhoto = localStorage.getItem('bb_pfp_' + checkFn) || ''; } catch (_) {}
+  }
   sessionSet('photo_url', normPhoto);
   var cleanFn = (m.ic || userEmail || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
   if (normPhoto) {
@@ -2209,15 +2216,6 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
           localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
         }
       } catch (_) {}
-    }
-  } else {
-    if (typeof localStorage !== 'undefined') {
-      try { localStorage.removeItem('bb_pfp_' + cleanFn); } catch (_) {}
-    }
-    if (typeof _memberPfpsMap !== 'undefined') {
-      if (m.ic) delete _memberPfpsMap[m.ic.toLowerCase()];
-      if (userEmail) delete _memberPfpsMap[userEmail.toLowerCase()];
-      if (m.name) delete _memberPfpsMap[m.name.trim().toLowerCase()];
     }
   }
   if (typeof loadMemberProfilePictures === 'function') {
@@ -4704,6 +4702,11 @@ async function removePfp(e) {
     }
 
     setRemovePfpButtonVisible(false);
+    if (typeof refreshPortalAvatarsEverywhere === 'function') {
+      refreshPortalAvatarsEverywhere();
+    } else if (typeof window !== 'undefined' && typeof window.refreshPortalAvatarsEverywhere === 'function') {
+      window.refreshPortalAvatarsEverywhere();
+    }
   }
 
   // 4. Re-render initials and unique color / creator RGB animation
@@ -4912,6 +4915,11 @@ async function renderDashboard() {
           delete _memberPfpsMap[id.toLowerCase()];
         }
         setRemovePfpButtonVisible(false);
+    if (typeof refreshPortalAvatarsEverywhere === 'function') {
+      refreshPortalAvatarsEverywhere();
+    } else if (typeof window !== 'undefined' && typeof window.refreshPortalAvatarsEverywhere === 'function') {
+      window.refreshPortalAvatarsEverywhere();
+    }
         renderMemberAvatar(m.name, displayEmail);
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
       };
@@ -5462,6 +5470,11 @@ async function uploadPfp(input) {
         pr.broadcast('members', 'update', { ic: curIc || id, email: curEmail || id, name: curName || sessionGet('name'), photo_url: normUrl });
         pr.broadcast('pfps', 'update', { key: 'bb_member_pfps', id: curIc || id, email: curEmail || id, name: curName, photo_url: normUrl });
       } catch (_) {}
+    }
+    if (typeof refreshPortalAvatarsEverywhere === 'function') {
+      refreshPortalAvatarsEverywhere();
+    } else if (typeof window !== 'undefined' && typeof window.refreshPortalAvatarsEverywhere === 'function') {
+      window.refreshPortalAvatarsEverywhere();
     }
     if (typeof showToast === 'function') showToast('Profile picture updated successfully.', 'success');
   } catch (e) {

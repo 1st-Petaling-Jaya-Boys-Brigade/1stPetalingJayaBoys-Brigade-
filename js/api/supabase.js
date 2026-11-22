@@ -1727,6 +1727,7 @@ var PortalRealtime = (function() {
       if (loadPfpsFn) {
         loadPfpsFn().then(function() {
           if (typeof window !== 'undefined') {
+            if (typeof window.refreshPortalAvatarsEverywhere === 'function') window.refreshPortalAvatarsEverywhere();
             if (typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
             if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView();
             if (typeof window.renderArcadeLeaderboardView === 'function') window.renderArcadeLeaderboardView();
@@ -2548,6 +2549,7 @@ var PortalRealtime = (function() {
           }
 
           if (typeof window !== 'undefined') {
+            if (typeof window.refreshPortalAvatarsEverywhere === 'function') window.refreshPortalAvatarsEverywhere();
             if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView();
             if (typeof window.renderArcadeLeaderboardView === 'function') window.renderArcadeLeaderboardView();
           }

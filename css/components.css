@@ -2977,7 +2977,10 @@ select.form-input,
 #tasks-columns[style*="display: none"],
 #tasks-columns[style*="display:none"],
 .tasks-board-columns.hidden,
-#tasks-columns.hidden {
+#tasks-columns.hidden,
+.tasks-board-list-view[style*="display: none"],
+.tasks-board-list-view[style*="display:none"],
+.tasks-board-list-view.hidden {
   display: none !important;
 }
 
