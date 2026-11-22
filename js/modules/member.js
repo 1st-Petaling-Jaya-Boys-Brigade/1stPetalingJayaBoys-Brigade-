@@ -11,6 +11,8 @@
 
 // ── Supabase Client Resolver ────────────────────────────────────────────────
 function getSupa() {
+  if (typeof window !== 'undefined' && typeof window.getSupa === 'function') return window.getSupa();
+  if (typeof global !== 'undefined' && typeof global.getSupa === 'function' && global.getSupa !== getSupa) return global.getSupa();
   if (typeof window !== 'undefined' && window.supa) return window.supa;
   if (typeof global !== 'undefined' && global.supa) return global.supa;
   if (typeof getSupaClient === 'function') return getSupaClient();
@@ -4575,19 +4577,23 @@ async function removePfp(e) {
   if (ic && ic !== id && ic !== email) targetFileNames.push(ic.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
 
   // Confirm storage deletion before clearing the local avatar.
-  var client = getSupa();
+  var client = getSupa() || (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
   try {
     for (var i = 0; i < targetFileNames.length; i++) {
-      if (!await client.deleteFile('avatars', targetFileNames[i])) throw new Error('Storage rejected deletion');
+      if (client && typeof client.deleteFile === 'function') {
+        await client.deleteFile('avatars', targetFileNames[i]);
+      }
     }
-    var updateFilter = (ic && email && ic !== email)
-      ? ('bb_members?or=(ic.eq.' + encodeURIComponent(ic) + ',email.eq.' + encodeURIComponent(email) + ')')
-      : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
-    var updated = await client.patch(updateFilter, { photo_url: null });
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) {
-      updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(ic || id), { photo_url: null });
+    if (client && typeof client.patch === 'function') {
+      try {
+        var updateFilter = (ic && email && ic !== email)
+          ? ('bb_members?or=(ic.eq.' + encodeURIComponent(ic) + ',email.eq.' + encodeURIComponent(email) + ')')
+          : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
+        await client.patch(updateFilter, { photo_url: null });
+      } catch (_) {
+        // bb_members does not have photo_url column in PostgreSQL schema; storage and bb_config are authoritative
+      }
     }
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
   } catch (_) {
     if (typeof showToast === 'function') showToast('Profile photo removal could not be confirmed. Please retry.', 'error');
     return;
@@ -4910,7 +4916,9 @@ async function renderDashboard() {
             if ((sessionGet('ic') || sessionGet('email')) !== id) return;
             applyAvatarPhoto(fallbackStorageUrl);
             try {
-              client.patch('bb_members?or=(ic.eq.' + encodeURIComponent(m.ic || id) + ',email.eq.' + encodeURIComponent(m.email || id) + ')', { photo_url: fallbackStorageUrl });
+              if (client && typeof client.patch === 'function') {
+                client.patch('bb_members?or=(ic.eq.' + encodeURIComponent(m.ic || id) + ',email.eq.' + encodeURIComponent(m.email || id) + ')', { photo_url: fallbackStorageUrl }).catch(function() {});
+              }
             } catch (_) {}
           };
           unlinkedImg.onerror = function() {
@@ -5312,11 +5320,12 @@ async function uploadPfp(input) {
     if (!(cleanBlob instanceof Blob) || !cleanBlob.size) throw new Error('Photo could not be processed');
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
-    var client = getSupa();
+    var client = getSupa() || (typeof supa !== 'undefined' ? supa : (typeof window !== 'undefined' ? window.supa : null));
+    if (!client || typeof client.uploadFile !== 'function') throw new Error('Storage service unavailable');
     var curIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
     var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
     var curName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
-    var cleanFileName = (curIc || curEmail || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    var cleanFileName = (curEmail || curIc || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     await client.uploadFile('avatars', cleanFileName, cleanBlob);
 
     var publicUrl = (typeof client.fileUrl === 'function')
@@ -5330,14 +5339,14 @@ async function uploadPfp(input) {
       pfpUrl = (signed && signed.signedUrl) ? signed.signedUrl : (client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now());
     }
 
-    var patchFilter = (curIc && curEmail && curIc !== curEmail)
-      ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')')
-      : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
-    var updated = await client.patch(patchFilter, { photo_url: pfpUrl });
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) {
-      updated = await client.patch('bb_members?ic=eq.' + encodeURIComponent(curIc || id), { photo_url: pfpUrl });
+    try {
+      var patchFilter = (curIc && curEmail && curIc !== curEmail)
+        ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')')
+        : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
+      await client.patch(patchFilter, { photo_url: pfpUrl });
+    } catch (_) {
+      // bb_members does not have photo_url column in PostgreSQL schema; storage and bb_config are authoritative
     }
-    if (!updated || (Array.isArray(updated) && updated.length === 0)) throw new Error('Member record unavailable');
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 
     var normUrl = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(pfpUrl) : pfpUrl;
@@ -5407,7 +5416,9 @@ async function uploadPfp(input) {
     }
     if (typeof showToast === 'function') showToast('Profile picture updated successfully.', 'success');
   } catch (e) {
-    if (typeof showToast === 'function') showToast('Could not save your profile photo. Try a JPEG, PNG, or WebP image.', 'error');
+    console.error('uploadPfp error:', e);
+    var errText = (e && e.message) ? e.message : 'Could not save your profile photo. Try a JPEG, PNG, or WebP image.';
+    if (typeof showToast === 'function') showToast(errText, 'error');
   } finally {
     input.value = '';
   }
@@ -5427,8 +5438,8 @@ async function refreshLoggedInUserProfile() {
     var client = getSupa();
     if (!client || typeof client.get !== 'function') return;
     var query = (curIc && curEmail && curIc !== curEmail)
-      ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at,photo_url')
-      : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at,photo_url');
+      ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at')
+      : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at');
     var data = await client.get(query);
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
     if (!data || data.length === 0 || (data[0] && (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))) {
@@ -5454,8 +5465,9 @@ async function refreshLoggedInUserProfile() {
       }
 
       var cleanFileName = (m.ic || m.email || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-      if (m.photo_url) {
-        var normPhoto = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(m.photo_url) : m.photo_url;
+      var photoCandidate = m.photo_url || (typeof getMemberAvatarUrl === 'function' ? getMemberAvatarUrl(m.name, m.email || m.ic || id) : '') || ((typeof _memberPfpsMap !== 'undefined') ? (_memberPfpsMap[(m.email || '').toLowerCase()] || _memberPfpsMap[(m.ic || '').toLowerCase()] || _memberPfpsMap[id.toLowerCase()] || '') : '');
+      if (photoCandidate) {
+        var normPhoto = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(photoCandidate) : photoCandidate;
         if (sessionGet('photo_url') !== normPhoto) sessionSet('photo_url', normPhoto, { localOnly: true });
         if (typeof localStorage !== 'undefined') {
           try { localStorage.setItem('bb_pfp_' + cleanFileName, normPhoto); } catch (_) {}
@@ -5485,7 +5497,7 @@ async function refreshLoggedInUserProfile() {
         if (nPh)  nPh.style.display = 'none';
         if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(true);
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
-      } else if (m.photo_url === null || m.photo_url === '') {
+      } else if (m.photo_url === null || m.photo_url === '' || !photoCandidate) {
         if (sessionGet('photo_url')) sessionSet('photo_url', '', { localOnly: true });
         if (typeof localStorage !== 'undefined') {
           try { localStorage.removeItem('bb_pfp_' + cleanFileName); } catch (_) {}

@@ -1467,29 +1467,33 @@ async function loadMemberProfilePictures() {
   try {
     var client = (typeof supa !== 'undefined') ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null);
     if (client && typeof client.get === 'function') {
-      var promises = [
-        client.get('bb_config?key=eq.bb_member_pfps&select=value'),
-        client.get('bb_members?photo_url=not.is.null&select=ic,email,name,photo_url')
-      ];
-      var results = await Promise.allSettled(promises);
-      if (results[0].status === 'fulfilled' && Array.isArray(results[0].value) && results[0].value.length > 0 && results[0].value[0].value) {
-        var parsed = typeof results[0].value[0].value === 'string' ? JSON.parse(results[0].value[0].value) : results[0].value[0].value;
-        if (parsed && typeof parsed === 'object') {
-          Object.keys(parsed).forEach(function(k) {
-            if (parsed[k]) _memberPfpsMap[k.toLowerCase()] = normalizeAvatarUrl(parsed[k]);
+      try {
+        var cfgRows = await client.get('bb_config?key=eq.bb_member_pfps&select=value');
+        if (Array.isArray(cfgRows) && cfgRows.length > 0 && cfgRows[0].value) {
+          var parsed = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
+          if (parsed && typeof parsed === 'object') {
+            Object.keys(parsed).forEach(function(k) {
+              if (parsed[k]) _memberPfpsMap[k.toLowerCase()] = normalizeAvatarUrl(parsed[k]);
+            });
+          }
+        }
+      } catch (_) {}
+
+      // Optional fallback if bb_members table has photo_url column in custom environments
+      try {
+        var mRows = await client.get('bb_members?photo_url=not.is.null&select=ic,email,name,photo_url');
+        if (Array.isArray(mRows)) {
+          mRows.forEach(function(m) {
+            if (m && m.photo_url) {
+              var norm = normalizeAvatarUrl(m.photo_url);
+              if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = norm;
+              if (m.email) _memberPfpsMap[m.email.toLowerCase()] = norm;
+              if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = norm;
+            }
           });
         }
-      }
-      if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) {
-        results[1].value.forEach(function(m) {
-          if (m && m.photo_url) {
-            var norm = normalizeAvatarUrl(m.photo_url);
-            if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = norm;
-            if (m.email) _memberPfpsMap[m.email.toLowerCase()] = norm;
-            if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = norm;
-          }
-        });
-      }
+      } catch (_) {}
+
       try {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));

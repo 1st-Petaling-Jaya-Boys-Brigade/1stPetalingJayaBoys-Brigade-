@@ -1249,7 +1249,7 @@ async function populateOrderBar(ic) {
   if (!client || !client.get) return;
 
   try {
-    var data = await client.get('bb_members?or=(ic.eq.' + encodeURIComponent(ic) + ',email.eq.' + encodeURIComponent(ic) + ')&select=name,rank,squad,photo_url');
+    var data = await client.get('bb_members?or=(ic.eq.' + encodeURIComponent(ic) + ',email.eq.' + encodeURIComponent(ic) + ')&select=name,rank,squad');
     if (!data || !data.length) return;
     var m = data[0];
 

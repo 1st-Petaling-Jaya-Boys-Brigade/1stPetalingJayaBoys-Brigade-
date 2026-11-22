@@ -1499,10 +1499,10 @@ var PortalRealtime = (function() {
 
       var memberRows = null;
       try {
-        memberRows = await client.get('bb_members?select=ic,email,name,photo_url,updated_at&order=updated_at.desc&limit=1', { cache: false });
+        memberRows = await client.get('bb_members?select=ic,email,name,updated_at&order=updated_at.desc&limit=1', { cache: false });
       } catch (_) {
         try {
-          memberRows = await client.get('bb_members?select=ic,email,name,photo_url&limit=1', { cache: false });
+          memberRows = await client.get('bb_members?select=ic,email,name&limit=1', { cache: false });
         } catch (__) {
           memberRows = null;
         }
@@ -1673,6 +1673,53 @@ var PortalRealtime = (function() {
             localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
           }
         } catch (_) {}
+
+        var sessGetFn = (typeof sessionGet === 'function')
+          ? sessionGet
+          : (typeof window !== 'undefined' && typeof window.sessionGet === 'function' ? window.sessionGet : null);
+        var curMyEmail = sessGetFn ? String(sessGetFn('email') || '').toLowerCase().trim() : '';
+        var curMyIc = sessGetFn ? String(sessGetFn('ic') || '').toLowerCase().trim() : '';
+        var isForMe = false;
+        if (data.email && curMyEmail && data.email.toLowerCase().trim() === curMyEmail) isForMe = true;
+        if (data.ic && curMyIc && data.ic.toLowerCase().trim() === curMyIc) isForMe = true;
+        if (pfpId && ((curMyEmail && pfpId.toLowerCase().trim() === curMyEmail) || (curMyIc && pfpId.toLowerCase().trim() === curMyIc))) isForMe = true;
+
+        if (isForMe) {
+          var sessSetFn = (typeof sessionSet === 'function')
+            ? sessionSet
+            : (typeof window !== 'undefined' && typeof window.sessionSet === 'function' ? window.sessionSet : null);
+          if (sessSetFn) sessSetFn('photo_url', normPhoto || '', { localOnly: true });
+          if (typeof document !== 'undefined') {
+            var mImg = document.getElementById('m-pfp-img');
+            var mPh = document.getElementById('m-pfp-ph');
+            var sImg = document.getElementById('sidebar-user-avatar-img');
+            var sPh = document.getElementById('sidebar-user-avatar-ph');
+            var nImg = document.getElementById('nav-avatar-img');
+            var nPh = document.getElementById('nav-avatar-placeholder');
+            var setImg = document.getElementById('settings-pfp-img');
+            var setPh = document.getElementById('settings-pfp-ph');
+            if (normPhoto) {
+              if (mImg) { mImg.src = normPhoto; mImg.style.display = 'block'; }
+              if (mPh) mPh.style.display = 'none';
+              if (sImg) { sImg.src = normPhoto; sImg.style.display = 'block'; }
+              if (sPh) sPh.style.display = 'none';
+              if (nImg) { nImg.src = normPhoto; nImg.style.display = 'block'; }
+              if (nPh) nPh.style.display = 'none';
+              if (setImg) { setImg.src = normPhoto; setImg.style.display = 'block'; }
+              if (setPh) setPh.style.display = 'none';
+            } else {
+              if (mImg) { mImg.src = ''; mImg.style.display = 'none'; }
+              if (mPh) mPh.style.display = 'flex';
+              if (sImg) { sImg.src = ''; sImg.style.display = 'none'; }
+              if (sPh) sPh.style.display = 'flex';
+              if (nImg) { nImg.src = ''; nImg.style.display = 'none'; }
+              if (nPh) nPh.style.display = 'flex';
+              if (setImg) { setImg.src = ''; setImg.style.display = 'none'; }
+              if (setPh) setPh.style.display = 'flex';
+            }
+            if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(!!normPhoto);
+          }
+        }
       }
       var loadPfpsFn = (typeof loadMemberProfilePictures === 'function')
         ? loadMemberProfilePictures
