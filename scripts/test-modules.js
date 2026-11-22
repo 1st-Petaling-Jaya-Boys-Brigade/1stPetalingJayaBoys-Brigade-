@@ -17042,6 +17042,154 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Suite 90: Task Board / List View Mutual Exclusivity & Universal Profile Picture Synchronization ──
+  {
+    console.log('\n--- Suite 90: Task Board / List View Mutual Exclusivity & Universal Profile Picture Synchronization ---');
+    const tasksMod = require('../js/modules/tasks.js');
+    const utilsMod = require('../js/core/utils.js');
+    if (typeof window === 'undefined') global.window = global;
+
+    // 1. Mutual Exclusivity: Switching to List View hides Board View and tabs completely
+    const createMockElement = () => ({
+      style: {
+        _props: {},
+        display: '',
+        setProperty(k, v) { this._props[k] = v; if (k === 'display') this.display = v; },
+        getPropertyValue(k) { return this._props[k] || this[k] || ''; }
+      },
+      classList: {
+        _classes: new Set(),
+        add(c) { this._classes.add(c); },
+        remove(c) { this._classes.delete(c); },
+        contains(c) { return this._classes.has(c); },
+        toggle(c, force) { if (force !== undefined) { if (force) this.add(c); else this.remove(c); } else { if (this.contains(c)) this.remove(c); else this.add(c); } }
+      },
+      innerHTML: '',
+      setAttribute() {},
+      removeAttribute() {},
+      querySelector() { return null; },
+      querySelectorAll() { return []; }
+    });
+
+    const mockBoardCol = createMockElement();
+    const mockColTabs = createMockElement();
+    const mockListView = createMockElement();
+    const mockBoardBtn = createMockElement();
+    const mockListBtn = createMockElement();
+
+    const origGetElem = global.document.getElementById;
+    const origQuerySel = global.document.querySelector;
+    const origQuerySelAll = global.document.querySelectorAll;
+
+    global.document.getElementById = (id) => {
+      if (id === 'tasks-columns') return mockBoardCol;
+      if (id === 'task-col-tabs') return mockColTabs;
+      if (id === 'tasks-mode-board-btn') return mockBoardBtn;
+      if (id === 'tasks-mode-list-btn') return mockListBtn;
+      if (id === 'tasks-dept-title') return { textContent: '', style: {} };
+      if (id === 'tasks-dept-sub') return { textContent: '', style: {} };
+      return origGetElem ? origGetElem(id) : null;
+    };
+
+    global.document.querySelector = (sel) => {
+      if (sel === '.tasks-board-list-view') return mockListView;
+      if (sel === '#tasks-columns') return mockBoardCol;
+      if (sel === '#task-col-tabs') return mockColTabs;
+      return createMockElement();
+    };
+    global.document.querySelectorAll = () => [];
+
+    // Switch to Project Board view
+    tasksMod.setTasksViewMode('board');
+    tasksMod._activeProject = 'Portal Development';
+
+    // Switch to List View
+    tasksMod.setProjectDisplayMode('list');
+    assert.strictEqual(mockBoardCol.style.display, 'none', '#tasks-columns display set to none in list mode');
+    assert.ok(mockBoardCol.classList.contains('hidden'), '#tasks-columns marked with .hidden in list mode');
+    assert.strictEqual(mockColTabs.style.display, 'none', '#task-col-tabs display set to none in list mode');
+    assert.ok(mockColTabs.classList.contains('hidden'), '#task-col-tabs marked with .hidden in list mode');
+    assert.strictEqual(mockListView.style.display, 'block', 'List view display set to block in list mode');
+    assert.ok(!mockListView.classList.contains('hidden'), 'List view .hidden class removed in list mode');
+    console.log('  ✔ setProjectDisplayMode("list") strictly hides board columns/tabs and displays list view');
+
+    // Verify renderColumnsFromTasks does not unhide board when in list mode
+    tasksMod.renderColumnsFromTasks([{ id: 't1', title: 'Task 1', status: 'todo' }]);
+    assert.strictEqual(mockBoardCol.style.display, 'none', 'renderColumnsFromTasks keeps #tasks-columns hidden in list mode');
+    assert.ok(mockBoardCol.classList.contains('hidden'), 'renderColumnsFromTasks keeps .hidden on #tasks-columns in list mode');
+    console.log('  ✔ renderColumnsFromTasks strictly respects list view mode and prevents board overlap');
+
+    // Switch to Board View
+    tasksMod.setProjectDisplayMode('board');
+    assert.strictEqual(mockListView.style.display, 'none', 'List view display set to none in board mode');
+    assert.ok(mockListView.classList.contains('hidden'), 'List view marked with .hidden in board mode');
+    assert.strictEqual(mockBoardCol.style.display, 'flex', '#tasks-columns display set to flex in board mode');
+    assert.ok(!mockBoardCol.classList.contains('hidden'), '#tasks-columns .hidden class removed in board mode');
+    console.log('  ✔ setProjectDisplayMode("board") strictly hides list view and restores board columns');
+
+    // 2. Profile picture resolution in getAssigneeAvatarHtml from _memberPfpsMap fallback
+    global._memberPfpsMap = {
+      '081012145678': 'https://example.com/avatar-jeshua.jpg',
+      'jeshua koh': 'https://example.com/avatar-jeshua.jpg'
+    };
+    if (typeof window !== 'undefined') {
+      window._memberPfpsMap = global._memberPfpsMap;
+    }
+
+    const avatarHtml1 = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', '081012145678');
+    assert.ok(avatarHtml1.includes('avatar-jeshua.jpg'), 'getAssigneeAvatarHtml finds photo by IC in _memberPfpsMap');
+    assert.ok(avatarHtml1.includes('alt="Jeshua Koh"'), 'getAssigneeAvatarHtml renders alt tag with assignee name');
+
+    const avatarHtml2 = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', '');
+    assert.ok(avatarHtml2.includes('avatar-jeshua.jpg'), 'getAssigneeAvatarHtml finds photo by lowercase name in _memberPfpsMap');
+
+    const avatarHtmlFallback = tasksMod.getAssigneeAvatarHtml('Unknown Officer', '999999999999');
+    assert.ok(avatarHtmlFallback.includes('class="task-card-avatar"'), 'getAssigneeAvatarHtml falls back cleanly to initials when no photo exists');
+    assert.ok(avatarHtmlFallback.includes('>U<'), 'Initial generated correctly for fallback assignee');
+    console.log('  ✔ getAssigneeAvatarHtml reliably resolves avatar from _memberPfpsMap by IC and Name');
+
+    // 3. refreshPortalAvatarsEverywhere atomic sync across portal components
+    let updateNavUserHeaderCalled = false;
+    let refreshCurrentTasksViewCalled = false;
+    let renderArcadeLeaderboardViewCalled = false;
+    let renderCompanyLeaderboardCalled = false;
+    if (typeof window === 'undefined') global.window = {};
+    global.window.updateNavUserHeader = () => { updateNavUserHeaderCalled = true; };
+    global.window.refreshCurrentTasksView = () => { refreshCurrentTasksViewCalled = true; };
+    global.window.renderArcadeLeaderboardView = () => { renderArcadeLeaderboardViewCalled = true; };
+    global.window.renderCompanyLeaderboard = () => { renderCompanyLeaderboardCalled = true; };
+
+    utilsMod.refreshPortalAvatarsEverywhere();
+    assert.strictEqual(updateNavUserHeaderCalled, true, 'refreshPortalAvatarsEverywhere refreshed navigation header avatar');
+    assert.strictEqual(refreshCurrentTasksViewCalled, true, 'refreshPortalAvatarsEverywhere refreshed active tasks board and list view');
+    assert.strictEqual(renderArcadeLeaderboardViewCalled, true, 'refreshPortalAvatarsEverywhere refreshed arcade leaderboard avatars');
+    assert.strictEqual(renderCompanyLeaderboardCalled, true, 'refreshPortalAvatarsEverywhere refreshed company leaderboard avatars');
+    console.log('  ✔ refreshPortalAvatarsEverywhere synchronously updates navigation, tasks, and leaderboards');
+
+    // 4. CSS token verification for list view display isolation
+    const compCss = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    assert.ok(
+      compCss.includes('.tasks-board-list-view[style*="display: none"]') || compCss.includes('.tasks-board-list-view.hidden'),
+      'components.css enforces display: none !important for hidden .tasks-board-list-view'
+    );
+    console.log('  ✔ CSS rules enforce display: none !important for .tasks-board-list-view when hidden');
+
+    // Restore globals
+    global.document.getElementById = origGetElem;
+    global.document.querySelector = origQuerySel;
+    global.document.querySelectorAll = origQuerySelAll;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite90 = new Set();
+    const postMatchesSuite90 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite90.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite90.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite90.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite90.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);
