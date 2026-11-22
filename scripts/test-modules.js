@@ -16581,6 +16581,86 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     );
     console.log('  ✔ Real-time multi-device avatar broadcast instantly synchronizes uploads and removals with 0ms lag');
 
+    // 6. uploadPfp succeeds and persists even when bb_members throws PGRST204 (no photo_url column)
+    let uploadedFile = null;
+    let configUpserted = null;
+    const uploadMockClient = {
+      uploadFile: async (bucket, path, blob) => {
+        uploadedFile = { bucket, path, blob };
+        return { Key: `${bucket}/${path}` };
+      },
+      fileUrl: (bucket, path) => `https://abcdef.supabase.co/storage/v1/object/public/${bucket}/${path}`,
+      patch: async () => {
+        // Simulates PostgreSQL schema where photo_url column does not exist
+        const err = new Error("Could not find the 'photo_url' column of 'bb_members' in the schema cache");
+        err.status = 400;
+        err.code = 'PGRST204';
+        throw err;
+      },
+      upsert: async (table, payload) => {
+        configUpserted = { table, payload };
+        return [payload];
+      }
+    };
+    global.supa = uploadMockClient;
+    if (typeof window !== 'undefined') {
+      window.supa = uploadMockClient;
+      window.getSupa = () => uploadMockClient;
+    }
+    global.getSupa = () => uploadMockClient;
+
+    const origStrip = global.stripExifAndCompress;
+    global.stripExifAndCompress = async () => ({
+      blob: new Blob(['sample-jpeg-binary'], { type: 'image/jpeg' }),
+      width: 400,
+      height: 400,
+      stripped: true
+    });
+
+    const mockFile = new Blob(['sample-jpeg-binary'], { type: 'image/jpeg' });
+    const mockInput = { files: [mockFile], value: 'test.jpg' };
+    await memberMod.uploadPfp(mockInput);
+
+    assert.ok(uploadedFile !== null, 'uploadPfp uploaded binary to avatars storage bucket');
+    assert.strictEqual(uploadedFile.bucket, 'avatars');
+    assert.ok(configUpserted !== null, 'uploadPfp persisted avatar mapping to bb_config');
+    assert.strictEqual(configUpserted.table, 'bb_config');
+    assert.strictEqual(configUpserted.payload.key, 'bb_member_pfps');
+    assert.ok(global.sessionGet('photo_url').includes('chickenfans0') && global.sessionGet('photo_url').includes('.jpg'), 'uploadPfp updated active session with public avatar URL');
+    console.log('  ✔ uploadPfp persists to avatars storage and bb_config even when bb_members has no photo_url column');
+
+    // 7. removePfp removes from storage and bb_config without throwing on missing bb_members column
+    let storageDeleted = null;
+    const deleteMockClient = {
+      deleteFile: async (bucket, path) => {
+        storageDeleted = { bucket, path };
+        return true;
+      },
+      patch: async () => {
+        const err = new Error("Could not find the 'photo_url' column of 'bb_members' in the schema cache");
+        throw err;
+      },
+      upsert: async (table, payload) => {
+        configUpserted = { table, payload };
+        return [payload];
+      }
+    };
+    global.supa = deleteMockClient;
+    if (typeof window !== 'undefined') {
+      window.supa = deleteMockClient;
+      window.getSupa = () => deleteMockClient;
+    }
+    global.getSupa = () => deleteMockClient;
+    global.showConfirmModal = async () => true;
+
+    await memberMod.removePfp();
+    assert.strictEqual(global.sessionGet('photo_url'), '', 'removePfp cleared session photo_url');
+    assert.strictEqual(mockMImg.style.display, 'none', 'removePfp hid Member ID card image');
+    assert.ok(storageDeleted !== null, 'removePfp deleted file from avatars storage');
+    console.log('  ✔ removePfp cleans up avatars and bb_config safely without failing on missing bb_members column');
+
+    global.stripExifAndCompress = origStrip;
+
     // Restore document.getElementById
     document.getElementById = originalGetEl;
 
