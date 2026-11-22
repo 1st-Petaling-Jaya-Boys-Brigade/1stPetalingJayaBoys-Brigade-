@@ -3560,7 +3560,7 @@ async function unequipCosmetic() {
 }
 
 function applyMemberCosmeticElement(containerEl, cosmeticId, sizeVariant) {
-  if (!containerEl || typeof containerEl !== 'object') return;
+  if (!containerEl || typeof containerEl !== 'object' || typeof containerEl.querySelector !== 'function') return;
   var validCosmetic = (cosmeticId && PROFILE_COSMETICS[cosmeticId]) ? PROFILE_COSMETICS[cosmeticId] : null;
   var existingBadge = containerEl.querySelector('.avatar-cosmetic-badge');
 
@@ -4350,6 +4350,8 @@ function renderMemberAvatar(memberName, memberEmail) {
 
   // 1. Sidebar user avatar placeholder
   var sPh = document.getElementById('sidebar-user-avatar-ph');
+  var sImg = document.getElementById('sidebar-user-avatar-img');
+  var sHasPhoto = !!(sImg && sImg.src && sImg.style.display !== 'none');
   if (sPh) {
     sPh.textContent = initial;
     sPh.title = tooltip;
@@ -4362,7 +4364,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     sPh.style.height = '100%';
     sPh.style.borderRadius = '50%';
     sPh.style.overflow = 'hidden';
-    sPh.style.display = 'flex';
+    sPh.style.display = sHasPhoto ? 'none' : 'flex';
     sPh.style.alignItems = 'center';
     sPh.style.justifyContent = 'center';
     var wantsRgb = (outline.style === 'rgb');
@@ -4380,6 +4382,8 @@ function renderMemberAvatar(memberName, memberEmail) {
   // 2. Member hub profile placeholder (#m-pfp-ph) & ring (#m-pfp-ring)
   var mPh = document.getElementById('m-pfp-ph');
   var mRing = document.getElementById('m-pfp-ring');
+  var mImg = document.getElementById('m-pfp-img');
+  var mHasPhoto = !!(mImg && mImg.src && mImg.style.display !== 'none');
   if (mPh) {
     mPh.textContent = initial;
     mPh.title = tooltip;
@@ -4392,7 +4396,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     mPh.style.height = '100%';
     mPh.style.borderRadius = '50%';
     mPh.style.overflow = 'hidden';
-    mPh.style.display = 'flex';
+    mPh.style.display = mHasPhoto ? 'none' : 'flex';
     mPh.style.alignItems = 'center';
     mPh.style.justifyContent = 'center';
     if (wantsRgb) {
@@ -4411,6 +4415,8 @@ function renderMemberAvatar(memberName, memberEmail) {
   // 3. Top nav header placeholder (#nav-avatar-placeholder)
   var nPh = document.getElementById('nav-avatar-placeholder');
   var navCircle = document.querySelector('.nav-avatar-circle');
+  var nImg = document.getElementById('nav-avatar-img');
+  var nHasPhoto = !!(nImg && nImg.src && nImg.style.display !== 'none');
   if (nPh) {
     nPh.textContent = initial;
     nPh.title = tooltip;
@@ -4423,7 +4429,7 @@ function renderMemberAvatar(memberName, memberEmail) {
     nPh.style.height = '100%';
     nPh.style.borderRadius = '50%';
     nPh.style.overflow = 'hidden';
-    nPh.style.display = 'flex';
+    nPh.style.display = nHasPhoto ? 'none' : 'flex';
     nPh.style.alignItems = 'center';
     nPh.style.justifyContent = 'center';
     if (wantsRgb) {
@@ -4672,6 +4678,16 @@ async function removePfp(e) {
     var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
     if (navAvatarImg) { navAvatarImg.src = ''; navAvatarImg.style.display = 'none'; }
     if (navAvatarPh)  navAvatarPh.style.display = 'flex';
+
+    var setImg = document.getElementById('settings-pfp-img');
+    var setPh  = document.getElementById('settings-pfp-ph');
+    if (setImg) { setImg.src = ''; setImg.style.display = 'none'; }
+    if (setPh)  setPh.style.display = 'flex';
+
+    var ordImg = document.getElementById('order-pfp-img');
+    var ordPh  = document.getElementById('order-pfp-ph');
+    if (ordImg) { ordImg.src = ''; ordImg.style.display = 'none'; }
+    if (ordPh)  ordPh.style.display = 'flex';
     if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
 
     var fileInp = document.getElementById('pfp-upload');
@@ -4813,12 +4829,15 @@ async function renderDashboard() {
     renderMemberAvatar(m.name, displayEmail);
     setRemovePfpButtonVisible();
 
-    // Load profile avatar: Authoritative remote profile picture from Supabase bb_members
+    // Load profile avatar: Authoritative remote profile picture from Supabase bb_members, session, sync map, or storage
     try {
-      var cleanFileName = (m.ic || m.email || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-      var authoritativePhoto = (typeof normalizeAvatarUrl === 'function')
-        ? normalizeAvatarUrl(m.photo_url)
-        : (m.photo_url || '');
+      var cleanFileEmail = (m.email || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+      var cleanFileIc = (m.ic || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+
+      var photoCandidate = (typeof normalizeAvatarUrl === 'function' ? normalizeAvatarUrl(m.photo_url) : m.photo_url)
+        || ((typeof sessionGet === 'function') ? sessionGet('photo_url') : '')
+        || ((typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(m.name, m.email || m.ic || id) : '')
+        || ((typeof _memberPfpsMap !== 'undefined') ? (_memberPfpsMap[(m.email || '').toLowerCase()] || _memberPfpsMap[(m.ic || '').toLowerCase()] || _memberPfpsMap[id.toLowerCase()] || _memberPfpsMap[m.name.trim().toLowerCase()] || '') : '');
 
       var applyAvatarPhoto = function(url) {
         var normUrl = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(url) : url;
@@ -4834,9 +4853,16 @@ async function renderDashboard() {
         var nPh  = document.getElementById('nav-avatar-placeholder');
         if (nImg) { nImg.src = normUrl; nImg.style.display = 'block'; }
         if (nPh)  nPh.style.display = 'none';
+        var setImg = document.getElementById('settings-pfp-img');
+        var setPh  = document.getElementById('settings-pfp-ph');
+        if (setImg) { setImg.src = normUrl; setImg.style.display = 'block'; }
+        if (setPh)  setPh.style.display = 'none';
         if (typeof sessionSet === 'function') sessionSet('photo_url', normUrl, { localOnly: true });
         if (typeof localStorage !== 'undefined') {
-          try { localStorage.setItem('bb_pfp_' + cleanFileName, normUrl); } catch (_) {}
+          try {
+            localStorage.setItem('bb_pfp_' + cleanFileEmail, normUrl);
+            localStorage.setItem('bb_pfp_' + cleanFileIc, normUrl);
+          } catch (_) {}
         }
         if (typeof _memberPfpsMap !== 'undefined') {
           if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = normUrl;
@@ -4849,6 +4875,13 @@ async function renderDashboard() {
       };
 
       var applyNoPhoto = function() {
+        // Prevent clearing if a valid candidate exists in session or sync map
+        var existingCandidate = ((typeof sessionGet === 'function') ? sessionGet('photo_url') : '')
+          || ((typeof _memberPfpsMap !== 'undefined') ? (_memberPfpsMap[(m.email || '').toLowerCase()] || _memberPfpsMap[(m.ic || '').toLowerCase()] || _memberPfpsMap[id.toLowerCase()] || '') : '');
+        if (existingCandidate) {
+          applyAvatarPhoto(existingCandidate);
+          return;
+        }
         var img = document.getElementById('m-pfp-img');
         var ph  = document.getElementById('m-pfp-ph');
         if (img) { img.src = ''; img.style.display = 'none'; }
@@ -4861,9 +4894,16 @@ async function renderDashboard() {
         var nPh  = document.getElementById('nav-avatar-placeholder');
         if (nImg) { nImg.src = ''; nImg.style.display = 'none'; }
         if (nPh)  nPh.style.display = 'flex';
+        var setImg = document.getElementById('settings-pfp-img');
+        var setPh  = document.getElementById('settings-pfp-ph');
+        if (setImg) { setImg.src = ''; setImg.style.display = 'none'; }
+        if (setPh)  setPh.style.display = 'flex';
         if (typeof sessionSet === 'function') sessionSet('photo_url', '', { localOnly: true });
         if (typeof localStorage !== 'undefined') {
-          try { localStorage.removeItem('bb_pfp_' + cleanFileName); } catch (_) {}
+          try {
+            localStorage.removeItem('bb_pfp_' + cleanFileEmail);
+            localStorage.removeItem('bb_pfp_' + cleanFileIc);
+          } catch (_) {}
         }
         if (typeof _memberPfpsMap !== 'undefined') {
           if (m.ic) delete _memberPfpsMap[m.ic.toLowerCase()];
@@ -4876,56 +4916,50 @@ async function renderDashboard() {
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
       };
 
-      if (authoritativePhoto) {
-        var testImg = new Image();
-        testImg.onload = function() {
-          if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-          applyAvatarPhoto(authoritativePhoto);
-        };
-        testImg.onerror = function() {
-          if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-          var publicStorageUrl = (typeof client.fileUrl === 'function')
-            ? client.fileUrl('avatars', cleanFileName, { private: false }) + '?t=' + Date.now()
-            : '';
-          if (publicStorageUrl && publicStorageUrl !== authoritativePhoto) {
-            var retryImg = new Image();
-            retryImg.onload = function() {
-              if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-              applyAvatarPhoto(publicStorageUrl);
-            };
-            retryImg.onerror = function() {
-              if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-              applyNoPhoto();
-            };
-            retryImg.src = publicStorageUrl;
-          } else {
-            applyNoPhoto();
-          }
-        };
-        testImg.src = authoritativePhoto;
-        if (testImg.complete && testImg.naturalWidth > 0) {
-          applyAvatarPhoto(authoritativePhoto);
-        }
+      if (photoCandidate) {
+        applyAvatarPhoto(photoCandidate);
       } else {
         var fallbackStorageUrl = (typeof client.fileUrl === 'function')
-          ? client.fileUrl('avatars', cleanFileName, { private: false }) + '?t=' + Date.now()
+          ? client.fileUrl('avatars', cleanFileEmail, { private: false }) + '?t=' + Date.now()
+          : '';
+        var fallbackStorageUrlIc = (typeof client.fileUrl === 'function' && cleanFileIc !== cleanFileEmail)
+          ? client.fileUrl('avatars', cleanFileIc, { private: false }) + '?t=' + Date.now()
           : '';
         if (fallbackStorageUrl) {
           var unlinkedImg = new Image();
           unlinkedImg.onload = function() {
             if ((sessionGet('ic') || sessionGet('email')) !== id) return;
             applyAvatarPhoto(fallbackStorageUrl);
-            try {
-              if (client && typeof client.patch === 'function') {
-                client.patch('bb_members?or=(ic.eq.' + encodeURIComponent(m.ic || id) + ',email.eq.' + encodeURIComponent(m.email || id) + ')', { photo_url: fallbackStorageUrl }).catch(function() {});
-              }
-            } catch (_) {}
           };
           unlinkedImg.onerror = function() {
             if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-            applyNoPhoto();
+            if (fallbackStorageUrlIc) {
+              var retryIc = new Image();
+              retryIc.onload = function() {
+                if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+                applyAvatarPhoto(fallbackStorageUrlIc);
+              };
+              retryIc.onerror = function() {
+                if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+                applyNoPhoto();
+              };
+              retryIc.src = fallbackStorageUrlIc;
+            } else {
+              applyNoPhoto();
+            }
           };
           unlinkedImg.src = fallbackStorageUrl;
+        } else if (fallbackStorageUrlIc) {
+          var unlinkedIc = new Image();
+          unlinkedIc.onload = function() {
+            if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+            applyAvatarPhoto(fallbackStorageUrlIc);
+          };
+          unlinkedIc.onerror = function() {
+            if ((sessionGet('ic') || sessionGet('email')) !== id) return;
+            applyNoPhoto();
+          };
+          unlinkedIc.src = fallbackStorageUrlIc;
         } else {
           applyNoPhoto();
         }
@@ -5326,7 +5360,11 @@ async function uploadPfp(input) {
     var curEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
     var curName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
     var cleanFileName = (curEmail || curIc || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+    var cleanFileIc = (curIc || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     await client.uploadFile('avatars', cleanFileName, cleanBlob);
+    if (cleanFileIc && cleanFileIc !== cleanFileName) {
+      try { await client.uploadFile('avatars', cleanFileIc, cleanBlob); } catch (_) {}
+    }
 
     var publicUrl = (typeof client.fileUrl === 'function')
       ? client.fileUrl('avatars', cleanFileName, { private: false })
@@ -5362,13 +5400,24 @@ async function uploadPfp(input) {
     var navAvatarPh  = document.getElementById('nav-avatar-placeholder');
     if (navAvatarImg) { navAvatarImg.src = normUrl; navAvatarImg.style.display = 'block'; }
     if (navAvatarPh)  navAvatarPh.style.display = 'none';
+    var setImg = document.getElementById('settings-pfp-img');
+    var setPh  = document.getElementById('settings-pfp-ph');
+    if (setImg) { setImg.src = normUrl; setImg.style.display = 'block'; }
+    if (setPh)  setPh.style.display = 'none';
+    var ordImg = document.getElementById('order-pfp-img');
+    var ordPh  = document.getElementById('order-pfp-ph');
+    if (ordImg) { ordImg.src = normUrl; ordImg.style.display = 'block'; }
+    if (ordPh)  ordPh.style.display = 'none';
     if (typeof sessionSet === 'function') sessionSet('photo_url', normUrl);
     if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
     setRemovePfpButtonVisible(true);
 
     // Store confirmed upload in offline avatar cache
     if (typeof localStorage !== 'undefined') {
-      try { localStorage.setItem('bb_pfp_' + cleanFileName, normUrl); } catch (_) {}
+      try {
+        localStorage.setItem('bb_pfp_' + cleanFileName, normUrl);
+        if (cleanFileIc) localStorage.setItem('bb_pfp_' + cleanFileIc, normUrl);
+      } catch (_) {}
       try {
         var rawCache = localStorage.getItem('bb_members_cache');
         if (rawCache) {
@@ -5495,6 +5544,14 @@ async function refreshLoggedInUserProfile() {
         var nPh  = document.getElementById('nav-avatar-placeholder');
         if (nImg && nImg.src !== normPhoto) { nImg.src = normPhoto; nImg.style.display = 'block'; }
         if (nPh)  nPh.style.display = 'none';
+        var setImg = document.getElementById('settings-pfp-img');
+        var setPh  = document.getElementById('settings-pfp-ph');
+        if (setImg && setImg.src !== normPhoto) { setImg.src = normPhoto; setImg.style.display = 'block'; }
+        if (setPh)  setPh.style.display = 'none';
+        var ordImg = document.getElementById('order-pfp-img');
+        var ordPh  = document.getElementById('order-pfp-ph');
+        if (ordImg && ordImg.src !== normPhoto) { ordImg.src = normPhoto; ordImg.style.display = 'block'; }
+        if (ordPh)  ordPh.style.display = 'none';
         if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(true);
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
       } else if (m.photo_url === null || m.photo_url === '' || !photoCandidate) {
@@ -5518,6 +5575,16 @@ async function refreshLoggedInUserProfile() {
         if (sPhNo)  sPhNo.style.display = 'flex';
         var nImgNo = document.getElementById('nav-avatar-img');
         var nPhNo  = document.getElementById('nav-avatar-placeholder');
+        if (nImgNo) { nImgNo.src = ''; nImgNo.style.display = 'none'; }
+        if (nPhNo)  nPhNo.style.display = 'flex';
+        var setImgNo = document.getElementById('settings-pfp-img');
+        var setPhNo  = document.getElementById('settings-pfp-ph');
+        if (setImgNo) { setImgNo.src = ''; setImgNo.style.display = 'none'; }
+        if (setPhNo)  setPhNo.style.display = 'flex';
+        var ordImgNo = document.getElementById('order-pfp-img');
+        var ordPhNo  = document.getElementById('order-pfp-ph');
+        if (ordImgNo) { ordImgNo.src = ''; ordImgNo.style.display = 'none'; }
+        if (ordPhNo)  ordPhNo.style.display = 'flex';
         if (nImgNo) { nImgNo.src = ''; nImgNo.style.display = 'none'; }
         if (nPhNo)  nPhNo.style.display = 'flex';
         if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(false);
