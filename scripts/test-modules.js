@@ -17455,6 +17455,88 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 93: Status Real-Time Sync Board Isolation & Live Comment Mentions
+  // =========================================================================
+  {
+    console.log('\n--- Suite 93: Status Real-Time Sync Board Isolation & Live Comment Mentions ---');
+
+    const tasksMod = require('../js/modules/tasks.js');
+    const supaMod = require('../js/api/supabase.js');
+
+    // 1. applyProjectStatusesUpdate updates _projectStatusesMap and keeps board view intact
+    const testMap = {
+      'portal development': [
+        { id: 'planning', label: 'Planning', order: 1 },
+        { id: 'todo', label: 'To Do', order: 2 },
+        { id: 'inprogress', label: 'In Progress', order: 3 },
+        { id: 'inreview', label: 'In Review', order: 4 },
+        { id: 'completed', label: 'Complete', order: 5 },
+        { id: 'test-2', label: 'test 2', order: 6, isCustom: true }
+      ]
+    };
+
+    tasksMod.applyProjectStatusesUpdate(testMap);
+    const updatedStatuses = tasksMod.getProjectStatuses('Portal Development');
+    assert.strictEqual(updatedStatuses.length, 6, 'Project statuses must be updated to 6 statuses');
+    assert.strictEqual(updatedStatuses[5].label, 'test 2', 'New status test 2 must be present');
+    console.log('  ✔ applyProjectStatusesUpdate immediately updates project statuses in real time');
+
+    // 2. Real-time broadcast does not force view to projects overview when viewing board
+    let renderProjectsViewCalled = false;
+    global.window.renderProjectsView = () => { renderProjectsViewCalled = true; };
+    if (typeof supaMod.triggerEntityUpdate === 'function') {
+      supaMod.triggerEntityUpdate('projects', 'update', { key: 'bb_project_statuses', map: testMap }, true);
+      assert.strictEqual(renderProjectsViewCalled, false, 'Realtime projects/status update must NOT force call renderProjectsView()');
+      console.log('  ✔ Background status updates do not kick board viewers to projects view');
+    }
+
+    // 3. Dropdown suppression when candidates empty (no "No matching department members" popup)
+    const mockDropdown = {
+      style: { display: 'none' },
+      innerHTML: ''
+    };
+    const origQuerySelector = global.document.querySelector;
+    global.document.querySelector = (sel) => {
+      if (sel === '.tb-mentions-dropdown') return mockDropdown;
+      return origQuerySelector ? origQuerySelector(sel) : null;
+    };
+
+    tasksMod.showMentionDropdown(null, 'nonexistentmemberxyz123');
+    assert.strictEqual(mockDropdown.style.display, 'none', 'Dropdown must be hidden when candidates are empty');
+    assert.ok(!mockDropdown.innerHTML.includes('No matching department members'), 'Must NOT display No matching department members popup');
+    console.log('  ✔ Dropdown hides cleanly when no mention candidates match without annoying popup');
+
+    // 4. Live comment input mention pill conversion and getter/setter
+    const mockCommentInput = {
+      tagName: 'DIV',
+      innerHTML: '',
+      isContentEditable: true,
+      getAttribute: (attr) => attr === 'contenteditable' ? 'true' : null,
+      focus: () => {},
+      cloneNode: () => ({ innerText: '@Tester Account ok', querySelectorAll: () => [] })
+    };
+
+    tasksMod.ensureCommentInputValueProperty(mockCommentInput);
+    assert.strictEqual(typeof mockCommentInput.value, 'string', 'Comment input must have value getter');
+    mockCommentInput.value = '@Tester Account ok';
+    assert.ok(mockCommentInput.innerHTML.includes('tb-mention-pill'), 'Setting value with mention must format as styled pill');
+    assert.ok(mockCommentInput.innerHTML.includes('>@Tester Account</span>'), 'Pill must contain @Tester Account');
+    console.log('  ✔ Live comment input formats mentions as colored pill badges before sending');
+
+    global.document.querySelector = origQuerySelector;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite93 = new Set();
+    const postMatchesSuite93 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite93.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite93.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite93.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite93.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);

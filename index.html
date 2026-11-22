@@ -1452,7 +1452,7 @@
 
         <!-- Comment Box (Image 5) -->
         <div class="tb-comment-box" style="position:relative;">
-          <input type="text" class="tb-comment-input" placeholder="Leave a comment... (@ to mention). Ctrl+Enter to send" onkeydown="handleTaskCommentKeyDown(event, this)" oninput="handleTaskCommentInput(this)" />
+          <div class="tb-comment-input" contenteditable="true" role="textbox" aria-multiline="false" data-placeholder="Leave a comment... (@ to mention). Ctrl+Enter to send" onkeydown="handleTaskCommentKeyDown(event, this)" oninput="handleTaskCommentInput(this)" onpaste="handleTaskCommentPaste(event, this)"></div>
           <button type="button" class="tb-comment-send-btn" onclick="handleTaskCommentSubmit(this.previousElementSibling)" title="Send Comment" aria-label="Send Comment">
             <svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;transform:translateX(1px);"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
