@@ -1550,6 +1550,12 @@ function getMemberAvatarUrl(name, ic) {
   if (isCurrent && sessGetFn) {
     var sPhoto = sessGetFn('photo_url');
     if (sPhoto) return normalizeAvatarUrl(sPhoto);
+    if (typeof document !== 'undefined') {
+      var activeMImg = document.getElementById('m-pfp-img');
+      if (activeMImg && activeMImg.src && activeMImg.style.display !== 'none' && !activeMImg.src.endsWith('/')) {
+        return normalizeAvatarUrl(activeMImg.src);
+      }
+    }
     if (sPhoto === '') return null;
     var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     var cachedPfp = sessGetFn('pfp_cache_' + cleanFn);
@@ -1793,6 +1799,22 @@ function refreshPortalAvatarsEverywhere() {
     if (setPh)  setPh.style.display = 'flex';
     if (ordImg) { ordImg.src = ''; ordImg.style.display = 'none'; }
     if (ordPh)  ordPh.style.display = 'flex';
+  }
+
+  // Re-render Member Avatars if renderMemberAvatar is available
+  if (typeof window.renderMemberAvatar === 'function') {
+    try { window.renderMemberAvatar(curMyNm, curMyId); } catch (_) {}
+  }
+
+  // Update Arcade Cosmetic Live Profile Preview if rendered
+  var shopLiveWrap = document.getElementById('shop-live-avatar-wrap');
+  if (shopLiveWrap && typeof window.renderCosmeticLivePreview === 'function') {
+    try {
+      var activeCosId = (typeof window !== 'undefined' && window._cosmeticShopPreviewId !== undefined && window._cosmeticShopPreviewId !== null)
+        ? window._cosmeticShopPreviewId
+        : ((typeof getMemberCosmetic === 'function') ? getMemberCosmetic(curMyId, curMyNm).id : 'none');
+      window.renderCosmeticLivePreview(activeCosId);
+    } catch (_) {}
   }
 
   // 3. Re-render active Task views (Kanban Board cards, List view, My Tasks)

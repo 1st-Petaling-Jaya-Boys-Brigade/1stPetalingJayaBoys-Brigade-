@@ -17303,6 +17303,158 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // =========================================================================
+  // Suite 92: Profile Picture Display in Nav Header, Sidebar & Arcade Cosmetic Preview
+  // =========================================================================
+  {
+    console.log('\n--- Suite 92: Profile Picture Display in Nav Header, Sidebar & Arcade Cosmetic Preview ---');
+    const memberMod = require('../js/modules/member.js');
+    const utilsMod = require('../js/core/utils.js');
+    const sessionMod = require('../js/core/session.js');
+
+    global.sessionGet = sessionMod.sessionGet;
+    global.sessionSet = sessionMod.sessionSet;
+    if (typeof window !== 'undefined') {
+      window.sessionGet = sessionMod.sessionGet;
+      window.sessionSet = sessionMod.sessionSet;
+    }
+
+    const testPhotoUrl = 'https://supabase.local/storage/v1/object/public/avatars/jeshua_car.jpg';
+
+    if (typeof global._memberPfpsMap !== 'undefined') {
+      global._memberPfpsMap['jeshuakoh2008@gmail.com'] = testPhotoUrl;
+      global._memberPfpsMap['jeshua koh'] = testPhotoUrl;
+    }
+    if (typeof window !== 'undefined' && typeof window._memberPfpsMap !== 'undefined') {
+      window._memberPfpsMap['jeshuakoh2008@gmail.com'] = testPhotoUrl;
+      window._memberPfpsMap['jeshua koh'] = testPhotoUrl;
+    }
+
+    const createMockEl = (id) => ({
+      id,
+      src: '',
+      style: { display: id.includes('img') ? 'none' : 'flex' },
+      textContent: '',
+      innerHTML: '',
+      title: '',
+      setAttribute: () => {},
+      removeAttribute: () => {},
+      classList: { add: () => {}, remove: () => {} },
+      parentElement: { style: {}, querySelector: () => null, querySelectorAll: () => [], appendChild: () => {}, setAttribute: () => {}, classList: { add: () => {}, remove: () => {} } },
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      appendChild: () => {}
+    });
+
+    // Mock DOM elements for Header, Sidebar, Member Hub, and Arcade Cosmetic Live Preview
+    const mockElements = {
+      'nav-avatar-img': createMockEl('nav-avatar-img'),
+      'nav-avatar-placeholder': createMockEl('nav-avatar-placeholder'),
+      'nav-avatar-status-dot': createMockEl('nav-avatar-status-dot'),
+      'sidebar-user-avatar-img': createMockEl('sidebar-user-avatar-img'),
+      'sidebar-user-avatar-ph': createMockEl('sidebar-user-avatar-ph'),
+      'm-pfp-img': createMockEl('m-pfp-img'),
+      'm-pfp-ph': createMockEl('m-pfp-ph'),
+      'm-pfp-ring': createMockEl('m-pfp-ring'),
+      'shop-live-avatar-wrap': createMockEl('shop-live-avatar-wrap'),
+      'shop-preview-item-name': createMockEl('shop-preview-item-name'),
+      'shop-preview-item-action': createMockEl('shop-preview-item-action'),
+      'shop-credits-balance': createMockEl('shop-credits-balance'),
+      'nav-points-val': createMockEl('nav-points-val'),
+      'nav-profile-btn': createMockEl('nav-profile-btn')
+    };
+
+    const origDocGetId = global.document.getElementById;
+    const origDocQuery = global.document.querySelector;
+    global.document.getElementById = (id) => mockElements[id] || null;
+    global.document.querySelector = (sel) => {
+      if (sel === '.nav-avatar-circle') return { style: {} };
+      if (sel === '.nav-streak-val') return { textContent: '' };
+      return null;
+    };
+
+    // 1. renderMemberAvatar with active photo displays img and hides placeholder in nav and sidebar
+    global.sessionSet('name', 'Jeshua Koh', { localOnly: true });
+    global.sessionSet('email', 'jeshuakoh2008@gmail.com', { localOnly: true });
+    global.sessionSet('ic', 'jeshuakoh2008@gmail.com', { localOnly: true });
+    global.sessionSet('photo_url', testPhotoUrl, { localOnly: true });
+
+    memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
+
+    assert.strictEqual(mockElements['nav-avatar-img'].style.display, 'block', 'Nav avatar img must be displayed');
+    assert.strictEqual(mockElements['nav-avatar-img'].src, testPhotoUrl, 'Nav avatar img src must match photo URL');
+    assert.strictEqual(mockElements['nav-avatar-placeholder'].style.display, 'none', 'Nav placeholder must be hidden when photo is present');
+    assert.strictEqual(mockElements['sidebar-user-avatar-img'].style.display, 'block', 'Sidebar avatar img must be displayed');
+    assert.strictEqual(mockElements['sidebar-user-avatar-img'].src, testPhotoUrl, 'Sidebar avatar img src must match photo URL');
+    assert.strictEqual(mockElements['sidebar-user-avatar-ph'].style.display, 'none', 'Sidebar placeholder must be hidden when photo is present');
+    console.log('  ✔ renderMemberAvatar synchronizes profile photo in nav header and sidebar');
+
+    // 2. renderCosmeticLivePreview displays uploaded profile picture in Arcade Cosmetic Shop
+    mockElements['shop-live-avatar-wrap'].innerHTML = '';
+    // Provide a real dummy DOM element for wrap.firstElementChild so applyMemberCosmeticElement works
+    const dummyDiv = { style: {}, querySelector: () => null, appendChild: () => {}, setAttribute: () => {} };
+    Object.defineProperty(mockElements['shop-live-avatar-wrap'], 'firstElementChild', {
+      get: () => dummyDiv,
+      configurable: true
+    });
+
+    memberMod.renderCosmeticLivePreview('none');
+
+    assert.ok(
+      mockElements['shop-live-avatar-wrap'].innerHTML.includes('jeshua_car.jpg'),
+      'Arcade Cosmetic Shop Live Preview must include the uploaded photo URL'
+    );
+    assert.ok(
+      mockElements['shop-live-avatar-wrap'].innerHTML.includes('<img src='),
+      'Arcade Cosmetic Shop Live Preview must render an <img> element for uploaded avatar'
+    );
+    console.log('  ✔ renderCosmeticLivePreview renders uploaded photo in Arcade Cosmetic Shop live preview');
+
+    // 3. Fallback when user explicitly has no photo
+    global.sessionSet('photo_url', '', { localOnly: true });
+    mockElements['m-pfp-img'].src = '';
+    mockElements['m-pfp-img'].style.display = 'none';
+
+    memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
+    assert.strictEqual(mockElements['nav-avatar-placeholder'].style.display, 'flex', 'Nav placeholder is visible when no photo');
+    assert.strictEqual(mockElements['sidebar-user-avatar-ph'].style.display, 'flex', 'Sidebar placeholder is visible when no photo');
+
+    memberMod.renderCosmeticLivePreview('none');
+    assert.ok(
+      mockElements['shop-live-avatar-wrap'].innerHTML.includes('<span class="shop-preview-initial"'),
+      'Arcade Cosmetic Shop Live Preview displays initial when user has no photo'
+    );
+    console.log('  ✔ Fallback initials display cleanly when member has no photo');
+
+    // 4. refreshPortalAvatarsEverywhere refreshes Cosmetic Shop live preview
+    let livePreviewUpdated = false;
+    const origLivePrev = global.window.renderCosmeticLivePreview;
+    global.window.renderCosmeticLivePreview = (id) => {
+      livePreviewUpdated = true;
+      assert.strictEqual(id, 'none');
+    };
+    global.window._cosmeticShopPreviewId = 'none';
+
+    utilsMod.refreshPortalAvatarsEverywhere();
+    assert.strictEqual(livePreviewUpdated, true, 'refreshPortalAvatarsEverywhere refreshed Arcade live preview');
+    global.window.renderCosmeticLivePreview = origLivePrev;
+    console.log('  ✔ refreshPortalAvatarsEverywhere triggers live preview update');
+
+    // Restore DOM
+    global.document.getElementById = origDocGetId;
+    global.document.querySelector = origDocQuery;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite92 = new Set();
+    const postMatchesSuite92 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite92.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite92.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite92.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite92.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);
