@@ -1137,8 +1137,8 @@ var PortalRealtime = (function() {
 
   function broadcastLocalChange(entity, action, data) {
     var now = Date.now();
-    // Flood protection: drop rapid bursts for the same entity
-    if (_lastBroadcastTimes[entity] && (now - _lastBroadcastTimes[entity] < _BROADCAST_THROTTLE_MS)) {
+    // Flood protection: drop rapid bursts for non-transactional entities
+    if (entity !== 'projects' && entity !== 'project_statuses' && entity !== 'tasks' && entity !== 'comments' && _lastBroadcastTimes[entity] && (now - _lastBroadcastTimes[entity] < _BROADCAST_THROTTLE_MS)) {
       return;
     }
     _lastBroadcastTimes[entity] = now;
@@ -2349,8 +2349,18 @@ var PortalRealtime = (function() {
       }
     } else if (entity === 'projects' || entity === 'project_statuses') {
       if (typeof window !== 'undefined') {
-        if (data && data.map && typeof data.map === 'object' && typeof window._projectStatusesMap !== 'undefined') {
-          window._projectStatusesMap = Object.assign({}, window._projectStatusesMap, data.map);
+        var incomingMap = null;
+        if (data && data.map && typeof data.map === 'object') {
+          incomingMap = data.map;
+        } else if (data && data.value && (data.key === 'bb_project_statuses' || (data.record && data.record.key === 'bb_project_statuses'))) {
+          try { incomingMap = JSON.parse(data.value || (data.record && data.record.value)); } catch (_) {}
+        } else if (data && data.record && data.record.value && data.record.key === 'bb_project_statuses') {
+          try { incomingMap = JSON.parse(data.record.value); } catch (_) {}
+        }
+        if (incomingMap && typeof window.applyProjectStatusesUpdate === 'function') {
+          window.applyProjectStatusesUpdate(incomingMap);
+        } else if (incomingMap) {
+          window._projectStatusesMap = Object.assign({}, incomingMap);
           try { localStorage.setItem('bb_project_statuses', JSON.stringify(window._projectStatusesMap)); } catch (_) {}
         }
         if (typeof window.loadProjectsCatalog === 'function') window.loadProjectsCatalog();

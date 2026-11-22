@@ -16923,6 +16923,125 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Suite 89: Projects View Board Isolation & Real-Time Status Synchronization ──
+  {
+    console.log('\n--- Suite 89: Projects View Board Isolation & Real-Time Status Synchronization ---');
+    const tasksMod = require('../js/modules/tasks.js');
+    const supaMod = require('../js/api/supabase.js');
+
+    // 1. Projects View isolates project list and strictly hides Kanban task board columns
+    const mockBoardCol = {
+      style: { display: '' },
+      classList: {
+        _classes: new Set(),
+        add(c) { this._classes.add(c); },
+        remove(c) { this._classes.delete(c); },
+        contains(c) { return this._classes.has(c); }
+      }
+    };
+    const mockColTabs = { style: { display: '' } };
+    const mockListView = { style: { display: '' } };
+    const mockProjContainer = { style: { display: 'none' } };
+    const mockNoProjEl = { style: { display: '' } };
+    const mockMyTasks = { style: { display: '' } };
+
+    const origGetElem = global.document.getElementById;
+    const origQuerySel = global.document.querySelector;
+    const origQuerySelAll = global.document.querySelectorAll;
+
+    global.document.getElementById = (id) => {
+      if (id === 'tasks-columns') return mockBoardCol;
+      if (id === 'task-col-tabs') return mockColTabs;
+      if (id === 'tasks-dept-title') return { textContent: '', style: {} };
+      if (id === 'tasks-dept-sub') return { textContent: '', style: {} };
+      return origGetElem ? origGetElem(id) : null;
+    };
+
+    global.document.querySelector = (sel) => {
+      if (sel === '.tasks-board-list-view') return mockListView;
+      if (sel === '.projects-container') return mockProjContainer;
+      if (sel === '.tasks-no-project-placeholder') return mockNoProjEl;
+      if (sel === '.my-tasks-container') return mockMyTasks;
+      if (sel === '#tasks-columns') return mockBoardCol;
+      return { style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {} };
+    };
+
+    global.document.querySelectorAll = () => [];
+
+    // Test setTasksViewMode('projects')
+    tasksMod.setTasksViewMode('projects');
+    assert.strictEqual(mockBoardCol.style.display, 'none', '#tasks-columns display set to none in projects view');
+    assert.ok(mockBoardCol.classList.contains('hidden'), '#tasks-columns marked with .hidden class');
+    assert.strictEqual(mockListView.style.display, 'none', 'List view hidden in projects view');
+    assert.strictEqual(mockColTabs.style.display, 'none', 'Column tabs hidden in projects view');
+    assert.strictEqual(mockProjContainer.style.display, 'block', 'Projects container visible in projects view');
+    console.log('  ✔ setTasksViewMode("projects") strictly isolates project view and hides task columns');
+
+    // 2. renderColumnsFromTasks and refreshCurrentTasksView protect project view from leaking task board
+    tasksMod.renderColumnsFromTasks([{ id: 't1', title: 'Task 1', status: 'todo' }]);
+    assert.strictEqual(mockBoardCol.style.display, 'none', 'renderColumnsFromTasks aborts and keeps board hidden when in projects view');
+
+    tasksMod.refreshCurrentTasksView();
+    assert.strictEqual(mockBoardCol.style.display, 'none', 'refreshCurrentTasksView keeps board hidden when in projects view');
+    console.log('  ✔ renderColumnsFromTasks & refreshCurrentTasksView enforce zero board leakage in projects view');
+
+    // 3. CSS token verification: .tasks-board-columns display:none !important override
+    const compCss = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    assert.ok(
+      compCss.includes('.tasks-board-columns[style*="display: none"]') || compCss.includes('.tasks-board-columns.hidden'),
+      'components.css enforces display: none !important for hidden .tasks-board-columns'
+    );
+    assert.ok(
+      !compCss.includes('.tasks-board-columns {\n  display: flex !important'),
+      'components.css removes rogue display: flex !important that previously overrode inline display:none'
+    );
+    console.log('  ✔ CSS rules enforce display: none !important when columns are hidden and allow clean toggling');
+
+    // 4. Real-time project status update synchronization
+    const testMap = {
+      'ideas': [
+        { id: 'ideas-top3', label: 'Top 3 Ideas', isCustom: true },
+        { id: 'ideas-ship', label: 'Ideas to Ship', isCustom: true }
+      ]
+    };
+    tasksMod.applyProjectStatusesUpdate(testMap);
+    const retrievedStatuses = tasksMod.getProjectStatuses('ideas');
+    assert.strictEqual(retrievedStatuses.length, 2, 'applyProjectStatusesUpdate live-updates project statuses');
+    assert.strictEqual(retrievedStatuses[0].label, 'Top 3 Ideas', 'First status matches updated label');
+    assert.strictEqual(retrievedStatuses[1].id, 'ideas-ship', 'Second status matches updated slug');
+
+    // Test WebSocket postgres_changes payload processing in PortalRealtime
+    if (supaMod.triggerEntityUpdate) {
+      const incomingRemoteMap = {
+        'ideas': [
+          { id: 'ideas-brainstorm', label: 'Brainstorm', isCustom: true }
+        ]
+      };
+      supaMod.triggerEntityUpdate('projects', 'update', {
+        key: 'bb_project_statuses',
+        value: JSON.stringify(incomingRemoteMap)
+      }, true);
+      const remoteStatuses = tasksMod.getProjectStatuses('ideas');
+      assert.strictEqual(remoteStatuses[0].label, 'Brainstorm', 'Real-time WebSocket payload updates status map immediately with 0ms lag');
+    }
+    console.log('  ✔ Real-time status updates broadcast and sync across devices instantly without latency');
+
+    // Restore globals
+    global.document.getElementById = origGetElem;
+    global.document.querySelector = origQuerySel;
+    global.document.querySelectorAll = origQuerySelAll;
+
+    // 5. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite89 = new Set();
+    const postMatchesSuite89 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite89.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite89.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite89.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite89.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);

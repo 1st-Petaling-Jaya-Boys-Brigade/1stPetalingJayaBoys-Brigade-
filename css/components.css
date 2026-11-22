@@ -2955,13 +2955,13 @@ select.form-input,
 }
 
 .tasks-board-columns {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: stretch !important;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
   gap: 16px;
   width: 100%;
   max-width: 100%;
-  overflow-x: auto !important;
+  overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 24px;
   min-height: calc(100vh - 250px);
@@ -2970,6 +2970,15 @@ select.form-input,
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: var(--border-card, #cbd5e1) transparent;
+}
+
+.tasks-board-columns[style*="display: none"],
+.tasks-board-columns[style*="display:none"],
+#tasks-columns[style*="display: none"],
+#tasks-columns[style*="display:none"],
+.tasks-board-columns.hidden,
+#tasks-columns.hidden {
+  display: none !important;
 }
 
 .tasks-board-columns::-webkit-scrollbar {
@@ -3337,7 +3346,7 @@ select.form-input,
 }
 
 @media (max-width: 600px) {
-  #tasks-columns {
+  #tasks-columns:not([style*="display: none"]):not([style*="display:none"]):not(.hidden) {
     display: flex !important;
     flex-direction: column !important;
     gap: 0 !important;
