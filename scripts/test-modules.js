@@ -17190,6 +17190,119 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // ── Suite 91: Task Project List View Status Grouping & Parity with Board View ──
+  {
+    console.log('\n--- Suite 91: Task Project List View Status Grouping & Parity with Board View ---');
+    const tasksMod = require('../js/modules/tasks.js');
+
+    // 1. taskMatchesStatus supports both .id and .key, space-separated labels, and normalized slug matching
+    const secPlanning = { id: 'planning', key: 'planning', label: 'Planning' };
+    const secTodo = { key: 'todo', label: 'To Do' };
+    const secInProgress = { key: 'inprogress', label: 'In Progress' };
+    const secInReview = { key: 'inreview', label: 'In Review' };
+    const secComplete = { key: 'completed', label: 'Complete' };
+    const secCustomTest = { id: 'test', key: 'test', label: 'test', isCustom: true };
+
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'planning' }, secPlanning), true, 'Matches planning task');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'todo' }, secTodo), true, 'Matches todo task against key: todo, label: To Do');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'to do' }, secTodo), true, 'Matches "to do" task with space');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'inprogress' }, secInProgress), true, 'Matches inprogress task');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'in progress' }, secInProgress), true, 'Matches "in progress" task');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'inreview' }, secInReview), true, 'Matches inreview task');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'in review' }, secInReview), true, 'Matches "in review" task');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'completed' }, secComplete), true, 'Matches completed task against key: completed, label: Complete');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'complete' }, secComplete), true, 'Matches complete task');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'done' }, secComplete), true, 'Matches done task');
+    assert.strictEqual(tasksMod.taskMatchesStatus({ status: 'test' }, secCustomTest), true, 'Matches custom status task');
+    console.log('  ✔ taskMatchesStatus accurately maps both id and key across standard and custom statuses');
+
+    // 2. renderTasksListView accurately groups tasks across all statuses matching user scenario
+    const mockTasks = [
+      { id: 'por-4', title: 'iOS mobile app', status: 'planning', project_name: 'Portal Development', priority: 'high', assignee_name: 'Jeshua Koh' },
+      { id: 'por-5', title: 'UI/UX upgrade to Task Board', status: 'planning', project_name: 'Portal Development', priority: 'low', assignee_name: 'Jeshua Koh' },
+      { id: 'por-6', title: 'Google Sheet links - Form responses...', status: 'planning', project_name: 'Portal Development', priority: 'medium', assignee_name: 'Jeshua Koh' },
+      { id: 'por-8', title: 'Task Board update', status: 'planning', project_name: 'Portal Development', priority: 'medium', assignee_name: 'Jeshua Koh' },
+      { id: 'por-2', title: 'Full test for Portal before launch', status: 'todo', project_name: 'Portal Development', priority: 'medium', assignee_name: 'Jeshua Koh' },
+      { id: 'por-7', title: 'Testing Phase', status: 'todo', project_name: 'Portal Development', priority: 'high', assignee_name: 'Jeshua Koh' },
+      { id: 'por-1', title: 'Notification for mobile', status: 'completed', project_name: 'Portal Development', priority: 'high', assignee_name: 'Jeshua Koh' },
+      { id: 'por-3', title: 'Bug fixes - mentions', status: 'completed', project_name: 'Portal Development', priority: 'low', assignee_name: 'Jeshua Koh' }
+    ];
+
+    tasksMod._allLoadedTasks = mockTasks;
+    tasksMod._activeProject = 'Portal Development';
+
+    let capturedHtml = '';
+    const mockListViewEl = {
+      style: {
+        display: '',
+        setProperty(k, v) { if (k === 'display') this.display = v; },
+        removeProperty() {}
+      },
+      classList: {
+        _classes: new Set(),
+        add(c) { this._classes.add(c); },
+        remove(c) { this._classes.delete(c); },
+        contains(c) { return this._classes.has(c); }
+      },
+      set innerHTML(val) { capturedHtml = val; },
+      get innerHTML() { return capturedHtml; }
+    };
+
+    const origDocQuery = global.document.querySelector;
+    const origDocGetId = global.document.getElementById;
+    global.document.querySelector = (sel) => {
+      if (sel === '.tasks-board-list-view') return mockListViewEl;
+      return { style: {}, classList: { add() {}, remove() {}, contains() { return false; } } };
+    };
+    global.document.getElementById = (id) => {
+      if (id === 'tasks-columns' || id === 'task-col-tabs') {
+        return { style: {}, classList: { add() {}, remove() {} } };
+      }
+      return null;
+    };
+
+    tasksMod.renderTasksListView('Portal Development');
+
+    // Verify Planning group has count 4 and lists tasks
+    assert.ok(capturedHtml.includes('PLANNING</span><span class="proj-list-group-count">4</span>'), 'Planning status group shows count of 4 in List View');
+    assert.ok(capturedHtml.includes('iOS mobile app') && capturedHtml.includes('POR-4'), 'Planning contains POR-4 iOS mobile app');
+
+    // Verify To Do group has count 2 and lists tasks
+    assert.ok(capturedHtml.includes('TO DO</span><span class="proj-list-group-count">2</span>'), 'To Do status group shows count of 2 in List View');
+    assert.ok(capturedHtml.includes('Full test for Portal before launch') && capturedHtml.includes('POR-2'), 'To Do contains POR-2 Full test');
+    assert.ok(capturedHtml.includes('Testing Phase') && capturedHtml.includes('POR-7'), 'To Do contains POR-7 Testing Phase');
+    assert.ok(!capturedHtml.includes('No tasks in To Do'), 'To Do does NOT show empty state placeholder when tasks exist');
+
+    // Verify Complete group has count 2 and lists tasks
+    assert.ok(capturedHtml.includes('COMPLETE</span><span class="proj-list-group-count">2</span>') || capturedHtml.includes('COMPLETED</span><span class="proj-list-group-count">2</span>'), 'Complete status group shows count of 2 in List View');
+    assert.ok(capturedHtml.includes('Notification for mobile') && capturedHtml.includes('POR-1'), 'Complete contains POR-1 Notification for mobile');
+    assert.ok(capturedHtml.includes('Bug fixes - mentions') && capturedHtml.includes('POR-3'), 'Complete contains POR-3 Bug fixes');
+    assert.ok(!capturedHtml.includes('No tasks in Complete'), 'Complete does NOT show empty state placeholder when tasks exist');
+    console.log('  ✔ renderTasksListView accurately populates To Do and Complete tasks matching Board View counts');
+
+    // 3. CSS verification: status-completed, status-complete, and status-done styling
+    const compCss = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    assert.ok(
+      compCss.includes('.proj-list-status-pill.status-completed') && compCss.includes('.proj-list-status-pill.status-complete'),
+      'components.css includes status-complete and status-completed pill styling'
+    );
+    console.log('  ✔ CSS rules support all completed/complete status pill variants');
+
+    // Restore globals
+    global.document.querySelector = origDocQuery;
+    global.document.getElementById = origDocGetId;
+
+    // 4. Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite91 = new Set();
+    const postMatchesSuite91 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite91.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite91.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite91.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite91.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);

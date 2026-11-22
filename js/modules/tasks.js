@@ -93,15 +93,26 @@ function getProjectStatuses(projectName) {
 function taskMatchesStatus(task, statusObj, _projectName) {
   if (!task || !statusObj) return false;
   var tStat = String(task.status || '').toLowerCase().trim();
-  var sId = String(statusObj.id || '').toLowerCase().trim();
+  var sId = String(statusObj.id || statusObj.key || '').toLowerCase().trim();
   var sLabel = String(statusObj.label || '').toLowerCase().trim();
 
   if (tStat === sId || tStat === sLabel) return true;
-  if ((sId === 'completed' || sId === 'done' || sId === 'complete') && (tStat === 'completed' || tStat === 'done' || tStat === 'complete')) return true;
-  if (sId === 'todo' && (tStat === 'to do' || tStat === 'todo')) return true;
-  if (sId === 'inprogress' && (tStat === 'in progress' || tStat === 'in-progress' || tStat === 'inprogress')) return true;
-  if (sId === 'inreview' && (tStat === 'in review' || tStat === 'in-review' || tStat === 'inreview')) return true;
-  if (sId === 'planning' && tStat === 'planning') return true;
+
+  var normTStat = tStat.replace(/[\s-_]+/g, '');
+  var normSId = sId.replace(/[\s-_]+/g, '');
+  var normSLabel = sLabel.replace(/[\s-_]+/g, '');
+  if (normTStat && (normTStat === normSId || normTStat === normSLabel)) return true;
+
+  if ((sId === 'completed' || sId === 'done' || sId === 'complete' || sLabel === 'completed' || sLabel === 'done' || sLabel === 'complete' || normSId === 'completed' || normSLabel === 'complete') &&
+      (tStat === 'completed' || tStat === 'done' || tStat === 'complete' || normTStat === 'completed' || normTStat === 'complete' || normTStat === 'done')) return true;
+  if ((sId === 'todo' || sLabel === 'to do' || normSId === 'todo' || normSLabel === 'todo') &&
+      (tStat === 'to do' || tStat === 'todo' || normTStat === 'todo')) return true;
+  if ((sId === 'inprogress' || sLabel === 'in progress' || normSId === 'inprogress' || normSLabel === 'inprogress') &&
+      (tStat === 'in progress' || tStat === 'in-progress' || tStat === 'inprogress' || normTStat === 'inprogress')) return true;
+  if ((sId === 'inreview' || sLabel === 'in review' || normSId === 'inreview' || normSLabel === 'inreview') &&
+      (tStat === 'in review' || tStat === 'in-review' || tStat === 'inreview' || normTStat === 'inreview')) return true;
+  if ((sId === 'planning' || sLabel === 'planning' || normSId === 'planning' || normSLabel === 'planning') &&
+      (tStat === 'planning' || normTStat === 'planning')) return true;
 
   return false;
 }
@@ -2462,19 +2473,41 @@ function renderTasksListView(projectName) {
   var pStatuses = getProjectStatuses(pName);
   var sections = pStatuses.map(function(st) {
     return {
+      id: st.id,
       key: st.id,
       label: st.label,
+      isCustom: !!st.isCustom,
       color: st.color || (st.isCustom ? 'var(--text-secondary, #94a3b8)' : '#64748b'),
       dotBg: st.color || (st.isCustom ? 'var(--text-secondary, #94a3b8)' : '#64748b')
     };
   });
 
+  var sectionTaskMap = {};
+  sections.forEach(function(sec) {
+    sectionTaskMap[sec.id] = [];
+  });
+
+  (tasks || []).forEach(function(t) {
+    var matched = false;
+    for (var i = 0; i < sections.length; i++) {
+      if (taskMatchesStatus(t, sections[i], pName)) {
+        sectionTaskMap[sections[i].id].push(t);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      var fallbackSec = sections.find(function(s) { return s.id === 'todo'; }) || sections[0];
+      if (fallbackSec && sectionTaskMap[fallbackSec.id]) {
+        sectionTaskMap[fallbackSec.id].push(t);
+      }
+    }
+  });
+
   var html = '<div class="proj-list-wrapper">';
 
   sections.forEach(function(sec) {
-    var secTasks = tasks.filter(function(t) {
-      return taskMatchesStatus(t, sec, pName);
-    });
+    var secTasks = sectionTaskMap[sec.id] || [];
 
     html += '<div class="proj-list-group" data-group-status="' + sec.key + '">' +
       '<div class="proj-list-group-header">' +
@@ -2508,6 +2541,11 @@ function renderTasksListView(projectName) {
     } else {
       secTasks.forEach(function(t, idx) {
         if (!/^[\w-]+$/.test(t.id || '')) return;
+        _taskMap[t.id] = t;
+        if (typeof window !== 'undefined') {
+          window._taskMap = window._taskMap || {};
+          window._taskMap[t.id] = t;
+        }
         var tidFormatted = formatTaskId(t, idx);
         var prioIcon = getPriorityIconSvg(t.priority || 'medium', 13);
         var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(t.title || '') : (t.title || '');
@@ -2515,13 +2553,20 @@ function renderTasksListView(projectName) {
         var assigneeAvatar = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 22);
 
         var dueStr = formatTaskDueDateStr(t.due_date);
-        var isDone = (normalizeTaskStatus(t.status) === 'completed');
+        var isDone = isTaskCompleted(t, pName);
         var dueBadgeCls = getTaskDueBadgeClass(t.due_date, isDone);
 
         var est = t.estimate || '';
         if (!est && t.description) {
           var estMatch = t.description.match(/\[Estimate:\s*([^\]|]+)/i);
           if (estMatch && estMatch[1]) est = estMatch[1].trim();
+        }
+
+        var pillCls = 'proj-list-status-pill status-' + (typeof escapeHtml === 'function' ? escapeHtml(sec.key) : sec.key);
+        if (sec.key === 'complete' || sec.key === 'done') pillCls += ' status-completed';
+        var customStyle = '';
+        if (sec.isCustom && !['planning', 'todo', 'inprogress', 'inreview', 'completed', 'complete', 'done'].includes(sec.key)) {
+          customStyle = ' style="background:rgba(148, 163, 184, 0.15);color:var(--text-secondary, #94a3b8);border:1px solid rgba(148, 163, 184, 0.3);"';
         }
 
         html += '<tr class="proj-list-row" onclick="openTaskDetail(\'' + t.id + '\')" role="button" tabindex="0">' +
@@ -2532,7 +2577,7 @@ function renderTasksListView(projectName) {
             '</div>' +
           '</td>' +
           '<td class="col-status">' +
-            '<span class="proj-list-status-pill status-' + sec.key + '">' + sec.label + '</span>' +
+            '<span class="' + pillCls + '"' + customStyle + '>' + escapeHtml(sec.label) + '</span>' +
           '</td>' +
           '<td class="col-priority">' +
             '<span class="proj-list-priority-badge prio-' + (t.priority || 'medium') + '">' +
