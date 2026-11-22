@@ -3640,6 +3640,7 @@ function renderCosmeticShopView() {
   var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
   var activeCosmetic = getMemberCosmetic(myEmail);
   _cosmeticShopPreviewId = activeCosmetic.id; // Strictly 'none' if user has no equipped cosmetic!
+  if (typeof window !== 'undefined') window._cosmeticShopPreviewId = _cosmeticShopPreviewId;
 
   container.innerHTML =
     '<div class="cosmetic-shop-tab-view">' +
@@ -3758,21 +3759,64 @@ function resetCosmeticFilters() {
 
 function renderCosmeticLivePreview(cosmeticId) {
   _cosmeticShopPreviewId = cosmeticId;
+  if (typeof window !== 'undefined') window._cosmeticShopPreviewId = cosmeticId;
   var wrap = document.getElementById('shop-live-avatar-wrap');
   var nameEl = document.getElementById('shop-preview-item-name');
   var actEl = document.getElementById('shop-preview-item-action');
   if (!wrap) return;
 
-  var myName = (typeof sessionGet === 'function') ? sessionGet('name') : 'Member';
-  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
+  var sessGetFn = (typeof sessionGet === 'function')
+    ? sessionGet
+    : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+      ? window.sessionGet
+      : null;
+  var myName = sessGetFn ? (sessGetFn('name') || 'Member') : 'Member';
+  var myEmail = sessGetFn ? (sessGetFn('email') || sessGetFn('ic') || '') : '';
   var isCreator = (typeof isCreatorSession === 'function') ? isCreatorSession() : false;
   var initial = isCreator ? 'J' : ((typeof getMemberAvatarInitial === 'function') ? getMemberAvatarInitial(myName, myEmail) : (myName.charAt(0) || 'M'));
   var color = isCreator ? '#083830' : ((typeof getMemberAvatarColor === 'function') ? getMemberAvatarColor(myName) : '#047857');
   var outline = getMemberAvatarOutline(myEmail, myName);
 
+  var sPhoto = sessGetFn ? sessGetFn('photo_url') : null;
+  var photoUrl = null;
+  if (sPhoto) {
+    photoUrl = sPhoto;
+  } else if (sPhoto === '') {
+    if (typeof document !== 'undefined') {
+      var mImgCheck = document.getElementById('m-pfp-img');
+      if (mImgCheck && mImgCheck.src && mImgCheck.style.display !== 'none' && !mImgCheck.src.endsWith('/')) {
+        photoUrl = mImgCheck.src;
+      }
+    }
+  } else {
+    if (typeof getMemberAvatarUrl === 'function') photoUrl = getMemberAvatarUrl(myName, myEmail);
+    if (!photoUrl && typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap) {
+      if (myEmail && _memberPfpsMap[myEmail.toLowerCase()]) photoUrl = _memberPfpsMap[myEmail.toLowerCase()];
+      else if (myName && _memberPfpsMap[myName.toLowerCase()]) photoUrl = _memberPfpsMap[myName.toLowerCase()];
+    }
+    if (!photoUrl && typeof localStorage !== 'undefined') {
+      try {
+        var cleanEm = (myEmail || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+        var cleanNm = (myName || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+        photoUrl = localStorage.getItem('bb_pfp_' + cleanEm) || localStorage.getItem('bb_pfp_' + cleanNm);
+      } catch (_) {}
+    }
+    if (!photoUrl && typeof document !== 'undefined') {
+      var mImgCheck2 = document.getElementById('m-pfp-img');
+      if (mImgCheck2 && mImgCheck2.src && mImgCheck2.style.display !== 'none' && !mImgCheck2.src.endsWith('/')) {
+        photoUrl = mImgCheck2.src;
+      }
+    }
+  }
+  var normPhoto = photoUrl ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(photoUrl) : photoUrl) : null;
+
   wrap.innerHTML =
     '<div style="width:56px;height:56px;border-radius:50%;background:' + color + ';color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;position:relative;overflow:visible;">' +
-      initial +
+      (normPhoto
+        ? '<img src="' + (typeof escapeHtml === 'function' ? escapeHtml(normPhoto) : normPhoto) + '" alt="' + (typeof escapeHtml === 'function' ? escapeHtml(myName) : myName) + '" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;object-fit:cover;z-index:1;" onerror="this.style.display=\'none\';var p=this.parentNode.querySelector(\'.shop-preview-initial\');if(p)p.style.display=\'flex\';" />' +
+          '<span class="shop-preview-initial" style="display:none;width:100%;height:100%;border-radius:50%;align-items:center;justify-content:center;font-size:24px;font-weight:800;">' + initial + '</span>'
+        : '<span class="shop-preview-initial" style="display:flex;width:100%;height:100%;border-radius:50%;align-items:center;justify-content:center;font-size:24px;font-weight:800;">' + initial + '</span>'
+      ) +
       (outline.style !== 'none' ? '<span class="avatar-outline-overlay ' + outline.config.className + '" style="position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:2;"></span>' : '') +
     '</div>';
 
@@ -4346,10 +4390,67 @@ function renderMemberAvatar(memberName, memberEmail) {
 
   var textLColor = (typeof isBrightColor === 'function' && isBrightColor(color)) ? '#1e293b' : '#ffffff';
 
+  // Check if member has an uploaded profile photo
+  var sessGetFn = (typeof sessionGet === 'function')
+    ? sessionGet
+    : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+      ? window.sessionGet
+      : null;
+  var curName = sessGetFn ? (sessGetFn('name') || '') : '';
+  var curEmail = sessGetFn ? (sessGetFn('email') || '') : '';
+  var curIc = sessGetFn ? (sessGetFn('ic') || '') : '';
+  var isCurrent = false;
+  if (name && curName && name.toLowerCase() === curName.trim().toLowerCase()) isCurrent = true;
+  else if (email && ((curIc && email.toLowerCase() === curIc.toLowerCase()) || (curEmail && email.toLowerCase() === curEmail.toLowerCase()))) isCurrent = true;
+
+  var sPhoto = (isCurrent && sessGetFn) ? sessGetFn('photo_url') : null;
+  var photoUrl = null;
+  if (sPhoto) {
+    photoUrl = sPhoto;
+  } else if (sPhoto === '') {
+    if (typeof document !== 'undefined') {
+      var mImgCheck = document.getElementById('m-pfp-img');
+      if (mImgCheck && mImgCheck.src && mImgCheck.style.display !== 'none' && !mImgCheck.src.endsWith('/')) {
+        photoUrl = mImgCheck.src;
+      }
+    }
+  } else {
+    if (typeof getMemberAvatarUrl === 'function') photoUrl = getMemberAvatarUrl(name, email);
+    if (!photoUrl && typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap) {
+      if (email && _memberPfpsMap[email.toLowerCase()]) photoUrl = _memberPfpsMap[email.toLowerCase()];
+      else if (name && _memberPfpsMap[name.toLowerCase()]) photoUrl = _memberPfpsMap[name.toLowerCase()];
+    }
+    if (!photoUrl && typeof localStorage !== 'undefined') {
+      try {
+        var clEmail = (email || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+        var clName = (name || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
+        photoUrl = localStorage.getItem('bb_pfp_' + clEmail) || localStorage.getItem('bb_pfp_' + clName);
+      } catch (_) {}
+    }
+    if (!photoUrl && typeof document !== 'undefined') {
+      var mImgCheck2 = document.getElementById('m-pfp-img');
+      if (mImgCheck2 && mImgCheck2.src && mImgCheck2.style.display !== 'none' && !mImgCheck2.src.endsWith('/')) {
+        photoUrl = mImgCheck2.src;
+      }
+    }
+  }
+  var normPhoto = photoUrl ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(photoUrl) : photoUrl) : null;
+
   // 1. Sidebar user avatar placeholder
   var sPh = document.getElementById('sidebar-user-avatar-ph');
   var sImg = document.getElementById('sidebar-user-avatar-img');
-  var sHasPhoto = !!(sImg && sImg.src && sImg.style.display !== 'none');
+  if (normPhoto && sImg) {
+    sImg.onerror = function() {
+      this.style.display = 'none';
+      if (sPh) sPh.style.display = 'flex';
+    };
+    if (sImg.src !== normPhoto) sImg.src = normPhoto;
+    sImg.style.display = 'block';
+  } else if (!normPhoto && sImg) {
+    sImg.style.display = 'none';
+    sImg.src = '';
+  }
+  var sHasPhoto = !!(normPhoto && sImg && sImg.style.display !== 'none');
   if (sPh) {
     sPh.textContent = initial;
     sPh.title = tooltip;
@@ -4381,7 +4482,18 @@ function renderMemberAvatar(memberName, memberEmail) {
   var mPh = document.getElementById('m-pfp-ph');
   var mRing = document.getElementById('m-pfp-ring');
   var mImg = document.getElementById('m-pfp-img');
-  var mHasPhoto = !!(mImg && mImg.src && mImg.style.display !== 'none');
+  if (normPhoto && mImg) {
+    mImg.onerror = function() {
+      this.style.display = 'none';
+      if (mPh) mPh.style.display = 'flex';
+    };
+    if (mImg.src !== normPhoto) mImg.src = normPhoto;
+    mImg.style.display = 'block';
+  } else if (!normPhoto && mImg) {
+    mImg.style.display = 'none';
+    mImg.src = '';
+  }
+  var mHasPhoto = !!(normPhoto && mImg && mImg.style.display !== 'none');
   if (mPh) {
     mPh.textContent = initial;
     mPh.title = tooltip;
@@ -4414,7 +4526,18 @@ function renderMemberAvatar(memberName, memberEmail) {
   var nPh = document.getElementById('nav-avatar-placeholder');
   var navCircle = document.querySelector('.nav-avatar-circle');
   var nImg = document.getElementById('nav-avatar-img');
-  var nHasPhoto = !!(nImg && nImg.src && nImg.style.display !== 'none');
+  if (normPhoto && nImg) {
+    nImg.onerror = function() {
+      this.style.display = 'none';
+      if (nPh) nPh.style.display = 'flex';
+    };
+    if (nImg.src !== normPhoto) nImg.src = normPhoto;
+    nImg.style.display = 'block';
+  } else if (!normPhoto && nImg) {
+    nImg.style.display = 'none';
+    nImg.src = '';
+  }
+  var nHasPhoto = !!(normPhoto && nImg && nImg.style.display !== 'none');
   if (nPh) {
     nPh.textContent = initial;
     nPh.title = tooltip;
@@ -4841,6 +4964,11 @@ async function renderDashboard() {
         || ((typeof sessionGet === 'function') ? sessionGet('photo_url') : '')
         || ((typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(m.name, m.email || m.ic || id) : '')
         || ((typeof _memberPfpsMap !== 'undefined') ? (_memberPfpsMap[(m.email || '').toLowerCase()] || _memberPfpsMap[(m.ic || '').toLowerCase()] || _memberPfpsMap[id.toLowerCase()] || _memberPfpsMap[m.name.trim().toLowerCase()] || '') : '');
+      if (!photoCandidate && typeof localStorage !== 'undefined') {
+        try {
+          photoCandidate = localStorage.getItem('bb_pfp_' + cleanFileEmail) || localStorage.getItem('bb_pfp_' + cleanFileIc) || '';
+        } catch (_) {}
+      }
 
       var applyAvatarPhoto = function(url) {
         var normUrl = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(url) : url;
@@ -4873,7 +5001,13 @@ async function renderDashboard() {
           if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = normUrl;
           _memberPfpsMap[id.toLowerCase()] = normUrl;
         }
+        if (typeof renderMemberAvatar === 'function') renderMemberAvatar(m.name, displayEmail);
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
+        if (typeof refreshPortalAvatarsEverywhere === 'function') {
+          refreshPortalAvatarsEverywhere();
+        } else if (typeof window !== 'undefined' && typeof window.refreshPortalAvatarsEverywhere === 'function') {
+          window.refreshPortalAvatarsEverywhere();
+        }
         setRemovePfpButtonVisible(true);
       };
 
@@ -5527,7 +5661,19 @@ async function refreshLoggedInUserProfile() {
       }
 
       var cleanFileName = (m.ic || m.email || id).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-      var photoCandidate = m.photo_url || (typeof getMemberAvatarUrl === 'function' ? getMemberAvatarUrl(m.name, m.email || m.ic || id) : '') || ((typeof _memberPfpsMap !== 'undefined') ? (_memberPfpsMap[(m.email || '').toLowerCase()] || _memberPfpsMap[(m.ic || '').toLowerCase()] || _memberPfpsMap[id.toLowerCase()] || '') : '');
+      var photoCandidate = m.photo_url
+        || (typeof sessionGet === 'function' ? sessionGet('photo_url') : '')
+        || (typeof getMemberAvatarUrl === 'function' ? getMemberAvatarUrl(m.name, m.email || m.ic || id) : '')
+        || ((typeof _memberPfpsMap !== 'undefined') ? (_memberPfpsMap[(m.email || '').toLowerCase()] || _memberPfpsMap[(m.ic || '').toLowerCase()] || _memberPfpsMap[id.toLowerCase()] || '') : '');
+      if (!photoCandidate && typeof localStorage !== 'undefined') {
+        try { photoCandidate = localStorage.getItem('bb_pfp_' + cleanFileName) || ''; } catch (_) {}
+      }
+      if (!photoCandidate && typeof document !== 'undefined') {
+        var mImgDom = document.getElementById('m-pfp-img');
+        if (mImgDom && mImgDom.src && mImgDom.style.display !== 'none' && !mImgDom.src.endsWith('/')) {
+          photoCandidate = mImgDom.src;
+        }
+      }
       if (photoCandidate) {
         var normPhoto = (typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(photoCandidate) : photoCandidate;
         if (sessionGet('photo_url') !== normPhoto) sessionSet('photo_url', normPhoto, { localOnly: true });
@@ -5566,8 +5712,9 @@ async function refreshLoggedInUserProfile() {
         if (ordImg && ordImg.src !== normPhoto) { ordImg.src = normPhoto; ordImg.style.display = 'block'; }
         if (ordPh)  ordPh.style.display = 'none';
         if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(true);
+        if (typeof renderMemberAvatar === 'function') renderMemberAvatar(m.name, m.email);
         if (typeof window !== 'undefined' && typeof window.updateNavUserHeader === 'function') window.updateNavUserHeader();
-      } else if (m.photo_url === null || m.photo_url === '' || !photoCandidate) {
+      } else if (m.photo_url === null && !photoCandidate) {
         if (sessionGet('photo_url')) sessionSet('photo_url', '', { localOnly: true });
         if (typeof localStorage !== 'undefined') {
           try { localStorage.removeItem('bb_pfp_' + cleanFileName); } catch (_) {}
@@ -7535,6 +7682,7 @@ if (typeof window !== 'undefined') {
   window.closeCosmeticShopDrawer      = closeCosmeticShopDrawer;
   window.filterCosmeticShop           = filterCosmeticShop;
   window.renderCosmeticLivePreview    = renderCosmeticLivePreview;
+  window._cosmeticShopPreviewId       = _cosmeticShopPreviewId;
   window.renderCosmeticShopCards      = renderCosmeticShopCards;
   window.openResetModal                 = openResetModal;
   window.openSettingsModal              = openSettingsModal;
