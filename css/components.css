@@ -13116,7 +13116,9 @@ body.light-theme .tb-mention-pill,
 .proj-list-status-pill.status-todo { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
 .proj-list-status-pill.status-inprogress { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
 .proj-list-status-pill.status-inreview { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-.proj-list-status-pill.status-completed { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.proj-list-status-pill.status-completed,
+.proj-list-status-pill.status-complete,
+.proj-list-status-pill.status-done { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
 
 .proj-list-priority-badge {
   display: inline-flex;
