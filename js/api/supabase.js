@@ -1319,8 +1319,8 @@ var PortalRealtime = (function() {
           if (data.event === 'postgres_changes' && data.payload) {
             var payload = data.payload.data || data.payload;
             var table = payload.table;
-            var record = payload.record || {};
-            var oldRecord = payload.old_record || {};
+            var record = payload.record || payload.new || (payload.data && (payload.data.record || payload.data.new)) || {};
+            var oldRecord = payload.old_record || payload.old || (payload.data && (payload.data.old_record || payload.data.old)) || {};
             var evType = payload.type || payload.eventType || '';
 
             if (table === 'bb_config') {
@@ -1424,7 +1424,7 @@ var PortalRealtime = (function() {
 
     _deltaSyncInFlight = true;
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights,bb_member_presence,bb_member_pfps)&select=key,updated_at', { cache: false });
+      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_project_statuses,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights,bb_member_presence,bb_member_pfps)&select=key,updated_at', { cache: false });
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r?.key) return;
@@ -2372,7 +2372,6 @@ var PortalRealtime = (function() {
         } else if (typeof window.refreshCurrentTasksView === 'function') {
           window.refreshCurrentTasksView();
         }
-        if (typeof window.renderProjectsView === 'function') window.renderProjectsView();
       }
     } else if (entity === 'members') {
       var sessGetFn = (typeof sessionGet === 'function')

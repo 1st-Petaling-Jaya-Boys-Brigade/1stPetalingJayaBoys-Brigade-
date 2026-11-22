@@ -8731,6 +8731,25 @@ body.light-theme .tb-mention-pill,
   box-sizing: border-box;
 }
 
+.tb-comment-input[contenteditable="true"] {
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  min-height: 40px;
+  line-height: 1.4;
+  overflow-y: auto;
+  max-height: 120px;
+  display: block;
+}
+
+.tb-comment-input[contenteditable="true"]:empty::before,
+.tb-comment-input[contenteditable="true"] > br:only-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+  font-size: 13px;
+}
+
 .tb-comment-input:focus {
   border-color: var(--accent);
 }
