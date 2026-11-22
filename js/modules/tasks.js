@@ -447,8 +447,10 @@ async function saveProjectsCatalog() {
 async function saveProjectStatusesCatalog() {
   if (typeof localStorage !== 'undefined') {
     try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
+    if (typeof window !== 'undefined') window._projectStatusesMap = _projectStatusesMap;
     if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-      window.PortalRealtime.broadcast('projects', 'update', { map: _projectStatusesMap });
+      window.PortalRealtime.broadcast('projects', 'update', { key: 'bb_project_statuses', map: _projectStatusesMap });
+      window.PortalRealtime.broadcast('project_statuses', 'update', { key: 'bb_project_statuses', map: _projectStatusesMap });
     }
   }
   var client = getSupaClient();
@@ -477,7 +479,8 @@ async function loadProjectStatusesCatalog() {
       if (cached) {
         var parsed = JSON.parse(cached);
         if (parsed && typeof parsed === 'object') {
-          _projectStatusesMap = Object.assign({}, parsed, _projectStatusesMap);
+          _projectStatusesMap = Object.assign({}, _projectStatusesMap, parsed);
+          if (typeof window !== 'undefined') window._projectStatusesMap = _projectStatusesMap;
         }
       }
     } catch (_) {}
@@ -489,13 +492,28 @@ async function loadProjectStatusesCatalog() {
       if (Array.isArray(rows) && rows.length && rows[0].value) {
         var remoteMap = JSON.parse(rows[0].value);
         if (remoteMap && typeof remoteMap === 'object') {
-          _projectStatusesMap = Object.assign({}, _projectStatusesMap, remoteMap);
+          _projectStatusesMap = Object.assign({}, remoteMap);
+          if (typeof window !== 'undefined') window._projectStatusesMap = _projectStatusesMap;
           if (typeof localStorage !== 'undefined') {
             try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
           }
         }
       }
     } catch (_) {}
+  }
+}
+
+/**
+ * Live updates _projectStatusesMap from real-time broadcast and triggers re-render
+ * @param {Object} newMap
+ */
+function applyProjectStatusesUpdate(newMap) {
+  if (!newMap || typeof newMap !== 'object') return;
+  _projectStatusesMap = Object.assign({}, newMap);
+  if (typeof window !== 'undefined') window._projectStatusesMap = _projectStatusesMap;
+  try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
+  if (typeof refreshCurrentTasksView === 'function') {
+    refreshCurrentTasksView();
   }
 }
 
@@ -953,7 +971,10 @@ function setTasksViewMode(mode) {
   var listView   = document.querySelector('.tasks-board-list-view');
 
   if (_tasksViewMode === 'projects') {
-    if (boardCol) boardCol.style.display = 'none';
+    if (boardCol) {
+      boardCol.style.display = 'none';
+      boardCol.classList.add('hidden');
+    }
     if (colTabs) colTabs.style.display = 'none';
     if (listView) listView.style.display = 'none';
     if (projToggle) projToggle.style.display = 'none';
@@ -978,11 +999,17 @@ function setTasksViewMode(mode) {
       if (bBtn) bBtn.classList.toggle('active', _projectDisplayMode === 'board');
       if (lBtn) lBtn.classList.toggle('active', _projectDisplayMode === 'list');
       if (_projectDisplayMode === 'list') {
-        if (boardCol) boardCol.style.display = 'none';
+        if (boardCol) {
+          boardCol.style.display = 'none';
+          boardCol.classList.add('hidden');
+        }
         if (colTabs) colTabs.style.display = 'none';
         if (listView) listView.style.display = 'block';
       } else {
-        if (boardCol) boardCol.style.display = '';
+        if (boardCol) {
+          boardCol.classList.remove('hidden');
+          boardCol.style.display = '';
+        }
         if (colTabs) colTabs.style.display = '';
         if (listView) listView.style.display = 'none';
       }
@@ -1004,7 +1031,10 @@ function setTasksViewMode(mode) {
       renderTasksBoard(_activeProject);
     } else {
       // No project selected
-      if (boardCol) boardCol.style.display = 'none';
+      if (boardCol) {
+        boardCol.style.display = 'none';
+        boardCol.classList.add('hidden');
+      }
       if (colTabs) colTabs.style.display = 'none';
       if (listView) listView.style.display = 'none';
       if (projToggle) projToggle.style.display = 'none';
@@ -1018,7 +1048,10 @@ function setTasksViewMode(mode) {
       if (cur) cur.style.display = 'none';
     }
   } else if (_tasksViewMode === 'mytasks') {
-    if (boardCol) boardCol.style.display = 'none';
+    if (boardCol) {
+      boardCol.style.display = 'none';
+      boardCol.classList.add('hidden');
+    }
     if (colTabs) colTabs.style.display = 'none';
     if (listView) listView.style.display = 'none';
     if (projToggle) projToggle.style.display = 'none';
@@ -1226,12 +1259,27 @@ async function renderProjectsView() {
   var container = document.querySelector('.projects-container');
   if (!container) return;
 
+  var boardCol = document.getElementById('tasks-columns');
+  if (boardCol) {
+    boardCol.style.display = 'none';
+    boardCol.classList.add('hidden');
+  }
+  var colTabs = document.getElementById('task-col-tabs');
+  if (colTabs) colTabs.style.display = 'none';
+  var listView = document.querySelector('.tasks-board-list-view');
+  if (listView) listView.style.display = 'none';
+  var noProjEl = document.querySelector('.tasks-no-project-placeholder');
+  if (noProjEl) noProjEl.style.display = 'none';
+  var myTasks = document.querySelector('.my-tasks-container');
+  if (myTasks) myTasks.style.display = 'none';
+  container.style.display = 'block';
+
   // Render immediately with in-memory state (< 1ms)
   paintProjectsList(container);
 
   // Background fetch latest tasks and catalog in parallel
   var client = getSupaClient();
-  var fetchTasksPromise = client ? client.get('bb_tasks?order=created_at.asc') : Promise.resolve([]);
+  var fetchTasksPromise = (client && typeof client.get === 'function') ? client.get('bb_tasks?order=created_at.asc') : Promise.resolve([]);
   var fetchCatalogPromise = loadProjectsCatalog();
 
   try {
@@ -2059,6 +2107,14 @@ function getAssigneeAvatarBg(name) {
 }
 
 function renderColumnsFromTasks(tasksList) {
+  if (typeof document !== 'undefined' && _tasksViewMode === 'projects') {
+    var bEl = document.getElementById('tasks-columns');
+    if (bEl) {
+      bEl.style.display = 'none';
+      bEl.classList.add('hidden');
+    }
+    return;
+  }
   tasksList = deduplicateTasks(tasksList);
   var pName = _activeProject || '';
   var activeLower = pName ? pName.toLowerCase().trim() : '';
@@ -2069,9 +2125,11 @@ function renderColumnsFromTasks(tasksList) {
     var existingCols = boardEl.querySelectorAll('.task-col[data-col-status]');
     var existingIds = Array.from(existingCols).map(function(c) { return c.getAttribute('data-col-status'); }).join(',');
     var targetIds = statuses.map(function(s) { return s.id; }).join(',');
+    var existingLabels = Array.from(boardEl.querySelectorAll('.task-col-title')).map(function(t) { return t.textContent.trim(); }).join('|');
+    var targetLabels = statuses.map(function(s) { return s.label.trim(); }).join('|');
     var hasAddBtn = !!boardEl.querySelector('.task-add-status-card');
 
-    if (existingIds !== targetIds || !hasAddBtn) {
+    if (existingIds !== targetIds || existingLabels !== targetLabels || !hasAddBtn) {
       var columnsHtml = '';
       statuses.forEach(function(st, idx) {
         var isMobileActive = idx === 0;
@@ -2298,13 +2356,29 @@ function setProjectDisplayMode(mode) {
   var colTabs  = document.getElementById('task-col-tabs');
   var listView = document.querySelector('.tasks-board-list-view');
 
+  if (_tasksViewMode === 'projects') {
+    if (boardCol) {
+      boardCol.style.display = 'none';
+      boardCol.classList.add('hidden');
+    }
+    if (colTabs) colTabs.style.display = 'none';
+    if (listView) listView.style.display = 'none';
+    return;
+  }
+
   if (_projectDisplayMode === 'list') {
-    if (boardCol) boardCol.style.display = 'none';
+    if (boardCol) {
+      boardCol.style.display = 'none';
+      boardCol.classList.add('hidden');
+    }
     if (colTabs) colTabs.style.display = 'none';
     if (listView) listView.style.display = 'block';
     renderTasksListView(_activeProject);
   } else {
-    if (boardCol) boardCol.style.display = '';
+    if (boardCol) {
+      boardCol.classList.remove('hidden');
+      boardCol.style.display = '';
+    }
     if (colTabs) colTabs.style.display = '';
     if (listView) listView.style.display = 'none';
     renderColumnsFromTasks(_allLoadedTasks);
@@ -2319,6 +2393,11 @@ function renderTasksListView(projectName) {
   if (typeof document === 'undefined') return;
   var listView = document.querySelector('.tasks-board-list-view');
   if (!listView) return;
+
+  if (_tasksViewMode === 'projects') {
+    listView.style.display = 'none';
+    return;
+  }
 
   var pName = projectName || _activeProject;
   if (!pName || pName.toLowerCase() === 'all tasks' || pName.toLowerCase() === 'all') {
@@ -2462,6 +2541,16 @@ async function renderTasksBoard(deptOrProject) {
     } else {
       _activeProject = deptOrProject;
     }
+    _tasksViewMode = 'board';
+  }
+
+  if (_tasksViewMode === 'projects') {
+    var boardColEl = document.getElementById('tasks-columns');
+    if (boardColEl) {
+      boardColEl.style.display = 'none';
+      boardColEl.classList.add('hidden');
+    }
+    return;
   }
 
   var boardCol   = document.getElementById('tasks-columns');
@@ -2472,7 +2561,10 @@ async function renderTasksBoard(deptOrProject) {
 
   var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
   if (!hasActiveProject) {
-    if (boardCol) boardCol.style.display = 'none';
+    if (boardCol) {
+      boardCol.style.display = 'none';
+      boardCol.classList.add('hidden');
+    }
     if (colTabs) colTabs.style.display = 'none';
     if (listView) listView.style.display = 'none';
     if (projToggle) projToggle.style.display = 'none';
@@ -2487,11 +2579,17 @@ async function renderTasksBoard(deptOrProject) {
   if (lBtn) lBtn.classList.toggle('active', _projectDisplayMode === 'list');
 
   if (_projectDisplayMode === 'list') {
-    if (boardCol) boardCol.style.display = 'none';
+    if (boardCol) {
+      boardCol.style.display = 'none';
+      boardCol.classList.add('hidden');
+    }
     if (colTabs) colTabs.style.display = 'none';
     if (listView) listView.style.display = 'block';
   } else {
-    if (boardCol) boardCol.style.display = '';
+    if (boardCol) {
+      boardCol.classList.remove('hidden');
+      boardCol.style.display = '';
+    }
     if (colTabs) colTabs.style.display = '';
     if (listView) listView.style.display = 'none';
   }
@@ -2535,16 +2633,17 @@ function refreshCurrentTasksView(affectedTaskId) {
         renderColumnsFromTasks(_allLoadedTasks);
       }
     } else if (_tasksViewMode === 'projects') {
-      if (_activeProject) {
-        if (_projectDisplayMode === 'list' && typeof renderTasksListView === 'function') {
-          renderTasksListView(_activeProject);
-        } else if (typeof renderColumnsFromTasks === 'function') {
-          renderColumnsFromTasks(_allLoadedTasks);
-        }
-      } else {
-        var prContainer = document.querySelector('.projects-container');
-        if (prContainer && typeof paintProjectsList === 'function') paintProjectsList(prContainer);
+      var prContainer = document.querySelector('.projects-container');
+      if (prContainer && typeof paintProjectsList === 'function') paintProjectsList(prContainer);
+      var bCol = document.getElementById('tasks-columns');
+      if (bCol) {
+        bCol.style.display = 'none';
+        bCol.classList.add('hidden');
       }
+      var lView = document.querySelector('.tasks-board-list-view');
+      if (lView) lView.style.display = 'none';
+      var cTabs = document.getElementById('task-col-tabs');
+      if (cTabs) cTabs.style.display = 'none';
     }
   }
 
@@ -6350,6 +6449,7 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   var oldStatus = task.status;
   var paint = function() {
     if (_tasksViewMode === 'mytasks') renderMyTasksView();
+    else if (_tasksViewMode === 'projects') renderProjectsView();
     else if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
     else renderColumnsFromTasks(_allLoadedTasks);
   };
@@ -7672,6 +7772,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.isTaskCompleted            = isTaskCompleted;
   window.saveProjectStatusesCatalog = saveProjectStatusesCatalog;
   window.loadProjectStatusesCatalog = loadProjectStatusesCatalog;
+  window.applyProjectStatusesUpdate = applyProjectStatusesUpdate;
   window.openMoveTasksAndDeleteStatusModal = openMoveTasksAndDeleteStatusModal;
   window.closeMoveTasksModal        = closeMoveTasksModal;
   window.confirmMoveTasksAndDeleteStatus = confirmMoveTasksAndDeleteStatus;
@@ -7883,6 +7984,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isTaskCompleted,
     saveProjectStatusesCatalog,
     loadProjectStatusesCatalog,
+    applyProjectStatusesUpdate,
     openMoveTasksAndDeleteStatusModal,
     closeMoveTasksModal,
     confirmMoveTasksAndDeleteStatus,
