@@ -23,48 +23,157 @@ var DEPT_CONFIG = {
 
 var STATUS_ORDER = ['planning', 'todo', 'inprogress', 'inreview', 'completed'];
 
+var DEFAULT_PROJECT_STATUSES = [
+  { id: 'planning',   label: 'Planning',    color: '#a855f7', cls: 'status-planning' },
+  { id: 'todo',       label: 'To Do',       color: 'var(--text-secondary)', cls: 'status-todo' },
+  { id: 'inprogress', label: 'In Progress', color: '#3b82f6', cls: 'status-inprogress' },
+  { id: 'inreview',   label: 'In Review',   color: '#f59e0b', cls: 'status-inreview' },
+  { id: 'completed',  label: 'Complete',    color: '#10b981', cls: 'status-completed' }
+];
+
 var STATUS_CONFIG = {
   planning:   { label: 'Planning',    color: '#a855f7', cls: 'status-planning' },
   todo:       { label: 'To Do',       color: 'var(--text-secondary)', cls: 'status-todo' },
   inprogress: { label: 'In Progress', color: '#3b82f6', cls: 'status-inprogress' },
   inreview:   { label: 'In Review',   color: '#f59e0b', cls: 'status-inreview' },
-  completed:  { label: 'Completed',   color: '#10b981', cls: 'status-completed' }
+  completed:  { label: 'Complete',    color: '#10b981', cls: 'status-completed' }
 };
 
-function normalizeTaskStatus(status) {
+var _projectStatusesMap = {};
+
+try {
+  if (typeof localStorage !== 'undefined') {
+    var rawCachedStatuses = localStorage.getItem('bb_project_statuses');
+    if (rawCachedStatuses) {
+      var parsedMap = JSON.parse(rawCachedStatuses);
+      if (parsedMap && typeof parsedMap === 'object') {
+        _projectStatusesMap = parsedMap;
+      }
+    }
+  }
+} catch (_) {}
+
+function getDefaultProjectStatuses() {
+  return DEFAULT_PROJECT_STATUSES.map(function(s) {
+    return Object.assign({}, s);
+  });
+}
+
+function getProjectStatuses(projectName) {
+  var p = (projectName || _activeProject || '').toLowerCase().trim();
+  if (p && _projectStatusesMap[p] && Array.isArray(_projectStatusesMap[p]) && _projectStatusesMap[p].length > 0) {
+    return _projectStatusesMap[p];
+  }
+  return getDefaultProjectStatuses();
+}
+
+function taskMatchesStatus(task, statusObj, _projectName) {
+  if (!task || !statusObj) return false;
+  var tStat = String(task.status || '').toLowerCase().trim();
+  var sId = String(statusObj.id || '').toLowerCase().trim();
+  var sLabel = String(statusObj.label || '').toLowerCase().trim();
+
+  if (tStat === sId || tStat === sLabel) return true;
+  if ((sId === 'completed' || sId === 'done' || sId === 'complete') && (tStat === 'completed' || tStat === 'done' || tStat === 'complete')) return true;
+  if (sId === 'todo' && (tStat === 'to do' || tStat === 'todo')) return true;
+  if (sId === 'inprogress' && (tStat === 'in progress' || tStat === 'in-progress' || tStat === 'inprogress')) return true;
+  if (sId === 'inreview' && (tStat === 'in review' || tStat === 'in-review' || tStat === 'inreview')) return true;
+  if (sId === 'planning' && tStat === 'planning') return true;
+
+  return false;
+}
+
+function isValidTaskStatus(status, projectName) {
+  if (!status) return false;
+  var s = String(status).toLowerCase().trim();
+  if (STATUS_ORDER.indexOf(s) !== -1 || s === 'done' || s === 'complete') return true;
+  var pStatuses = getProjectStatuses(projectName);
+  for (var i = 0; i < pStatuses.length; i++) {
+    var st = pStatuses[i];
+    if (st.id.toLowerCase() === s || st.label.toLowerCase() === s) return true;
+  }
+  for (var p in _projectStatusesMap) {
+    if (Object.prototype.hasOwnProperty.call(_projectStatusesMap, p)) {
+      var arr = _projectStatusesMap[p] || [];
+      for (var j = 0; j < arr.length; j++) {
+        if (arr[j].id.toLowerCase() === s || arr[j].label.toLowerCase() === s) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function isTaskCompleted(task, projectName) {
+  if (!task) return false;
+  var pName = projectName || getTaskProjectName(task) || _activeProject;
+  var s = String(task.status || '').toLowerCase().trim();
+  if (s === 'completed' || s === 'done' || s === 'complete') return true;
+  var pStatuses = getProjectStatuses(pName);
+  if (pStatuses.length > 0) {
+    var lastStatus = pStatuses[pStatuses.length - 1];
+    if (s === lastStatus.id.toLowerCase() || s === lastStatus.label.toLowerCase()) return true;
+  }
+  return false;
+}
+
+function normalizeTaskStatus(status, projectName) {
   if (!status) return 'todo';
   var s = String(status).toLowerCase().trim();
-  if (s === 'done') return 'completed';
+  if (s === 'done' || s === 'complete') return 'completed';
   if (STATUS_ORDER.indexOf(s) !== -1) return s;
+
+  var pStatuses = getProjectStatuses(projectName || _activeProject);
+  for (var i = 0; i < pStatuses.length; i++) {
+    var st = pStatuses[i];
+    if (st.id.toLowerCase() === s || st.label.toLowerCase() === s) {
+      return st.id;
+    }
+  }
+
+  for (var p in _projectStatusesMap) {
+    if (Object.prototype.hasOwnProperty.call(_projectStatusesMap, p)) {
+      var arr = _projectStatusesMap[p] || [];
+      for (var j = 0; j < arr.length; j++) {
+        if (arr[j].id.toLowerCase() === s || arr[j].label.toLowerCase() === s) {
+          return arr[j].id;
+        }
+      }
+    }
+  }
+
   return 'todo';
 }
 
 function getColBody(status) {
-  if (status === 'completed') {
-    return document.getElementById('col-completed') || document.getElementById('col-done') || document.querySelector('[data-col-body="completed"]');
+  var s = String(status || '').toLowerCase().trim();
+  if (s === 'completed' || s === 'done' || s === 'complete') {
+    return document.getElementById('col-completed') || document.getElementById('col-done') || document.querySelector('[data-col-body="completed"]') || document.querySelector('[data-col-body="done"]');
   }
-  return document.getElementById('col-' + status) || document.querySelector('[data-col-body="' + status + '"]');
+  return document.getElementById('col-' + s) || document.querySelector('[data-col-body="' + s + '"]');
 }
 
 function getColCount(status) {
-  if (status === 'completed') {
-    return document.getElementById('count-completed') || document.getElementById('count-done') || document.querySelector('[data-col-count="completed"]');
+  var s = String(status || '').toLowerCase().trim();
+  if (s === 'completed' || s === 'done' || s === 'complete') {
+    return document.getElementById('count-completed') || document.getElementById('count-done') || document.querySelector('[data-col-count="completed"]') || document.querySelector('[data-col-count="done"]');
   }
-  return document.getElementById('count-' + status) || document.querySelector('[data-col-count="' + status + '"]');
+  return document.getElementById('count-' + s) || document.querySelector('[data-col-count="' + s + '"]');
 }
 
 function getColElement(status) {
-  if (status === 'completed') {
-    return document.getElementById('taskcol-completed') || document.getElementById('taskcol-done') || document.querySelector('.task-col[data-col-status="completed"]');
+  var s = String(status || '').toLowerCase().trim();
+  if (s === 'completed' || s === 'done' || s === 'complete') {
+    return document.getElementById('taskcol-completed') || document.getElementById('taskcol-done') || document.querySelector('.task-col[data-col-status="completed"]') || document.querySelector('.task-col[data-col-status="done"]');
   }
-  return document.getElementById('taskcol-' + status) || document.querySelector('.task-col[data-col-status="' + status + '"]');
+  return document.getElementById('taskcol-' + s) || document.querySelector('.task-col[data-col-status="' + s + '"]');
 }
 
 function getTabCount(status) {
-  if (status === 'completed') {
-    return document.getElementById('tab-count-completed') || document.getElementById('tab-count-done') || document.querySelector('[data-tab-count="completed"]');
+  var s = String(status || '').toLowerCase().trim();
+  if (s === 'completed' || s === 'done' || s === 'complete') {
+    return document.getElementById('tab-count-completed') || document.getElementById('tab-count-done') || document.querySelector('[data-tab-count="completed"]') || document.querySelector('[data-tab-count="done"]');
   }
-  return document.getElementById('tab-count-' + status) || document.querySelector('[data-tab-count="' + status + '"]');
+  return document.getElementById('tab-count-' + s) || document.querySelector('[data-tab-count="' + s + '"]');
 }
 
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
@@ -254,6 +363,7 @@ function openTaskDueDatePicker(e) {
 function getTaskProjectName(t) {
   if (!t) return '';
   if (t.project_name && t.project_name.trim()) return t.project_name.trim();
+  if (t.project && typeof t.project === 'string' && t.project.trim()) return t.project.trim();
   if (t.description) {
     var match = t.description.match(/\[Project:\s*([^\]|]+)/i);
     if (match && match[1] && match[1].trim()) return match[1].trim();
@@ -332,6 +442,64 @@ async function saveProjectsCatalog() {
 }
 
 /**
+ * Persists _projectStatusesMap to localStorage and Supabase bb_config
+ */
+async function saveProjectStatusesCatalog() {
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('projects', 'update', { map: _projectStatusesMap });
+    }
+  }
+  var client = getSupaClient();
+  if (client) {
+    try {
+      await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_project_statuses', value: JSON.stringify(_projectStatusesMap) }, {
+        headers: { 'Prefer': 'resolution=merge-duplicates' }
+      });
+    } catch (_) {
+      try {
+        await client.patch('bb_config?key=eq.bb_project_statuses', { value: JSON.stringify(_projectStatusesMap) });
+      } catch (_) {
+        try { await client.post('bb_config', { key: 'bb_project_statuses', value: JSON.stringify(_projectStatusesMap) }); } catch (_) {}
+      }
+    }
+  }
+}
+
+/**
+ * Loads _projectStatusesMap from localStorage and Supabase bb_config
+ */
+async function loadProjectStatusesCatalog() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = localStorage.getItem('bb_project_statuses');
+      if (cached) {
+        var parsed = JSON.parse(cached);
+        if (parsed && typeof parsed === 'object') {
+          _projectStatusesMap = Object.assign({}, parsed, _projectStatusesMap);
+        }
+      }
+    } catch (_) {}
+  }
+  var client = getSupaClient();
+  if (client) {
+    try {
+      var rows = await client.get('bb_config?key=eq.bb_project_statuses&select=value');
+      if (Array.isArray(rows) && rows.length && rows[0].value) {
+        var remoteMap = JSON.parse(rows[0].value);
+        if (remoteMap && typeof remoteMap === 'object') {
+          _projectStatusesMap = Object.assign({}, _projectStatusesMap, remoteMap);
+          if (typeof localStorage !== 'undefined') {
+            try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+  }
+}
+
+/**
  * Loads _companyProjects from localStorage, Supabase bb_config, and existing tasks
  */
 async function loadProjectsCatalog() {
@@ -370,6 +538,7 @@ async function loadProjectsCatalog() {
       }
     });
   }
+  await loadProjectStatusesCatalog();
 }
 
 /**
@@ -411,10 +580,17 @@ function checkIsNCO(rank) {
  */
 function switchTaskTab(tab, btn) {
   if (typeof document === 'undefined') return;
-  var target = normalizeTaskStatus(tab);
-  STATUS_ORDER.forEach(function(t) {
-    var col = getColElement(t);
-    if (col) col.classList.toggle('mobile-active', t === target);
+  var target = normalizeTaskStatus(tab, _activeProject);
+  var pStatuses = getProjectStatuses(_activeProject);
+  pStatuses.forEach(function(t) {
+    var col = getColElement(t.id);
+    if (col) col.classList.toggle('mobile-active', t.id.toLowerCase() === target.toLowerCase());
+  });
+  document.querySelectorAll('.task-col[data-col-status]').forEach(function(col) {
+    var cStat = col.getAttribute('data-col-status') || '';
+    if (cStat) {
+      col.classList.toggle('mobile-active', cStat.toLowerCase() === target.toLowerCase());
+    }
   });
   document.querySelectorAll('.task-col-tab').forEach(function(b) {
     b.classList.remove('active', 'mobile-active');
@@ -903,7 +1079,7 @@ function paintProjectsList(container) {
       return getTaskProjectName(t).toLowerCase() === pName.toLowerCase();
     });
     var completedCount = pTasks.filter(function(t) {
-      return normalizeTaskStatus(t.status) === 'completed';
+      return isTaskCompleted(t, pName);
     }).length;
     var pct = pTasks.length ? Math.round((completedCount / pTasks.length) * 100) : 0;
 
@@ -994,7 +1170,7 @@ function paintProjectsList(container) {
         return getTaskProjectName(t).toLowerCase() === pName.toLowerCase();
       });
       var completedCount = pTasks.filter(function(t) {
-        return normalizeTaskStatus(t.status) === 'completed';
+        return isTaskCompleted(t, pName);
       }).length;
       var pct = pTasks.length ? Math.round((completedCount / pTasks.length) * 100) : 0;
 
@@ -1139,6 +1315,8 @@ async function deleteProject(projectName) {
     tasksToDelete.forEach(function(task) { _deletedTaskIds[String(task.id)] = true; });
     _companyProjects = _companyProjects.filter(function(name) { return name.toLowerCase() !== lower; });
     await saveProjectsCatalog();
+    delete _projectStatusesMap[lower];
+    await saveProjectStatusesCatalog();
   }
   _allLoadedTasks = _allLoadedTasks.filter(function(task) {
     if (!_deletedTaskIds[String(task.id)]) return true;
@@ -1254,10 +1432,407 @@ async function openAddProjectModal() {
     _companyProjects.push(cleanName);
     await saveProjectsCatalog();
   }
+  var pKey = cleanName.toLowerCase().trim();
+  if (!_projectStatusesMap[pKey]) {
+    _projectStatusesMap[pKey] = getDefaultProjectStatuses();
+    await saveProjectStatusesCatalog();
+  }
   openProjectBoard(cleanName);
   if (typeof showToast === 'function') {
     showToast('Project created: ' + cleanName, 'success');
   }
+}
+
+/**
+ * Inline Status Management (CRUD) for Project-Specific Workflows (Images 1, 2, 3, 4, 5)
+ */
+
+function getOrCreateMoveTasksModal() {
+  if (typeof document === 'undefined') return null;
+  var existing = document.getElementById('move-tasks-status-modal');
+  if (existing) return existing;
+  var modal = document.createElement('div');
+  modal.id = 'move-tasks-status-modal';
+  modal.className = 'task-modal-backdrop';
+  modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:1001;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);padding:16px;box-sizing:border-box;';
+  modal.innerHTML = '<div class="move-tasks-modal-card" style="background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);width:100%;max-width:440px;padding:24px;box-shadow:var(--shadow-xl);box-sizing:border-box;">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+    +   '<h3 class="move-tasks-modal-title" style="margin:0;font-size:16px;font-weight:700;color:var(--text-primary);">Delete Status</h3>'
+    +   '<button type="button" class="move-tasks-modal-close-btn" onclick="closeMoveTasksModal()" style="background:transparent;border:none;cursor:pointer;color:var(--text-muted);padding:4px;" title="Close" aria-label="Close">'
+    +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    +   '</button>'
+    + '</div>'
+    + '<p class="move-tasks-modal-desc" style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin:0 0 16px;">This status contains tasks. Select a status to move these tasks to before deleting:</p>'
+    + '<div style="margin-bottom:20px;">'
+    +   '<label for="move-tasks-dest-select" style="display:block;font-size:12px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Move tasks to:</label>'
+    +   '<select id="move-tasks-dest-select" class="task-form-select" style="width:100%;height:38px;padding:0 12px;border:1px solid var(--border-card);border-radius:6px;background:var(--bg-card-subtle);color:var(--text-primary);font-size:13px;outline:none;"></select>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:10px;">'
+    +   '<button type="button" class="task-secondary-btn" onclick="closeMoveTasksModal()" style="padding:7px 14px;border-radius:6px;border:1px solid var(--border-card);background:transparent;color:var(--text-secondary);cursor:pointer;font-size:13px;font-weight:500;">Cancel</button>'
+    +   '<button type="button" id="move-tasks-confirm-btn" class="task-danger-btn" style="padding:7px 16px;border-radius:6px;border:none;background:var(--danger, #ef4444);color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Move Tasks & Delete</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function openMoveTasksAndDeleteStatusModal(statusObj, affectedTasks, statuses) {
+  var modal = getOrCreateMoveTasksModal();
+  if (!modal) return;
+  var titleEl = modal.querySelector('.move-tasks-modal-title');
+  if (titleEl) titleEl.textContent = 'Delete Status: ' + statusObj.label;
+  var descEl = modal.querySelector('.move-tasks-modal-desc');
+  if (descEl) {
+    descEl.innerHTML = 'This status contains <strong>' + affectedTasks.length + ' task(s)</strong>. Select another status to move these tasks to before deleting:';
+  }
+  var selectEl = modal.querySelector('#move-tasks-dest-select');
+  if (selectEl) {
+    var otherStatuses = statuses.filter(function(s) {
+      return s.id.toLowerCase() !== statusObj.id.toLowerCase();
+    });
+    selectEl.innerHTML = otherStatuses.map(function(s) {
+      return '<option value="' + s.id + '">' + (typeof escapeHtml === 'function' ? escapeHtml(s.label) : s.label) + '</option>';
+    }).join('');
+  }
+  var confirmBtn = modal.querySelector('#move-tasks-confirm-btn');
+  if (confirmBtn) {
+    confirmBtn.onclick = function() {
+      var destId = selectEl ? selectEl.value : null;
+      if (!destId) return;
+      confirmMoveTasksAndDeleteStatus(statusObj.id, destId);
+    };
+  }
+  modal.style.display = 'flex';
+}
+
+function closeMoveTasksModal() {
+  if (typeof document === 'undefined') return;
+  var modal = document.getElementById('move-tasks-status-modal');
+  if (modal && modal.style) modal.style.display = 'none';
+}
+
+async function confirmMoveTasksAndDeleteStatus(sourceStatusId, destStatusId) {
+  var pName = _activeProject;
+  if (!pName) return;
+  var pKey = pName.toLowerCase().trim();
+
+  if (!sourceStatusId || !destStatusId) {
+    var modal = typeof document !== 'undefined' ? document.getElementById('move-tasks-status-modal') : null;
+    if (modal) {
+      sourceStatusId = sourceStatusId || (modal.dataset && modal.dataset.statusId);
+      var select = modal.querySelector('#move-tasks-dest-status');
+      destStatusId = destStatusId || (select ? select.value : '');
+    }
+  }
+
+  if (!sourceStatusId || !destStatusId) return;
+  var srcLower = String(sourceStatusId).toLowerCase().trim();
+  var destLower = String(destStatusId).toLowerCase().trim();
+
+  var statuses = getProjectStatuses(pName);
+  var srcObj = statuses.find(function(s) { return s && s.id && s.id.toLowerCase() === srcLower; });
+  var destObj = statuses.find(function(s) { return s && s.id && s.id.toLowerCase() === destLower; });
+  if (!srcObj || !destObj) return;
+
+  var affectedTasks = _allLoadedTasks.filter(function(t) {
+    if (!t || _deletedTaskIds[String(t.id)]) return false;
+    var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim() : getTaskProjectName(t);
+    if (!taskProj || taskProj.toLowerCase() !== pKey) return false;
+    return taskMatchesStatus(t, srcObj, pName);
+  });
+
+  affectedTasks.forEach(function(t) {
+    t.status = destObj.id;
+    if (_taskMap[t.id]) _taskMap[t.id].status = destObj.id;
+  });
+
+  var client = getSupaClient();
+  if (client) {
+    var remoteTasks = affectedTasks.filter(function(t) { return !String(t.id).startsWith('temp_'); });
+    if (remoteTasks.length > 0) {
+      await Promise.allSettled(remoteTasks.map(function(t) {
+        return client.patch('bb_tasks?id=eq.' + encodeURIComponent(t.id), { status: destObj.id });
+      }));
+    }
+  }
+
+  _projectStatusesMap[pKey] = statuses.filter(function(s) { return s.id.toLowerCase() !== sourceStatusId.toLowerCase(); });
+  await saveProjectStatusesCatalog();
+
+  closeMoveTasksModal();
+  renderColumnsFromTasks(_allLoadedTasks);
+
+  if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+    window.PortalRealtime.broadcast('tasks', 'update');
+    window.PortalRealtime.broadcast('projects', 'update');
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('Moved ' + affectedTasks.length + ' task(s) to "' + destObj.label + '" and deleted "' + srcObj.label + '".', 'success');
+  }
+}
+
+async function deleteProjectStatus(statusId) {
+  if (!statusId || !hasDepartmentRole()) return;
+  var pName = _activeProject;
+  if (!pName || pName.toLowerCase() === 'all' || pName.toLowerCase() === 'all tasks') {
+    if (typeof showToast === 'function') showToast('Please select a project first.', 'warning');
+    return;
+  }
+  var pKey = pName.toLowerCase().trim();
+  var statuses = getProjectStatuses(pName);
+  var statusObj = statuses.find(function(s) { return s.id.toLowerCase() === statusId.toLowerCase(); });
+  if (!statusObj) return;
+
+  if (statuses.length <= 1) {
+    if (typeof showToast === 'function') showToast('A project must have at least one status column.', 'warning');
+    return;
+  }
+
+  var affectedTasks = _allLoadedTasks.filter(function(t) {
+    if (!t || _deletedTaskIds[String(t.id)]) return false;
+    var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim() : getTaskProjectName(t);
+    if (!taskProj || taskProj.toLowerCase() !== pKey) return false;
+    return taskMatchesStatus(t, statusObj, pName);
+  });
+
+  if (affectedTasks.length === 0) {
+    var confirmFn = (typeof showConfirmModal === 'function') ? showConfirmModal : async function() { return false; };
+    var ok = await confirmFn(
+      'Are you sure you want to delete status "' + statusObj.label + '"?',
+      'Delete Status'
+    );
+    if (!ok) return;
+
+    _projectStatusesMap[pKey] = statuses.filter(function(s) { return s.id.toLowerCase() !== statusId.toLowerCase(); });
+    await saveProjectStatusesCatalog();
+    renderColumnsFromTasks(_allLoadedTasks);
+    if (typeof showToast === 'function') showToast('Status "' + statusObj.label + '" deleted.', 'success');
+    return;
+  }
+
+  openMoveTasksAndDeleteStatusModal(statusObj, affectedTasks, statuses);
+}
+
+function openEditStatusTitle(e, statusId) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  if (!hasDepartmentRole()) return;
+  var col = getColElement(statusId);
+  if (!col) return;
+  var titleEl = col.querySelector('.task-col-title');
+  if (!titleEl) return;
+
+  var pName = _activeProject;
+  var statuses = getProjectStatuses(pName);
+  var statusObj = statuses.find(function(s) { return s.id.toLowerCase() === statusId.toLowerCase(); });
+  if (!statusObj) return;
+
+  var currentLabel = statusObj.label;
+  titleEl.innerHTML = '<form class="task-col-title-edit-form" onsubmit="event.preventDefault(); saveEditStatusTitle(\'' + statusId + '\', this);" onclick="event.stopPropagation();">'
+    + '<input type="text" class="task-col-title-input" value="' + (typeof escapeHtml === 'function' ? escapeHtml(currentLabel) : currentLabel) + '" maxlength="40" onkeydown="handleEditStatusKeyDown(event, \'' + statusId + '\', this)" />'
+    + '<button type="submit" class="task-col-title-save-btn" title="Save" aria-label="Save">'
+    +   '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
+    + '</button>'
+    + '<button type="button" class="task-col-title-cancel-btn" onclick="cancelEditStatusTitle(event, \'' + statusId + '\')" title="Cancel" aria-label="Cancel">'
+    +   '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+    + '</button>'
+    + '</form>';
+
+  var inp = titleEl.querySelector('.task-col-title-input');
+  if (inp) {
+    inp.focus();
+    inp.select();
+  }
+}
+
+function handleEditStatusKeyDown(e, statusId, _inputEl) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    cancelEditStatusTitle(e, statusId);
+  }
+}
+
+function cancelEditStatusTitle(e, statusId) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  var col = getColElement(statusId);
+  if (!col) return;
+  var titleEl = col.querySelector('.task-col-title');
+  if (!titleEl) return;
+  var statuses = getProjectStatuses(_activeProject);
+  var statusObj = statuses.find(function(s) { return s.id.toLowerCase() === statusId.toLowerCase(); });
+  if (statusObj) {
+    titleEl.textContent = statusObj.label;
+  }
+}
+
+async function saveEditStatusTitle(statusId, form) {
+  if (!form) return;
+  var input = form.querySelector('.task-col-title-input');
+  if (!input) return;
+  var newLabel = input.value.trim();
+  if (!newLabel) {
+    if (typeof showToast === 'function') showToast('Status name cannot be empty.', 'warning');
+    return;
+  }
+  var pName = _activeProject;
+  var pKey = pName.toLowerCase().trim();
+  var statuses = getProjectStatuses(pName).slice();
+  var statusObj = statuses.find(function(s) { return s.id.toLowerCase() === statusId.toLowerCase(); });
+  if (!statusObj) return;
+
+  var oldId = statusObj.id;
+  var oldLabel = statusObj.label;
+  if (oldLabel === newLabel) {
+    cancelEditStatusTitle(null, statusId);
+    return;
+  }
+
+  var newSlug = newLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (statusObj.isCustom && newSlug) {
+    statusObj.id = newSlug;
+  }
+  statusObj.label = newLabel;
+  _projectStatusesMap[pKey] = statuses;
+  await saveProjectStatusesCatalog();
+
+  var tasksToUpdate = _allLoadedTasks.filter(function(t) {
+    if (!t || _deletedTaskIds[String(t.id)]) return false;
+    var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim() : getTaskProjectName(t);
+    if (!taskProj || taskProj.toLowerCase() !== pKey) return false;
+    var tStat = String(t.status || '').toLowerCase().trim();
+    return tStat === oldLabel.toLowerCase().trim() || tStat === oldId.toLowerCase().trim() || tStat === statusId.toLowerCase().trim();
+  });
+  if (tasksToUpdate.length > 0) {
+    tasksToUpdate.forEach(function(t) {
+      t.status = statusObj.id;
+      if (_taskMap[t.id]) _taskMap[t.id].status = statusObj.id;
+    });
+    var client = getSupaClient();
+    if (client) {
+      var remoteTasks = tasksToUpdate.filter(function(t) { return !String(t.id).startsWith('temp_'); });
+      if (remoteTasks.length > 0) {
+        await Promise.allSettled(remoteTasks.map(function(t) {
+          return client.patch('bb_tasks?id=eq.' + encodeURIComponent(t.id), { status: statusObj.id });
+        }));
+      }
+    }
+  }
+
+  renderColumnsFromTasks(_allLoadedTasks);
+  if (typeof showToast === 'function') {
+    showToast('Status renamed to "' + newLabel + '".', 'success');
+  }
+}
+
+function openAddStatusInline(btn) {
+  var card = btn ? btn.closest('.task-add-status-card') : document.querySelector('.task-add-status-card');
+  if (!card) return;
+  card.innerHTML = '<div class="task-add-status-inline-form">'
+    + '<input type="text" class="task-add-status-input" placeholder="Status name..." maxlength="40" onkeydown="handleAddStatusKeyDown(event, this)" autofocus />'
+    + '<div class="task-add-status-actions">'
+    +   '<button type="button" class="task-add-status-confirm-btn" onclick="confirmAddStatus(this)" title="Create Status">Add</button>'
+    +   '<button type="button" class="task-add-status-cancel-btn" onclick="cancelAddStatus(this)" title="Cancel">Cancel</button>'
+    + '</div>'
+    + '</div>';
+  var inp = card.querySelector('.task-add-status-input');
+  if (inp) inp.focus();
+}
+
+function cancelAddStatus(btn) {
+  var card = btn ? btn.closest('.task-add-status-card') : document.querySelector('.task-add-status-card');
+  if (!card) return;
+  card.innerHTML = '<button type="button" class="task-add-status-btn" onclick="openAddStatusInline(this)">'
+    + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    + '<span>Status</span>'
+    + '</button>';
+}
+
+function handleAddStatusKeyDown(e, inputEl) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    confirmAddStatus(inputEl);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    cancelAddStatus(inputEl);
+  }
+}
+
+async function confirmAddStatus(btnOrInput) {
+  var card = null;
+  if (btnOrInput) {
+    if (typeof btnOrInput.closest === 'function') {
+      card = btnOrInput.closest('.task-add-status-card');
+    } else {
+      card = btnOrInput;
+    }
+  }
+  if (!card && typeof document !== 'undefined' && typeof document.querySelector === 'function') {
+    card = document.querySelector('.task-add-status-card');
+  }
+  if (!card) return;
+  var input = card.querySelector('.task-add-status-input');
+  if (!input) return;
+  var val = input.value.trim();
+  if (!val) {
+    if (typeof showToast === 'function') showToast('Please enter a status name.', 'warning');
+    input.focus();
+    return;
+  }
+  var pName = _activeProject;
+  if (!pName || pName.toLowerCase() === 'all' || pName.toLowerCase() === 'all tasks') {
+    if (typeof showToast === 'function') showToast('Please select a project first.', 'warning');
+    return;
+  }
+  var pKey = pName.toLowerCase().trim();
+  var statuses = getProjectStatuses(pName).slice();
+
+  var exists = statuses.some(function(s) {
+    return s.label.toLowerCase() === val.toLowerCase();
+  });
+  if (exists) {
+    if (typeof showToast === 'function') showToast('A status named "' + val + '" already exists in this project.', 'warning');
+    input.focus();
+    return;
+  }
+
+  var slug = val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  if (!slug || statuses.some(function(s) { return s.id.toLowerCase() === slug; })) {
+    slug = (slug || 'status') + '-' + Date.now().toString(36).slice(-4);
+  }
+
+  var newStatus = {
+    id: slug,
+    label: val,
+    isCustom: true
+  };
+  statuses.push(newStatus);
+  _projectStatusesMap[pKey] = statuses;
+  await saveProjectStatusesCatalog();
+
+  renderColumnsFromTasks(_allLoadedTasks);
+  if (typeof showToast === 'function') {
+    showToast('Status "' + val + '" created.', 'success');
+  }
+}
+
+async function reorderProjectStatuses(fromIndex, toIndex) {
+  var pName = _activeProject;
+  if (!pName || pName.toLowerCase() === 'all' || pName.toLowerCase() === 'all tasks') return;
+  var pKey = pName.toLowerCase().trim();
+  var statuses = getProjectStatuses(pName).slice();
+  if (fromIndex < 0 || fromIndex >= statuses.length || toIndex < 0 || toIndex >= statuses.length) return;
+  var moved = statuses.splice(fromIndex, 1)[0];
+  statuses.splice(toIndex, 0, moved);
+  _projectStatusesMap[pKey] = statuses;
+  await saveProjectStatusesCatalog();
+  renderColumnsFromTasks(_allLoadedTasks);
 }
 
 /**
@@ -1485,15 +2060,120 @@ function getAssigneeAvatarBg(name) {
 
 function renderColumnsFromTasks(tasksList) {
   tasksList = deduplicateTasks(tasksList);
-  var cols = { planning: [], todo: [], inprogress: [], inreview: [], completed: [] };
-  (tasksList || []).forEach(function(t) {
-    if (_activeProject && _activeProject.toLowerCase() !== 'all' && _activeProject.toLowerCase() !== 'all tasks') {
-      var pName = (t.project_name && t.project_name.trim()) ? t.project_name.trim().toLowerCase() : getTaskProjectName(t).toLowerCase();
-      var activeLower = _activeProject.toLowerCase();
-      if (pName !== activeLower) return;
+  var pName = _activeProject || '';
+  var activeLower = pName ? pName.toLowerCase().trim() : '';
+  var statuses = getProjectStatuses(pName);
+
+  var boardEl = document.getElementById('tasks-columns');
+  if (boardEl) {
+    var existingCols = boardEl.querySelectorAll('.task-col[data-col-status]');
+    var existingIds = Array.from(existingCols).map(function(c) { return c.getAttribute('data-col-status'); }).join(',');
+    var targetIds = statuses.map(function(s) { return s.id; }).join(',');
+    var hasAddBtn = !!boardEl.querySelector('.task-add-status-card');
+
+    if (existingIds !== targetIds || !hasAddBtn) {
+      var columnsHtml = '';
+      statuses.forEach(function(st, idx) {
+        var isMobileActive = idx === 0;
+        var colIdAttr = (st.id === 'todo') ? 'id="taskcol-todo" ' : ((st.id === 'inprogress') ? 'id="taskcol-inprogress" ' : ((st.id === 'completed') ? 'id="taskcol-done" ' : ('id="taskcol-' + st.id + '" ')));
+        var bodyIdAttr = (st.id === 'todo') ? 'id="col-todo" ' : ((st.id === 'inprogress') ? 'id="col-inprogress" ' : ((st.id === 'completed') ? 'id="col-done" ' : ('id="col-' + st.id + '" ')));
+        var countIdAttr = (st.id === 'todo') ? 'id="count-todo" ' : ((st.id === 'inprogress') ? 'id="count-inprogress" ' : ((st.id === 'completed') ? 'id="count-done" ' : ('id="count-' + st.id + '" ')));
+
+        columnsHtml += '<div class="task-col' + (isMobileActive ? ' mobile-active' : '') + '" ' + colIdAttr + 'data-col-status="' + st.id + '">'
+          + '<div class="task-col-header" data-header-status="' + st.id + '">'
+          +   '<div class="task-col-title" ondblclick="openEditStatusTitle(event, \'' + st.id + '\')" title="Double click to rename status">' + (typeof escapeHtml === 'function' ? escapeHtml(st.label) : st.label) + '</div>'
+          +   '<span class="task-col-count-badge' + (st.isCustom ? ' custom-status-badge' : '') + '" ' + countIdAttr + 'data-col-count="' + st.id + '">0</span>'
+          +   '<button type="button" class="task-col-delete-btn" onclick="event.stopPropagation(); deleteProjectStatus(\'' + st.id + '\')" title="Delete status" aria-label="Delete status">'
+          +     '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'
+          +   '</button>'
+          +   '<button type="button" class="task-col-quick-add" onclick="openCreateTaskModal(\'' + st.id + '\')" title="Add task to ' + (typeof escapeHtml === 'function' ? escapeHtml(st.label) : st.label) + '">'
+          +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+          +   '</button>'
+          + '</div>'
+          + '<div class="task-col-body" ' + bodyIdAttr + 'data-col-body="' + st.id + '"></div>'
+          + '</div>';
+      });
+
+      columnsHtml += '<div class="task-col-add-status-wrapper">'
+        + '<div class="task-add-status-card">'
+        +   '<button type="button" class="task-add-status-btn" onclick="openAddStatusInline(this)" title="Add new status">'
+        +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+        +     '<span>Status</span>'
+        +   '</button>'
+        + '</div>'
+        + '</div>';
+
+      boardEl.innerHTML = columnsHtml;
+    } else {
+      statuses.forEach(function(st) {
+        var col = getColElement(st.id);
+        if (col) {
+          var header = col.querySelector('.task-col-header');
+          if (header) {
+            header.setAttribute('data-header-status', st.id);
+            var titleEl = header.querySelector('.task-col-title');
+            if (titleEl && !titleEl.querySelector('input')) {
+              titleEl.textContent = st.label;
+              titleEl.setAttribute('ondblclick', "openEditStatusTitle(event, '" + st.id + "')");
+              titleEl.title = 'Double click to rename status';
+            }
+            if (!header.querySelector('.task-col-delete-btn')) {
+              var delBtn = document.createElement('button');
+              delBtn.type = 'button';
+              delBtn.className = 'task-col-delete-btn';
+              delBtn.setAttribute('onclick', "event.stopPropagation(); deleteProjectStatus('" + st.id + "')");
+              delBtn.title = 'Delete status';
+              delBtn.setAttribute('aria-label', 'Delete status');
+              delBtn.innerHTML = '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+              var quickAdd = header.querySelector('.task-col-quick-add');
+              if (quickAdd) header.insertBefore(delBtn, quickAdd);
+              else header.appendChild(delBtn);
+            }
+          }
+        }
+      });
     }
-    var k = normalizeTaskStatus(t.status);
-    if (cols[k]) cols[k].push(t);
+  }
+
+  var colTabs = document.getElementById('task-col-tabs');
+  if (colTabs) {
+    var existingTabs = colTabs.querySelectorAll('.task-col-tab[data-tab-status]');
+    var existingTabIds = Array.from(existingTabs).map(function(t) { return t.getAttribute('data-tab-status'); }).join(',');
+    var targetTabIds = statuses.map(function(s) { return s.id; }).join(',');
+    if (existingTabIds !== targetTabIds) {
+      var tabsHtml = '';
+      statuses.forEach(function(st, idx) {
+        var isTabActive = idx === 0;
+        var tabCountId = (st.id === 'todo') ? 'id="tab-count-todo" ' : ((st.id === 'inprogress') ? 'id="tab-count-inprogress" ' : ((st.id === 'completed') ? 'id="tab-count-done" ' : ('id="tab-count-' + st.id + '" ')));
+        tabsHtml += '<button class="task-col-tab' + (isTabActive ? ' mobile-active' : '') + '" data-tab-status="' + st.id + '" onclick="switchTaskTab(\'' + st.id + '\', this)">'
+          + (typeof escapeHtml === 'function' ? escapeHtml(st.label) : st.label) + ' <span ' + tabCountId + 'data-tab-count="' + st.id + '"></span>'
+          + '</button>';
+      });
+      colTabs.innerHTML = tabsHtml;
+    }
+  }
+
+  var cols = {};
+  statuses.forEach(function(st) {
+    cols[st.id] = [];
+  });
+  (tasksList || []).forEach(function(t) {
+    if (activeLower && activeLower !== 'all' && activeLower !== 'all tasks') {
+      var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim().toLowerCase() : getTaskProjectName(t).toLowerCase();
+      if (taskProj !== activeLower) return;
+    }
+    var matched = false;
+    for (var i = 0; i < statuses.length; i++) {
+      if (taskMatchesStatus(t, statuses[i], pName)) {
+        cols[statuses[i].id].push(t);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      var fallbackId = cols.todo ? 'todo' : statuses[0].id;
+      if (cols[fallbackId]) cols[fallbackId].push(t);
+    }
   });
 
   if (typeof window !== 'undefined') {
@@ -1501,12 +2181,12 @@ function renderColumnsFromTasks(tasksList) {
   }
   var today = new Date(); today.setHours(0, 0, 0, 0);
 
-  STATUS_ORDER.forEach(function(status) {
-    var el   = getColBody(status);
-    var cnt  = getColCount(status);
-    var tcnt = getTabCount(status);
+  statuses.forEach(function(st) {
+    var el   = getColBody(st.id);
+    var cnt  = getColCount(st.id);
+    var tcnt = getTabCount(st.id);
 
-    var itemsInCol = cols[status] || [];
+    var itemsInCol = cols[st.id] || [];
     var statusItems = itemsInCol.filter(function(t) {
       if (!_taskSearchQuery) return true;
       var matchTitle = (t.title || '').toLowerCase().indexOf(_taskSearchQuery) !== -1;
@@ -1516,7 +2196,6 @@ function renderColumnsFromTasks(tasksList) {
       return matchTitle || matchDesc || matchAss || matchId;
     });
 
-    // Column Task Counter Pill (Image 2) - Clean pure number, no parentheses
     if (cnt) cnt.textContent = String(statusItems.length);
     if (tcnt) tcnt.textContent = statusItems.length ? String(statusItems.length) : '';
     if (!el) return;
@@ -1527,10 +2206,10 @@ function renderColumnsFromTasks(tasksList) {
       if (typeof window !== 'undefined') window._taskMap[t.id] = t;
 
       var taskId = formatTaskId(t, idx);
-      var pName = getTaskProjectName(t) || (_activeProject && _activeProject !== 'All Tasks' ? _activeProject : '');
+      var taskPName = getTaskProjectName(t) || (_activeProject && _activeProject !== 'All Tasks' ? _activeProject : '');
       var projectPillHtml = '';
-      if (pName && pName.toLowerCase() !== 'all' && pName.toLowerCase() !== 'all tasks') {
-        var safeProj = (typeof escapeHtml === 'function') ? escapeHtml(pName) : pName;
+      if (taskPName && taskPName.toLowerCase() !== 'all' && taskPName.toLowerCase() !== 'all tasks') {
+        var safeProj = (typeof escapeHtml === 'function') ? escapeHtml(taskPName) : taskPName;
         projectPillHtml = '<span class="task-card-project-pill">' + safeProj + '</span>';
       }
 
@@ -1571,7 +2250,6 @@ function renderColumnsFromTasks(tasksList) {
         estimateHtml = '<span class="task-card-estimate-spacer"></span>';
       }
 
-      // Modern Task Card Layout (Exact match to Image 3)
       return '<div class="task-card" draggable="' + canManageTaskDepartment(t.department || getTaskProjectName(t)) + '" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
         + '<div class="task-card-id-tag">' + taskId + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
@@ -1583,7 +2261,7 @@ function renderColumnsFromTasks(tasksList) {
         + '</div>';
     }).join('');
 
-    var bottomAddBtn = '<button type="button" class="task-col-add-bottom-btn" onclick="openCreateTaskModal(\'' + status + '\')">'
+    var bottomAddBtn = '<button type="button" class="task-col-add-bottom-btn" onclick="openCreateTaskModal(\'' + st.id + '\')">'
       + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
       + '<span>Add Task</span>'
       + '</button>';
@@ -1665,19 +2343,21 @@ function renderTasksListView(projectName) {
     });
   }
 
-  var sections = [
-    { key: 'planning', label: 'Planning', color: 'var(--purple, #a855f7)', dotBg: '#a855f7' },
-    { key: 'todo', label: 'To Do', color: 'var(--text-secondary, #94a3b8)', dotBg: '#64748b' },
-    { key: 'inprogress', label: 'In Progress', color: 'var(--blue, #3b82f6)', dotBg: '#3b82f6' },
-    { key: 'inreview', label: 'In Review', color: 'var(--accent, #f59e0b)', dotBg: '#f59e0b' },
-    { key: 'completed', label: 'Completed', color: 'var(--green, #10b981)', dotBg: '#10b981' }
-  ];
+  var pStatuses = getProjectStatuses(pName);
+  var sections = pStatuses.map(function(st) {
+    return {
+      key: st.id,
+      label: st.label,
+      color: st.color || (st.isCustom ? 'var(--text-secondary, #94a3b8)' : '#64748b'),
+      dotBg: st.color || (st.isCustom ? 'var(--text-secondary, #94a3b8)' : '#64748b')
+    };
+  });
 
   var html = '<div class="proj-list-wrapper">';
 
   sections.forEach(function(sec) {
     var secTasks = tasks.filter(function(t) {
-      return normalizeTaskStatus(t.status) === sec.key;
+      return taskMatchesStatus(t, sec, pName);
     });
 
     html += '<div class="proj-list-group" data-group-status="' + sec.key + '">' +
@@ -2055,6 +2735,39 @@ function setupKanbanDragAndDrop() {
 
       var targetStatus = col.getAttribute('data-col-status');
       memberUpdateTaskStatus(tid, targetStatus, _currentDeptFilter);
+    });
+  });
+
+  var headers = document.querySelectorAll('.task-col-header[data-header-status]');
+  headers.forEach(function(header) {
+    if (header._hdrDragBound) return;
+    header._hdrDragBound = true;
+    header.setAttribute('draggable', 'true');
+    header.addEventListener('dragstart', function(e) {
+      var sId = header.getAttribute('data-header-status');
+      if (e.dataTransfer) {
+        e.dataTransfer.setData('text/status-id', sId);
+        e.dataTransfer.effectAllowed = 'move';
+      }
+    });
+    header.addEventListener('dragover', function(e) {
+      if (e.dataTransfer && e.dataTransfer.types && Array.from(e.dataTransfer.types).indexOf('text/status-id') !== -1) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }
+    });
+    header.addEventListener('drop', function(e) {
+      var srcId = e.dataTransfer ? e.dataTransfer.getData('text/status-id') : null;
+      if (!srcId) return;
+      e.preventDefault();
+      var targetId = header.getAttribute('data-header-status');
+      if (!targetId || srcId === targetId) return;
+      var statuses = getProjectStatuses(_activeProject);
+      var fromIdx = statuses.findIndex(function(s) { return s.id.toLowerCase() === srcId.toLowerCase(); });
+      var toIdx = statuses.findIndex(function(s) { return s.id.toLowerCase() === targetId.toLowerCase(); });
+      if (fromIdx !== -1 && toIdx !== -1) {
+        reorderProjectStatuses(fromIdx, toIdx);
+      }
     });
   });
 }
@@ -2506,10 +3219,11 @@ function openTaskDetail(id) {
   set('tdm-title', t.title || '');
 
   // Status Pill matching Image 2
-  var normStatus = normalizeTaskStatus(t.status);
-  var sConf = STATUS_CONFIG[normStatus] || { label: normStatus, color: '#3b82f6' };
+  var normStatus = normalizeTaskStatus(t.status, projectName);
+  var pStatuses = getProjectStatuses(projectName);
+  var sConf = pStatuses.find(function(s) { return s.id.toLowerCase() === normStatus.toLowerCase() || s.label.toLowerCase() === normStatus.toLowerCase(); }) || STATUS_CONFIG[normStatus] || { label: normStatus, color: '#3b82f6' };
   var statusDot = document.querySelector('.tdm-status-dot');
-  if (statusDot) statusDot.style.background = sConf.color;
+  if (statusDot) statusDot.style.background = sConf.color || (sConf.isCustom ? 'var(--text-secondary)' : '#3b82f6');
   var statusText = document.querySelector('.tdm-status-text');
   if (statusText) statusText.textContent = sConf.label;
 
@@ -5101,12 +5815,15 @@ function toggleTaskDetailStatusMenu(e) {
     menu.style.display = 'none';
     return;
   }
+  var task = findManagedTask(_activeDetailTaskId);
+  var pName = task ? (getTaskProjectName(task) || _activeProject) : _activeProject;
+  var pStatuses = getProjectStatuses(pName);
   var html = '';
-  STATUS_ORDER.forEach(function(s) {
-    var conf = STATUS_CONFIG[s];
-    html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailStatus(\'' + s + '\')">'
-      + '<span style="width:8px;height:8px;border-radius:50%;background:' + conf.color + ';display:inline-block;"></span>'
-      + '<span>' + conf.label + '</span>'
+  pStatuses.forEach(function(sObj) {
+    var color = sObj.color || (sObj.isCustom ? 'var(--text-secondary)' : '#64748b');
+    html += '<div class="task-prop-dropdown-item" onclick="selectTaskDetailStatus(\'' + sObj.id + '\')">'
+      + '<span style="width:8px;height:8px;border-radius:50%;background:' + color + ';display:inline-block;"></span>'
+      + '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(sObj.label) : sObj.label) + '</span>'
       + '</div>';
   });
   menu.innerHTML = html;
@@ -5114,13 +5831,18 @@ function toggleTaskDetailStatusMenu(e) {
 }
 
 function selectTaskDetailStatus(status) {
-  if (!_activeDetailTaskId || !findManagedTask(_activeDetailTaskId) || !STATUS_ORDER.includes(status)) return;
+  if (!_activeDetailTaskId) return;
+  var task = findManagedTask(_activeDetailTaskId);
+  if (!task) return;
+  var pName = getTaskProjectName(task) || _activeProject;
+  if (!isValidTaskStatus(status, pName)) return;
   var taskId = _activeDetailTaskId;
-  memberUpdateTaskStatus(taskId, status).then(function(updated) {
-    if (!updated || _activeDetailTaskId !== taskId) return;
-    var sConf = STATUS_CONFIG[status];
+  memberUpdateTaskStatus(taskId, status).then(function() {
+    if (_activeDetailTaskId !== taskId) return;
+    var pStatuses = getProjectStatuses(pName);
+    var sConf = pStatuses.find(function(s) { return s.id.toLowerCase() === status.toLowerCase() || s.label.toLowerCase() === status.toLowerCase(); }) || STATUS_CONFIG[status] || { label: status, color: '#3b82f6' };
     var statusDot = document.querySelector('.tdm-status-dot');
-    if (statusDot) statusDot.style.background = sConf.color;
+    if (statusDot) statusDot.style.background = sConf.color || (sConf.isCustom ? 'var(--text-secondary)' : '#3b82f6');
     var statusText = document.querySelector('.tdm-status-text');
     if (statusText) statusText.textContent = sConf.label;
   });
@@ -5614,8 +6336,10 @@ async function deleteActiveTask() {
  */
 async function memberUpdateTaskStatus(id, status, _dept) {
   var task = findManagedTask(id);
-  status = normalizeTaskStatus(status);
-  if (!task || !STATUS_ORDER.includes(status) || normalizeTaskStatus(task.status) === status) return;
+  if (!task) return false;
+  var pName = getTaskProjectName(task) || _activeProject;
+  status = normalizeTaskStatus(status, pName);
+  if (!isValidTaskStatus(status, pName) || normalizeTaskStatus(task.status, pName) === status) return false;
   var effectiveId = id;
   if (String(id).startsWith('temp_')) {
     effectiveId = await resolveRealTaskId(id);
@@ -5739,7 +6463,9 @@ function openCreateTaskModal(defaultStatus, fromTasksView) {
   var modal = document.querySelector('.task-create-modal');
   if (!modal) return;
   modal.style.display = 'flex';
-  modal.setAttribute('data-target-status', defaultStatus || 'todo');
+  var targetProjStatuses = getProjectStatuses(_activeProject);
+  var defStatus = defaultStatus || (targetProjStatuses[0] ? targetProjStatuses[0].id : 'todo');
+  modal.setAttribute('data-target-status', defStatus);
 
   var projDisplay = modal.querySelector('.new-task-project-display');
   var projSelect = modal.querySelector('.new-task-project-select');
@@ -6128,7 +6854,7 @@ async function handleCreateTaskSubmit(e) {
   }
   var rawDesc = descEl ? (descEl.isContentEditable ? descEl.innerHTML.trim() : descEl.value.trim()) : '';
   var desc = (typeof sanitizeHtml === 'function') ? sanitizeHtml(rawDesc) : rawDesc;
-  var targetStatus = normalizeTaskStatus(modal.getAttribute('data-target-status'));
+  var targetStatus = normalizeTaskStatus(modal.getAttribute('data-target-status'), projectName);
   var fullDesc = buildTaskDescriptionWithMeta({ project_name: projectName, estimate: estimate }, desc);
 
   _isSubmittingTask = true;
@@ -6660,7 +7386,9 @@ async function renderAdminTasks(filter) {
  * @param {string} status
  */
 async function updateTaskStatus(id, status) {
-  if (!hasTaskAdminSession() || !STATUS_ORDER.includes(status)) return;
+  var task = findManagedTask(id);
+  var pName = task ? (getTaskProjectName(task) || _activeProject) : _activeProject;
+  if (!hasTaskAdminSession() || !isValidTaskStatus(status, pName)) return;
   var client = getSupaClient();
   if (!client) return;
   try {
@@ -6937,6 +7665,28 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.buildTaskDescriptionWithMeta = buildTaskDescriptionWithMeta;
   window.resolveRealTaskId          = resolveRealTaskId;
 
+  window.getDefaultProjectStatuses  = getDefaultProjectStatuses;
+  window.getProjectStatuses         = getProjectStatuses;
+  window.taskMatchesStatus          = taskMatchesStatus;
+  window.isValidTaskStatus          = isValidTaskStatus;
+  window.isTaskCompleted            = isTaskCompleted;
+  window.saveProjectStatusesCatalog = saveProjectStatusesCatalog;
+  window.loadProjectStatusesCatalog = loadProjectStatusesCatalog;
+  window.openMoveTasksAndDeleteStatusModal = openMoveTasksAndDeleteStatusModal;
+  window.closeMoveTasksModal        = closeMoveTasksModal;
+  window.confirmMoveTasksAndDeleteStatus = confirmMoveTasksAndDeleteStatus;
+  window.deleteProjectStatus        = deleteProjectStatus;
+  window.openEditStatusTitle        = openEditStatusTitle;
+  window.handleEditStatusKeyDown    = handleEditStatusKeyDown;
+  window.cancelEditStatusTitle      = cancelEditStatusTitle;
+  window.saveEditStatusTitle        = saveEditStatusTitle;
+  window.openAddStatusInline        = openAddStatusInline;
+  window.cancelAddStatus            = cancelAddStatus;
+  window.handleAddStatusKeyDown     = handleAddStatusKeyDown;
+  window.confirmAddStatus           = confirmAddStatus;
+  window.reorderProjectStatuses     = reorderProjectStatuses;
+  window._projectStatusesMap        = _projectStatusesMap;
+
   if (typeof window.addEventListener === 'function') {
     window.addEventListener('bb_avatar_outlines_changed', function() {
       if (typeof refreshCurrentTasksView === 'function') refreshCurrentTasksView();
@@ -6982,6 +7732,8 @@ if (typeof module !== 'undefined' && module.exports) {
     _tasksViewMode,
     _projectDisplayMode,
     _currentDeptFilter,
+    get _activeProject() { return _activeProject; },
+    set _activeProject(v) { _activeProject = v; },
     get _taskSearchQuery() { return _taskSearchQuery; },
     set _taskSearchQuery(v) { _taskSearchQuery = v; },
     get _allLoadedTasks() { return _allLoadedTasks; },
@@ -7123,7 +7875,29 @@ if (typeof module !== 'undefined' && module.exports) {
     setMyTasksScopeFilter,
     setMyTasksStatusFilter,
     setMyTasksProjectFilter,
-    resetMyTasksFilters
+    resetMyTasksFilters,
+    getDefaultProjectStatuses,
+    getProjectStatuses,
+    taskMatchesStatus,
+    isValidTaskStatus,
+    isTaskCompleted,
+    saveProjectStatusesCatalog,
+    loadProjectStatusesCatalog,
+    openMoveTasksAndDeleteStatusModal,
+    closeMoveTasksModal,
+    confirmMoveTasksAndDeleteStatus,
+    deleteProjectStatus,
+    openEditStatusTitle,
+    handleEditStatusKeyDown,
+    cancelEditStatusTitle,
+    saveEditStatusTitle,
+    openAddStatusInline,
+    cancelAddStatus,
+    handleAddStatusKeyDown,
+    confirmAddStatus,
+    reorderProjectStatuses,
+    get _projectStatusesMap() { return _projectStatusesMap; },
+    set _projectStatusesMap(v) { _projectStatusesMap = v; }
   };
 }
 

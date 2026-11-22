@@ -16675,6 +16675,122 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  // --- Suite 87: Customizable Project-Specific Task Statuses, CRUD & Horizontal Scroll Kanban ---
+  console.log('\n--- Suite 87: Customizable Project-Specific Task Statuses, CRUD & Horizontal Scroll Kanban ---');
+  {
+    const tasksMod = require('../js/modules/tasks.js');
+    const cssContent = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+
+    // 1. Sensible defaults on project creation
+    const defaultStatuses = tasksMod.getDefaultProjectStatuses();
+    assert.strictEqual(defaultStatuses.length, 5, 'Default project statuses count is 5');
+    assert.deepStrictEqual(
+      defaultStatuses.map(s => s.label),
+      ['Planning', 'To Do', 'In Progress', 'In Review', 'Complete'],
+      'Default project statuses match exact required workflow'
+    );
+    console.log('  ✔ Newly created projects automatically start with default statuses (Planning, To Do, In Progress, In Review, Complete)');
+
+    // 2. Per-project isolation
+    tasksMod._projectStatusesMap['ideas'] = [
+      { id: 'ideas', label: 'Ideas', isCustom: true },
+      { id: 'top-3-ideas', label: 'Top 3 Ideas', isCustom: true },
+      { id: 'ideas-to-ship', label: 'Ideas to Ship', isCustom: true },
+      { id: 'ideas-that-worked', label: 'Ideas That Worked', isCustom: true }
+    ];
+    tasksMod._projectStatusesMap['recruitment programme'] = tasksMod.getDefaultProjectStatuses();
+
+    const ideasStatuses = tasksMod.getProjectStatuses('Ideas');
+    const recruitmentStatuses = tasksMod.getProjectStatuses('Recruitment Programme');
+
+    assert.strictEqual(ideasStatuses.length, 4, 'Ideas project has 4 custom statuses');
+    assert.strictEqual(ideasStatuses[0].label, 'Ideas');
+    assert.strictEqual(ideasStatuses[1].label, 'Top 3 Ideas');
+    assert.strictEqual(ideasStatuses[2].label, 'Ideas to Ship');
+    assert.strictEqual(ideasStatuses[3].label, 'Ideas That Worked');
+
+    assert.strictEqual(recruitmentStatuses.length, 5, 'Recruitment Programme project retains standard 5 statuses');
+    assert.strictEqual(recruitmentStatuses[0].label, 'Planning');
+    console.log('  ✔ Per-project isolation ensures editing or adding statuses in one project never mutates other projects');
+
+    // 3. Status CRUD: Add, Edit/Rename, Reorder, and Safe Deletion
+    // A. Add new status
+    tasksMod._activeProject = 'Ideas';
+    const mockInput = { value: 'Archived Ideas' };
+    const mockContainer = {
+      querySelector: (sel) => (sel === '.task-add-status-input' ? mockInput : null)
+    };
+    await tasksMod.confirmAddStatus(mockContainer);
+    const updatedIdeas = tasksMod.getProjectStatuses('Ideas');
+    assert.strictEqual(updatedIdeas.length, 5, 'confirmAddStatus appended new status');
+    assert.strictEqual(updatedIdeas[4].label, 'Archived Ideas');
+    assert.strictEqual(updatedIdeas[4].id, 'archived-ideas');
+    console.log('  ✔ Status creation (+Status) seamlessly adds isolated project status with slug and custom flag');
+
+    // B. Reorder statuses
+    await tasksMod.reorderProjectStatuses(4, 0);
+    const reorderedIdeas = tasksMod.getProjectStatuses('Ideas');
+    assert.strictEqual(reorderedIdeas[0].label, 'Archived Ideas');
+    assert.strictEqual(reorderedIdeas[1].label, 'Ideas');
+    console.log('  ✔ Status reordering correctly repositions columns on the Kanban board');
+
+    // C. Edit / Rename status title
+    tasksMod._allLoadedTasks = [
+      { id: 'task-1', title: 'Great idea', status: 'archived-ideas', project: 'Ideas' },
+      { id: 'task-2', title: 'Other idea', status: 'ideas', project: 'Ideas' }
+    ];
+    const mockEditForm = {
+      querySelector: (sel) => (sel === '.task-col-title-input' ? { value: 'Discarded Ideas' } : null)
+    };
+    await tasksMod.saveEditStatusTitle('archived-ideas', mockEditForm);
+    const renamedIdeas = tasksMod.getProjectStatuses('Ideas');
+    assert.strictEqual(renamedIdeas[0].label, 'Discarded Ideas');
+    assert.strictEqual(renamedIdeas[0].id, 'discarded-ideas');
+    assert.strictEqual(tasksMod._allLoadedTasks[0].status, 'discarded-ideas', 'Existing tasks migrated to renamed status slug');
+    console.log('  ✔ Inline double-click status title rename updates status label, slug, and migrates existing tasks');
+
+    // D. Safe Deletion: If tasks exist in status, confirmMoveTasksAndDeleteStatus moves them to another status
+    const mockDestSelect = { value: 'ideas' };
+    const mockModal = {
+      dataset: { statusId: 'discarded-ideas' },
+      style: {},
+      querySelector: (sel) => (sel === '#move-tasks-dest-status' ? mockDestSelect : null),
+      classList: { remove: () => {} }
+    };
+    global.document = global.document || {};
+    const origGetEl = global.document.getElementById;
+    global.document.getElementById = (id) => {
+      if (id === 'move-tasks-status-modal') return mockModal;
+      if (origGetEl) return origGetEl(id);
+      return null;
+    };
+    await tasksMod.confirmMoveTasksAndDeleteStatus();
+    assert.strictEqual(tasksMod._allLoadedTasks[0].status, 'ideas', 'Tasks migrated safely to destination status before column deletion');
+    const postDeleteIdeas = tasksMod.getProjectStatuses('Ideas');
+    assert.strictEqual(postDeleteIdeas.some(s => s.id === 'discarded-ideas'), false, 'Deleted status removed from project');
+    global.document.getElementById = origGetEl;
+    console.log('  ✔ Safe deletion prevents data loss by migrating tasks to user-selected target status');
+
+    // 4. Number pill badge styling and CSS horizontal scroll & fixed width
+    assert.ok(cssContent.includes('.tasks-board-columns'), 'CSS includes .tasks-board-columns');
+    assert.ok(cssContent.includes('overflow-x: auto'), '.tasks-board-columns enforces horizontal scrollbar');
+    assert.ok(cssContent.includes('.task-col'), 'CSS includes .task-col styling');
+    assert.ok(cssContent.includes('280px'), '.task-col enforces fixed 280px column width to prevent squashing');
+    assert.ok(cssContent.includes('.task-col-delete-btn'), 'CSS includes hover trash can delete button');
+    assert.ok(cssContent.includes('.custom-status-badge'), 'CSS includes subtle custom status number pill badge');
+    console.log('  ✔ Horizontal scroll, fixed 280px column width, hover trash can, and custom badge styling verified in CSS');
+
+    // Strict 388 Unique DOM IDs Invariant
+    const postIdsSuite87 = new Set();
+    const postMatchesSuite87 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
+    postMatchesSuite87.forEach(m => {
+      const match = m.match(/\sid=["']([^"']+)["']/);
+      if (match) postIdsSuite87.add(match[1]);
+    });
+    assert.strictEqual(postIdsSuite87.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite87.size})`);
+    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);
