@@ -1331,8 +1331,8 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('calendar', 'update', record, true);
               } else if (key.startsWith('bb_task_comments_')) {
                 triggerEntityUpdate('comments', 'update', { key: key }, true);
-              } else if (key === 'bb_projects') {
-                triggerEntityUpdate('projects', 'update', null, true);
+              } else if (key === 'bb_projects' || key === 'bb_project_statuses') {
+                triggerEntityUpdate('projects', 'update', record, true);
               } else if (key === 'bb_announcements' || key.startsWith('bb_announcements_')) {
                 triggerEntityUpdate('announcements', 'update', record, true);
               } else if (key === 'bb_admin_roles') {
@@ -1433,7 +1433,7 @@ var PortalRealtime = (function() {
             if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update', null, true);
             else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update', null, true);
             else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update', null, true);
-            else if (r.key === 'bb_projects') triggerEntityUpdate('projects', 'update', null, true);
+            else if (r.key === 'bb_projects' || r.key === 'bb_project_statuses') triggerEntityUpdate('projects', 'update', null, true);
             else if (r.key === 'bb_master_attendance') triggerEntityUpdate('attendance', 'update', null, true);
             else if (r.key === 'bb_member_cosmetics') triggerEntityUpdate('cosmetics', 'update', null, true);
             else if (r.key === 'bb_custom_avatar_outlines') triggerEntityUpdate('avatar_outlines', 'update', null, true);
@@ -2347,9 +2347,20 @@ var PortalRealtime = (function() {
           window.loadAnnouncements().catch(function() {});
         }
       }
-    } else if (entity === 'projects') {
-      if (typeof window !== 'undefined' && typeof window.loadProjectsCatalog === 'function') {
-        window.loadProjectsCatalog();
+    } else if (entity === 'projects' || entity === 'project_statuses') {
+      if (typeof window !== 'undefined') {
+        if (data && data.map && typeof data.map === 'object' && typeof window._projectStatusesMap !== 'undefined') {
+          window._projectStatusesMap = Object.assign({}, window._projectStatusesMap, data.map);
+          try { localStorage.setItem('bb_project_statuses', JSON.stringify(window._projectStatusesMap)); } catch (_) {}
+        }
+        if (typeof window.loadProjectsCatalog === 'function') window.loadProjectsCatalog();
+        if (typeof window.loadProjectStatusesCatalog === 'function') {
+          window.loadProjectStatusesCatalog().then(function() {
+            if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView();
+          }).catch(function() {});
+        } else if (typeof window.refreshCurrentTasksView === 'function') {
+          window.refreshCurrentTasksView();
+        }
         if (typeof window.renderProjectsView === 'function') window.renderProjectsView();
       }
     } else if (entity === 'members') {
