@@ -2067,7 +2067,7 @@ function getTaskDueDisplay(task, projectName) {
   return {
     label: label,
     badgeClass: late ? 'due-overdue' : 'due-completed',
-    timing: (late ? formatTaskDueDateStr(getTaskMalaysiaDay(completed)) + ' · ' : '') + formatTaskTiming(remaining, late)
+    timing: formatTaskTiming(remaining, late)
   };
 }
 
