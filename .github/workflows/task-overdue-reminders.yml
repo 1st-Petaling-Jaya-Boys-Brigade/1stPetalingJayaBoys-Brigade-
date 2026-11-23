@@ -1,0 +1,31 @@
+name: Android overdue task reminders
+
+on:
+  schedule:
+    - cron: '5,35 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-overdue-task-reminders
+  cancel-in-progress: false
+
+jobs:
+  send:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/send-task-overdue.js
+        env:
+          TASK_REMINDER_SUPABASE_URL: ${{ secrets.TASK_REMINDER_SUPABASE_URL }}
+          TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY }}
+          TASK_REMINDER_FCM_SERVICE_ACCOUNT: ${{ secrets.TASK_REMINDER_FCM_SERVICE_ACCOUNT }}

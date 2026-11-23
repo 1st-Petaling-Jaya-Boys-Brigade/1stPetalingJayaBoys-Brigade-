@@ -2261,6 +2261,7 @@ var PortalRealtime = (function() {
             if (window._taskMap) window._taskMap[tIdStr] = data;
           } else if (existingT) {
             if (data.status) existingT.status = data.status;
+            if (Object.hasOwn(data, 'completed_at')) existingT.completed_at = data.completed_at;
             if (data.field && data.value !== undefined) existingT[data.field] = data.value;
             if (data.field === 'estimate' || data.estimate) {
               var estVal = data.estimate || data.value;
@@ -2290,6 +2291,7 @@ var PortalRealtime = (function() {
             }
             if (window._taskMap && window._taskMap[tIdStr]) {
               if (data.status) window._taskMap[tIdStr].status = data.status;
+              if (Object.hasOwn(data, 'completed_at')) window._taskMap[tIdStr].completed_at = data.completed_at;
               if (data.field && data.value !== undefined) window._taskMap[tIdStr][data.field] = data.value;
               if (data.description) window._taskMap[tIdStr].description = data.description;
             }

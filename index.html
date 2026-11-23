@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261116a"></script>
+<script src="js/core/theme.js?v=20261123a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261116a">
-<link rel="stylesheet" href="css/base.css?v=20261116a">
-<link rel="stylesheet" href="css/nav.css?v=20261116a">
-<link rel="stylesheet" href="css/components.css?v=20261116a">
-<link rel="stylesheet" href="css/admin.css?v=20261116a">
+<link rel="stylesheet" href="css/variables.css?v=20261123a">
+<link rel="stylesheet" href="css/base.css?v=20261123a">
+<link rel="stylesheet" href="css/nav.css?v=20261123a">
+<link rel="stylesheet" href="css/components.css?v=20261123a">
+<link rel="stylesheet" href="css/admin.css?v=20261123a">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -3267,30 +3267,30 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261116a"></script>
+<script src="js/config.js?v=20261123a"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261116a" defer></script>
-<script src="js/api/supabase.js?v=20261116a"></script>
-<script src="js/api/fcm.js?v=20261116a"></script>
-<script src="js/core/session.js?v=20261116a"></script>
-<script src="js/core/rbac.js?v=20261116a"></script>
-<script src="js/core/utils.js?v=20261116a"></script>
-<script src="js/core/ui.js?v=20261116a"></script>
-<script src="js/core/loading.js?v=20261116a"></script>
-<script src="js/modules/member.js?v=20261116a"></script>
-<script src="js/api/sheets.js?v=20261116a"></script>
-<script src="js/modules/attendance.js?v=20261116a"></script>
-<script src="js/modules/announcements.js?v=20261116a"></script>
-<script src="js/modules/gallery.js?v=20261116a"></script>
-<script src="js/modules/resources.js?v=20261116a"></script>
-<script src="js/modules/calendar.js?v=20261116a"></script>
-<script src="js/modules/orders.js?v=20261116a"></script>
-<script src="js/modules/forms.js?v=20261116a"></script>
-<script src="js/modules/badges.js?v=20261116a"></script>
-<script src="js/modules/tasks.js?v=20261116a"></script>
-<script src="js/modules/admin.js?v=20261116a"></script>
-<script src="js/modules/forum.js?v=20261116a"></script>
-<script src="js/modules/arcade.js?v=20261116a"></script>
+<script src="js/core/install.js?v=20261123a" defer></script>
+<script src="js/api/supabase.js?v=20261123a"></script>
+<script src="js/api/fcm.js?v=20261123a"></script>
+<script src="js/core/session.js?v=20261123a"></script>
+<script src="js/core/rbac.js?v=20261123a"></script>
+<script src="js/core/utils.js?v=20261123a"></script>
+<script src="js/core/ui.js?v=20261123a"></script>
+<script src="js/core/loading.js?v=20261123a"></script>
+<script src="js/modules/member.js?v=20261123a"></script>
+<script src="js/api/sheets.js?v=20261123a"></script>
+<script src="js/modules/attendance.js?v=20261123a"></script>
+<script src="js/modules/announcements.js?v=20261123a"></script>
+<script src="js/modules/gallery.js?v=20261123a"></script>
+<script src="js/modules/resources.js?v=20261123a"></script>
+<script src="js/modules/calendar.js?v=20261123a"></script>
+<script src="js/modules/orders.js?v=20261123a"></script>
+<script src="js/modules/forms.js?v=20261123a"></script>
+<script src="js/modules/badges.js?v=20261123a"></script>
+<script src="js/modules/tasks.js?v=20261123a"></script>
+<script src="js/modules/admin.js?v=20261123a"></script>
+<script src="js/modules/forum.js?v=20261123a"></script>
+<script src="js/modules/arcade.js?v=20261123a"></script>
 
 <script>
 
@@ -4301,7 +4301,7 @@ function pushPortalNotification(notif, isSilent) {
   var alreadySeen = (seenList.indexOf(notif.id) !== -1);
 
   _allPortalNotifications.unshift(notif);
-  if (_initialNotifSyncDone && !isSilent && !alreadySeen) {
+  if ((_initialNotifSyncDone || notif.dailyOverdue) && !isSilent && !alreadySeen) {
     markNotifSeen(notif.id);
     if (typeof showToast === 'function') {
       var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
@@ -4310,7 +4310,8 @@ function pushPortalNotification(notif, isSilent) {
     // On native mobile (Capacitor), do not schedule a duplicate OS notification card if app is already active in the foreground
     var isBackgrounded = (typeof document !== 'undefined' && document.hidden);
     var isNative = (typeof window !== 'undefined' && Boolean(window.Capacitor?.isNativePlatform?.()));
-    if (!isNative || isBackgrounded) {
+    var androidPush = notif.dailyOverdue && isNative && window.Capacitor.getPlatform?.() === 'android';
+    if ((!isNative || isBackgrounded) && !androidPush) {
       if (typeof triggerPortalSystemNotification === 'function') {
         var notifTitle = notif.title || "1st Petaling Jaya Boys' Brigade";
         var notifBody = notif.snippet || notif.message || notif.text || (notif.title ? ('Update: ' + notif.title) : 'Tap to view company updates.');
@@ -4319,11 +4320,12 @@ function pushPortalNotification(notif, isSilent) {
           notifBody,
           {
             tag: notif.id,
-            silentSound: false
+            silentSound: false,
+            tab: notif.dailyOverdue ? 'tasks' : undefined
           }
         );
       }
-    } else if (typeof playNotificationSound === 'function') {
+    } else if (!androidPush && typeof playNotificationSound === 'function') {
       playNotificationSound();
     }
   }
@@ -4489,17 +4491,6 @@ function syncTaskNotifications(tasks, isSilent) {
   }
   if (!myIc && !myName && !myEmail) return;
 
-  // Check if member has department role
-  var hasDept = false;
-  if (typeof hasDepartmentRole === 'function') {
-    hasDept = hasDepartmentRole();
-  } else if (typeof window !== 'undefined' && typeof window.hasDepartmentRole === 'function') {
-    hasDept = window.hasDepartmentRole();
-  } else if (typeof sessionGet === 'function') {
-    var sDept = sessionGet('department');
-    hasDept = !!(sDept && sDept.toLowerCase() !== 'none');
-  }
-
   // Asynchronously ensure tasks and remote comments are loaded if empty
   if ((!taskList || !taskList.length) && typeof getSupaClient === 'function') {
     var client = getSupaClient();
@@ -4549,12 +4540,12 @@ function syncTaskNotifications(tasks, isSilent) {
   }
 
   var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
+  var dailyIds = new Set();
+  var canReceiveReminders = typeof AuthGuard !== 'undefined' && AuthGuard.isUserAuthenticated() &&
+    typeof hasDepartmentRole === 'function' && hasDepartmentRole() &&
+    (typeof navigator === 'undefined' || navigator.onLine !== false);
   taskList.forEach(function(t) {
     if (!t || !t.id) return;
-    if (accTs > 0 && t.created_at) {
-      var tTs = new Date(t.created_at).getTime();
-      if (!isNaN(tTs) && tTs < (accTs - 60000)) return;
-    }
     var isAssigned = false;
     if (t.assignee_ic && myIc && (t.assignee_ic === myIc || t.assignee_ic.split(',').map(function(s) { return s.trim(); }).indexOf(myIc) !== -1)) {
       isAssigned = true;
@@ -4565,7 +4556,36 @@ function syncTaskNotifications(tasks, isSilent) {
     } else if (myEmail && ((t.assignee_email && t.assignee_email.toLowerCase().trim() === myEmail.toLowerCase().trim()) || (t.assignee_ic && t.assignee_ic.toLowerCase().trim() === myEmail.toLowerCase().trim()))) {
       isAssigned = true;
     }
+    var assigneeKeys = typeof getTaskAssigneeKeys === 'function' ? getTaskAssigneeKeys(t) : [];
+    var isReminderAssignee = assigneeKeys.length
+      ? [myIc, myEmail].some(function(key) { return !!key && assigneeKeys.includes(key.toLowerCase().trim()); })
+      : isAssigned;
+    var overdueId = canReceiveReminders && isReminderAssignee && typeof getOverdueTaskReminder === 'function' && getOverdueTaskReminder(t);
+    if (overdueId) {
+      dailyIds.add(overdueId);
+      pushPortalNotification({
+        id: overdueId,
+        dailyOverdue: true,
+        category: 'tasks',
+        group: 'Today',
+        timestamp: Date.now(),
+        title: 'Overdue task: ' + (t.title || 'Assigned task'),
+        snippet: 'Due ' + formatTaskDueDateStr(t.due_date),
+        time: 'Today',
+        unread: true,
+        action: function() {
+          switchTabNav('tasks');
+          if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
+          if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+        }
+      }, false);
+    }
+
     if (!isAssigned) return;
+    if (accTs > 0 && t.created_at) {
+      var tTs = new Date(t.created_at).getTime();
+      if (!isNaN(tTs) && tTs < (accTs - 60000)) return;
+    }
 
     // Do not notify creator when assigning tasks to themselves
     var isSelfAssigned = (myIc && t.creator_ic === myIc)
@@ -4605,14 +4625,12 @@ function syncTaskNotifications(tasks, isSilent) {
       }
     }
 
-    // 2. Due Date Nearing Notification (only for members with department roles)
-    if (t.due_date && t.status !== 'done') {
+    // 2. Due Date Nearing Notification
+    if (t.due_date && typeof isTaskCompleted === 'function' && !isTaskCompleted(t, getTaskProjectName(t) || 'General Project')) {
       try {
-        var dueTime = new Date(t.due_date).getTime();
-        var now = Date.now();
-        var diffDays = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
-        if (!isNaN(dueTime) && diffDays <= 2 && diffDays >= -14) {
-          var dueNotice = (diffDays < 0) ? 'Overdue' : (diffDays === 0 ? 'Due Today' : (diffDays === 1 ? 'Due Tomorrow' : 'Due in 2 days'));
+        var diffDays = getTaskDaysUntilDue(t.due_date);
+        if (diffDays !== null && diffDays >= 0 && diffDays <= 2) {
+          var dueNotice = diffDays === 0 ? 'Due Today' : diffDays === 1 ? 'Due Tomorrow' : 'Due in 2 days';
           var dueId = 'notif-task-due-' + t.id + '-' + String(t.due_date).split('T')[0];
           if (dismissed.indexOf(dueId) === -1) {
             var existingDue = _allPortalNotifications.find(function(n) { return n.id === dueId; });
@@ -4621,7 +4639,7 @@ function syncTaskNotifications(tasks, isSilent) {
                 id: dueId,
                 category: 'tasks',
                 group: 'Today',
-                timestamp: dueTime,
+                timestamp: Date.now(),
                 icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
                 title: 'Due Date Nearing: ' + t.title,
                 snippet: dueNotice + ' (' + String(t.due_date).split('T')[0] + ') - ' + (t.department || 'Department'),
@@ -4638,6 +4656,9 @@ function syncTaskNotifications(tasks, isSilent) {
         }
       } catch (_) {}
     }
+  });
+  _allPortalNotifications = _allPortalNotifications.filter(function(notif) {
+    return !notif.dailyOverdue || dailyIds.has(notif.id);
   });
 
   // 3. Mentions in Task Brief & Comments

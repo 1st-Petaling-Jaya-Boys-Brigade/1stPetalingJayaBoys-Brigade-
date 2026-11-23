@@ -8006,6 +8006,19 @@ select.form-input,
   border: 1px solid var(--border-subtle);
 }
 
+.task-due-pill.due-completed {
+  background: rgb(16 185 129 / 14%);
+  color: #6ee7b7;
+  border: 1px solid rgb(16 185 129 / 28%);
+  font-weight: 600;
+}
+
+[data-theme='light'] .task-due-pill.due-completed {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
 [data-theme='light'] .task-due-pill.due-overdue,
 [data-theme='light'] .task-due-pill.overdue {
   background: #fee2e2 !important;
@@ -8034,6 +8047,7 @@ select.form-input,
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .task-card-footer-right {
@@ -8063,10 +8077,8 @@ select.form-input,
   color: #475569;
 }
 
-.task-card-estimate-spacer {
-  display: inline-block;
-  width: 1px;
-  height: 1px;
+.task-card-footer .task-completion-timing {
+  white-space: normal !important;
 }
 
 .task-card-priority-chevron {
