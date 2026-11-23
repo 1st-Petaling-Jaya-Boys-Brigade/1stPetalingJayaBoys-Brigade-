@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261123c"></script>
+<script src="js/core/theme.js?v=20261123d"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261123c">
-<link rel="stylesheet" href="css/base.css?v=20261123c">
-<link rel="stylesheet" href="css/nav.css?v=20261123c">
-<link rel="stylesheet" href="css/components.css?v=20261123c">
-<link rel="stylesheet" href="css/admin.css?v=20261123c">
+<link rel="stylesheet" href="css/variables.css?v=20261123d">
+<link rel="stylesheet" href="css/base.css?v=20261123d">
+<link rel="stylesheet" href="css/nav.css?v=20261123d">
+<link rel="stylesheet" href="css/components.css?v=20261123d">
+<link rel="stylesheet" href="css/admin.css?v=20261123d">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -3267,30 +3267,30 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261123c"></script>
+<script src="js/config.js?v=20261123d"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261123c" defer></script>
-<script src="js/api/supabase.js?v=20261123c"></script>
-<script src="js/api/fcm.js?v=20261123c"></script>
-<script src="js/core/session.js?v=20261123c"></script>
-<script src="js/core/rbac.js?v=20261123c"></script>
-<script src="js/core/utils.js?v=20261123c"></script>
-<script src="js/core/ui.js?v=20261123c"></script>
-<script src="js/core/loading.js?v=20261123c"></script>
-<script src="js/modules/member.js?v=20261123c"></script>
-<script src="js/api/sheets.js?v=20261123c"></script>
-<script src="js/modules/attendance.js?v=20261123c"></script>
-<script src="js/modules/announcements.js?v=20261123c"></script>
-<script src="js/modules/gallery.js?v=20261123c"></script>
-<script src="js/modules/resources.js?v=20261123c"></script>
-<script src="js/modules/calendar.js?v=20261123c"></script>
-<script src="js/modules/orders.js?v=20261123c"></script>
-<script src="js/modules/forms.js?v=20261123c"></script>
-<script src="js/modules/badges.js?v=20261123c"></script>
-<script src="js/modules/tasks.js?v=20261123c"></script>
-<script src="js/modules/admin.js?v=20261123c"></script>
-<script src="js/modules/forum.js?v=20261123c"></script>
-<script src="js/modules/arcade.js?v=20261123c"></script>
+<script src="js/core/install.js?v=20261123d" defer></script>
+<script src="js/api/supabase.js?v=20261123d"></script>
+<script src="js/api/fcm.js?v=20261123d"></script>
+<script src="js/core/session.js?v=20261123d"></script>
+<script src="js/core/rbac.js?v=20261123d"></script>
+<script src="js/core/utils.js?v=20261123d"></script>
+<script src="js/core/ui.js?v=20261123d"></script>
+<script src="js/core/loading.js?v=20261123d"></script>
+<script src="js/modules/member.js?v=20261123d"></script>
+<script src="js/api/sheets.js?v=20261123d"></script>
+<script src="js/modules/attendance.js?v=20261123d"></script>
+<script src="js/modules/announcements.js?v=20261123d"></script>
+<script src="js/modules/gallery.js?v=20261123d"></script>
+<script src="js/modules/resources.js?v=20261123d"></script>
+<script src="js/modules/calendar.js?v=20261123d"></script>
+<script src="js/modules/orders.js?v=20261123d"></script>
+<script src="js/modules/forms.js?v=20261123d"></script>
+<script src="js/modules/badges.js?v=20261123d"></script>
+<script src="js/modules/tasks.js?v=20261123d"></script>
+<script src="js/modules/admin.js?v=20261123d"></script>
+<script src="js/modules/forum.js?v=20261123d"></script>
+<script src="js/modules/arcade.js?v=20261123d"></script>
 
 <script>
 
@@ -5156,8 +5156,13 @@ function renderNotifications() {
         }
       } else if (item.avatarInitials) {
         iconHtml = '<div class="notif-avatar-circle">' + escapeHtml(item.avatarInitials) + '</div>';
-      } else {
-        iconHtml = '<div class="notif-item-icon">' + item.icon + '</div>';
+      }
+      if (!iconHtml) {
+        var fallbackShape = item.dailyOverdue
+          ? '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'
+          : '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>';
+        var icon = item.icon || '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + fallbackShape + '</svg>';
+        iconHtml = '<div class="notif-item-icon" aria-hidden="true">' + icon + '</div>';
       }
 
       html += '<div class="notif-item' + (item.unread ? ' unread-item' : '') + '" data-notif-id="' + item.id + '">'
