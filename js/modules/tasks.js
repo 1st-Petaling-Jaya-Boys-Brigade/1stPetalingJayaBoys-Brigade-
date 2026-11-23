@@ -1997,19 +1997,78 @@ function formatTaskId(t, idx) {
  * - 'due-near' if within 2 days (yellow)
  * - 'due-normal' if on time (default)
  * @param {string|Date} dueDate
- * @param {boolean} [isCompleted=false]
  * @returns {string}
  */
-function getTaskDueBadgeClass(dueDate, isCompleted) {
-  if (!dueDate) return 'due-normal';
-  if (isCompleted) return 'due-normal';
-  var due = new Date(dueDate); due.setHours(0, 0, 0, 0);
-  var today = new Date(); today.setHours(0, 0, 0, 0);
-  var diffMs = due.getTime() - today.getTime();
-  var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+function getTaskDueBadgeClass(dueDate) {
+  var diffDays = getTaskDaysUntilDue(dueDate);
+  if (diffDays === null) return 'due-normal';
   if (diffDays < 0) return 'due-overdue';
   if (diffDays <= 2) return 'due-near';
   return 'due-normal';
+}
+
+var TASK_DAY_MS = 86400000;
+var TASK_MY_OFFSET_MS = 8 * 3600000;
+
+function getTaskMalaysiaDay(timestamp) {
+  return new Date(timestamp + TASK_MY_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function getTaskDueDay(dueDate) {
+  var day = dueDate instanceof Date && Number.isFinite(dueDate.getTime())
+    ? getTaskMalaysiaDay(dueDate.getTime())
+    : String(dueDate || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  var date = new Date(day + 'T00:00:00Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === day ? day : null;
+}
+
+function getTaskDaysUntilDue(dueDate, now = Date.now()) {
+  var day = getTaskDueDay(dueDate);
+  if (!day) return null;
+  return (Date.parse(day) - Date.parse(getTaskMalaysiaDay(now))) / TASK_DAY_MS;
+}
+
+function getOverdueTaskReminder(task, now = Date.now()) {
+  if (!task || !task.id || String(task.id).startsWith('temp_') || isTaskCompleted(task, getTaskProjectName(task) || 'General Project')) return null;
+  var due = getTaskDaysUntilDue(task.due_date, now);
+  return due !== null && due < 0 ? 'notif-task-overdue-' + task.id + '-' + getTaskMalaysiaDay(now) : null;
+}
+
+function getTaskAssigneeKeys(task) {
+  return [task.assignee_ic, task.assignee_email].flatMap(function(value) {
+    return String(value || '').split(',').map(function(key) { return key.trim().toLowerCase(); }).filter(Boolean);
+  });
+}
+
+function formatTaskTiming(ms, late) {
+  var minutes = Math.floor(Math.abs(ms) / 60000);
+  if (minutes === 0) return late ? 'Under 1 min late' : 'On time';
+  var amount = minutes >= 1440 ? Math.floor(minutes / 1440)
+    : minutes >= 60 ? Math.floor(minutes / 60) : minutes;
+  var unit = minutes >= 1440 ? 'day' : minutes >= 60 ? 'hour' : 'min';
+  return amount + ' ' + unit + (amount === 1 || unit === 'min' ? '' : 's') + (late ? ' late' : ' early');
+}
+
+function getTaskDueDisplay(task, projectName) {
+  var day = getTaskDueDay(task.due_date);
+  if (!day) return null;
+  var dateText = formatTaskDueDateStr(day);
+  if (!isTaskCompleted(task, projectName || getTaskProjectName(task) || 'General Project')) {
+    var badgeClass = getTaskDueBadgeClass(day);
+    return { label: (badgeClass === 'due-overdue' ? 'Overdue: ' : '') + dateText, badgeClass: badgeClass };
+  }
+  var completed = Date.parse(task.completed_at);
+  var label = 'Completed: ' + dateText;
+  if (!Number.isFinite(completed)) return { label: label, badgeClass: 'due-normal' };
+  // The deadline is exclusive. All of 23:59 Malaysia time belongs to the due day.
+  var remaining = Date.parse(day) + TASK_DAY_MS - TASK_MY_OFFSET_MS - completed;
+  var late = remaining <= 0;
+  return {
+    label: label,
+    badgeClass: late ? 'due-overdue' : 'due-completed',
+    timing: (late ? formatTaskDueDateStr(getTaskMalaysiaDay(completed)) + ' · ' : '') + formatTaskTiming(remaining, late)
+  };
 }
 
 
@@ -2286,8 +2345,6 @@ function renderColumnsFromTasks(tasksList) {
   if (typeof window !== 'undefined') {
     window._taskMap = window._taskMap || {};
   }
-  var today = new Date(); today.setHours(0, 0, 0, 0);
-
   statuses.forEach(function(st) {
     var el   = getColBody(st.id);
     var cnt  = getColCount(st.id);
@@ -2329,14 +2386,11 @@ function renderColumnsFromTasks(tasksList) {
       var avatarHtml = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 24);
 
       var dueBadge = '';
-      if (t.due_date) {
-        var d = new Date(t.due_date);
-        var isOverdue = d < today;
-        var dueText = d.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' });
-        var badgeClass = getTaskDueBadgeClass(t.due_date);
-        dueBadge = '<span class="task-due-pill ' + badgeClass + '">'
+      var dueDisplay = getTaskDueDisplay(t, taskPName);
+      if (dueDisplay) {
+        dueBadge = '<span class="task-due-pill ' + dueDisplay.badgeClass + '">'
           + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-          + (isOverdue ? 'Overdue: ' : '') + dueText
+          + dueDisplay.label
           + '</span>';
       }
 
@@ -2353,16 +2407,17 @@ function renderColumnsFromTasks(tasksList) {
           + '<svg class="ui-icon-xs" width="11" height="11" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
           + '<span>' + safeEst + '</span>'
           + '</span>';
-      } else {
-        estimateHtml = '<span class="task-card-estimate-spacer"></span>';
       }
+      var timingHtml = dueDisplay && dueDisplay.timing
+        ? '<span class="task-due-pill task-completion-timing ' + dueDisplay.badgeClass + '">' + dueDisplay.timing + '</span>'
+        : '';
 
       return '<div class="task-card" draggable="' + canManageTaskDepartment(t.department || getTaskProjectName(t)) + '" data-task-id="' + t.id + '" onclick="openTaskDetail(\'' + t.id + '\')">'
         + '<div class="task-card-id-tag">' + taskId + '</div>'
         + '<div class="task-card-title">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</div>'
         + metaRowHtml
         + '<div class="task-card-footer">'
-        +   '<div class="task-card-footer-left">' + estimateHtml + '</div>'
+        +   '<div class="task-card-footer-left">' + estimateHtml + timingHtml + '</div>'
         +   '<div class="task-card-footer-right">' + priorityChevron + avatarHtml + '</div>'
         + '</div>'
         + '</div>';
@@ -2552,9 +2607,7 @@ function renderTasksListView(projectName) {
         var safeAssignee = (typeof escapeHtml === 'function') ? escapeHtml(t.assignee_name || 'Unassigned') : (t.assignee_name || 'Unassigned');
         var assigneeAvatar = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 22);
 
-        var dueStr = formatTaskDueDateStr(t.due_date);
-        var isDone = isTaskCompleted(t, pName);
-        var dueBadgeCls = getTaskDueBadgeClass(t.due_date, isDone);
+        var dueDisplay = getTaskDueDisplay(t, pName);
 
         var est = t.estimate || '';
         if (!est && t.description) {
@@ -2592,7 +2645,7 @@ function renderTasksListView(projectName) {
             '</div>' +
           '</td>' +
           '<td class="col-due">' +
-            (t.due_date ? ('<span class="proj-list-due-pill ' + dueBadgeCls + '">' + escapeHtml(dueStr) + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
+            (dueDisplay ? ('<span class="proj-list-due-pill task-due-pill ' + dueDisplay.badgeClass + '">' + escapeHtml(dueDisplay.label) + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
           '</td>' +
           '<td class="col-estimate">' +
             (est ? ('<span class="proj-list-estimate-pill">' + escapeHtml(est) + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
@@ -6733,7 +6786,6 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   var client = getSupaClient();
   if (!client || _taskStatusWrites.has(id)) return;
   _taskStatusWrites.add(id);
-  var oldStatus = task.status;
   var paint = function() {
     if (_tasksViewMode === 'mytasks') renderMyTasksView();
     else if (_tasksViewMode === 'projects') renderProjectsView();
@@ -6741,20 +6793,32 @@ async function memberUpdateTaskStatus(id, status, _dept) {
     else renderColumnsFromTasks(_allLoadedTasks);
   };
   var cachedTask = _allLoadedTasks.find(function(row) { return String(row.id) === String(id) || String(row.id) === String(effectiveId); });
-  task.status = status;
-  if (cachedTask) cachedTask.status = status;
-  if (_taskMap[id]) _taskMap[id].status = status;
-  if (effectiveId !== id && _taskMap[effectiveId]) _taskMap[effectiveId].status = status;
+  var snapshots = Array.from(new Set([task, cachedTask, _taskMap[id], _taskMap[effectiveId]].filter(Boolean)))
+    .map(function(row) { return { row: row, status: row.status, completedAt: row.completed_at }; });
+  var completedAt = isTaskCompleted({ status: status }, pName || 'General Project')
+    ? (isTaskCompleted(task, pName) ? task.completed_at : new Date().toISOString())
+    : null;
+  var applyStatus = function(row) {
+    row.status = status;
+    row.completed_at = completedAt;
+  };
+  snapshots.forEach(function(snapshot) { applyStatus(snapshot.row); });
   try {
     paint();
     if (!String(effectiveId).startsWith('temp_')) {
-      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), { status: status });
+      var rows = await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), { status: status });
+      var saved = Array.isArray(rows) && rows[0];
+      if (saved && Object.hasOwn(saved, 'completed_at')) {
+        completedAt = saved.completed_at;
+        snapshots.forEach(function(snapshot) { applyStatus(snapshot.row); });
+        paint();
+      }
     }
   } catch (e) {
-    task.status = oldStatus;
-    if (cachedTask) cachedTask.status = oldStatus;
-    if (_taskMap[id]) _taskMap[id].status = oldStatus;
-    if (effectiveId !== id && _taskMap[effectiveId]) _taskMap[effectiveId].status = oldStatus;
+    snapshots.forEach(function(snapshot) {
+      snapshot.row.status = snapshot.status;
+      snapshot.row.completed_at = snapshot.completedAt;
+    });
     paint();
     if (typeof showToast === 'function') {
       showToast('Failed to update task status.', 'error');
@@ -6765,13 +6829,14 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   }
   var current = _allLoadedTasks.find(function(row) { return String(row.id) === String(id) || String(row.id) === String(effectiveId); });
   if (current && current !== cachedTask) {
-    current.status = status;
+    applyStatus(current);
     paint();
   }
   try { localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-    window.PortalRealtime.broadcast('tasks', 'update', { id: effectiveId, status: status });
+    window.PortalRealtime.broadcast('tasks', 'update', { id: effectiveId, status: status, completed_at: completedAt ?? null });
   }
+  if (typeof syncTaskNotifications === 'function') syncTaskNotifications(_allLoadedTasks, true);
   if (typeof logAuditEvent === 'function') {
     logAuditEvent({
       action: 'task.status_update', targetType: 'task', targetId: effectiveId,
@@ -8290,6 +8355,11 @@ if (typeof module !== 'undefined' && module.exports) {
     taskMatchesStatus,
     isValidTaskStatus,
     isTaskCompleted,
+    getTaskDaysUntilDue,
+    getTaskMalaysiaDay,
+    getTaskDueDisplay,
+    getOverdueTaskReminder,
+    getTaskAssigneeKeys,
     saveProjectStatusesCatalog,
     loadProjectStatusesCatalog,
     applyProjectStatusesUpdate,

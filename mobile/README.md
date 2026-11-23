@@ -67,4 +67,8 @@ Keep an encrypted backup of the keystore and its password in the Brigade's secur
 
 ## Notification delivery
 
-The Android APK can show system alerts and the optional company chime when the open portal receives inbox notifications. The device controls sound and notification permissions. Standalone installation does not set up background delivery. Android remote push and iPhone Web Push still require a server-side sender and device subscription handling. Verify sign-in, consent, live alerts, and the chime on an approved device before distributing.
+Apply `supabase/migrations/029_task_completion_and_overdue_reminders.sql` when deploying task completion timing. The migration records new completion times and clears them when tasks reopen. Legacy completions keep an unknown completion time.
+
+The signed-in portal checks overdue assignments as it refreshes notifications. Browser and desktop popups depend on device notification permission and the portal running. Android receives a daily FCM reminder at about 8:05 AM Malaysia time. A second scheduled run at 8:35 AM retries sends the provider rejected, using a database claim to avoid repeats. Android uses the existing portal alert channel and chime. The device controls sound and notification permissions.
+
+Enable the scheduled Android sender by setting the repository Actions secrets `TASK_REMINDER_SUPABASE_URL`, `TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY`, and `TASK_REMINDER_FCM_SERVICE_ACCOUNT`. The Firebase secret contains service-account JSON for the same Firebase project as the APK. Keep these credentials in Actions secrets. Verify delivery with an assigned test task and a signed-in Android device with notification permission before inviting members. Closed-app iPhone delivery requires a Web Push subscription and sender.
