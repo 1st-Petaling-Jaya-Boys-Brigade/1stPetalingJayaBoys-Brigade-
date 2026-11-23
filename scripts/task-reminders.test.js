@@ -35,6 +35,33 @@ test('completion badges and reminders use the next midnight in Malaysia', () => 
   assert.equal(tasks.getOverdueTaskReminder(completed, midnight), null);
 });
 
+test('project completion follows the configured label regardless of its slug or position', () => {
+  const prior = tasks._projectStatusesMap;
+  const statuses = [
+    { id: 'completed', label: 'Target Rubrics' },
+    { id: 'complete', label: 'Complete', isCustom: true },
+    { id: 'ideas', label: 'Ideas' }
+  ];
+  tasks._projectStatusesMap = { media: statuses };
+  try {
+    const task = { ...due, project_name: 'Media' };
+    assert.equal(tasks.isTaskCompleted({ ...task, status: 'ideas' }), false);
+    assert.equal(tasks.isTaskCompleted({ ...task, status: 'completed' }), false);
+    assert.equal(tasks.isTaskCompleted({ ...task, status: 'complete' }), true);
+    assert.equal(tasks.isTaskCompleted({ ...task, status: 'done' }), true);
+    assert.equal(tasks.normalizeTaskStatus('complete', 'Media'), 'complete');
+    assert.equal(tasks.taskMatchesStatus({ status: 'completed' }, statuses[1], 'Media'), false);
+    assert.equal(tasks.taskMatchesStatus({ status: 'complete' }, statuses[1], 'Media'), true);
+    statuses.reverse();
+    assert.equal(tasks.isTaskCompleted({ ...task, status: 'complete' }), true);
+    statuses[1] = { id: 'sign-off', label: ' Complete ' };
+    assert.equal(tasks.isTaskCompleted({ ...task, status: 'sign-off' }), true);
+    assert.equal(tasks.getTaskDueDisplay({ ...task, status: 'sign-off', completed_at: new Date(sameDay).toISOString() }).badgeClass, 'due-completed');
+  } finally {
+    tasks._projectStatusesMap = prior;
+  }
+});
+
 test('reminder recipients are unique and respect custom completion and blocked accounts', () => {
   const members = [
     { ic: 'member-1', email: 'member1@example.test', name: 'A Member' },
@@ -43,7 +70,7 @@ test('reminder recipients are unique and respect custom completion and blocked a
     { ic: 'member-4', email: 'shared@example.test', name: 'D Member' }
   ];
   const prior = tasks._projectStatusesMap;
-  tasks._projectStatusesMap = { media: [{ id: 'todo' }, { id: 'approved', label: 'Approved' }] };
+  tasks._projectStatusesMap = { media: [{ id: 'approved', label: 'Complete' }, { id: 'todo', label: 'To Do' }] };
   try {
     assert.equal(tasks.getOverdueTaskReminder({ ...due, project_name: 'Media', status: 'approved' }, midnight), null);
     const rows = [

@@ -90,31 +90,36 @@ function getProjectStatuses(projectName) {
   return getDefaultProjectStatuses();
 }
 
-function taskMatchesStatus(task, statusObj, _projectName) {
+function compactTaskStatus(value) {
+  return String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function getTaskStatusKind(label) {
+  var key = compactTaskStatus(label);
+  if (key === 'complete' || key === 'done') return 'completed';
+  return Object.hasOwn(STATUS_CONFIG, key) ? key : '';
+}
+
+function findProjectTaskStatus(status, statuses) {
+  var value = String(status || '').toLowerCase().trim();
+  if (!value) return null;
+  var id = function(column) { return String(column.id || column.key || '').toLowerCase().trim(); };
+  var label = function(column) { return String(column.label || '').toLowerCase().trim(); };
+  var compact = compactTaskStatus(value);
+  var kind = getTaskStatusKind(value);
+  return statuses.find(function(column) { return id(column) === value; })
+    || statuses.find(function(column) { return label(column) === value; })
+    || statuses.find(function(column) {
+      return compact && (compactTaskStatus(id(column)) === compact || compactTaskStatus(label(column)) === compact);
+    })
+    || (kind && statuses.find(function(column) { return getTaskStatusKind(label(column)) === kind; }))
+    || null;
+}
+
+function taskMatchesStatus(task, statusObj, projectName) {
   if (!task || !statusObj) return false;
-  var tStat = String(task.status || '').toLowerCase().trim();
-  var sId = String(statusObj.id || statusObj.key || '').toLowerCase().trim();
-  var sLabel = String(statusObj.label || '').toLowerCase().trim();
-
-  if (tStat === sId || tStat === sLabel) return true;
-
-  var normTStat = tStat.replace(/[\s-_]+/g, '');
-  var normSId = sId.replace(/[\s-_]+/g, '');
-  var normSLabel = sLabel.replace(/[\s-_]+/g, '');
-  if (normTStat && (normTStat === normSId || normTStat === normSLabel)) return true;
-
-  if ((sId === 'completed' || sId === 'done' || sId === 'complete' || sLabel === 'completed' || sLabel === 'done' || sLabel === 'complete' || normSId === 'completed' || normSLabel === 'complete') &&
-      (tStat === 'completed' || tStat === 'done' || tStat === 'complete' || normTStat === 'completed' || normTStat === 'complete' || normTStat === 'done')) return true;
-  if ((sId === 'todo' || sLabel === 'to do' || normSId === 'todo' || normSLabel === 'todo') &&
-      (tStat === 'to do' || tStat === 'todo' || normTStat === 'todo')) return true;
-  if ((sId === 'inprogress' || sLabel === 'in progress' || normSId === 'inprogress' || normSLabel === 'inprogress') &&
-      (tStat === 'in progress' || tStat === 'in-progress' || tStat === 'inprogress' || normTStat === 'inprogress')) return true;
-  if ((sId === 'inreview' || sLabel === 'in review' || normSId === 'inreview' || normSLabel === 'inreview') &&
-      (tStat === 'in review' || tStat === 'in-review' || tStat === 'inreview' || normTStat === 'inreview')) return true;
-  if ((sId === 'planning' || sLabel === 'planning' || normSId === 'planning' || normSLabel === 'planning') &&
-      (tStat === 'planning' || normTStat === 'planning')) return true;
-
-  return false;
+  var match = findProjectTaskStatus(task.status, projectName ? getProjectStatuses(projectName) : [statusObj]);
+  return !!match && (match.id || match.key) === (statusObj.id || statusObj.key);
 }
 
 function isValidTaskStatus(status, projectName) {
@@ -140,29 +145,17 @@ function isValidTaskStatus(status, projectName) {
 function isTaskCompleted(task, projectName) {
   if (!task) return false;
   var pName = projectName || getTaskProjectName(task) || _activeProject;
-  var s = String(task.status || '').toLowerCase().trim();
-  if (s === 'completed' || s === 'done' || s === 'complete') return true;
-  var pStatuses = getProjectStatuses(pName);
-  if (pStatuses.length > 0) {
-    var lastStatus = pStatuses[pStatuses.length - 1];
-    if (s === lastStatus.id.toLowerCase() || s === lastStatus.label.toLowerCase()) return true;
-  }
-  return false;
+  var match = findProjectTaskStatus(task.status, getProjectStatuses(pName));
+  return !!match && getTaskStatusKind(match.label) === 'completed';
 }
 
 function normalizeTaskStatus(status, projectName) {
   if (!status) return 'todo';
   var s = String(status).toLowerCase().trim();
-  if (s === 'done' || s === 'complete') return 'completed';
-  if (STATUS_ORDER.indexOf(s) !== -1) return s;
-
-  var pStatuses = getProjectStatuses(projectName || _activeProject);
-  for (var i = 0; i < pStatuses.length; i++) {
-    var st = pStatuses[i];
-    if (st.id.toLowerCase() === s || st.label.toLowerCase() === s) {
-      return st.id;
-    }
-  }
+  var match = findProjectTaskStatus(s, getProjectStatuses(projectName));
+  if (match) return match.id;
+  var kind = getTaskStatusKind(s);
+  if (kind) return kind;
 
   for (var p in _projectStatusesMap) {
     if (Object.prototype.hasOwnProperty.call(_projectStatusesMap, p)) {
@@ -180,34 +173,42 @@ function normalizeTaskStatus(status, projectName) {
 
 function getColBody(status) {
   var s = String(status || '').toLowerCase().trim();
+  var exact = document.getElementById('col-' + s) || document.querySelector('[data-col-body="' + s + '"]');
+  if (exact) return exact;
   if (s === 'completed' || s === 'done' || s === 'complete') {
     return document.getElementById('col-completed') || document.getElementById('col-done') || document.querySelector('[data-col-body="completed"]') || document.querySelector('[data-col-body="done"]');
   }
-  return document.getElementById('col-' + s) || document.querySelector('[data-col-body="' + s + '"]');
+  return null;
 }
 
 function getColCount(status) {
   var s = String(status || '').toLowerCase().trim();
+  var exact = document.getElementById('count-' + s) || document.querySelector('[data-col-count="' + s + '"]');
+  if (exact) return exact;
   if (s === 'completed' || s === 'done' || s === 'complete') {
     return document.getElementById('count-completed') || document.getElementById('count-done') || document.querySelector('[data-col-count="completed"]') || document.querySelector('[data-col-count="done"]');
   }
-  return document.getElementById('count-' + s) || document.querySelector('[data-col-count="' + s + '"]');
+  return null;
 }
 
 function getColElement(status) {
   var s = String(status || '').toLowerCase().trim();
+  var exact = document.getElementById('taskcol-' + s) || document.querySelector('.task-col[data-col-status="' + s + '"]');
+  if (exact) return exact;
   if (s === 'completed' || s === 'done' || s === 'complete') {
     return document.getElementById('taskcol-completed') || document.getElementById('taskcol-done') || document.querySelector('.task-col[data-col-status="completed"]') || document.querySelector('.task-col[data-col-status="done"]');
   }
-  return document.getElementById('taskcol-' + s) || document.querySelector('.task-col[data-col-status="' + s + '"]');
+  return null;
 }
 
 function getTabCount(status) {
   var s = String(status || '').toLowerCase().trim();
+  var exact = document.getElementById('tab-count-' + s) || document.querySelector('[data-tab-count="' + s + '"]');
+  if (exact) return exact;
   if (s === 'completed' || s === 'done' || s === 'complete') {
     return document.getElementById('tab-count-completed') || document.getElementById('tab-count-done') || document.querySelector('[data-tab-count="completed"]') || document.querySelector('[data-tab-count="done"]');
   }
-  return document.getElementById('tab-count-' + s) || document.querySelector('[data-tab-count="' + s + '"]');
+  return null;
 }
 
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
@@ -1771,9 +1772,14 @@ async function saveEditStatusTitle(statusId, form) {
     cancelEditStatusTitle(null, statusId);
     return;
   }
+  if (statuses.some(function(s) { return s !== statusObj && compactTaskStatus(s.label) === compactTaskStatus(newLabel); })) {
+    if (typeof showToast === 'function') showToast('A status named "' + newLabel + '" already exists in this project.', 'warning');
+    return;
+  }
 
   var newSlug = newLabel.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  if (statusObj.isCustom && newSlug) {
+  var previousStatuses = statuses.map(function(s) { return Object.assign({}, s); });
+  if (statusObj.isCustom && newSlug && !statuses.some(function(s) { return s !== statusObj && s.id === newSlug; })) {
     statusObj.id = newSlug;
   }
   statusObj.label = newLabel;
@@ -1784,8 +1790,7 @@ async function saveEditStatusTitle(statusId, form) {
     if (!t || _deletedTaskIds[String(t.id)]) return false;
     var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim() : getTaskProjectName(t);
     if (!taskProj || taskProj.toLowerCase() !== pKey) return false;
-    var tStat = String(t.status || '').toLowerCase().trim();
-    return tStat === oldLabel.toLowerCase().trim() || tStat === oldId.toLowerCase().trim() || tStat === statusId.toLowerCase().trim();
+    return findProjectTaskStatus(t.status, previousStatuses)?.id === oldId && t.status !== statusObj.id;
   });
   if (tasksToUpdate.length > 0) {
     tasksToUpdate.forEach(function(t) {
@@ -2305,8 +2310,11 @@ function renderColumnsFromTasks(tasksList) {
   if (colTabs) {
     var existingTabs = colTabs.querySelectorAll('.task-col-tab[data-tab-status]');
     var existingTabIds = Array.from(existingTabs).map(function(t) { return t.getAttribute('data-tab-status'); }).join(',');
+    var tabLabelsChanged = Array.from(existingTabs).some(function(tab, i) {
+      return statuses[i] && tab.firstChild?.textContent.trim() !== statuses[i].label.trim();
+    });
     var targetTabIds = statuses.map(function(s) { return s.id; }).join(',');
-    if (existingTabIds !== targetTabIds) {
+    if (existingTabIds !== targetTabIds || tabLabelsChanged) {
       var tabsHtml = '';
       statuses.forEach(function(st, idx) {
         var isTabActive = idx === 0;
@@ -2320,6 +2328,9 @@ function renderColumnsFromTasks(tasksList) {
   }
 
   var cols = {};
+  var fallback = statuses.find(function(s) { return getTaskStatusKind(s.label) === 'todo'; })
+    || statuses.find(function(s) { return getTaskStatusKind(s.label) !== 'completed'; })
+    || statuses[0];
   statuses.forEach(function(st) {
     cols[st.id] = [];
   });
@@ -2328,18 +2339,8 @@ function renderColumnsFromTasks(tasksList) {
       var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim().toLowerCase() : getTaskProjectName(t).toLowerCase();
       if (taskProj !== activeLower) return;
     }
-    var matched = false;
-    for (var i = 0; i < statuses.length; i++) {
-      if (taskMatchesStatus(t, statuses[i], pName)) {
-        cols[statuses[i].id].push(t);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      var fallbackId = cols.todo ? 'todo' : statuses[0].id;
-      if (cols[fallbackId]) cols[fallbackId].push(t);
-    }
+    var match = findProjectTaskStatus(t.status, statuses);
+    cols[(match || fallback).id].push(t);
   });
 
   if (typeof window !== 'undefined') {
@@ -2360,7 +2361,12 @@ function renderColumnsFromTasks(tasksList) {
       return matchTitle || matchDesc || matchAss || matchId;
     });
 
-    if (cnt) cnt.textContent = String(statusItems.length);
+    if (cnt) {
+      var kind = getTaskStatusKind(st.label);
+      cnt.textContent = String(statusItems.length);
+      cnt.setAttribute('data-status-kind', kind);
+      cnt.classList.toggle('custom-status-badge', !kind);
+    }
     if (tcnt) tcnt.textContent = statusItems.length ? String(statusItems.length) : '';
     if (!el) return;
 
@@ -2538,25 +2544,16 @@ function renderTasksListView(projectName) {
   });
 
   var sectionTaskMap = {};
+  var fallback = sections.find(function(s) { return getTaskStatusKind(s.label) === 'todo'; })
+    || sections.find(function(s) { return getTaskStatusKind(s.label) !== 'completed'; })
+    || sections[0];
   sections.forEach(function(sec) {
     sectionTaskMap[sec.id] = [];
   });
 
   (tasks || []).forEach(function(t) {
-    var matched = false;
-    for (var i = 0; i < sections.length; i++) {
-      if (taskMatchesStatus(t, sections[i], pName)) {
-        sectionTaskMap[sections[i].id].push(t);
-        matched = true;
-        break;
-      }
-    }
-    if (!matched) {
-      var fallbackSec = sections.find(function(s) { return s.id === 'todo'; }) || sections[0];
-      if (fallbackSec && sectionTaskMap[fallbackSec.id]) {
-        sectionTaskMap[fallbackSec.id].push(t);
-      }
-    }
+    var match = findProjectTaskStatus(t.status, sections);
+    sectionTaskMap[(match || fallback).id].push(t);
   });
 
   var html = '<div class="proj-list-wrapper">';
@@ -3102,8 +3099,7 @@ function renderMyTasksView() {
     }
 
     // 2. Status filter ('open' vs 'completed' vs 'all')
-    var normStatus = normalizeTaskStatus(t.status);
-    var isDone = normStatus === 'completed';
+    var isDone = isTaskCompleted(t, getTaskProjectName(t) || 'General Project');
     if (_myTasksStatusFilter === 'open' && isDone) return false;
     if (_myTasksStatusFilter === 'completed' && !isDone) return false;
 
@@ -3232,8 +3228,9 @@ function renderMyTasksView() {
         window._taskMap = window._taskMap || {};
         window._taskMap[t.id] = t;
       }
-      var normStatus = normalizeTaskStatus(t.status);
-      var isDone = normStatus === 'completed';
+      var project = getTaskProjectName(t) || 'General Project';
+      var normStatus = normalizeTaskStatus(t.status, project);
+      var isDone = isTaskCompleted(t, project);
       var taskId = formatTaskId(t, idx);
       var assigneeName = t.assignee_name || 'Unassigned';
       var projName = getTaskProjectName(t) || 'General';
@@ -3387,9 +3384,16 @@ async function toggleTaskCheckbox(id, e) {
   if (e) e.stopPropagation();
   var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) || _taskMap[id];
   if (!t) return;
-  var isCompleted = normalizeTaskStatus(t.status) === 'completed';
-  var nextStatus = isCompleted ? 'todo' : 'completed';
-  await memberUpdateTaskStatus(id, nextStatus, _currentDeptFilter);
+  var project = getTaskProjectName(t) || 'General Project';
+  var statuses = getProjectStatuses(project);
+  var isCompleted = isTaskCompleted(t, project);
+  var next = statuses.find(function(s) { return getTaskStatusKind(s.label) === (isCompleted ? 'todo' : 'completed'); });
+  if (isCompleted && !next) next = statuses.find(function(s) { return getTaskStatusKind(s.label) !== 'completed'; });
+  if (!next) {
+    if (typeof showToast === 'function') showToast('This project has no ' + (isCompleted ? 'open' : 'Complete') + ' status.', 'warning');
+    return;
+  }
+  await memberUpdateTaskStatus(id, next.id, _currentDeptFilter);
   if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   }
