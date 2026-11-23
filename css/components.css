@@ -3018,19 +3018,19 @@ select.form-input,
   box-sizing: border-box;
 }
 
-.task-col[data-col-status="planning"] {
+.task-col-count-badge[data-status-kind="planning"] {
   --task-count-color: var(--purple);
 }
 
-.task-col[data-col-status="inprogress"] {
+.task-col-count-badge[data-status-kind="inprogress"] {
   --task-count-color: var(--blue);
 }
 
-.task-col[data-col-status="inreview"] {
+.task-col-count-badge[data-status-kind="inreview"] {
   --task-count-color: var(--accent);
 }
 
-.task-col[data-col-status="completed"] {
+.task-col-count-badge[data-status-kind="completed"] {
   --task-count-color: var(--green);
 }
 
