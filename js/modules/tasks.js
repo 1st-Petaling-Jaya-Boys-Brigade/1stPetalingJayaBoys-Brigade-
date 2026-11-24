@@ -3728,8 +3728,9 @@ function paintTaskBriefEditors(task, restoreDraft) {
     if (field === 'title') {
       if (el.textContent !== value) el.textContent = value;
     } else {
-      var html = formatTaskDescriptionMentions(getTaskBriefBody(value));
-      var unchangedEditor = !restoreDraft && document.activeElement === el && typeof sanitizeHtml === 'function'
+      var html = formatTaskDescriptionMentions(getTaskBriefBody(value), el.isContentEditable);
+      var editorFocused = document.activeElement === el || el.contains?.(document.activeElement);
+      var unchangedEditor = !restoreDraft && editorFocused && typeof sanitizeHtml === 'function'
         && sanitizeHtml(el.innerHTML || '').trim() === getTaskBriefBody(value);
       if (unchangedEditor) {
         el._taskBriefRenderedHtml = html;
@@ -6161,9 +6162,9 @@ function formatCommentMentions(text) {
   return highlightTaskMentions(String(text || ''), _safeCommentMentionToken);
 }
 
-function formatTaskDescriptionMentions(html) {
+function formatTaskDescriptionMentions(html, editableChecklist) {
   if (typeof sanitizeHtml !== 'function') return formatCommentMentions(html);
-  return sanitizeHtml(html).split(/(<[^>]+>)/g).map(function(part, index) {
+  return sanitizeHtml(html, { editableChecklist: editableChecklist }).split(/(<[^>]+>)/g).map(function(part, index) {
     return index % 2 ? part : highlightTaskMentions(part, function(value) { return value; });
   }).join('');
 }

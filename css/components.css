@@ -12859,17 +12859,43 @@ body.light-theme .tb-mention-pill,
 
 .tb-checklist-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   margin: 4px 0;
 }
 
-.tb-checklist-row input[type="checkbox"] {
-  cursor: pointer;
+.tb-checklist-row > input[type="checkbox"] {
+  align-self: flex-start;
+  font: inherit;
+  margin: max(0px, calc((1lh - 15px) / 2)) 0 0;
   width: 15px;
   height: 15px;
   accent-color: var(--gold, #d9a323);
   flex-shrink: 0;
+}
+
+.tb-checklist-row > input[type="checkbox"]:enabled {
+  cursor: pointer;
+}
+
+.tb-checklist-row > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tb-checklist-row > input[type="checkbox"]:checked ~ span {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.task-brief-body blockquote,
+.new-task-desc-input blockquote {
+  margin: 8px 0;
+  padding-inline-start: 16px;
+  border-inline-start: 3px solid var(--border-card);
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .tb-table {
