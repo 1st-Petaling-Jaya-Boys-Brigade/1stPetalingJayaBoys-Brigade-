@@ -13455,6 +13455,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // In-memory config mock for bb_config and bb_announcements
     const mockDbConfig = {};
+    const announcementConfigReads = [];
     const mockDbAnnouncements = [
       {
         id: 'ann-poll-test',
@@ -13468,6 +13469,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     const mockSupaClient = {
       get: async (endpoint) => {
+        if (endpoint.startsWith('bb_config?key=in.(')) {
+          announcementConfigReads.push(endpoint);
+          const keys = endpoint.split('(', 2)[1].split(')', 1)[0].split(',').map(decodeURIComponent);
+          return keys.filter(key => Object.hasOwn(mockDbConfig, key)).map(key => ({
+            key, value: JSON.stringify(mockDbConfig[key])
+          }));
+        }
         if (endpoint.includes('bb_config?key=eq.bb_announcements_allowed_reactions')) {
           const val = mockDbConfig['bb_announcements_allowed_reactions'];
           return val ? [{ key: 'bb_announcements_allowed_reactions', value: JSON.stringify(val) }] : [];
@@ -13485,7 +13493,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
         }
         return [];
       },
+      batchConfigGet: require('../js/api/supabase.js').supa.batchConfigGet,
       safeConfigGet: async (key, fallback) => {
+        announcementConfigReads.push(key);
         return mockDbConfig[key] !== undefined ? mockDbConfig[key] : fallback;
       },
       upsert: async (table, record) => {
@@ -13529,9 +13539,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Strip direct column and object metadata to test recovery from bb_config
     mockDbAnnouncements[0].allowed_reactions = null;
     mockDbAnnouncements[0].reactions = {};
+    mockDbConfig.bb_announcements_images = { 'ann-poll-test': 'https://example.com/parade.jpg' };
+    mockDbConfig.bb_announcements_pinned = { 'ann-poll-test': true };
+    announcementConfigReads.length = 0;
     await annMod.loadAnnouncements();
+    assert.deepStrictEqual(
+      announcementConfigReads,
+      ['bb_config?key=in.(bb_announcements_images,bb_announcements_pinned,bb_announcements_allowed_reactions)&select=key,value'],
+      'Refreshing announcements must fetch all announcement settings in one request'
+    );
     const loaded = annMod.announcements.find(a => a.id === 'ann-poll-test');
     assert.ok(loaded, 'Announcement was loaded');
+    assert.strictEqual(loaded.image_url, 'https://example.com/parade.jpg', 'The feed must retain the announcement image');
+    assert.strictEqual(loaded.is_pinned, true, 'The feed must retain the pinned announcement');
     assert.deepStrictEqual(loaded.allowed_reactions, ['✅', '❌'], 'loadAnnouncements must restore allowed_reactions from bb_config');
     assert.deepStrictEqual(loaded.reactions._allowed, ['✅', '❌'], 'loadAnnouncements must sync reactions._allowed metadata');
     console.log('  ✔ loadAnnouncements restores allowed reactions from bb_config when column is missing');
@@ -13620,6 +13640,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(postBtn.getAttribute('data-edit-idx'), null, 'data-edit-idx cleared after save');
     assert.ok(mockDbConfig['bb_announcements_allowed_reactions']['ann-poll-test'], 'bb_config updated after save');
     console.log('  ✔ addAnnouncement saves updates, synchronizes allowed reactions, and resets edit button state');
+
+    const savedAnnouncements = mockDbAnnouncements.splice(0);
+    await annMod.loadAnnouncements();
+    assert.strictEqual(annMod.announcements.length, 0, 'A confirmed empty feed must clear the previous announcements');
+    mockDbAnnouncements.push(...savedAnnouncements);
+    await annMod.loadAnnouncements();
 
     // Cleanup & restore mocks
     global.document = origDoc;
@@ -17559,6 +17585,77 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     });
     assert.strictEqual(postIdsSuite93.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite93.size})`);
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+  }
+
+  {
+    console.log('\nTesting live refreshes against the deployed table schema...');
+    const tasksModule = require('../js/modules/tasks.js');
+    const arcadeModule = require('../js/modules/arcade.js');
+    const { PortalRealtime } = require('../js/api/supabase.js');
+    const previousSupa = global.supa;
+    const previousWindow = global.window;
+    const activeTask = { id: 'schema-task', title: 'Before edit' };
+    const officer = { ic: 'schema-officer', email: 'officer@example.com', name: 'Schema Officer', rank: 'Lieutenant', department: 'Officers', squad: 'Hotel' };
+    const recruit = { ic: 'schema-recruit', name: 'Schema Recruit', rank: 'Recruit' };
+    const loadedRosterPaths = [];
+    const leaderboardKeys = [];
+    let loadedTaskReads = 0;
+    let taskRow = { id: activeTask.id, title: 'New brief', description: 'Estimate: 3h', status: 'todo' };
+
+    const fixture = {
+      get: async (request) => {
+        if (request.startsWith('bb_members?select=ic,name,')) {
+          const fields = new URLSearchParams(request.split('?')[1]).get('select').split(',');
+          if (fields.includes('role') || fields.includes('platoon')) throw new Error('Member column does not exist');
+          loadedRosterPaths.push(request);
+          return [officer, recruit];
+        }
+        if (request.startsWith('bb_tasks?id=eq.schema-task&')) {
+          const select = new URLSearchParams(request.split('?')[1]).get('select');
+          if (!Object.hasOwn(taskRow, 'estimate') && select?.split(',').includes('estimate')) {
+            throw new Error('Task estimate column does not exist');
+          }
+          loadedTaskReads++;
+          return [{ ...taskRow }];
+        }
+        return [];
+      },
+      batchConfigGet: async (keys) => {
+        leaderboardKeys.push(...keys);
+        return {};
+      }
+    };
+
+    global.supa = fixture;
+    global.window = {
+      ...previousWindow,
+      supa: fixture,
+      getSupaClient: () => fixture,
+      isLeaderTab: () => true,
+      _activeDetailTaskId: activeTask.id,
+      _allLoadedTasks: [activeTask],
+      _taskMap: { [activeTask.id]: activeTask }
+    };
+    try {
+      const eligible = await tasksModule.fetchDepartmentMembers();
+      assert.ok(eligible.some(member => member.ic === officer.ic), 'Task mentions must load eligible members on the production schema');
+      assert.ok(!eligible.some(member => member.ic === recruit.ic), 'Task mentions must still exclude an ineligible recruit');
+      await arcadeModule.syncArcadeLeaderboard();
+      assert.strictEqual(loadedRosterPaths.length, 2, 'Task mentions and the arcade must both load the roster');
+      assert.strictEqual(loadedRosterPaths[0], loadedRosterPaths[1], 'Shared client cache must be able to reuse the same roster read');
+      assert.ok(leaderboardKeys.includes('bb_arcade_schema-officer'), 'The arcade must still fetch leaderboard stats for roster members');
+
+      await PortalRealtime.checkDeltaSync();
+      assert.strictEqual(loadedTaskReads, 1, 'An open task must refresh when the optional estimate column is absent');
+      taskRow = { ...taskRow, estimate: '4h' };
+      await PortalRealtime.checkDeltaSync();
+      assert.strictEqual(loadedTaskReads, 2, 'An open task must still refresh when the estimate column is present');
+      assert.strictEqual(activeTask.estimate, '4h', 'An estimate change must still reach the open task');
+      console.log('  ✔ Member lookups and open-task refresh load on both supported task schemas');
+    } finally {
+      global.supa = previousSupa;
+      global.window = previousWindow;
+    }
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
