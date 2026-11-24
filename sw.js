@@ -12,7 +12,7 @@ if (typeof importScripts === 'function') {
   } catch (_) {}
 }
 
-const CACHE_VERSION = '20261124c';
+const CACHE_VERSION = '20261124d';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 
@@ -39,6 +39,8 @@ const PRECACHE_ASSETS = [
   './assets/vendor/qrcode-generator.js',
   './js/core/loading.js',
   './js/api/supabase.js',
+  './js/api/web-push.js',
+  './js/api/fcm.js',
   './js/api/sheets.js',
   './js/modules/member.js',
   './js/modules/attendance.js',

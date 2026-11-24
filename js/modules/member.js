@@ -1984,6 +1984,10 @@ async function loginMember() {
       } catch (_) {}
     }
 
+    // Obtain a notification-only credential before a successful login can reload the page.
+    if (typeof window !== 'undefined') {
+      await window.PortalWebPush?.authorize(queryEmail, pass, rememberMe).catch(function () {});
+    }
     // Multi-Account Family Selector Logic
     if (accounts.length > 1) {
       // Prompt user to select which account to sign in as
@@ -6329,6 +6333,22 @@ function handleSettingsNotificationToggle(type) {
     } else if (type === 'system') {
       var sysEl = document.getElementById('settings-toggle-sysnotif');
       var sysEnabled = sysEl ? sysEl.checked : true;
+      if (typeof window !== 'undefined' && window.PortalWebPush?.isIOS()) {
+        if (sysEl) sysEl.disabled = true;
+        var operation = sysEnabled
+          ? window.requestNotificationPermission({ userGesture: true })
+          : window.PortalWebPush.disable().then(function () {
+            showToast('System popup notifications disabled.', 'info', 2000, { silent: true });
+          });
+        return operation.catch(function (error) {
+          showToast(error.message, 'warning', 5000, { silent: true });
+        }).finally(function () {
+          if (sysEl) {
+            sysEl.checked = window.PortalWebPush.isEnabled();
+            sysEl.disabled = false;
+          }
+        });
+      }
       localStorage.setItem('bb_notif_system_enabled', sysEnabled ? 'true' : 'false');
       if (sysEnabled && typeof window !== 'undefined' && typeof window.requestNotificationPermission === 'function') {
         if (window.Capacitor?.isNativePlatform?.()) {
@@ -6505,6 +6525,7 @@ function openSettingsModal() {
     sysNotifEnabled = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()
       ? systemPreference === 'true'
       : systemPreference !== 'false';
+    if (typeof window !== 'undefined' && window.PortalWebPush?.isIOS()) sysNotifEnabled = window.PortalWebPush.isEnabled();
     defaultTab = localStorage.getItem('bb_default_tab') || 'home';
   } catch (_) {}
 
@@ -6685,7 +6706,9 @@ function openSettingsModal() {
         + '<div class="settings-row">'
           + '<div style="flex:1;">'
             + '<div class="settings-row-label">Desktop &amp; Mobile System Popups</div>'
-            + '<div class="settings-row-desc">Display real-time banner notifications on your phone lock screen and PC</div>'
+            + '<div class="settings-row-desc">' + (typeof window !== 'undefined' && window.PortalWebPush?.isIOS()
+              ? 'Enable in the Home Screen app. iPhone or iPad Settings control banners and sound.'
+              : 'Display real-time banner notifications on your phone lock screen and PC') + '</div>'
           + '</div>'
           + '<div style="display:flex;align-items:center;gap:8px;">'
             + '<button type="button" class="portal-btn" onclick="if(typeof window!==\'undefined\'&&typeof window.testNotificationPopup===\'function\')window.testNotificationPopup();else if(typeof window!==\'undefined\'&&typeof window.requestNotificationPermission===\'function\')window.requestNotificationPermission();" style="font-size:11.5px;padding:5px 10px;">Test</button>'
@@ -7050,11 +7073,14 @@ function renderStep2NotificationsHtml() {
   var isBatteryIgnored = typeof window !== 'undefined' && Boolean(window.AndroidFCM?.isIgnoringBatteryOptimizations?.());
   var perm = (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default';
   if (nativeApp) perm = localStorage.getItem('bb_notif_system_enabled') === 'true' ? 'granted' : 'default';
+  var isIOS = typeof window !== 'undefined' && window.PortalWebPush?.isIOS();
+  if (isIOS && perm !== 'denied') perm = window.PortalWebPush.isEnabled() ? 'granted' : 'default';
   var statusBadge = '';
   if (perm === 'granted') {
     statusBadge = '<span class="onboarding-status-pill granted"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Device Notifications Active</span>';
   } else if (perm === 'denied') {
-    statusBadge = '<span class="onboarding-status-pill denied"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> Blocked in Browser (Click lock icon in address bar to allow)</span>';
+    statusBadge = '<span class="onboarding-status-pill denied"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> '
+      + (isIOS ? 'Allow notifications in iPhone or iPad Settings' : 'Blocked in Browser (Click lock icon in address bar to allow)') + '</span>';
   } else {
     statusBadge = '<span class="onboarding-status-pill default"><svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Permission Not Yet Granted</span>';
   }
@@ -7144,6 +7170,9 @@ function renderStep2NotificationsHtml() {
 }
 
 function handleOnboardingEnableNotifications() {
+  if (typeof window !== 'undefined' && window.PortalWebPush?.isIOS()) {
+    return window.requestNotificationPermission({ userGesture: true }).then(renderOnboardingWizardDom);
+  }
   if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
     return window.requestNotificationPermission().then(function(perm) {
       renderOnboardingWizardDom();
@@ -7173,7 +7202,7 @@ function handleOnboardingEnableNotifications() {
 }
 
 function handleOnboardingTestNotification() {
-  if (typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.()) {
+  if (typeof window !== 'undefined' && (window.Capacitor?.isNativePlatform?.() || window.PortalWebPush?.isIOS())) {
     return window.testNotificationPopup().then(renderOnboardingWizardDom);
   }
   if (typeof triggerPortalSystemNotification === 'function') {

@@ -55,6 +55,61 @@ function buildAndroidReminder(topic, day) {
   };
 }
 
+async function sendIOSReminders(db, key, topics) {
+  // The Edge Function deduplicates each iPhone subscription in the daily delivery ledger.
+  const response = await fetch(new URL('/functions/v1/portal-web-push', db), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(key.startsWith('sb_secret_') ? { apikey: key } : { Authorization: 'Bearer ' + key })
+    },
+    body: JSON.stringify({ action: 'remind', topics }),
+    redirect: 'error',
+    signal: AbortSignal.timeout(120000)
+  });
+  if (!response.ok) throw new Error('iPhone overdue reminder delivery failed with HTTP ' + response.status + '.');
+  const { sent } = await response.json();
+  console.log('iPhone and iPad overdue reminders sent: ' + sent + '.');
+}
+
+async function sendAndroidReminders(credentials, request, topics, now, day) {
+  const token = await getGoogleOAuthToken(credentials);
+  if (!token) throw new Error('Could not authenticate the FCM reminder sender.');
+  const endpoint = 'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(credentials.project_id) + '/messages:send';
+  const ledger = 'bb_task_reminder_deliveries';
+  await request(ledger + '?reminder_day=lt.' + tasksModule.getTaskMalaysiaDay(now - 7 * 86400000), { method: 'DELETE' });
+  let sent = 0;
+  let failed = 0;
+  for (const topic of topics) {
+    const key = createHash('sha256').update(topic).digest('hex');
+    const claim = await request(ledger + '?on_conflict=reminder_day,recipient_key', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
+      body: JSON.stringify({ reminder_day: day, recipient_key: key })
+    });
+    if (!claim.length) continue;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildAndroidReminder(topic, day)),
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!response.ok) {
+        await request(ledger + '?reminder_day=eq.' + day + '&recipient_key=eq.' + key, { method: 'DELETE' });
+        failed++;
+      } else {
+        sent++;
+      }
+    } catch {
+      // A timed-out send may have been accepted. Preserve the claim to avoid a second alert.
+      failed++;
+    }
+  }
+  console.log('Android overdue reminders sent: ' + sent + '.');
+  if (failed) throw new Error(failed + ' Android overdue reminders could not be confirmed.');
+}
+
 async function runOverdueReminders(env) {
   const { TASK_REMINDER_SUPABASE_URL, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, TASK_REMINDER_FCM_SERVICE_ACCOUNT } = env;
   if (!TASK_REMINDER_SUPABASE_URL || !TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY || !TASK_REMINDER_FCM_SERVICE_ACCOUNT) {
@@ -106,43 +161,14 @@ async function runOverdueReminders(env) {
   const topics = buildReminderTopics(tasks, members, readConfig('bb_blocked_emails', []), now);
   if (!topics.length) {
     console.log('No overdue task reminders to send.');
+    if (env.PORTAL_WEB_PUSH_REMINDERS === 'true') await sendIOSReminders(db, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, topics);
     return;
   }
-  const token = await getGoogleOAuthToken(credentials);
-  if (!token) throw new Error('Could not authenticate the FCM reminder sender.');
-  const endpoint = 'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(credentials.project_id) + '/messages:send';
-  const ledger = 'bb_task_reminder_deliveries';
-  await request(ledger + '?reminder_day=lt.' + tasksModule.getTaskMalaysiaDay(now - 7 * 86400000), { method: 'DELETE' });
-  let sent = 0;
-  let failed = 0;
-  for (const topic of topics) {
-    const key = createHash('sha256').update(topic).digest('hex');
-    const claim = await request(ledger + '?on_conflict=reminder_day,recipient_key', {
-      method: 'POST',
-      headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
-      body: JSON.stringify({ reminder_day: day, recipient_key: key })
-    });
-    if (!claim.length) continue;
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildAndroidReminder(topic, day)),
-        signal: AbortSignal.timeout(15000)
-      });
-      if (!response.ok) {
-        await request(ledger + '?reminder_day=eq.' + day + '&recipient_key=eq.' + key, { method: 'DELETE' });
-        failed++;
-      } else {
-        sent++;
-      }
-    } catch {
-      // A timed-out send may have been accepted. Preserve the claim to avoid a second alert.
-      failed++;
-    }
-  }
-  console.log('Android overdue reminders sent: ' + sent + '.');
-  if (failed) throw new Error(failed + ' Android overdue reminders could not be confirmed.');
+
+  const deliveries = [sendAndroidReminders(credentials, request, topics, now, day)];
+  if (env.PORTAL_WEB_PUSH_REMINDERS === 'true') deliveries.push(sendIOSReminders(db, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, topics));
+  const failures = (await Promise.allSettled(deliveries)).filter(result => result.status === 'rejected');
+  if (failures.length) throw new Error(failures.map(result => result.reason.message).join(' '));
 }
 
 if (require.main === module) {

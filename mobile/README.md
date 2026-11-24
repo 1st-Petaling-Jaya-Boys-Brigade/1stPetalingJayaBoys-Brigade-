@@ -64,6 +64,7 @@ Keep an encrypted backup of the keystore and its password in the Brigade's secur
 
 1. Open the portal in **Safari**.
 2. Tap **Share → Add to Home Screen**, enable **Open as Web App** if shown, and tap **Add**. Open the new icon to start the portal in standalone mode. The phone still controls its status area and Home indicator. [Apple's Home Screen instructions](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios)
+3. On iOS or iPadOS 16.4 or newer, sign in from the Home Screen app. Open **Settings → Notifications & Audio Alerts**, switch on **Desktop & Mobile System Popups**, and tap **Allow** when prompted. Tap **Test** to send a real push. Reopen the portal from its Home Screen icon to enable alerts on an existing installation. [WebKit Home Screen push requirements](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)
 
 ## Notification delivery
 
@@ -71,4 +72,10 @@ Apply `supabase/migrations/029_task_completion_and_overdue_reminders.sql` when d
 
 The signed-in portal checks overdue assignments as it refreshes notifications. Browser and desktop popups depend on device notification permission and the portal running. Android receives a daily FCM reminder at about 8:05 AM Malaysia time. A second scheduled run at 8:35 AM retries sends the provider rejected, using a database claim to avoid repeats. Android uses the existing portal alert channel and chime. The device controls sound and notification permissions.
 
-Enable the scheduled Android sender by setting the repository Actions secrets `TASK_REMINDER_SUPABASE_URL`, `TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY`, and `TASK_REMINDER_FCM_SERVICE_ACCOUNT`. The Firebase secret contains service-account JSON for the same Firebase project as the APK. Keep these credentials in Actions secrets. Verify delivery with an assigned test task and a signed-in Android device with notification permission before inviting members. Closed-app iPhone delivery requires a Web Push subscription and sender.
+Enable the scheduled mobile sender by setting the repository Actions secrets `TASK_REMINDER_SUPABASE_URL`, `TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY`, and `TASK_REMINDER_FCM_SERVICE_ACCOUNT`. The Firebase secret contains service-account JSON for the same Firebase project as the APK. Keep these credentials in Actions secrets. Verify delivery with an assigned test task and signed-in phones with notification permission before inviting members.
+
+### iPhone and iPad Web Push backend
+
+Apply `supabase/migrations/032_portal_web_push.sql`, set `PORTAL_VAPID_PUBLIC_KEY` and `PORTAL_VAPID_PRIVATE_KEY` as Supabase Edge Function secrets, and deploy `portal-web-push` with `supabase functions deploy portal-web-push --no-verify-jwt`. The function verifies its own notification-only member tokens or the scheduled sender's service credential. Keep the VAPID private key in Supabase secrets and retain the pair across deployments. Replacing the pair requires devices to resubscribe.
+
+The Home Screen app receives Web Push in the background. The phone controls delivery presentation and its system sound through Settings and Focus. Event submissions require a recent portal sign-in for authenticated push fan-out. The existing Android APK continues receiving FCM alerts. Publishing a later APK build with this web bundle also enables event submissions from the APK to send to iPhones.

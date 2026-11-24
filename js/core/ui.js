@@ -263,6 +263,10 @@
 
       var input = modal.querySelector('.portal-prompt-input');
       if (input) input.setAttribute('aria-label', title || 'Enter value');
+      if (input && options.password === true) {
+        input.type = 'password';
+        input.autocomplete = 'current-password';
+      }
       var cancelBtn = modal.querySelector('#portal-prompt-cancel');
       var okBtn = modal.querySelector('#portal-prompt-ok');
       mountPortalDialog(overlay, modal, input || okBtn, cancelBtn, okBtn, null, function() { return input ? input.value : null; }, resolve);
@@ -1490,7 +1494,7 @@
     return notifInstance;
   }
 
-  async function requestNotificationPermission() {
+  async function requestNotificationPermission(options) {
     var nativePlugin = nativeNotificationPlugin();
     if (nativePlugin) {
       try {
@@ -1498,6 +1502,17 @@
         localStorage.setItem('bb_notif_system_enabled', String(permission === 'granted'));
         return permission;
       } catch (_) {
+        return 'error';
+      }
+    }
+    if (typeof window !== 'undefined' && window.PortalWebPush?.isIOS()) {
+      if (!options?.userGesture) return 'default';
+      try {
+        await window.PortalWebPush.enable();
+        showToast('iPhone or iPad notifications enabled.', 'success', 2500, { silent: true });
+        return 'granted';
+      } catch (error) {
+        showToast(error.message, 'warning', 5000, { silent: true });
         return 'error';
       }
     }
@@ -1533,6 +1548,17 @@
 
   async function testNotificationPopup() {
     if (typeof window === 'undefined') return;
+    if (window.PortalWebPush?.isIOS()) {
+      try {
+        await window.PortalWebPush.test();
+        var iosToggle = document.getElementById('settings-toggle-sysnotif');
+        if (iosToggle) iosToggle.checked = true;
+        showToast('Test push sent. Check your banner or Notification Center.', 'success', 3500, { silent: true });
+      } catch (error) {
+        showToast(error.message, 'warning', 5000, { silent: true });
+      }
+      return;
+    }
     var nativePlugin = nativeNotificationPlugin();
     if (nativePlugin) {
       try {
