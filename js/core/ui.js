@@ -506,6 +506,92 @@
       (withPlaceholder ? 'Checklist item' : '<br>') + '</span>';
   }
 
+  function getRichQuote(editor, range) {
+    var start = range.startContainer;
+    var quote = (start.nodeType === 1 ? start : start.parentElement)?.closest('blockquote');
+    return quote && editor.contains(quote) && quote.contains(range.endContainer) ? quote : null;
+  }
+
+  function removeRichQuote(editor, quote, selection, range) {
+    var paragraph = document.createElement('div');
+    var { startContainer, startOffset, endContainer, endOffset } = range;
+    paragraph.append(...quote.childNodes);
+    quote.replaceWith(paragraph);
+    range.setStart(startContainer === quote ? paragraph : startContainer, startOffset);
+    range.setEnd(endContainer === quote ? paragraph : endContainer, endOffset);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function quoteEdge(node, fromEnd) {
+    if (node.nodeType === 3) return node.textContent.trim() ? node : null;
+    if (node.matches?.('br, img, input, hr, table')) return node;
+    var child = fromEnd ? node.lastChild : node.firstChild;
+    while (child) {
+      var edge = quoteEdge(child, fromEnd);
+      if (edge) return edge;
+      child = fromEnd ? child.previousSibling : child.nextSibling;
+    }
+    return null;
+  }
+
+  function handleRichQuoteParagraph(event) {
+    if (event.inputType !== 'insertParagraph' || !event.cancelable || event.defaultPrevented || event.isComposing) return;
+    var editor = event.target;
+    if (!editor.matches?.('.task-editable-desc, .new-task-desc-input, #ann-body-input') || !editor.isContentEditable) return;
+    var selection = window.getSelection();
+    if (!selection?.rangeCount) return;
+    var range = selection.getRangeAt(0);
+    var quote = getRichQuote(editor, range);
+    if (!quote) return;
+    var start = range.startContainer;
+    var startElement = start.nodeType === 1 ? start : start.parentElement;
+    var nestedEditorBlock = startElement.closest('li, pre, td, th, .tb-checklist-row');
+    if (nestedEditorBlock && quote.contains(nestedEditorBlock)) return;
+    if (!range.collapsed) {
+      if (document.execCommand('insertLineBreak', false, null)) event.preventDefault();
+      return;
+    }
+    var block = startElement.closest('blockquote, div, p');
+
+    var before = range.cloneRange();
+    var after = range.cloneRange();
+    before.setStart(block, 0);
+    after.setEnd(block, block.childNodes.length);
+    var previous = quoteEdge(before.cloneContents(), true);
+    var next = quoteEdge(after.cloneContents(), false);
+    if ((previous && previous.nodeName !== 'BR') || (next && next.nodeName !== 'BR')) {
+      if (document.execCommand('insertLineBreak', false, null)) event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    before.setStart(quote, 0);
+    after.setEnd(quote, quote.childNodes.length);
+    var emptyBlock = block !== quote && !block.textContent.trim() && !block.querySelector('img, input, hr, table');
+    if (emptyBlock) {
+      before.setEndBefore(block);
+      after.setStartAfter(block);
+    }
+    var earlier = before.cloneContents();
+    var later = after.cloneContents();
+    if (!emptyBlock && previous?.nodeName === 'BR') quoteEdge(earlier, true)?.remove();
+    if (!emptyBlock && next?.nodeName === 'BR') quoteEdge(later, false)?.remove();
+    var paragraph = document.createElement('p');
+    paragraph.append(document.createElement('br'));
+    quote.after(paragraph);
+    if (earlier.textContent.trim() || earlier.querySelector('img, input, hr, table')) quote.replaceChildren(earlier);
+    else quote.remove();
+    if (later.textContent.trim() || later.querySelector('img, input, hr, table')) {
+      var followingQuote = quote.cloneNode(false);
+      followingQuote.append(later);
+      paragraph.after(followingQuote);
+    }
+    selection.collapse(paragraph, 0);
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   async function executeRichFormat(cmd, value, btnOrEl) {
     if (typeof document === 'undefined') return;
     var editor = resolveTargetRichEditor(btnOrEl);
@@ -520,17 +606,23 @@
       }
     }
 
-    if (cmd === 'formatBlock' || cmd === 'blockquote') {
-      var tag = cmd === 'blockquote' ? 'blockquote' : (value || 'p');
-      document.execCommand('formatBlock', false, '<' + tag + '>');
+    if (cmd === 'blockquote') {
+      var quoteSelection = window.getSelection();
+      var quoteRange = quoteSelection?.rangeCount ? quoteSelection.getRangeAt(0) : null;
+      if (!editor?.isContentEditable || !quoteRange || !editor.contains(quoteRange.commonAncestorContainer)) return;
+      var quote = getRichQuote(editor, quoteRange);
+      if (quote) removeRichQuote(editor, quote, quoteSelection, quoteRange);
+      else document.execCommand('formatBlock', false, '<blockquote>');
+    } else if (cmd === 'formatBlock') {
+      document.execCommand('formatBlock', false, '<' + (value || 'p') + '>');
     } else if (cmd === 'code') {
-      var selCode = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
-      var selectedText = selCode ? selCode.toString() : '';
-      if (selectedText) {
-        document.execCommand('insertHTML', false, '<code>' + safeEscapeHtml(selectedText) + '</code>');
-      } else {
-        document.execCommand('insertHTML', false, '<code>code</code>&nbsp;');
-      }
+      var codeSelection = window.getSelection();
+      if (!editor?.isContentEditable || !codeSelection?.rangeCount ||
+          !editor.contains(codeSelection.getRangeAt(0).commonAncestorContainer)) return;
+      var font = codeSelection.isCollapsed && /^["']?consolas["']?(?:\s*,|$)/i.test(document.queryCommandValue('fontName'))
+        ? window.getComputedStyle(editor).fontFamily.split(',')[0].trim()
+        : 'Consolas';
+      document.execCommand('fontName', false, font);
     } else if (cmd === 'link') {
       var url = await showPromptModal('Insert Link', 'https://...', '', { confirmText: 'Insert', cancelText: 'Cancel' });
       if (url && url.trim()) {
@@ -1159,6 +1251,7 @@
   }
 
   if (typeof document !== 'undefined') {
+    document.addEventListener('beforeinput', handleRichQuoteParagraph);
     document.addEventListener('input', function (event) {
       var checkbox = event.target;
       if (!checkbox?.matches?.('.tb-checklist-row > input[type="checkbox"]') ||

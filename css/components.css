@@ -12898,6 +12898,12 @@ body.light-theme .tb-mention-pill,
   font-style: italic;
 }
 
+.task-brief-body :is(code, font[face="Consolas" i]),
+.new-task-desc-input :is(code, font[face="Consolas" i]),
+#ann-body-input :is(code, font[face="Consolas" i]) {
+  font-family: Consolas, "Liberation Mono", monospace;
+}
+
 .tb-table {
   width: 100%;
   border-collapse: collapse;

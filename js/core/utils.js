@@ -150,6 +150,7 @@ function sanitizeHtml(dirtyHtml, options) {
           }
 
           // Strip disallowed attributes & inline event handlers
+          var isInlineCode = tagName === 'FONT' && /^consolas$/i.test(child.getAttribute('face') || '');
           var attrs = Array.from(child.attributes);
           for (var a = 0; a < attrs.length; a++) {
             var attr = attrs[a];
@@ -190,6 +191,14 @@ function sanitizeHtml(dirtyHtml, options) {
             } else {
               child.setAttribute('disabled', '');
             }
+          }
+          if (isInlineCode) {
+            // Chromium applies a typing font using FONT. Store inline code as semantic markup.
+            var code = document.createElement('code');
+            for (var codeAttr of child.attributes) code.setAttribute(codeAttr.name, codeAttr.value);
+            code.append(...child.childNodes);
+            node.replaceChild(code, child);
+            child = code;
           }
           cleanNode(child);
         } else if (child.nodeType !== 3) {
