@@ -88,8 +88,18 @@
         if (typeof key !== 'string' || !/^[\w-]{87}$/.test(key)) throw new Error('Invalid application server key.');
         applicationKey = Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/') + '='), char => char.charCodeAt(0));
         registration = ready;
-      }).catch(() => { pendingKey = null; });
+        return true;
+      }).catch(() => {
+        pendingKey = null;
+        return false;
+      });
     }
+    return pendingKey;
+  }
+
+  function readyForSetup() {
+    if (!isInstalled() || !window.Notification || window.Notification.permission === 'denied') return false;
+    return prepare() || false;
   }
 
   function isEnabled() {
@@ -201,6 +211,6 @@
       .then(result => result.sent > 0).catch(() => false);
   }
 
-  window.PortalWebPush = { isIOS, isEnabled, authorize, enable, disable, signOut, test, notify };
+  window.PortalWebPush = { isIOS, isEnabled, readyForSetup, authorize, enable, disable, signOut, test, notify };
   prepare();
 })();

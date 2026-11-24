@@ -72,6 +72,7 @@ async function browser(options = {}) {
 
 test('iPhone registration starts with the click gesture, even when account verification is required', async () => {
   const { push, requests, sequence, localStorage, sessionStorage } = await browser();
+  assert.equal(await push.readyForSetup(), true);
   const enabling = push.enable();
   assert.deepEqual(sequence, ['subscribe']);
   await enabling;
@@ -101,6 +102,7 @@ test('iPhone test sends a real backend request and logout removes the device and
 
 test('Safari tab instructs the user to open the Home Screen app without triggering a permission prompt', async () => {
   const { push, requests, sequence } = await browser({ standalone: false });
+  assert.equal(push.readyForSetup(), false);
   await assert.rejects(push.enable(), /Home Screen icon/);
   assert.deepEqual(requests, []);
   assert.deepEqual(sequence, []);

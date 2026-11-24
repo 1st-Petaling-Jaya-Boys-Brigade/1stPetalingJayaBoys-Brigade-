@@ -2180,9 +2180,6 @@ async function checkAndNotifyNewDeviceLogin(m) {
  */
 /* global saveAdminMemberSignIn */
 function completeLoginWithAccount(m, rememberMe, adminSignIn) {
-  if (typeof window !== 'undefined' && typeof window.Notification !== 'undefined' && window.Notification.permission === 'default' && typeof window.requestNotificationPermission === 'function') {
-    window.requestNotificationPermission();
-  }
   var userEmail = (m.email || (m.ic && m.ic.indexOf('@') !== -1 ? m.ic.split('__')[0] : m.ic));
   sessionSet('remember', rememberMe !== false);
   sessionSet('ic', m.ic);
@@ -2295,31 +2292,7 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
     showToast('Signed in as ' + m.name + ' (' + (m.att_section || m.section || 'Member') + ')', 'success', 3000);
   }
 
-  // Trigger onboarding wizard if user has not completed onboarding
-  var checkLoginOnboarding = async function() {
-    var isNative = typeof window !== 'undefined' && (
-      (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
-      Boolean(window.androidBridge) ||
-      (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
-      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
-      (window.navigator && window.navigator.standalone === true)
-    );
-    var nativeNeeded = isNative && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
-
-    if (!nativeNeeded && typeof isOnboardingCompleted === 'function' && isOnboardingCompleted(userEmail)) {
-      return;
-    }
-    var remoteDone = false;
-    if (!nativeNeeded && typeof fetchRemoteOnboardingStatus === 'function') {
-      try {
-        remoteDone = await fetchRemoteOnboardingStatus(userEmail);
-      } catch (_) {}
-    }
-    if ((nativeNeeded || !remoteDone) && typeof launchOnboardingWizard === 'function' && typeof document !== 'undefined') {
-      launchOnboardingWizard({ user: m });
-    }
-  };
-  checkLoginOnboarding();
+  checkMemberOnboarding({ user: m });
 }
 
 /**
@@ -6359,7 +6332,7 @@ function handleSettingsNotificationToggle(type) {
             showToast('You can allow app notifications in your phone settings.', 'info', 3500, { silent: true });
           }).catch(function() {});
         } else {
-          window.requestNotificationPermission();
+          window.requestNotificationPermission({ userGesture: true });
         }
       } else if (typeof showToast === 'function') {
         showToast('System popup notifications disabled.', 'info', 2000, { silent: true });
@@ -6802,6 +6775,26 @@ function closeSettingsModal() {
 }
 
 // ── Portal Onboarding & Welcome Wizard System ──────────────────────────────
+function needsNativeAppOnboarding() {
+  return typeof window !== 'undefined' && Boolean(window.Capacitor?.isNativePlatform?.() || window.AndroidFCM || window.androidBridge) &&
+    typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true';
+}
+
+async function checkMemberOnboarding(options) {
+  if (typeof window === 'undefined' || typeof document === 'undefined' || typeof sessionGet !== 'function') return;
+  var member = sessionGet('ic');
+  if (!member) return;
+  var email = sessionGet('email') || member;
+  var nativeNeeded = needsNativeAppOnboarding();
+  var completed = typeof isOnboardingCompleted === 'function' && isOnboardingCompleted(email);
+  if (!nativeNeeded && !completed && typeof fetchRemoteOnboardingStatus === 'function') {
+    try { completed = await fetchRemoteOnboardingStatus(email); } catch (_) {}
+  }
+  if (sessionGet('ic') !== member || document.querySelector('.portal-onboarding-overlay')) return;
+  if (nativeNeeded || !completed) launchOnboardingWizard(options);
+  else window.maybeOfferNotificationSetup?.();
+}
+
 var _onboardingState = {
   step: 1,
   isReview: false,
@@ -6832,13 +6825,7 @@ function launchOnboardingWizard(options) {
   var isReview = (options && options.isReview === true);
   var isNewAccount = (options && options.isNewAccount === true);
   var email = user ? (user.email || user.ic || '') : '';
-  var isNativeOnboarding = typeof window !== 'undefined' && (
-    (typeof window.Capacitor !== 'undefined' && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
-    Boolean(window.androidBridge) ||
-    (window.location && (window.location.protocol === 'capacitor:' || window.location.protocol === 'ionic:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) ||
-    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) ||
-    (window.navigator && window.navigator.standalone === true)
-  ) && (typeof localStorage !== 'undefined' && localStorage.getItem('bb_native_onboarding_completed') !== 'true');
+  var isNativeOnboarding = needsNativeAppOnboarding();
   var alreadyDone = !isNewAccount && !isNativeOnboarding && ((typeof isOnboardingCompleted === 'function') ? isOnboardingCompleted(email) : false);
 
   var isDark = false;
@@ -7184,14 +7171,10 @@ function handleOnboardingEnableNotifications() {
     });
   }
   if (typeof window !== 'undefined' && 'Notification' in window) {
-    Notification.requestPermission().then(function(perm) {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('bb_notif_system_enabled', perm === 'granted' ? 'true' : 'false');
-      }
+    return window.requestNotificationPermission({ userGesture: true }).then(function(perm) {
       renderOnboardingWizardDom();
       if (perm === 'granted') {
-        if (typeof showToast === 'function') showToast('Device notifications enabled successfully!', 'success');
-        handleOnboardingTestNotification();
+        if (typeof showToast === 'function') showToast('Device notifications enabled successfully!', 'success', 2500, { silent: true });
       } else if (perm === 'denied') {
         if (typeof showToast === 'function') showToast('Notifications blocked in browser. Please click the lock icon in your address bar to allow.', 'warning');
       }

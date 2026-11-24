@@ -165,7 +165,8 @@
    * @param {string} [options.confirmText='Confirm'] - Confirmation button text
    * @param {string} [options.cancelText='Cancel'] - Cancellation button text
    * @param {boolean} [options.isDestructive=false] - Whether this action is destructive
-   * @returns {Promise<boolean>} Resolves true on confirm, false on cancel/backdrop/esc
+   * @param {Function} [options.onConfirm] - Runs during the confirmation click and supplies the result
+   * @returns {Promise<*>} Resolves the confirmation result (true by default), or false on cancel
    */
   function showConfirmModal(message, title, options) {
     options = options || {};
@@ -204,7 +205,8 @@
 
       var cancelBtn = modal.querySelector('#portal-modal-cancel');
       var okBtn = modal.querySelector('#portal-modal-ok');
-      mountPortalDialog(overlay, modal, cancelBtn || okBtn, cancelBtn, okBtn, false, function() { return true; }, resolve);
+      var confirm = typeof options.onConfirm === 'function' ? options.onConfirm : function () { return true; };
+      mountPortalDialog(overlay, modal, cancelBtn || okBtn, cancelBtn, okBtn, false, confirm, resolve);
     });
   }
 
@@ -1521,6 +1523,10 @@
     }
     try {
       var perm = await Notification.requestPermission();
+      if (options?.userGesture && (perm === 'granted' || perm === 'denied')) {
+        localStorage.setItem('bb_notif_system_enabled', String(perm === 'granted'));
+        localStorage.setItem(notificationSetupKey(), 'true');
+      }
       if (perm === 'granted') {
         if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.ready) {
           navigator.serviceWorker.ready.then(function(reg) {
@@ -1544,6 +1550,55 @@
       }
       return 'error';
     }
+  }
+
+  var notificationSetupOffered = false;
+
+  function notificationSetupKey() {
+    var standalone = navigator.standalone || window.matchMedia?.('(display-mode: standalone)').matches;
+    return 'bb_notif_setup_offered_' + (standalone ? 'installed' : 'browser');
+  }
+
+  async function maybeOfferNotificationSetup() {
+    if (typeof window === 'undefined' || typeof document === 'undefined' || !document.body ||
+        !window.isSecureContext || window.location.protocol === 'file:' ||
+        window.Capacitor?.isNativePlatform?.() || window.AndroidFCM) return;
+    var member = typeof sessionGet === 'function' && sessionGet('ic');
+    if (!member) return;
+
+    var iosPush = window.PortalWebPush?.isIOS() ? window.PortalWebPush : null;
+    var setupKey = notificationSetupKey();
+
+    function canOffer() {
+      var preference = localStorage.getItem('bb_notif_system_enabled');
+      var permission = window.Notification?.permission;
+      if (notificationSetupOffered || sessionGet('ic') !== member || document.querySelector('.portal-onboarding-overlay') ||
+          localStorage.getItem(setupKey) || preference === 'false' || !permission || permission === 'denied') return false;
+      if (iosPush) return !iosPush.isEnabled();
+      return permission === 'default' || (setupKey === 'bb_notif_setup_offered_installed' && permission === 'granted');
+    }
+
+    try {
+      if (!canOffer()) return;
+      if (iosPush && (!await iosPush.readyForSetup() || !canOffer())) return;
+      notificationSetupOffered = true;
+      var permission = await showConfirmModal(
+        'Get pop-up alerts for company updates, tasks, and reminders. You can change notifications and sound in Settings.',
+        'Enable notifications and audio alerts?',
+        {
+          confirmText: 'Enable alerts',
+          cancelText: 'Not now',
+          onConfirm: function () {
+            // The iOS subscription and browser permission request must begin in this click.
+            if (sessionGet('ic') !== member) return 'error';
+            var requesting = requestNotificationPermission({ userGesture: true });
+            if (localStorage.getItem('bb_notif_sound_enabled') !== 'false') unlockAudioContextAndElement();
+            return requesting;
+          }
+        }
+      );
+      if (permission !== 'error') localStorage.setItem(setupKey, 'true');
+    } catch (_) {}
   }
 
   async function testNotificationPopup() {
@@ -1907,6 +1962,7 @@
     global.NOTIF_SOUND_URL = NOTIF_SOUND_URL;
     global.triggerPortalSystemNotification = triggerPortalSystemNotification;
     global.requestNotificationPermission = requestNotificationPermission;
+    global.maybeOfferNotificationSetup = maybeOfferNotificationSetup;
     global.testNotificationPopup = testNotificationPopup;
     global.triggerNewPortalNotifications = triggerNewPortalNotifications;
     global.handleGlobalModalEscape = handleGlobalModalEscape;
