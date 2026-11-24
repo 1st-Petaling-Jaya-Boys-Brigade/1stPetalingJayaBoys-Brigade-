@@ -1355,6 +1355,108 @@ async function getJson(url) {
     }, 'Task drops update the board and failed saves restore the prior column');
     console.log('  ✔ Borderless lanes, status count pills, task drag, and failed-move rollback verified');
 
+    const taskBriefEval = async expression => {
+      const result = await sendCmd('Runtime.evaluate', { expression, returnByValue: true });
+      assert.ok(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
+      return result.result.value;
+    };
+    const pressBriefKey = async (key, virtualKeyCode, modifiers = 0) => {
+      const params = { key, windowsVirtualKeyCode: virtualKeyCode, modifiers };
+      await sendCmd('Input.dispatchKeyEvent', { ...params, type: 'keyDown', ...(key === 'Enter' ? { text: '\r' } : {}) });
+      await sendCmd('Input.dispatchKeyEvent', { ...params, type: 'keyUp' });
+    };
+    await taskBriefEval(`(() => {
+      document.getElementById('page-tasks').classList.add('active');
+      document.getElementById('task-detail-modal').style.display = 'block';
+      const editor = document.getElementById('tdm-desc');
+      editor.focus();
+    })()`);
+    try {
+      for (const [prefix, tag, nestedMarker] of [['1.', 'ol', 'lower-alpha'], ['-', 'ul', 'circle'], ['*', 'ul', 'circle']]) {
+        await taskBriefEval(`(() => {
+          const editor = document.getElementById('tdm-desc');
+          editor.replaceChildren();
+          editor.focus();
+          getSelection().collapse(editor, 0);
+        })()`);
+        await sendCmd('Input.insertText', { text: prefix });
+        await sendCmd('Input.insertText', { text: ' ' });
+        await sendCmd('Input.insertText', { text: 'Parent' });
+        assert.strictEqual(await taskBriefEval(`document.querySelector('#tdm-desc ${tag} > li')?.textContent`), 'Parent', `The ${prefix} shortcut starts a real list without keeping the typed marker`);
+        await pressBriefKey('Enter', 13);
+        assert.deepStrictEqual(await taskBriefEval(`Array.from(document.querySelectorAll('#tdm-desc li'), item => item.textContent)`), ['Parent', ''], 'Enter starts the next list item');
+        await pressBriefKey('Tab', 9);
+        await sendCmd('Input.insertText', { text: 'First child' });
+        await pressBriefKey('Enter', 13);
+        await sendCmd('Input.insertText', { text: 'Second child' });
+        const editedList = await taskBriefEval(`document.getElementById('tdm-desc').innerHTML`);
+        await pressBriefKey('Tab', 9, 8);
+        assert.strictEqual(await taskBriefEval(`document.querySelector('#tdm-desc > ${tag} > li:last-child')?.textContent`), 'Second child', 'Shift+Tab returns the current item to the outer list');
+        await taskBriefEval(`document.getElementById('tdm-desc').innerHTML = sanitizeHtml(${JSON.stringify(editedList)})`);
+        assert.deepStrictEqual(await taskBriefEval(`(() => {
+          const editor = document.getElementById('tdm-desc');
+          const nested = editor.querySelector('${tag} ${tag}');
+          return nested && [getComputedStyle(nested).listStyleType, ...Array.from(nested.children, li => li.textContent)];
+        })()`), [nestedMarker, 'First child', 'Second child'], 'Tab creates a nested list with the next marker style, preserved when the brief is saved');
+      }
+
+      await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        editor.replaceChildren();
+        editor.focus();
+        getSelection().collapse(editor, 0);
+      })()`);
+      await sendCmd('Input.insertText', { text: 'See item 1.' });
+      await sendCmd('Input.insertText', { text: ' ' });
+      assert.strictEqual(await taskBriefEval(`!!document.querySelector('#tdm-desc ol, #tdm-desc ul')`), false, 'A marker in a sentence stays plain text');
+      await pressBriefKey('Enter', 13);
+      await sendCmd('Input.insertText', { text: '1.' });
+      await sendCmd('Input.insertText', { text: ' ' });
+      await sendCmd('Input.insertText', { text: 'List after paragraph' });
+      assert.strictEqual(await taskBriefEval(`document.querySelector('#tdm-desc ol > li')?.textContent`), 'List after paragraph');
+
+      for (const [width, height, theme] of [[1280, 900, 'light'], [360, 800, 'dark']]) {
+        await sendCmd('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 768 });
+        const toolbar = await taskBriefEval(`(() => {
+          const oldTheme = document.documentElement.dataset.theme;
+          document.documentElement.dataset.theme = '${theme}';
+          const card = document.querySelector('.task-brief-modal-card');
+          const topbar = card.querySelector('.task-brief-topbar');
+          const toolbar = card.querySelector('.task-brief-toolbar');
+          const editor = document.getElementById('tdm-desc');
+          const attachments = card.querySelector('.tb-attachments-section');
+          editor.innerHTML = '<p>Task brief text</p>'.repeat(120);
+          const fixture = document.createElement('div');
+          fixture.style.height = '100vh';
+          attachments.appendChild(fixture);
+          card.scrollTop = 0;
+          const initialTop = toolbar.getBoundingClientRect().top;
+          card.scrollTop = 400;
+          const sticky = toolbar.getBoundingClientRect();
+          const headerBottom = topbar.getBoundingClientRect().bottom;
+          const opaque = getComputedStyle(toolbar).backgroundColor === getComputedStyle(card).backgroundColor;
+          card.scrollTop = card.scrollHeight;
+          const clearsBrief = toolbar.getBoundingClientRect().bottom <= topbar.getBoundingClientRect().bottom
+            && toolbar.getBoundingClientRect().bottom <= attachments.getBoundingClientRect().top;
+          fixture.remove();
+          document.documentElement.dataset.theme = oldTheme;
+          return { initialTop, stickyTop: sticky.top, headerBottom, opaque, clearsBrief };
+        })()`);
+        assert.ok(toolbar.initialTop > toolbar.headerBottom, 'Toolbar starts inside the brief');
+        assert.ok(Math.abs(toolbar.stickyTop - toolbar.headerBottom) < 2, `Toolbar follows scroll below the title bar at ${width}px`);
+        assert.ok(toolbar.opaque, 'Sticky toolbar covers editor text as it scrolls behind it');
+        assert.ok(toolbar.clearsBrief, 'Toolbar scrolls away with the brief before attachments');
+      }
+    } finally {
+      await sendCmd('Emulation.clearDeviceMetricsOverride');
+      await taskBriefEval(`(() => {
+        document.getElementById('tdm-desc').replaceChildren();
+        document.getElementById('task-detail-modal').style.display = 'none';
+        document.getElementById('page-tasks').classList.remove('active');
+      })()`);
+    }
+    console.log('  ✔ Task brief list shortcuts and desktop/mobile toolbar scrolling verified');
+
     // Exercise the gallery lightbox with a fresh signature and real image bytes.
     const fixturePhoto = fs.readFileSync(path.resolve('assets/logo.png')).toString('base64');
     let signatureRequests = 0;

@@ -3832,6 +3832,38 @@ function resolveTaskBriefDraft(keep) {
   }
 }
 
+function handleTaskBriefBeforeInput(event) {
+  if (event.inputType !== 'insertText' || event.data !== ' ' || event.isComposing || !event.cancelable) return;
+  var editor = event.currentTarget;
+  var selection = window.getSelection();
+  if (!selection || !selection.rangeCount || !selection.isCollapsed) return;
+  var caret = selection.getRangeAt(0).cloneRange();
+  var text = caret.startContainer;
+  if (text.nodeType !== 3 || !editor.contains(text) || caret.startOffset !== text.length) return;
+  var parent = text.parentElement;
+  if (parent.closest('li, pre, code, .tb-checklist-row, [contenteditable="false"]')) return;
+  var line = parent.closest('p, div');
+  var marker = caret.cloneRange();
+  marker.setStart(line, 0);
+  var prefix = marker.toString();
+  var listTag = prefix === '1.' ? 'ol' : (/^[-*•]$/.test(prefix) ? 'ul' : '');
+  if (!listTag || marker.cloneContents().querySelector('br, img, hr, input')) return;
+
+  var remaining = caret.cloneRange();
+  remaining.setEnd(line, line.childNodes.length);
+  if (remaining.toString() || remaining.cloneContents().querySelector('img, hr, input')) return;
+
+  selection.removeAllRanges();
+  selection.addRange(marker);
+  // Use the native editing command so the caret, undo history and input-driven autosave stay in sync.
+  if (document.execCommand('insertHTML', false, '<' + listTag + '><li><br></li></' + listTag + '>')) {
+    event.preventDefault();
+  } else {
+    selection.removeAllRanges();
+    selection.addRange(caret);
+  }
+}
+
 function handleTaskBriefKeydown(event) {
   if (event.key !== 'Tab') return;
   var items = Array.from(event.currentTarget.querySelectorAll('button:not(:disabled), a[href], [contenteditable="true"], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)'))
@@ -8175,6 +8207,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.showMentionDropdown        = showMentionDropdown;
   window.hideMentionDropdown        = hideMentionDropdown;
   window.handleTaskCommentInput     = handleTaskCommentInput;
+  window.handleTaskBriefBeforeInput = handleTaskBriefBeforeInput;
   window.handleTaskBriefDescInput   = handleTaskBriefDescInput;
   window.handleTaskCommentKeyDown   = handleTaskCommentKeyDown;
   window.handleTaskCommentPaste     = handleTaskCommentPaste;
