@@ -2125,7 +2125,7 @@ function getAssigneeAvatarHtml(name, ic, size, extraStyle) {
   var safeName = (typeof escapeHtml === 'function') ? escapeHtml(cleanName) : cleanName;
   var tooltip = safeName + (isCreator ? ' (Portal Creator)' : '');
   var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(cleanName, cleanIc) : null;
-  if (!photoUrl) {
+  if (typeof getMemberAvatarUrl !== 'function') {
     var pMap = (typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap)
       ? _memberPfpsMap
       : ((typeof window !== 'undefined' && window._memberPfpsMap)
@@ -6425,7 +6425,7 @@ async function selectTaskDetailAssignee(ic, name) {
     }
     var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(cleanName, cleanIc) : /jeshua\s+koh/i.test(cleanName);
     var photoUrl = (typeof getMemberAvatarUrl === 'function') ? getMemberAvatarUrl(cleanName, cleanIc) : null;
-  if (!photoUrl) {
+  if (typeof getMemberAvatarUrl !== 'function') {
     var pMap = (typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap)
       ? _memberPfpsMap
       : ((typeof window !== 'undefined' && window._memberPfpsMap)

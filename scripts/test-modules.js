@@ -4587,8 +4587,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261123d',
-    'sw.js CACHE_VERSION must be 20261123d'
+    '20261124a',
+    'sw.js CACHE_VERSION must be 20261124a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4616,7 +4616,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261123d',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7478,7 +7478,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261123d'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8960,12 +8960,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261123d', 'Service Worker cache version must be 20261123d');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124a', 'Service Worker cache version must be 20261124a');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261123d and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261124a and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10261,25 +10261,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261123d', 'sw.js CACHE_VERSION must be 20261123d');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261123d', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261123d', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124a', 'sw.js CACHE_VERSION must be 20261124a');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124a', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124a', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261123d cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261124a cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261123d'), 'config.js must use v=20261123d');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261123d'), 'forum.js must use v=20261123d');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261123d'), 'variables.css must use v=20261123d');
-    assert.ok(indexRaw.includes('css/base.css?v=20261123d'), 'base.css must use v=20261123d');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261123d');
+    assert.ok(indexRaw.includes('js/config.js?v=20261124a'), 'config.js must use v=20261124a');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124a'), 'forum.js must use v=20261124a');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261124a'), 'variables.css must use v=20261124a');
+    assert.ok(indexRaw.includes('css/base.css?v=20261124a'), 'base.css must use v=20261124a');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124a');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -16932,19 +16932,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.getElementById = (id) => mockElements[id] || null;
     global.document.querySelector = () => ({ parentElement: {}, querySelector: () => null, style: {} });
 
+    const avatarSession = require('../js/core/session.js');
+    const previousPhoto = avatarSession.sessionGet('photo_url');
+    avatarSession.sessionSet('photo_url', 'https://example.com/photo.jpg', { localOnly: true });
     memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
     assert.strictEqual(mockElements['sidebar-user-avatar-ph'].style.display, 'none', 'Sidebar placeholder hidden when image is active');
     assert.strictEqual(mockElements['m-pfp-ph'].style.display, 'none', 'ID card placeholder hidden when image is active');
     assert.strictEqual(mockElements['nav-avatar-placeholder'].style.display, 'none', 'Header placeholder hidden when image is active');
 
-    // Now test with inactive image: placeholders become visible
-    mockElements['sidebar-user-avatar-img'].style.display = 'none';
-    mockElements['m-pfp-img'].style.display = 'none';
-    mockElements['nav-avatar-img'].style.display = 'none';
+    // Clear the saved photo while the previous images are still mounted.
+    avatarSession.sessionSet('photo_url', '', { localOnly: true });
     memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
     assert.strictEqual(mockElements['sidebar-user-avatar-ph'].style.display, 'flex', 'Sidebar placeholder shown when image is hidden');
     assert.strictEqual(mockElements['m-pfp-ph'].style.display, 'flex', 'ID card placeholder shown when image is hidden');
     assert.strictEqual(mockElements['nav-avatar-placeholder'].style.display, 'flex', 'Header placeholder shown when image is hidden');
+    avatarSession.sessionSet('photo_url', previousPhoto, { localOnly: true });
     global.document.getElementById = origGetElem;
     global.document.querySelector = origQuerySel;
     console.log('  ✔ renderMemberAvatar enforces strict mutual exclusivity between avatar images and placeholders');
@@ -17177,21 +17179,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(!mockBoardCol.classList.contains('hidden'), '#tasks-columns .hidden class removed in board mode');
     console.log('  ✔ setProjectDisplayMode("board") strictly hides list view and restores board columns');
 
-    // 2. Profile picture resolution in getAssigneeAvatarHtml from _memberPfpsMap fallback
-    global._memberPfpsMap = {
-      '081012145678': 'https://example.com/avatar-jeshua.jpg',
-      'jeshua koh': 'https://example.com/avatar-jeshua.jpg'
-    };
-    if (typeof window !== 'undefined') {
-      window._memberPfpsMap = global._memberPfpsMap;
-    }
+    // 2. Task cards use the same directory as the shared resolver.
+    utilsMod._memberPfpsMap['assignee@example.test'] = 'https://example.com/avatar-member.jpg';
+    utilsMod._memberPfpsMap['test assignee'] = 'https://example.com/avatar-member.jpg';
+    const avatarHtml1 = tasksMod.getAssigneeAvatarHtml('Test Assignee', 'assignee@example.test');
+    assert.ok(avatarHtml1.includes('avatar-member.jpg'), 'getAssigneeAvatarHtml finds photo by member ID');
+    assert.ok(avatarHtml1.includes('alt="Test Assignee"'), 'getAssigneeAvatarHtml renders alt tag with assignee name');
 
-    const avatarHtml1 = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', '081012145678');
-    assert.ok(avatarHtml1.includes('avatar-jeshua.jpg'), 'getAssigneeAvatarHtml finds photo by IC in _memberPfpsMap');
-    assert.ok(avatarHtml1.includes('alt="Jeshua Koh"'), 'getAssigneeAvatarHtml renders alt tag with assignee name');
-
-    const avatarHtml2 = tasksMod.getAssigneeAvatarHtml('Jeshua Koh', '');
-    assert.ok(avatarHtml2.includes('avatar-jeshua.jpg'), 'getAssigneeAvatarHtml finds photo by lowercase name in _memberPfpsMap');
+    const avatarHtml2 = tasksMod.getAssigneeAvatarHtml('Test Assignee', '');
+    assert.ok(avatarHtml2.includes('avatar-member.jpg'), 'getAssigneeAvatarHtml finds photo by lowercase name');
+    delete utilsMod._memberPfpsMap['assignee@example.test'];
+    delete utilsMod._memberPfpsMap['test assignee'];
 
     const avatarHtmlFallback = tasksMod.getAssigneeAvatarHtml('Unknown Officer', '999999999999');
     assert.ok(avatarHtmlFallback.includes('class="task-card-avatar"'), 'getAssigneeAvatarHtml falls back cleanly to initials when no photo exists');
@@ -17427,7 +17425,28 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.sessionSet('name', 'Jeshua Koh', { localOnly: true });
     global.sessionSet('email', 'jeshuakoh2008@gmail.com', { localOnly: true });
     global.sessionSet('ic', 'jeshuakoh2008@gmail.com', { localOnly: true });
-    global.sessionSet('photo_url', testPhotoUrl, { localOnly: true });
+    global.sessionSet('photo_url', '', { localOnly: true });
+
+    // Production supports the photo directory even when the member row has no photo_url column.
+    const originalSupa = global.supa;
+    const photoDirectory = { 'jeshuakoh2008@gmail.com': testPhotoUrl };
+    global.supa = {
+      get: async endpoint => endpoint.startsWith('bb_config?') ? [{ value: JSON.stringify(photoDirectory) }] : []
+    };
+    try {
+      await utilsMod.loadMemberProfilePictures();
+      assert.strictEqual(global.sessionGet('photo_url'), testPhotoUrl, 'The signed-in account adopts its saved photo after the directory loads');
+      photoDirectory['jeshuakoh2008@gmail.com'] = testPhotoUrl + '?v=2';
+      await utilsMod.loadMemberProfilePictures();
+      assert.strictEqual(utilsMod.getMemberAvatarUrl('Jeshua Koh', 'jeshuakoh2008@gmail.com'), testPhotoUrl + '?v=2');
+      delete photoDirectory['jeshuakoh2008@gmail.com'];
+      await utilsMod.loadMemberProfilePictures();
+      assert.strictEqual(utilsMod.getMemberAvatarUrl('Jeshua Koh', 'jeshuakoh2008@gmail.com'), null);
+      photoDirectory['jeshuakoh2008@gmail.com'] = testPhotoUrl;
+      await utilsMod.loadMemberProfilePictures();
+    } finally {
+      global.supa = originalSupa;
+    }
 
     memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');
 

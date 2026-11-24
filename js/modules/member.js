@@ -4396,44 +4396,10 @@ function renderMemberAvatar(memberName, memberEmail) {
     : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
       ? window.sessionGet
       : null;
-  var curName = sessGetFn ? (sessGetFn('name') || '') : '';
-  var curEmail = sessGetFn ? (sessGetFn('email') || '') : '';
-  var curIc = sessGetFn ? (sessGetFn('ic') || '') : '';
-  var isCurrent = false;
-  if (name && curName && name.toLowerCase() === curName.trim().toLowerCase()) isCurrent = true;
-  else if (email && ((curIc && email.toLowerCase() === curIc.toLowerCase()) || (curEmail && email.toLowerCase() === curEmail.toLowerCase()))) isCurrent = true;
-
-  var sPhoto = (isCurrent && sessGetFn) ? sessGetFn('photo_url') : null;
-  var photoUrl = null;
-  if (sPhoto) {
-    photoUrl = sPhoto;
-  } else if (sPhoto === '') {
-    if (typeof document !== 'undefined') {
-      var mImgCheck = document.getElementById('m-pfp-img');
-      if (mImgCheck && mImgCheck.src && mImgCheck.style.display !== 'none' && !mImgCheck.src.endsWith('/')) {
-        photoUrl = mImgCheck.src;
-      }
-    }
-  } else {
-    if (typeof getMemberAvatarUrl === 'function') photoUrl = getMemberAvatarUrl(name, email);
-    if (!photoUrl && typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap) {
-      if (email && _memberPfpsMap[email.toLowerCase()]) photoUrl = _memberPfpsMap[email.toLowerCase()];
-      else if (name && _memberPfpsMap[name.toLowerCase()]) photoUrl = _memberPfpsMap[name.toLowerCase()];
-    }
-    if (!photoUrl && typeof localStorage !== 'undefined') {
-      try {
-        var clEmail = (email || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-        var clName = (name || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-        photoUrl = localStorage.getItem('bb_pfp_' + clEmail) || localStorage.getItem('bb_pfp_' + clName);
-      } catch (_) {}
-    }
-    if (!photoUrl && typeof document !== 'undefined') {
-      var mImgCheck2 = document.getElementById('m-pfp-img');
-      if (mImgCheck2 && mImgCheck2.src && mImgCheck2.style.display !== 'none' && !mImgCheck2.src.endsWith('/')) {
-        photoUrl = mImgCheck2.src;
-      }
-    }
-  }
+  var ownId = sessGetFn ? (sessGetFn('ic') || sessGetFn('email')) : '';
+  var photoUrl = typeof getMemberAvatarUrl === 'function'
+    ? getMemberAvatarUrl(name, ownId || email)
+    : (sessGetFn && sessGetFn('photo_url'));
   var normPhoto = photoUrl ? ((typeof normalizeAvatarUrl === 'function') ? normalizeAvatarUrl(photoUrl) : photoUrl) : null;
 
   // 1. Sidebar user avatar placeholder

@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261123d"></script>
+<script src="js/core/theme.js?v=20261124a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261123d">
-<link rel="stylesheet" href="css/base.css?v=20261123d">
-<link rel="stylesheet" href="css/nav.css?v=20261123d">
-<link rel="stylesheet" href="css/components.css?v=20261123d">
-<link rel="stylesheet" href="css/admin.css?v=20261123d">
+<link rel="stylesheet" href="css/variables.css?v=20261124a">
+<link rel="stylesheet" href="css/base.css?v=20261124a">
+<link rel="stylesheet" href="css/nav.css?v=20261124a">
+<link rel="stylesheet" href="css/components.css?v=20261124a">
+<link rel="stylesheet" href="css/admin.css?v=20261124a">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -3267,30 +3267,30 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261123d"></script>
+<script src="js/config.js?v=20261124a"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261123d" defer></script>
-<script src="js/api/supabase.js?v=20261123d"></script>
-<script src="js/api/fcm.js?v=20261123d"></script>
-<script src="js/core/session.js?v=20261123d"></script>
-<script src="js/core/rbac.js?v=20261123d"></script>
-<script src="js/core/utils.js?v=20261123d"></script>
-<script src="js/core/ui.js?v=20261123d"></script>
-<script src="js/core/loading.js?v=20261123d"></script>
-<script src="js/modules/member.js?v=20261123d"></script>
-<script src="js/api/sheets.js?v=20261123d"></script>
-<script src="js/modules/attendance.js?v=20261123d"></script>
-<script src="js/modules/announcements.js?v=20261123d"></script>
-<script src="js/modules/gallery.js?v=20261123d"></script>
-<script src="js/modules/resources.js?v=20261123d"></script>
-<script src="js/modules/calendar.js?v=20261123d"></script>
-<script src="js/modules/orders.js?v=20261123d"></script>
-<script src="js/modules/forms.js?v=20261123d"></script>
-<script src="js/modules/badges.js?v=20261123d"></script>
-<script src="js/modules/tasks.js?v=20261123d"></script>
-<script src="js/modules/admin.js?v=20261123d"></script>
-<script src="js/modules/forum.js?v=20261123d"></script>
-<script src="js/modules/arcade.js?v=20261123d"></script>
+<script src="js/core/install.js?v=20261124a" defer></script>
+<script src="js/api/supabase.js?v=20261124a"></script>
+<script src="js/api/fcm.js?v=20261124a"></script>
+<script src="js/core/session.js?v=20261124a"></script>
+<script src="js/core/rbac.js?v=20261124a"></script>
+<script src="js/core/utils.js?v=20261124a"></script>
+<script src="js/core/ui.js?v=20261124a"></script>
+<script src="js/core/loading.js?v=20261124a"></script>
+<script src="js/modules/member.js?v=20261124a"></script>
+<script src="js/api/sheets.js?v=20261124a"></script>
+<script src="js/modules/attendance.js?v=20261124a"></script>
+<script src="js/modules/announcements.js?v=20261124a"></script>
+<script src="js/modules/gallery.js?v=20261124a"></script>
+<script src="js/modules/resources.js?v=20261124a"></script>
+<script src="js/modules/calendar.js?v=20261124a"></script>
+<script src="js/modules/orders.js?v=20261124a"></script>
+<script src="js/modules/forms.js?v=20261124a"></script>
+<script src="js/modules/badges.js?v=20261124a"></script>
+<script src="js/modules/tasks.js?v=20261124a"></script>
+<script src="js/modules/admin.js?v=20261124a"></script>
+<script src="js/modules/forum.js?v=20261124a"></script>
+<script src="js/modules/arcade.js?v=20261124a"></script>
 
 <script>
 
@@ -5370,28 +5370,10 @@ function updateNavUserHeader() {
       ptsBadge.title = 'Daily Streak: ' + streak + ' days | Credits: ' + credits + ' (Click to enter 1stPJ Arcade)';
       ptsBadge.setAttribute('aria-label', 'Credits: ' + credits + ', Streak: ' + streak);
     }
-    var photoUrl = (typeof sessionGet === 'function') ? sessionGet('photo_url') : null;
-    var displayName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
-    if (!photoUrl && typeof getMemberAvatarUrl === 'function') {
-      photoUrl = getMemberAvatarUrl(displayName, ic);
-    }
-    if (!photoUrl && typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap) {
-      if (ic && _memberPfpsMap[ic.toLowerCase()]) photoUrl = _memberPfpsMap[ic.toLowerCase()];
-      else if (displayName && _memberPfpsMap[displayName.toLowerCase()]) photoUrl = _memberPfpsMap[displayName.toLowerCase()];
-    }
-    if (!photoUrl && typeof localStorage !== 'undefined') {
-      try {
-        var curCleanEmail = (ic || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-        var curCleanName = (displayName || '').replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
-        photoUrl = localStorage.getItem('bb_pfp_' + curCleanEmail) || localStorage.getItem('bb_pfp_' + curCleanName);
-      } catch (_) {}
-    }
-    if (!photoUrl && typeof document !== 'undefined') {
-      var mImgExisting = document.getElementById('m-pfp-img');
-      if (mImgExisting && mImgExisting.src && mImgExisting.style.display !== 'none' && !mImgExisting.src.endsWith('/')) {
-        photoUrl = mImgExisting.src;
-      }
-    }
+    var displayName = sessionGet('name') || '';
+    var photoUrl = typeof getMemberAvatarUrl === 'function'
+      ? getMemberAvatarUrl(displayName, ic)
+      : sessionGet('photo_url');
     var sAvatarImg = document.getElementById('sidebar-user-avatar-img');
     var sAvatarPh = document.getElementById('sidebar-user-avatar-ph');
     var mAvatarImg = document.getElementById('m-pfp-img');
@@ -5470,6 +5452,7 @@ function updateNavUserHeader() {
         ordAvatarImg.style.display = 'none';
       }
       if (ordAvatarPh) ordAvatarPh.style.display = 'flex';
+      if (typeof setRemovePfpButtonVisible === 'function') setRemovePfpButtonVisible(false);
       var mName = (typeof sessionGet === 'function') ? sessionGet('name') : '';
       var mEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || sessionGet('ic')) : '';
       if (typeof renderMemberAvatar === 'function') {

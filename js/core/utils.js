@@ -1483,13 +1483,19 @@ async function loadMemberProfilePictures() {
   try {
     var client = (typeof supa !== 'undefined') ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null);
     if (client && typeof client.get === 'function') {
+      var activeId = typeof sessionGet === 'function' ? (sessionGet('ic') || sessionGet('email') || '') : '';
+      var activePhoto = activeId ? sessionGet('photo_url') : null;
+      var previous = Object.assign({}, _memberPfpsMap);
+      var photos = Object.create(null);
+      var hasDirectory = false;
       try {
-        var cfgRows = await client.get('bb_config?key=eq.bb_member_pfps&select=value');
+        var cfgRows = await client.get('bb_config?key=eq.bb_member_pfps&select=value', { cache: false });
         if (Array.isArray(cfgRows) && cfgRows.length > 0 && cfgRows[0].value) {
           var parsed = typeof cfgRows[0].value === 'string' ? JSON.parse(cfgRows[0].value) : cfgRows[0].value;
-          if (parsed && typeof parsed === 'object') {
-            Object.keys(parsed).forEach(function(k) {
-              if (parsed[k]) _memberPfpsMap[k.toLowerCase()] = normalizeAvatarUrl(parsed[k]);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            hasDirectory = true;
+            Object.keys(parsed).forEach(function(key) {
+              if (typeof parsed[key] === 'string' && parsed[key].trim()) photos[key.trim().toLowerCase()] = normalizeAvatarUrl(parsed[key]);
             });
           }
         }
@@ -1500,21 +1506,60 @@ async function loadMemberProfilePictures() {
         var mRows = await client.get('bb_members?photo_url=not.is.null&select=ic,email,name,photo_url');
         if (Array.isArray(mRows)) {
           mRows.forEach(function(m) {
-            if (m && m.photo_url) {
-              var norm = normalizeAvatarUrl(m.photo_url);
-              if (m.ic) _memberPfpsMap[m.ic.toLowerCase()] = norm;
-              if (m.email) _memberPfpsMap[m.email.toLowerCase()] = norm;
-              if (m.name) _memberPfpsMap[m.name.trim().toLowerCase()] = norm;
-            }
+            if (!m || !m.photo_url) return;
+            var norm = normalizeAvatarUrl(m.photo_url);
+            if (m.ic) photos[m.ic.trim().toLowerCase()] = norm;
+            if (m.email && !String(m.ic || '').toLowerCase().startsWith(m.email.toLowerCase() + '__')) photos[m.email.trim().toLowerCase()] = norm;
+            if (m.name) photos[m.name.trim().toLowerCase()] = norm;
           });
         }
       } catch (_) {}
+
+      // Keep updates received while the directory request was in flight.
+      var changed = false;
+      var keys = new Set(Object.keys(photos).concat(hasDirectory ? Object.keys(previous) : []));
+      keys.forEach(function(key) {
+        if (_memberPfpsMap[key] !== previous[key] || _memberPfpsMap[key] === photos[key]) return;
+        if (photos[key]) _memberPfpsMap[key] = photos[key];
+        else delete _memberPfpsMap[key];
+        changed = true;
+      });
+
+      if (activeId && (sessionGet('ic') || sessionGet('email')) === activeId && typeof sessionSet === 'function'
+          && sessionGet('photo_url') === activePhoto) {
+        var email = String(sessionGet('email') || '').trim();
+        var name = String(sessionGet('name') || '').trim();
+        var isSecondaryAccount = activeId.toLowerCase().startsWith(email.toLowerCase() + '__');
+        var aliases = [activeId, isSecondaryAccount ? '' : email, name].filter(Boolean);
+        var normalizedAliases = aliases.map(function(alias) { return alias.trim().toLowerCase(); });
+        var readOwnPhoto = function(map) {
+          var key = normalizedAliases.find(function(k) { return Object.hasOwn(map, k) && map[k]; });
+          return key ? map[key] : '';
+        };
+        var saved = readOwnPhoto(photos);
+        var current = readOwnPhoto(_memberPfpsMap);
+        var removed = hasDirectory && !saved && !current && !!readOwnPhoto(previous);
+        if (removed || (saved && saved === current)) {
+          sessionSet('photo_url', saved, { localOnly: true });
+          changed = changed || activePhoto !== saved;
+          if (removed && typeof localStorage !== 'undefined') {
+            try {
+              aliases.forEach(function(key) {
+                localStorage.removeItem('bb_pfp_' + key.replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg');
+              });
+            } catch (_) {}
+          }
+        }
+      }
 
       try {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('bb_member_pfps', JSON.stringify(_memberPfpsMap));
         }
       } catch (_) {}
+      if (changed && activeId && (sessionGet('ic') || sessionGet('email')) === activeId) {
+        refreshPortalAvatarsEverywhere();
+      }
     }
   } catch (err) {
     console.warn('loadMemberProfilePictures error:', err);
@@ -1550,12 +1595,6 @@ function getMemberAvatarUrl(name, ic) {
   if (isCurrent && sessGetFn) {
     var sPhoto = sessGetFn('photo_url');
     if (sPhoto) return normalizeAvatarUrl(sPhoto);
-    if (typeof document !== 'undefined') {
-      var activeMImg = document.getElementById('m-pfp-img');
-      if (activeMImg && activeMImg.src && activeMImg.style.display !== 'none' && !activeMImg.src.endsWith('/')) {
-        return normalizeAvatarUrl(activeMImg.src);
-      }
-    }
     if (sPhoto === '') return null;
     var cleanFn = (currentEmail || currentIc || currentName).replace(/[^a-zA-Z0-9@._-]/g, '_') + '.jpg';
     var cachedPfp = sessGetFn('pfp_cache_' + cleanFn);
@@ -1652,14 +1691,6 @@ function getUniversalMemberAvatarHtml(name, idOrEmail, size, options) {
     photoUrl = getMemberAvatarUrl(cleanNm, cleanId);
   } else if (typeof window !== 'undefined' && typeof window.getMemberAvatarUrl === 'function') {
     photoUrl = window.getMemberAvatarUrl(cleanNm, cleanId);
-  }
-  if (!photoUrl && typeof _memberPfpsMap !== 'undefined' && _memberPfpsMap) {
-    if (cleanId && _memberPfpsMap[cleanId.toLowerCase()]) photoUrl = normalizeAvatarUrl(_memberPfpsMap[cleanId.toLowerCase()]);
-    else if (cleanNm && _memberPfpsMap[cleanNm.toLowerCase()]) photoUrl = normalizeAvatarUrl(_memberPfpsMap[cleanNm.toLowerCase()]);
-  }
-  if (!photoUrl && typeof window !== 'undefined' && window._memberPfpsMap) {
-    if (cleanId && window._memberPfpsMap[cleanId.toLowerCase()]) photoUrl = normalizeAvatarUrl(window._memberPfpsMap[cleanId.toLowerCase()]);
-    else if (cleanNm && window._memberPfpsMap[cleanNm.toLowerCase()]) photoUrl = normalizeAvatarUrl(window._memberPfpsMap[cleanNm.toLowerCase()]);
   }
 
   // 2. Custom Outline
