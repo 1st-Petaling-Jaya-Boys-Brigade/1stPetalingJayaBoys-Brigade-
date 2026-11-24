@@ -218,7 +218,10 @@ var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;
 var _activeTaskPollTimer = null;
-var _initialTaskDetailState = null;
+var _taskBriefDrafts = new Map();
+var _taskBriefReads = new Map();
+var _taskBriefReturnFocus = null;
+var TASK_BRIEF_SAVE_INTERVAL = 400;
 var _justDragged = false;
 var _draggedTaskId = null;
 var _cachedDepartmentMembers = [];
@@ -316,23 +319,25 @@ function getTaskCreatorName(t) {
 /**
  * Ensures project tag, estimate tag, and creator tag are never stripped when updating descriptions
  */
-function buildTaskDescriptionWithMeta(t, rawCleanDesc) {
+function buildTaskDescriptionWithMeta(t, rawCleanDesc, overrides = {}) {
   var pName = (t && t.project_name && t.project_name.trim())
     ? t.project_name.trim()
     : (getTaskProjectName(t) || (rawCleanDesc ? getTaskProjectName({ description: rawCleanDesc }) : '') || _activeProject || '');
   var est = (t && t.estimate && String(t.estimate).trim())
     ? String(t.estimate).trim()
     : (getTaskEstimate(t) || (rawCleanDesc ? getTaskEstimate({ description: rawCleanDesc }) : '') || '');
+  if (Object.hasOwn(overrides, 'project_name')) pName = overrides.project_name || '';
+  if (Object.hasOwn(overrides, 'estimate')) est = overrides.estimate || '';
   var creator = '';
   if (t && t.creator_name && String(t.creator_name).trim()) {
     creator = String(t.creator_name).trim();
-  } else if (rawCleanDesc) {
-    var cMatch = rawCleanDesc.match(/\[(?:[^\]]*\|\s*)?Creator:\s*([^\]|]+)/i);
+  } else if (t?.description || rawCleanDesc) {
+    var cMatch = (t?.description || rawCleanDesc).match(/\[(?:[^\]]*\|\s*)?Creator:\s*([^\]|]+)/i);
     if (cMatch && cMatch[1] && cMatch[1].trim()) {
       creator = cMatch[1].trim();
     }
   }
-  var body = (rawCleanDesc || '').replace(/\s*\[[^\]]*(?:Project:|Estimate:|Creator:)[^\]]*\]/gi, '').trim();
+  var body = getTaskBriefBody(rawCleanDesc);
   var tags = [];
   if (pName && pName !== 'General Project' && !pName.toLowerCase().includes('sprint')) {
     tags.push('Project: ' + pName);
@@ -2802,60 +2807,70 @@ function refreshCurrentTasksView(affectedTaskId) {
     var curT = (typeof window !== 'undefined' && window._taskMap && window._taskMap[activeModalId]) || _taskMap[activeModalId];
     if (!curT) curT = _allLoadedTasks.find(function(t) { return String(t.id) === String(activeModalId); });
     if (curT) {
-      var modalTitle = document.getElementById('tdm-title');
-      if (modalTitle && document.activeElement !== modalTitle && curT.title) {
-        modalTitle.textContent = curT.title;
-      }
-      var modalDesc = document.getElementById('tdm-desc');
-      if (modalDesc && document.activeElement !== modalDesc) {
-        var cleanDesc = (curT.description || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
-        modalDesc.innerHTML = formatTaskDescriptionMentions(cleanDesc);
-      }
-      if (curT.status) {
-        var normStatus = normalizeTaskStatus(curT.status);
-        var sConf = STATUS_CONFIG[normStatus] || { label: normStatus, color: '#3b82f6' };
-        var statusDot = document.querySelector('.tdm-status-dot');
-        if (statusDot) statusDot.style.background = sConf.color;
-        var statusText = document.querySelector('.tdm-status-text');
-        if (statusText) statusText.textContent = sConf.label;
-      }
-      if (curT.priority) {
-        var priorityVal = (curT.priority || 'medium').toLowerCase();
-        var pLabel = priorityVal === 'high' ? 'High' : (priorityVal === 'low' ? 'Low' : 'Medium');
-        var pCls = priorityVal === 'high' ? 'priority-high' : (priorityVal === 'low' ? 'priority-low' : 'priority-medium');
-        var pIconEl = document.querySelector('.tdm-priority-icon');
-        if (pIconEl) {
-          pIconEl.innerHTML = getPriorityIconSvg(priorityVal, 14);
-          pIconEl.className = 'tdm-priority-icon ' + pCls;
-        }
-        var pTextEl = document.querySelector('.tdm-priority-text');
-        if (pTextEl) {
-          pTextEl.textContent = pLabel;
-          pTextEl.className = 'tdm-priority-text ' + pCls;
-        }
-        var pBtn = document.querySelector('.tdm-priority-btn');
-        if (pBtn) {
-          pBtn.className = 'task-prop-pill-btn tdm-priority-btn ' + pCls;
-        }
-      }
-      if (curT.due_date !== undefined) {
-        var dueStr = formatTaskDueDateStr(curT.due_date);
-        var dueEl = document.getElementById('tdm-due');
-        if (dueEl) dueEl.textContent = dueStr;
-        var dueInput = document.querySelector('.tdm-due-input');
-        if (dueInput) {
-          dueInput.value = (curT.due_date && typeof curT.due_date === 'string') ? curT.due_date.split('T')[0] : '';
-        }
-      }
-      var estValEl = document.querySelector('.tdm-estimate-val');
-      if (estValEl) {
-        estValEl.textContent = getTaskEstimate(curT) || 'Estimate';
-      }
+      paintTaskBriefEditors(curT, false);
+      paintTaskBriefProperties(curT);
     } else if (_deletedTaskIds[String(activeModalId)] || (_allLoadedTasks && _allLoadedTasks.length > 0)) {
       if (typeof closeTaskDetail === 'function') closeTaskDetail();
       if (typeof showToast === 'function') showToast('This task is no longer available.', 'info');
     }
   }
+}
+
+var TASK_BRIEF_FIELDS = ['title', 'description', 'status', 'priority', 'due_date', 'estimate', 'project_name',
+  'assignee_name', 'assignee_ic', 'assignee_email', 'completed_at', 'updated_at'];
+
+function applyTaskBriefRow(row, baseline) {
+  var id = row.id;
+  var task = _taskMap[id] || _allLoadedTasks.find(function(t) { return String(t.id) === String(id); });
+  if (!task) return false;
+  var patch = {};
+  TASK_BRIEF_FIELDS.forEach(function(field) {
+    if (Object.hasOwn(row, field) && row[field] !== task[field] && (!baseline || baseline[field] === task[field])) {
+      patch[field] = row[field];
+    }
+  });
+  if (Object.hasOwn(patch, 'description') && !Object.hasOwn(row, 'estimate')) {
+    patch.estimate = getTaskEstimate({ description: patch.description });
+  }
+  if (Object.hasOwn(patch, 'description') && !Object.hasOwn(row, 'project_name')) {
+    patch.project_name = getTaskProjectName({ description: patch.description, department: task.department });
+  }
+  if (!Object.keys(patch).length) return true;
+  Object.assign(task, patch);
+  if (_taskMap[id]) Object.assign(_taskMap[id], patch);
+  if (typeof window !== 'undefined' && window._taskMap && window._taskMap[id]) Object.assign(window._taskMap[id], patch);
+  var loaded = _allLoadedTasks.find(function(t) { return String(t.id) === String(id); });
+  if (loaded) Object.assign(loaded, patch);
+  try { localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks)); } catch (_) {}
+  refreshCurrentTasksView(id);
+  if (typeof syncTaskNotifications === 'function' && Object.keys(patch).some(function(field) { return field !== 'updated_at'; })) {
+    syncTaskNotifications(_allLoadedTasks);
+  }
+  return true;
+}
+
+function refreshTaskBriefRow(id, followup) {
+  var task = _taskMap[id] || _allLoadedTasks.find(function(t) { return String(t.id) === String(id); });
+  var client = getSupaClient();
+  if (!task || String(id).startsWith('temp_') || !client || typeof client.get !== 'function') return Promise.resolve();
+  var key = String(id);
+  var pending = _taskBriefReads.get(key);
+  if (pending) {
+    pending.again ||= !!followup;
+    return pending.promise;
+  }
+  var read = { again: false };
+  var baseline = Object.assign({}, task);
+  read.promise = Promise.resolve().then(function() {
+    return client.get('bb_tasks?id=eq.' + encodeURIComponent(id) + '&limit=1', { cache: false });
+  }).then(function(rows) {
+    if (Array.isArray(rows) && rows[0]) applyTaskBriefRow(rows[0], baseline);
+  }).catch(function() {}).finally(function() {
+    _taskBriefReads.delete(key);
+    if (read.again) refreshTaskBriefRow(id);
+  });
+  _taskBriefReads.set(key, read);
+  return read.promise;
 }
 
 /**
@@ -3446,6 +3461,73 @@ function openTaskDetail(id) {
     }
   }
 
+  paintTaskBriefProperties(t);
+  ['tdm-title', 'tdm-desc'].forEach(function(fieldId) {
+    var editor = document.getElementById(fieldId);
+    if (editor) {
+      editor._taskBriefComposing = false;
+      if (typeof editor.setAttribute === 'function') editor.setAttribute('contenteditable', String(!!findManagedTask(id)));
+    }
+  });
+  paintTaskBriefEditors(t, true);
+  var modal = document.getElementById('task-detail-modal');
+  if (modal) {
+    _taskBriefReturnFocus = document.activeElement;
+    modal.style.display = 'block';
+    if (document.documentElement && document.documentElement.classList) document.documentElement.classList.add('task-brief-open');
+    var closeButton = document.querySelector('.task-brief-close-btn');
+    if (closeButton && typeof closeButton.focus === 'function') closeButton.focus({ preventScroll: true });
+    var workspace = document.querySelector('.task-brief-modal-card');
+    if (workspace) workspace.scrollTop = 0;
+  }
+  paintTaskBriefDraftStatus(id);
+  refreshTaskBriefRow(id);
+  renderTaskComments(id);
+  renderTaskAttachments(id);
+  renderTaskSubtasks(id);
+  renderTaskLinks(id);
+
+  if (typeof fetchRemoteTaskComments === 'function') {
+    fetchRemoteTaskComments(id).catch(function() {});
+  }
+  if (typeof fetchRemoteTaskAttachments === 'function') {
+    fetchRemoteTaskAttachments(id).catch(function() {});
+  }
+  if (typeof fetchRemoteTaskSubtasks === 'function') {
+    fetchRemoteTaskSubtasks(id).catch(function() {});
+  }
+  if (typeof fetchRemoteTaskLinks === 'function') {
+    fetchRemoteTaskLinks(id).catch(function() {});
+  }
+  if (typeof _activeTaskPollTimer !== 'undefined' && _activeTaskPollTimer) {
+    clearInterval(_activeTaskPollTimer);
+    _activeTaskPollTimer = null;
+  }
+  _activeTaskPollTimer = setInterval(function() {
+    var curActiveId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+    if (!curActiveId) {
+      if (_activeTaskPollTimer) { clearInterval(_activeTaskPollTimer); _activeTaskPollTimer = null; }
+      return;
+    }
+    if (typeof document.visibilityState === 'undefined' || document.visibilityState === 'visible') {
+      refreshTaskBriefRow(curActiveId);
+    }
+    if (typeof fetchRemoteTaskComments === 'function') {
+      fetchRemoteTaskComments(curActiveId).catch(function() {});
+    }
+    if (typeof fetchRemoteTaskSubtasks === 'function') {
+      fetchRemoteTaskSubtasks(curActiveId).catch(function() {});
+    }
+    if (typeof fetchRemoteTaskLinks === 'function') {
+      fetchRemoteTaskLinks(curActiveId).catch(function() {});
+    }
+    if (typeof fetchRemoteTaskAttachments === 'function') {
+      fetchRemoteTaskAttachments(curActiveId).catch(function() {});
+    }
+  }, 4000);
+}
+
+function paintTaskBriefProperties(t) {
   var set = function(elId, val) {
     var el = document.getElementById(elId);
     if (el) el.textContent = val;
@@ -3459,9 +3541,6 @@ function openTaskDetail(id) {
   if (deptBreadcrumb) deptBreadcrumb.textContent = projectName;
   var idLabel = document.querySelector('.task-brief-id-label');
   if (idLabel) idLabel.textContent = taskId;
-
-  // Title: editable contenteditable element
-  set('tdm-title', t.title || '');
 
   // Status Pill matching Image 2
   var normStatus = normalizeTaskStatus(t.status, projectName);
@@ -3556,7 +3635,7 @@ function openTaskDetail(id) {
   var dueStr = formatTaskDueDateStr(t.due_date);
   set('tdm-due', dueStr);
   var dueInput = document.querySelector('.tdm-due-input');
-  if (dueInput) {
+  if (dueInput && document.activeElement !== dueInput) {
     dueInput.value = (t.due_date && typeof t.due_date === 'string') ? t.due_date.split('T')[0] : '';
   }
 
@@ -3565,96 +3644,212 @@ function openTaskDetail(id) {
   var estValEl = document.querySelector('.tdm-estimate-val');
   if (estValEl) estValEl.textContent = estStr;
 
-  // Description: strip [Project: ...] and [Estimate: ...] tags for clean reading and editing
-  var cleanDesc = (t.description || '').replace(/\s*\[(Project:[^\]|]*|Estimate:[^\]|]*)[^\]]*\]/gi, '').trim();
-  var descEl = document.getElementById('tdm-desc');
-  if (descEl) {
-    descEl.innerHTML = formatTaskDescriptionMentions(cleanDesc);
-  }
-
-  var modal = document.getElementById('task-detail-modal');
-  if (modal) modal.style.display = 'block';
-  _initialTaskDetailState = {
-    id: id,
-    title: (t.title || '').trim(),
-    descHtml: (descEl ? descEl.innerHTML : '').trim()
-  };
-  renderTaskComments(id);
-  renderTaskAttachments(id);
-  renderTaskSubtasks(id);
-  renderTaskLinks(id);
-
-  if (typeof fetchRemoteTaskComments === 'function') {
-    fetchRemoteTaskComments(id).catch(function() {});
-  }
-  if (typeof fetchRemoteTaskAttachments === 'function') {
-    fetchRemoteTaskAttachments(id).catch(function() {});
-  }
-  if (typeof fetchRemoteTaskSubtasks === 'function') {
-    fetchRemoteTaskSubtasks(id).catch(function() {});
-  }
-  if (typeof fetchRemoteTaskLinks === 'function') {
-    fetchRemoteTaskLinks(id).catch(function() {});
-  }
-  if (typeof _activeTaskPollTimer !== 'undefined' && _activeTaskPollTimer) {
-    clearInterval(_activeTaskPollTimer);
-    _activeTaskPollTimer = null;
-  }
-  _activeTaskPollTimer = setInterval(function() {
-    var curActiveId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
-    if (!curActiveId) {
-      if (_activeTaskPollTimer) { clearInterval(_activeTaskPollTimer); _activeTaskPollTimer = null; }
-      return;
-    }
-    if (typeof fetchRemoteTaskComments === 'function') {
-      fetchRemoteTaskComments(curActiveId).catch(function() {});
-    }
-    if (typeof fetchRemoteTaskSubtasks === 'function') {
-      fetchRemoteTaskSubtasks(curActiveId).catch(function() {});
-    }
-    if (typeof fetchRemoteTaskLinks === 'function') {
-      fetchRemoteTaskLinks(curActiveId).catch(function() {});
-    }
-    if (typeof fetchRemoteTaskAttachments === 'function') {
-      fetchRemoteTaskAttachments(curActiveId).catch(function() {});
-    }
-  }, 4000);
 }
 
-function handleTaskTitleBlur(el) {
-  if (!_activeDetailTaskId || !el) return;
-  var val = (el.textContent || '').trim();
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
-  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
-    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
+function getTaskBriefBody(description) {
+  return String(description || '').replace(/\s*\[(?:Project|Estimate|Creator):[^\]]*\]\s*$/i, '').trim();
+}
+
+function taskBriefDraftKey(id, field) {
+  var user = typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email'));
+  return user && id ? 'bb_task_draft:' + JSON.stringify([user, String(id), field]) : '';
+}
+
+function readTaskBriefDraft(id, field) {
+  var key = taskBriefDraftKey(id, field);
+  if (!key) return null;
+  if (!_taskBriefDrafts.has(key)) {
+    try {
+      var saved = JSON.parse(sessionStorage.getItem(key) || 'null');
+      if (saved && typeof saved.value === 'string' && (!saved.base || typeof saved.base === 'string')) {
+        _taskBriefDrafts.set(key, { id: id, field: field, key: key, value: saved.value, base: saved.base, problem: 'retry' });
+      }
+    } catch (_) {}
   }
-  if (val && t && val !== (t.title || '').trim()) {
-    saveTaskField(_activeDetailTaskId, 'title', val);
+  return _taskBriefDrafts.get(key) || null;
+}
+
+function storeTaskBriefDraft(draft) {
+  try { sessionStorage.setItem(draft.key, JSON.stringify({ base: draft.base, value: draft.value })); } catch (_) {}
+}
+
+function clearTaskBriefDraft(draft) {
+  _taskBriefDrafts.delete(draft.key);
+  try { sessionStorage.removeItem(draft.key); } catch (_) {}
+}
+
+function paintTaskBriefDraftStatus(id, saved) {
+  if (String(id) !== String(_activeDetailTaskId) || typeof document === 'undefined') return;
+  var drafts = ['title', 'description'].map(function(field) { return readTaskBriefDraft(id, field); }).filter(Boolean);
+  var problem = drafts.find(function(draft) { return draft.problem; });
+  var status = document.querySelector('.task-brief-save-status');
+  if (status) {
+    status.textContent = problem ? 'Draft unsaved' : drafts.length ? 'Saving…' : saved ? 'Saved' : '';
+    var banner = document.querySelector('.task-brief-edit-recovery');
+    banner.hidden = !problem;
+    if (problem) {
+      var field = problem.field === 'title' ? 'title' : 'brief';
+      banner.querySelector('span').textContent = problem.problem === 'conflict'
+        ? 'Someone else changed the ' + field + '. Your draft is still here.'
+        : 'The ' + field + ' could not be saved. Your draft is still here.';
+      banner.querySelector('.task-secondary-btn').hidden = problem.problem !== 'conflict';
+      banner.querySelector('.task-primary-btn').textContent = problem.problem === 'conflict' ? 'Save my draft' : 'Retry save';
+    }
   }
 }
 
-function handleTaskDescBlur(el) {
-  if (!_activeDetailTaskId || !el) return;
-  var rawHtml = el.innerHTML || el.textContent || '';
-  var formatted = formatTaskDescriptionMentions(rawHtml);
-  if (formatted !== rawHtml) {
-    el.innerHTML = formatted;
+async function commitTaskBriefField(taskId, field, expected, value, metadata) {
+  var client = getSupaClient();
+  if (!client || typeof client.rpc !== 'function') throw new Error('Task saving is unavailable.');
+  var result = await client.rpc('rpc_save_task_brief_field', {
+    p_task_id: String(taskId), p_field: field, p_expected: expected ?? null, p_value: value,
+    p_metadata: metadata || {}
+  });
+  if (!result || !result.task) throw new Error('This task could not be saved.');
+  if (result.saved && typeof client.invalidateCache === 'function') client.invalidateCache('bb_tasks');
+  return result;
+}
+
+function broadcastTaskBriefSaved(id) {
+  if (typeof window !== 'undefined' && typeof window.PortalRealtime?.broadcast === 'function') {
+    window.PortalRealtime.broadcast('tasks', 'brief-saved', { id: id });
   }
-  var val = (el.innerHTML || el.textContent || '').trim();
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
-  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
-    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
+}
+
+function paintTaskBriefEditors(task, restoreDraft) {
+  ['title', 'description'].forEach(function(field) {
+    var el = document.getElementById(field === 'title' ? 'tdm-title' : 'tdm-desc');
+    if (!el) return;
+    var draft = readTaskBriefDraft(task.id || _activeDetailTaskId, field);
+    if ((draft && !restoreDraft) || el._taskBriefComposing) return;
+    var value = draft ? draft.value : task[field] || '';
+    if (field === 'title') {
+      if (el.textContent !== value) el.textContent = value;
+    } else {
+      var html = formatTaskDescriptionMentions(getTaskBriefBody(value));
+      var unchangedEditor = !restoreDraft && document.activeElement === el && typeof sanitizeHtml === 'function'
+        && sanitizeHtml(el.innerHTML || '').trim() === getTaskBriefBody(value);
+      if (unchangedEditor) {
+        el._taskBriefRenderedHtml = html;
+      } else if (el._taskBriefRenderedHtml !== html || restoreDraft) {
+        if (el.innerHTML !== html) el.innerHTML = html;
+        el._taskBriefRenderedHtml = html;
+      }
+    }
+  });
+}
+
+function queueTaskBriefEdit(el, field, event) {
+  var id = _activeDetailTaskId;
+  if (!id || !el) return;
+  el._taskBriefComposing = !!(event && event.isComposing);
+  if (el._taskBriefComposing) return;
+  var task = findManagedTask(id);
+  if (!task) return;
+  var value = field === 'title' ? (el.textContent || '').trim()
+    : (typeof sanitizeHtml === 'function' ? sanitizeHtml(el.innerHTML || '') : '');
+  var existing = readTaskBriefDraft(id, field);
+  var key = taskBriefDraftKey(id, field);
+  if (!key || (field === 'title' && !value)) return;
+  var base = task[field] ?? null;
+  if (!existing && (field === 'title' ? base === value : getTaskBriefBody(base) === value)) return;
+  var draft = existing || { id: id, key: key, field: field, base: base };
+  draft.value = value;
+  _taskBriefDrafts.set(key, draft);
+  storeTaskBriefDraft(draft);
+  if (!draft.timer && !draft.saving && !draft.problem) {
+    draft.timer = setTimeout(function() { flushTaskBriefDraft(draft); }, TASK_BRIEF_SAVE_INTERVAL);
   }
-  var fullDesc = buildTaskDescriptionWithMeta(t || {}, val);
-  if (t && String(t.description || '').trim() === String(fullDesc || '').trim()) {
-    return;
+  paintTaskBriefDraftStatus(id);
+}
+
+async function flushTaskBriefDraft(draft) {
+  if (!draft || draft.saving || draft.problem) return;
+  clearTimeout(draft.timer);
+  draft.timer = null;
+  if (taskBriefDraftKey(draft.id, draft.field) !== draft.key) return;
+  var task = findManagedTask(draft.id);
+  if (!task) return;
+  draft.saving = true;
+  var value = draft.value;
+  try {
+    var id = await resolveRealTaskId(draft.id);
+    if (String(id).startsWith('temp_')) throw new Error('Wait until the task is saved.');
+    var field = draft.field;
+    var base = draft.base;
+    var next = field === 'description' ? buildTaskDescriptionWithMeta(task, value) : value;
+    var result = await commitTaskBriefField(id, field, base, next);
+    if (!result.saved && field === 'description' && getTaskBriefBody(result.task.description) === getTaskBriefBody(base)) {
+      // Rebase a brief edit over a concurrent estimate or project change.
+      next = buildTaskDescriptionWithMeta(result.task, value);
+      result = await commitTaskBriefField(id, field, result.task.description, next);
+    }
+    var saved = result.saved || result.task[field] === next;
+    if (saved) {
+      draft.base = result.task[field];
+      if (draft.value === value) clearTaskBriefDraft(draft);
+      else storeTaskBriefDraft(draft);
+      broadcastTaskBriefSaved(id);
+    } else {
+      draft.problem = 'conflict';
+      draft.remote = result.task[field];
+    }
+    var patch = { id: id };
+    patch[field] = result.task[field];
+    if (field === 'description') {
+      ['estimate', 'project_name'].forEach(function(key) {
+        if (Object.hasOwn(result.task, key)) patch[key] = result.task[key];
+      });
+    }
+    applyTaskBriefRow(patch);
+  } catch (_) {
+    draft.problem = 'retry';
+  } finally {
+    draft.saving = false;
+    paintTaskBriefDraftStatus(draft.id, saved);
   }
-  saveTaskField(_activeDetailTaskId, 'description', fullDesc);
-  if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
-    syncTaskNotifications(_allLoadedTasks);
-  } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function' && typeof window._allLoadedTasks !== 'undefined') {
-    window.syncTaskNotifications(window._allLoadedTasks);
+  if (!draft.problem && _taskBriefDrafts.get(draft.key) === draft && !draft.timer) {
+    draft.timer = setTimeout(function() { flushTaskBriefDraft(draft); }, TASK_BRIEF_SAVE_INTERVAL);
   }
+}
+
+function resolveTaskBriefDraft(keep) {
+  var id = _activeDetailTaskId;
+  var draft = ['title', 'description'].map(function(field) { return readTaskBriefDraft(id, field); })
+    .find(function(entry) { return entry && entry.problem; });
+  if (!draft) return;
+  if (keep) {
+    if (draft.problem === 'conflict') draft.base = draft.remote;
+    draft.problem = null;
+    storeTaskBriefDraft(draft);
+    paintTaskBriefDraftStatus(id);
+    flushTaskBriefDraft(draft);
+  } else if (draft.problem === 'conflict') {
+    clearTaskBriefDraft(draft);
+    var task = findManagedTask(id);
+    if (task) paintTaskBriefEditors(task, true);
+    paintTaskBriefDraftStatus(id);
+  }
+}
+
+function handleTaskBriefKeydown(event) {
+  if (event.key !== 'Tab') return;
+  var items = Array.from(event.currentTarget.querySelectorAll('button:not(:disabled), a[href], [contenteditable="true"], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)'))
+    .filter(function(el) { return el.tabIndex >= 0 && el.getClientRects().length > 0; });
+  var first = items[0];
+  var last = items[items.length - 1];
+  if (first && ((event.shiftKey && document.activeElement === first) || (!event.shiftKey && document.activeElement === last))) {
+    event.preventDefault();
+    (event.shiftKey ? last : first).focus();
+  }
+}
+
+function handleTaskTitleBlur() {
+  flushTaskBriefDraft(readTaskBriefDraft(_activeDetailTaskId, 'title'));
+}
+
+function handleTaskDescBlur() {
+  flushTaskBriefDraft(readTaskBriefDraft(_activeDetailTaskId, 'description'));
 }
 
 /**
@@ -5984,18 +6179,8 @@ function handleTaskDetailDescChange(val) {
 }
 
 function saveActiveTaskBrief() {
-  if (!_activeDetailTaskId) return;
-  var descEl = document.getElementById('tdm-desc');
-  var val = descEl ? (descEl.innerHTML || descEl.textContent || '') : '';
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
-  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
-    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
-  }
-  var fullDesc = buildTaskDescriptionWithMeta(t || {}, val);
-  if (t && String(t.description || '').trim() === String(fullDesc || '').trim()) {
-    return;
-  }
-  saveTaskField(_activeDetailTaskId, 'description', fullDesc);
+  queueTaskBriefEdit(document.getElementById('tdm-desc'), 'description');
+  handleTaskDescBlur();
 }
 
 /**
@@ -6071,102 +6256,27 @@ async function saveTaskField(id, field, value) {
     effectiveId = await resolveRealTaskId(id);
   }
 
-  if (field === 'estimate') {
-    t.estimate = value;
-    var updatedDescEst = buildTaskDescriptionWithMeta(t, t.description);
-    t.description = updatedDescEst;
-    _taskMap[id] = t;
-    if (effectiveId !== id) _taskMap[effectiveId] = t;
-    if (typeof window !== 'undefined') {
-      window._taskMap = window._taskMap || {};
-      window._taskMap[id] = t;
-      if (effectiveId !== id) window._taskMap[effectiveId] = t;
-    }
-    var loadedEst = _allLoadedTasks.find(function(x) { return String(x.id) === String(id) || String(x.id) === String(effectiveId); });
-    if (loadedEst) {
-      loadedEst.estimate = value;
-      loadedEst.description = updatedDescEst;
-    }
+  if (field === 'estimate' || field === 'project_name') {
+    var clientMeta = getSupaClient();
+    if (!clientMeta || String(effectiveId).startsWith('temp_')) return;
     try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks));
-      }
-    } catch (_) {}
-    if (_tasksViewMode === 'board') {
-      if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
-    } else if (_tasksViewMode === 'mytasks') {
-      renderMyTasksView();
-    } else if (_tasksViewMode === 'projects') {
-      renderProjectsView();
-    }
-    var estValEl = document.querySelector('.tdm-estimate-val');
-    if (estValEl) estValEl.textContent = value || 'Estimate';
-
-    var clientEst = getSupaClient();
-    if (clientEst && !String(effectiveId).startsWith('temp_')) {
-      try {
-        await clientEst.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), { description: updatedDescEst });
-        var prEst = (typeof window !== 'undefined' && window.PortalRealtime)
-          ? window.PortalRealtime
-          : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
-        if (prEst && typeof prEst.broadcast === 'function') {
-          prEst.broadcast('tasks', 'update', { id: effectiveId, field: 'estimate', value: value, estimate: value, description: updatedDescEst });
+      var baseMeta = t;
+      var metadata = { [field]: value };
+      for (var attempt = 0; attempt < 3; attempt++) {
+        var nextMeta = buildTaskDescriptionWithMeta(baseMeta, baseMeta.description, metadata);
+        var savedMeta = await commitTaskBriefField(effectiveId, 'description', baseMeta.description, nextMeta, metadata);
+        if (savedMeta.saved) {
+          applyTaskBriefRow({ id: effectiveId, description: savedMeta.task.description, [field]: value });
+          broadcastTaskBriefSaved(effectiveId);
+          return true;
         }
-        if (typeof showToast === 'function') {
-          showToast('Estimate updated', 'info', 1000);
-        }
-      } catch (errEst) {
-        console.warn('Background patch error for estimate:', errEst);
+        baseMeta = savedMeta.task;
       }
+      throw new Error('Task metadata changed while saving.');
+    } catch (_) {
+      if (typeof showToast === 'function') showToast('Could not save the task update. Please retry.', 'error');
+      return false;
     }
-    return;
-  }
-
-  if (field === 'project_name') {
-    t.project_name = value;
-    var updatedDescProj = buildTaskDescriptionWithMeta(t, t.description);
-    t.description = updatedDescProj;
-    _taskMap[id] = t;
-    if (effectiveId !== id) _taskMap[effectiveId] = t;
-    if (typeof window !== 'undefined') {
-      window._taskMap = window._taskMap || {};
-      window._taskMap[id] = t;
-      if (effectiveId !== id) window._taskMap[effectiveId] = t;
-    }
-    var loadedProj = _allLoadedTasks.find(function(x) { return String(x.id) === String(id) || String(x.id) === String(effectiveId); });
-    if (loadedProj) {
-      loadedProj.project_name = value;
-      loadedProj.description = updatedDescProj;
-    }
-    try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('bb_cached_tasks', JSON.stringify(_allLoadedTasks));
-      }
-    } catch (_) {}
-    if (_tasksViewMode === 'board') {
-      if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
-    } else if (_tasksViewMode === 'mytasks') {
-      renderMyTasksView();
-    } else if (_tasksViewMode === 'projects') {
-      renderProjectsView();
-    }
-    var clientProj = getSupaClient();
-    if (clientProj && !String(effectiveId).startsWith('temp_')) {
-      try {
-        await clientProj.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveId), { description: updatedDescProj });
-        var prProj = (typeof window !== 'undefined' && window.PortalRealtime)
-          ? window.PortalRealtime
-          : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
-        if (prProj && typeof prProj.broadcast === 'function') {
-          prProj.broadcast('tasks', 'update', { id: effectiveId, field: 'project_name', value: value, description: updatedDescProj });
-        }
-      } catch (errProj) {
-        console.warn('Background patch error for project_name:', errProj);
-      }
-    }
-    return;
   }
 
   var currentVal = t[field];
@@ -6625,10 +6735,8 @@ async function editTaskDetailEstimate(e) {
     });
   }
   if (newEst !== null) {
-    saveTaskField(_activeDetailTaskId, 'estimate', newEst.trim());
-    var estValEl = document.querySelector('.tdm-estimate-val');
-    if (estValEl) estValEl.textContent = newEst.trim() || 'Estimate';
-    if (typeof showToast === 'function') {
+    var saved = await saveTaskField(_activeDetailTaskId, 'estimate', newEst.trim());
+    if (saved && typeof showToast === 'function') {
       showToast('Estimate updated', 'success');
     }
   }
@@ -6639,24 +6747,8 @@ async function editTaskDetailEstimate(e) {
  */
 function closeTaskDetail() {
   if (typeof document === 'undefined') return;
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[_activeDetailTaskId]) || _taskMap[_activeDetailTaskId];
-  if (!t && _allLoadedTasks && _allLoadedTasks.length) {
-    t = _allLoadedTasks.find(function(x) { return String(x.id) === String(_activeDetailTaskId); });
-  }
-  var titleEl = document.getElementById('tdm-title');
-  if (titleEl && _activeDetailTaskId && t) {
-    var titleVal = (titleEl.textContent || '').trim();
-    if (titleVal && titleVal !== (t.title || '').trim() && (!_initialTaskDetailState || titleVal !== _initialTaskDetailState.title)) {
-      saveTaskField(_activeDetailTaskId, 'title', titleVal);
-    }
-  }
-  var descEl = document.getElementById('tdm-desc');
-  if (descEl && _activeDetailTaskId && t) {
-    var descHtml = (descEl.innerHTML || '').trim();
-    if (!_initialTaskDetailState || descHtml !== _initialTaskDetailState.descHtml) {
-      saveActiveTaskBrief();
-    }
-  }
+  handleTaskTitleBlur();
+  handleTaskDescBlur();
   var m = document.getElementById('task-detail-modal');
   if (m) m.style.display = 'none';
   var sMenu = document.querySelector('.tdm-status-dropdown');
@@ -6671,7 +6763,11 @@ function closeTaskDetail() {
     clearInterval(_activeTaskPollTimer);
     _activeTaskPollTimer = null;
   }
-  _initialTaskDetailState = null;
+  if (document.documentElement && document.documentElement.classList) document.documentElement.classList.remove('task-brief-open');
+  if (_taskBriefReturnFocus && _taskBriefReturnFocus.isConnected && typeof _taskBriefReturnFocus.focus === 'function') {
+    _taskBriefReturnFocus.focus({ preventScroll: true });
+  }
+  _taskBriefReturnFocus = null;
 }
 
 /**
@@ -8047,6 +8143,11 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.editTaskDetailEstimate     = editTaskDetailEstimate;
   window.handleTaskDetailDescChange = handleTaskDetailDescChange;
   window.saveActiveTaskBrief        = saveActiveTaskBrief;
+  window.queueTaskBriefEdit         = queueTaskBriefEdit;
+  window.resolveTaskBriefDraft      = resolveTaskBriefDraft;
+  window.handleTaskBriefKeydown     = handleTaskBriefKeydown;
+  window.refreshTaskBriefRow        = refreshTaskBriefRow;
+  window.applyTaskBriefRow          = applyTaskBriefRow;
   window.handleTaskTitleBlur        = handleTaskTitleBlur;
   window.handleTaskDescBlur         = handleTaskDescBlur;
   window.getTaskProjectName         = getTaskProjectName;
