@@ -6,7 +6,7 @@
  * emoji reactions, and admin post/edit/delete operations.
  */
 
-/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sendPortalPushNotification, cleanSnippet, resolveMentionTargets */
+/* global supa, sessionGet, escapeHtml, safeUrl, sanitizeHtml, sanitizeInput, showToast, showConfirmModal, createSmartLoader, renderSkeletonCard, syncAnnouncementNotifications, uploadSingleMediaFile, openAnnouncementZoomModal, _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sendPortalPushNotification, cleanSnippet, resolveMentionTargets, getMentionDirectoryMembers, highlightPortalMentions, hasPortalMention */
 
 // ── Default Fallback Announcements (Zero-Blank Offline Resilience) ────────
 var DEFAULT_ANNOUNCEMENTS = [
@@ -723,9 +723,7 @@ function renderAnnouncements() {
     var realIdx = entry.realIdx;
     var isPinned = Boolean(a.is_pinned ?? a.pinned);
     var sanitizedBody = sanitizeAnnouncementHtml(a.body || '');
-    var formattedBody = sanitizedBody.split(/(<[^>]+>)/g).map(function(part, index) {
-      return index % 2 ? part : formatAnnouncementMentions(part);
-    }).join('');
+    var formattedBody = formatAnnouncementMentions(sanitizedBody, true);
     var reactions = a.reactions || {};
 
     // Build reaction buttons
@@ -779,7 +777,7 @@ function renderAnnouncements() {
       reactHtml += '</div>';
     }
 
-    var safeTitle = formatAnnouncementMentions((typeof escapeHtml === 'function') ? escapeHtml(a.title || '') : (a.title || ''));
+    var safeTitle = escapeHtml(a.title || '');
     var safeDate = (typeof escapeHtml === 'function') ? escapeHtml(a.date || '') : (a.date || '');
 
     // Prominent large infographic banner ( / Infographics)
@@ -810,7 +808,7 @@ function renderAnnouncements() {
     html += '<div class="announcement-item' + (isPinned ? ' is-pinned' : '') + '" id="ann-item-' + realIdx + '">'
       + pinnedBadgeHtml
       + '<div class="ann-date">' + safeDate + '</div>'
-      + '<div class="ann-title">' + safeTitle + '</div>'
+      + '<div class="ann-title">' + formatAnnouncementMentions(safeTitle, true) + '</div>'
       + infographicHtml
       + '<div class="ann-body">' + formattedBody + '</div>'
       + reactHtml
@@ -1130,7 +1128,7 @@ function openEditAnnouncement(idxOrId) {
   if (ti) ti.value = a.title || '';
 
   var bi = document.getElementById('ann-body-input');
-  if (bi) bi.innerHTML = sanitizeAnnouncementHtml(a.body || '');
+  if (bi) bi.innerHTML = formatAnnouncementMentions(sanitizeAnnouncementHtml(a.body || ''), true);
 
   var pinCheck = (typeof document !== 'undefined') ? document.querySelector('.ann-pinned-check') : null;
   if (pinCheck) {
@@ -1937,36 +1935,17 @@ function getAnnouncementMentionCandidates(query) {
     };
   }
 
-  try {
-    if (typeof localStorage !== 'undefined') {
-      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
-      if (Array.isArray(cached)) {
-        cached.forEach(function(m) {
-          if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
-            memberMap[m.name.trim()] = {
-              name: m.name.trim(),
-              label: '@' + m.name.trim(),
-              role: m.rank || 'Member',
-              desc: (m.rank || 'Member') + (m.department ? (' · ' + m.department) : '')
-            };
-          }
-        });
-      }
-    }
-  } catch (_) {}
-
-  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
-      if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
-        memberMap[m.name.trim()] = {
-          name: m.name.trim(),
-          label: '@' + m.name.trim(),
-          role: m.department || m.rank || 'Member',
-          desc: (m.rank || 'Member') + (m.department ? (' · ' + m.department) : '')
-        };
-      }
-    });
-  }
+  var directory = (typeof _cachedDepartmentMembers !== 'undefined') ? _cachedDepartmentMembers : [];
+  getMentionDirectoryMembers(directory).forEach(function(m) {
+    var name = m.name.trim();
+    if (Object.hasOwn(memberMap, name)) return;
+    memberMap[name] = {
+      name: name,
+      label: '@' + name,
+      role: m.department || m.rank || 'Member',
+      desc: (m.rank || 'Member') + (m.department ? (' · ' + m.department) : '')
+    };
+  });
 
   Object.keys(memberMap).sort().forEach(function(k) {
     var m = memberMap[k];
@@ -1978,192 +1957,96 @@ function getAnnouncementMentionCandidates(query) {
   return candidates;
 }
 
-function _safeMentionToken(str) {
-  if (!str) return '';
-  if (typeof escapeHtml === 'function') return escapeHtml(str);
-  if (typeof window !== 'undefined' && typeof window.escapeHtml === 'function') return window.escapeHtml(str);
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 /**
  * Wraps @mentions in announcement text with styled mention badges
  * @param {string} text
+ * @param {boolean} [sanitizedHtml] Whether the input has already been sanitized or escaped.
  * @returns {string}
  */
-function formatAnnouncementMentions(text) {
-  if (!text) return '';
-  var groups = [
-    'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers',
-    'super admins', 'super admin', 'admins', 'admin',
-    'P1', 'P2', 'A1', 'A2', 'Z1', 'Z2',
-    'Papa', 'Alpha', 'Zulu',
-    'seniors', 'juniors', 'creator', 'all'
-  ];
-  var candidates = groups.slice();
-
-  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
-  if (myName && myName.trim()) candidates.push(myName.trim());
-  try {
-    if (typeof localStorage !== 'undefined') {
-      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
-      if (Array.isArray(cached)) {
-        cached.forEach(function(m) {
-          if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
-        });
-      }
-    }
-  } catch (_) {}
-
-  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
-      if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
-    });
-  }
-
-  var seen = {};
-  var unique = [];
-  candidates.forEach(function(name) {
-    var k = name.toLowerCase();
-    if (!seen[k]) {
-      seen[k] = true;
-      unique.push(name);
-    }
-  });
-  unique.sort(function(a, b) { return b.length - a.length; });
-
-  var out = text;
-  unique.forEach(function(name) {
-    if (!name) return;
-    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
-    var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
-    out = out.replace(rx, function(match, prefix, matchedName) {
-      var safe = _safeMentionToken(matchedName);
-      return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-    });
-  });
-
-  // Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
-
-  // Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
-
-  // Fallback for single-word mentions (e.g. @group)
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
-
-  return out;
+function formatAnnouncementMentions(text, sanitizedHtml) {
+  var safe = sanitizedHtml ? text : escapeHtml(text);
+  if (!safe || !safe.includes('@')) return safe || '';
+  var names = getAnnouncementMentionCandidates('').map(function(candidate) { return candidate.name; });
+  return highlightPortalMentions(safe, names.concat(['everyone', 'everybody', 'officer', 'admin', 'super admin', 'superadmin', 'superadmins', 'administrator', 'administrators', 'senior', 'junior']));
 }
 
 /**
  * Checks if user is mentioned in an announcement
  */
 function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, mySquad, myPlatoon, mySection) {
-  if (!text) return false;
+  if (!text || !text.includes('@')) return false;
   var cleanText = String(text)
     .replace(/&nbsp;/g, ' ')
     .replace(/<[^>]+>/g, ' ');
   var lower = cleanText.toLowerCase();
 
   // 1. @all
-  if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
+  if (hasPortalMention(lower, ['all', 'everyone', 'everybody'])) return true;
 
-  // 2. Individual @Name
-  if (myName) {
-    var myNameLower = myName.toLowerCase().trim();
-    if (lower.indexOf('@' + myNameLower) !== -1) return true;
-    var nameParts = myNameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
-    for (var i = 0; i < nameParts.length; i++) {
-      var rx = new RegExp('(?:^|\\W)@' + nameParts[i] + '\\b', 'i');
-      if (rx.test(lower)) return true;
-    }
-  }
-
-  // Also check email user prefix
-  if (myEmail) {
-    var myEmailLower = myEmail.toLowerCase().trim();
-    if (lower.indexOf('@' + myEmailLower) !== -1) return true;
-    var emailPrefix = myEmailLower.split('@')[0];
-    if (emailPrefix && emailPrefix.length >= 3) {
-      var erx = new RegExp('(?:^|\\W)@' + emailPrefix + '\\b', 'i');
-      if (erx.test(lower)) return true;
-    }
-  }
+  // 2. Individual mention by complete display name or email.
+  if (hasPortalMention(cleanText, [myName, myEmail])) return true;
 
   // 3. Departments: Secretariat, Logistics, Media, HQ, Officers
   var deptStr = (myDept || (typeof sessionGet === 'function' ? sessionGet('department') : '') || '').toLowerCase().trim();
   if (deptStr) {
-    if (lower.indexOf('@' + deptStr) !== -1) return true;
-    if (deptStr.indexOf('secretariat') !== -1 && lower.indexOf('@secretariat') !== -1) return true;
-    if (deptStr.indexOf('logistics') !== -1 && lower.indexOf('@logistics') !== -1) return true;
-    if (deptStr.indexOf('media') !== -1 && lower.indexOf('@media') !== -1) return true;
-    if (deptStr.indexOf('hq') !== -1 && lower.indexOf('@hq') !== -1) return true;
-    if ((deptStr === 'officers' || deptStr === 'officer') && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+    if (hasPortalMention(lower, [deptStr])) return true;
+    if (deptStr.indexOf('secretariat') !== -1 && hasPortalMention(lower, ['secretariat'])) return true;
+    if (deptStr.indexOf('logistics') !== -1 && hasPortalMention(lower, ['logistics'])) return true;
+    if (deptStr.indexOf('media') !== -1 && hasPortalMention(lower, ['media'])) return true;
+    if (deptStr.indexOf('hq') !== -1 && hasPortalMention(lower, ['hq'])) return true;
+    if ((deptStr === 'officers' || deptStr === 'officer') && hasPortalMention(lower, ['officer', 'officers'])) return true;
   }
   var rankStr = (myRank || (typeof sessionGet === 'function' ? sessionGet('rank') : '') || '');
   var isOfficerRank = rankStr && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(rankStr) !== -1;
-  if (isOfficerRank && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+  if (isOfficerRank && hasPortalMention(lower, ['officer', 'officers'])) return true;
 
   // 4. Squads: P1, P2, A1, A2, Z1, Z2
   var squadStr = (mySquad || (typeof sessionGet === 'function' ? sessionGet('squad') : '') || '').toLowerCase().trim();
   if (squadStr) {
-    if (lower.indexOf('@' + squadStr) !== -1) return true;
+    if (hasPortalMention(lower, [squadStr])) return true;
     var normSquad = squadStr.replace(/[^a-z0-9]/g, '');
     if (normSquad === 'p1' || normSquad === 'papa1' || (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('1') !== -1)) {
-      if (/(?:^|\W)@p1\b/i.test(lower)) return true;
+      if (hasPortalMention(lower, ['p1'])) return true;
     }
     if (normSquad === 'p2' || normSquad === 'papa2' || (squadStr.indexOf('papa') !== -1 && squadStr.indexOf('2') !== -1)) {
-      if (/(?:^|\W)@p2\b/i.test(lower)) return true;
+      if (hasPortalMention(lower, ['p2'])) return true;
     }
     if (normSquad === 'a1' || normSquad === 'alpha1' || (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('1') !== -1)) {
-      if (/(?:^|\W)@a1\b/i.test(lower)) return true;
+      if (hasPortalMention(lower, ['a1'])) return true;
     }
     if (normSquad === 'a2' || normSquad === 'alpha2' || (squadStr.indexOf('alpha') !== -1 && squadStr.indexOf('2') !== -1)) {
-      if (/(?:^|\W)@a2\b/i.test(lower)) return true;
+      if (hasPortalMention(lower, ['a2'])) return true;
     }
     if (normSquad === 'z1' || normSquad === 'zulu1' || (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('1') !== -1)) {
-      if (/(?:^|\W)@z1\b/i.test(lower)) return true;
+      if (hasPortalMention(lower, ['z1'])) return true;
     }
     if (normSquad === 'z2' || normSquad === 'zulu2' || (squadStr.indexOf('zulu') !== -1 && squadStr.indexOf('2') !== -1)) {
-      if (/(?:^|\W)@z2\b/i.test(lower)) return true;
+      if (hasPortalMention(lower, ['z2'])) return true;
     }
   }
 
   // 5. Platoons: Papa, Alpha, Zulu
   var platoonStr = (myPlatoon || (typeof sessionGet === 'function' ? sessionGet('platoon') : '') || squadStr || '').toLowerCase().trim();
   if (platoonStr) {
-    if (platoonStr.indexOf('papa') !== -1 && /(?:^|\W)@papa\b/i.test(lower)) return true;
-    if (platoonStr.indexOf('alpha') !== -1 && /(?:^|\W)@alpha\b/i.test(lower)) return true;
-    if (platoonStr.indexOf('zulu') !== -1 && /(?:^|\W)@zulu\b/i.test(lower)) return true;
+    if (platoonStr.indexOf('papa') !== -1 && hasPortalMention(lower, ['papa'])) return true;
+    if (platoonStr.indexOf('alpha') !== -1 && hasPortalMention(lower, ['alpha'])) return true;
+    if (platoonStr.indexOf('zulu') !== -1 && hasPortalMention(lower, ['zulu'])) return true;
   }
 
   // 6. Section groups: seniors, juniors
   var secStr = (mySection || (typeof sessionGet === 'function' ? sessionGet('section') : '') || '').toLowerCase().trim();
   if (secStr.indexOf('senior') !== -1 || isOfficerRank) {
-    if (/(?:^|\W)@seniors?\b/i.test(lower)) return true;
+    if (hasPortalMention(lower, ['senior', 'seniors'])) return true;
   }
   if (secStr.indexOf('junior') !== -1 || secStr.indexOf('pre-junior') !== -1) {
-    if (/(?:^|\W)@juniors?\b/i.test(lower)) return true;
+    if (hasPortalMention(lower, ['junior', 'juniors'])) return true;
   }
 
   // 7. Creator: @creator
   var isCreator = (typeof isPortalCreator === 'function')
     ? isPortalCreator(myName, myEmail)
     : (/jeshua\s+koh/i.test(myName) || (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1));
-  if (isCreator && /(?:^|\W)@creator\b/i.test(lower)) return true;
+  if (isCreator && hasPortalMention(lower, ['creator'])) return true;
 
   // 8. Super Admins: @super admins / @super admin
   var isSuper = (typeof isSuperAdmin === 'function' && isSuperAdmin())
@@ -2172,7 +2055,7 @@ function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, my
     var sRole = (sessionGet('role') || '').toLowerCase();
     if (sRole === 'superadmin' || sRole === 'super admin') isSuper = true;
   }
-  if (isSuper && /(?:^|\W)@(super\s*admins?)\b/i.test(lower)) return true;
+  if (isSuper && hasPortalMention(lower, ['super admin', 'super admins', 'superadmin', 'superadmins'])) return true;
 
   // 9. Admins: @admins / @admin
   var isAdminUser = isSuper || (typeof isAdmin === 'function' && isAdmin())
@@ -2181,7 +2064,7 @@ function isUserMentionedInAnnouncement(text, myName, myEmail, myDept, myRank, my
     var aRole = (sessionGet('role') || '').toLowerCase();
     if (aRole === 'admin' || aRole === 'superadmin') isAdminUser = true;
   }
-  if (isAdminUser && /(?:^|\W)@(admins?|administrators?)\b/i.test(lower)) return true;
+  if (isAdminUser && hasPortalMention(lower, ['admin', 'admins', 'administrator', 'administrators'])) return true;
 
   return false;
 }
@@ -2345,7 +2228,7 @@ function selectAnnouncementMentionCandidate(idx, event) {
       }
     } else {
       var curText = input.innerText || input.textContent || '';
-      input.innerHTML = formatAnnouncementMentions(escapeHtml(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' ')));
+      input.innerHTML = formatAnnouncementMentions(curText.replace(/@([a-zA-Z0-9_\s]*)$/, '@' + candidate.name + ' '));
     }
   } else {
     var val = input.value || '';

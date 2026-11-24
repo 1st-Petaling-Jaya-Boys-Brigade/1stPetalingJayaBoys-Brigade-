@@ -16,7 +16,7 @@
  *    - Supabase bb_config persistence with offline state fallback.
  */
 
-/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet, resolveMentionTargets */
+/* global _cachedDepartmentMembers, isSuperAdmin, isAdmin, isPortalCreator, sessionGet, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet, resolveMentionTargets, getMentionDirectoryMembers, highlightPortalMentions, hasPortalMention */
 
 // ── SVG Icon Registry (Zero Emojis) ──────────────────────────────────────────
 var FORUM_ICONS = {
@@ -6228,7 +6228,7 @@ async function submitForumReply(e, postId, customText) {
         if (mUser && targetUsers.indexOf(mUser) === -1) targetUsers.push(mUser);
       });
     }
-    var isAllMention = /(?:^|\W)@(all|everyone|everybody)\b/i.test(text);
+    var isAllMention = hasPortalMention(text, ['all', 'everyone', 'everybody']);
     if (targetUsers.length > 0 || isAllMention) {
       var cleanReply = (typeof cleanSnippet === 'function')
         ? cleanSnippet(text, 140)
@@ -6321,36 +6321,17 @@ function getForumMentionCandidates(query) {
     };
   }
 
-  try {
-    if (typeof localStorage !== 'undefined') {
-      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
-      if (Array.isArray(cached)) {
-        cached.forEach(function(m) {
-          if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
-            memberMap[m.name.trim()] = {
-              name: m.name.trim(),
-              label: '@' + m.name.trim(),
-              role: m.rank || 'Member',
-              desc: m.rank || 'Member'
-            };
-          }
-        });
-      }
-    }
-  } catch (_) {}
-
-  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
-      if (m && m.name && m.name.trim() && !memberMap[m.name.trim()]) {
-        memberMap[m.name.trim()] = {
-          name: m.name.trim(),
-          label: '@' + m.name.trim(),
-          role: m.rank || 'Member',
-          desc: m.rank || 'Member'
-        };
-      }
-    });
-  }
+  var directory = (typeof _cachedDepartmentMembers !== 'undefined') ? _cachedDepartmentMembers : [];
+  getMentionDirectoryMembers(directory).forEach(function(m) {
+    var name = m.name.trim();
+    if (Object.hasOwn(memberMap, name)) return;
+    memberMap[name] = {
+      name: name,
+      label: '@' + name,
+      role: m.rank || 'Member',
+      desc: m.rank || 'Member'
+    };
+  });
 
   Object.keys(memberMap).sort().forEach(function(k) {
     var m = memberMap[k];
@@ -6368,66 +6349,9 @@ function getForumMentionCandidates(query) {
  * @returns {string}
  */
 function formatForumMentions(text) {
-  if (!text) return '';
-  var groups = ['super admins', 'super admin', 'admins', 'admin', 'creator', 'all'];
-  var candidates = groups.slice();
-
-  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
-  if (myName && myName.trim()) candidates.push(myName.trim());
-  try {
-    if (typeof localStorage !== 'undefined') {
-      var cached = JSON.parse(localStorage.getItem('bb_cached_members') || '[]');
-      if (Array.isArray(cached)) {
-        cached.forEach(function(m) {
-          if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
-        });
-      }
-    }
-  } catch (_) {}
-
-  if (typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
-      if (m && m.name && m.name.trim()) candidates.push(m.name.trim());
-    });
-  }
-
-  var seen = {};
-  var unique = [];
-  candidates.forEach(function(name) {
-    var k = name.toLowerCase();
-    if (!seen[k]) {
-      seen[k] = true;
-      unique.push(name);
-    }
-  });
-  unique.sort(function(a, b) { return b.length - a.length; });
-
-  var out = text;
-  unique.forEach(function(name) {
-    if (!name) return;
-    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
-    var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
-    out = out.replace(rx, function(match, prefix, matchedName) {
-      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
-    });
-  });
-
-  // Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
-  });
-
-  // Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
-  });
-
-  // Fallback for single-word mentions (e.g. @group)
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    return prefix + '<span class="tb-mention-pill">@' + mName + '</span>';
-  });
-
-  return out;
+  if (!text || !text.includes('@')) return text || '';
+  var names = getForumMentionCandidates('').map(function(candidate) { return candidate.name; });
+  return highlightPortalMentions(text, names.concat(['everyone', 'everybody', 'admin', 'super admin', 'superadmin', 'superadmins', 'administrator', 'administrators']));
 }
 
 /**
@@ -6441,42 +6365,23 @@ function formatForumMentions(text) {
  * @returns {boolean}
  */
 function isUserMentionedInForum(text, authorEmail, authorName, myName, myEmail, _myRole) {
-  if (!text) return false;
+  if (!text || !text.includes('@')) return false;
   var cleanText = String(text)
     .replace(/&nbsp;/g, ' ')
     .replace(/<[^>]+>/g, ' ');
   var lower = cleanText.toLowerCase();
 
   // 1. @all
-  if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
+  if (hasPortalMention(lower, ['all', 'everyone', 'everybody'])) return true;
 
-  // 2. Individual @Name
-  if (myName) {
-    var myNameLower = myName.toLowerCase().trim();
-    if (lower.indexOf('@' + myNameLower) !== -1) return true;
-    var nameParts = myNameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
-    for (var i = 0; i < nameParts.length; i++) {
-      var rx = new RegExp('(?:^|\\W)@' + nameParts[i] + '\\b', 'i');
-      if (rx.test(lower)) return true;
-    }
-  }
-
-  // Also check email user prefix
-  if (myEmail) {
-    var myEmailLower = myEmail.toLowerCase().trim();
-    if (lower.indexOf('@' + myEmailLower) !== -1) return true;
-    var emailPrefix = myEmailLower.split('@')[0];
-    if (emailPrefix && emailPrefix.length >= 3) {
-      var erx = new RegExp('(?:^|\\W)@' + emailPrefix + '\\b', 'i');
-      if (erx.test(lower)) return true;
-    }
-  }
+  // 2. Individual mention by complete display name or email.
+  if (hasPortalMention(cleanText, [myName, myEmail])) return true;
 
   // 3. Creator: @creator
   var isCreator = (typeof isPortalCreator === 'function')
     ? isPortalCreator(myName, myEmail)
     : (/jeshua\s+koh/i.test(myName) || (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1));
-  if (isCreator && /(?:^|\W)@creator\b/i.test(lower)) return true;
+  if (isCreator && hasPortalMention(lower, ['creator'])) return true;
 
   // 4. Super Admins: @super admins / @super admin
   var isSuper = (typeof isSuperAdmin === 'function' && isSuperAdmin())
@@ -6485,7 +6390,7 @@ function isUserMentionedInForum(text, authorEmail, authorName, myName, myEmail, 
     var sRole = (sessionGet('role') || '').toLowerCase();
     if (sRole === 'superadmin' || sRole === 'super admin') isSuper = true;
   }
-  if (isSuper && /(?:^|\W)@(super\s*admins?)\b/i.test(lower)) return true;
+  if (isSuper && hasPortalMention(lower, ['super admin', 'super admins', 'superadmin', 'superadmins'])) return true;
 
   // 5. Admins: @admins / @admin
   var isAdminUser = isSuper || (typeof isAdmin === 'function' && isAdmin())
@@ -6494,7 +6399,7 @@ function isUserMentionedInForum(text, authorEmail, authorName, myName, myEmail, 
     var aRole = (sessionGet('role') || '').toLowerCase();
     if (aRole === 'admin' || aRole === 'superadmin') isAdminUser = true;
   }
-  if (isAdminUser && /(?:^|\W)@(admins?|administrators?)\b/i.test(lower)) return true;
+  if (isAdminUser && hasPortalMention(lower, ['admin', 'admins', 'administrator', 'administrators'])) return true;
 
   // STRICT NOTE: NO departments checked for forum per user instruction
   return false;

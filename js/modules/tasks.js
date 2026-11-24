@@ -8,7 +8,7 @@
  * Renders in a dedicated Projects & Tasks view under #page-tasks.
  */
 
-/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet, resolveMentionTargets */
+/* global supa, escapeHtml, sanitizeHtml, sanitizeText, sessionGet, sessionSet, showToast, showConfirmModal, isNCO, isNcoRank, reGetValue, reSetValue, reClearValue, syncTaskNotifications, verifyAdminSessionSync, executeRichFormat, isAdmin, isSuperAdmin, setDismissedNotifId, renderNotifications, sendPortalPushNotification, cleanSnippet, resolveMentionTargets, getMentionDirectoryMembers, highlightPortalMentions, hasPortalMention */
 
 // ── Department Configuration ───────────────────────────────────────────────
 var DEPT_CONFIG = {
@@ -4901,7 +4901,7 @@ async function deleteTaskComment(taskId, commentId) {
  * @returns {boolean}
  */
 function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail, myDept, myRank, myPlatoon) {
-  if (!text) return false;
+  if (!text || !text.includes('@')) return false;
 
   var cleanText = String(text)
     .replace(/&nbsp;/g, ' ')
@@ -4909,39 +4909,20 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   var lower = cleanText.toLowerCase();
 
   // Rule 1: @all mentions all members (even author)
-  if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
+  if (hasPortalMention(lower, ['all', 'everyone', 'everybody'])) return true;
 
-  // Rule 2: Individual @Name mention (e.g. "@Jeshua Koh", "@Jeshua", "@Jason Koh")
-  if (myName) {
-    var myNameLower = myName.toLowerCase().trim();
-    if (lower.indexOf('@' + myNameLower) !== -1) return true;
-    var nameParts = myNameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
-    for (var i = 0; i < nameParts.length; i++) {
-      var rx = new RegExp('(?:^|\\W)@' + nameParts[i] + '\\b', 'i');
-      if (rx.test(lower)) return true;
-    }
-  }
-
-  // Also check email user prefix if @email is mentioned
-  if (myEmail) {
-    var myEmailLower = myEmail.toLowerCase().trim();
-    if (lower.indexOf('@' + myEmailLower) !== -1) return true;
-    var emailPrefix = myEmailLower.split('@')[0];
-    if (emailPrefix && emailPrefix.length >= 3) {
-      var erx = new RegExp('(?:^|\\W)@' + emailPrefix + '\\b', 'i');
-      if (erx.test(lower)) return true;
-    }
-  }
+  // Rule 2: Individual mention by complete display name or email.
+  if (hasPortalMention(cleanText, [myName, myEmail])) return true;
 
   // Rule 3: Department group mention (e.g. @Secretariat, @Logistics, @Media, @HQ, @Officers)
   if (myDept) {
     var cleanDept = myDept.toLowerCase().trim();
-    if (cleanDept && lower.indexOf('@' + cleanDept) !== -1) return true;
-    if (cleanDept.indexOf('secretariat') !== -1 && lower.indexOf('@secretariat') !== -1) return true;
-    if (cleanDept.indexOf('logistics') !== -1 && lower.indexOf('@logistics') !== -1) return true;
-    if (cleanDept.indexOf('media') !== -1 && lower.indexOf('@media') !== -1) return true;
-    if (cleanDept.indexOf('hq') !== -1 && lower.indexOf('@hq') !== -1) return true;
-    if ((cleanDept === 'officers' || cleanDept === 'officer') && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+    if (cleanDept && hasPortalMention(lower, [cleanDept])) return true;
+    if (cleanDept.indexOf('secretariat') !== -1 && hasPortalMention(lower, ['secretariat'])) return true;
+    if (cleanDept.indexOf('logistics') !== -1 && hasPortalMention(lower, ['logistics'])) return true;
+    if (cleanDept.indexOf('media') !== -1 && hasPortalMention(lower, ['media'])) return true;
+    if (cleanDept.indexOf('hq') !== -1 && hasPortalMention(lower, ['hq'])) return true;
+    if ((cleanDept === 'officers' || cleanDept === 'officer') && hasPortalMention(lower, ['officer', 'officers'])) return true;
   }
 
   // Rule 4: Platoon group mention (e.g. @Hotel, @Hotel Platoon, @Alpha, @Zulu, @Papa)
@@ -4949,25 +4930,25 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
   if (!platoonStr && typeof sessionGet === 'function') platoonStr = sessionGet('platoon') || '';
   if (platoonStr) {
     var cleanPlatoon = platoonStr.toLowerCase().trim();
-    if (cleanPlatoon && lower.indexOf('@' + cleanPlatoon) !== -1) return true;
+    if (cleanPlatoon && hasPortalMention(lower, [cleanPlatoon])) return true;
     var platoonParts = cleanPlatoon.split(/\s+/).filter(function(p) { return p !== 'platoon' && p.length >= 3; });
     for (var j = 0; j < platoonParts.length; j++) {
-      if (lower.indexOf('@' + platoonParts[j]) !== -1) return true;
+      if (hasPortalMention(lower, [platoonParts[j]])) return true;
     }
   }
 
   // Rule 5: Rank & NCO mentions
   if (myRank) {
     var cleanRank = myRank.toLowerCase().trim();
-    if (cleanRank && lower.indexOf('@' + cleanRank) !== -1) return true;
+    if (cleanRank && hasPortalMention(lower, [cleanRank])) return true;
     var isNco = ['lance corporal', 'corporal', 'sergeant', 'staff sergeant'].some(function(r) { return cleanRank.indexOf(r) !== -1; });
-    if (isNco && /(?:^|\W)@ncos?\b/i.test(lower)) return true;
+    if (isNco && hasPortalMention(lower, ['nco', 'ncos'])) return true;
   }
 
   // Rule 6: @Officers mention (matching rank or department)
   var isOfficerRank = myRank && ['Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Warrant Officer', 'Instructor', 'Staff Sergeant'].indexOf(myRank) !== -1;
   var isOfficerDept = myDept && (myDept.toLowerCase().trim() === 'officers' || myDept.toLowerCase().trim() === 'officer');
-  if ((isOfficerRank || isOfficerDept) && /(?:^|\W)@officers?\b/i.test(lower)) return true;
+  if ((isOfficerRank || isOfficerDept) && hasPortalMention(lower, ['officer', 'officers'])) return true;
 
   // Rule 7: Admin & Super Admin mention
   var isAdminOrSuper = (typeof isAdmin === 'function' && isAdmin()) || (typeof isSuperAdmin === 'function' && isSuperAdmin()) || (typeof window !== 'undefined' && typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
@@ -4975,11 +4956,11 @@ function isUserMentionedInComment(text, authorEmail, authorName, myName, myEmail
     var sRole = (sessionGet('role') || '').toLowerCase();
     if (sRole === 'admin' || sRole === 'superadmin') isAdminOrSuper = true;
   }
-  if (isAdminOrSuper && /(?:^|\W)@(admins?|superadmins?)\b/i.test(lower)) return true;
+  if (isAdminOrSuper && hasPortalMention(lower, ['admin', 'admins', 'superadmin', 'superadmins'])) return true;
 
   // Rule 9: Creator mention
   var isCreator = (typeof isPortalCreator === 'function') ? isPortalCreator(myName, myEmail) : (/jeshua\s+koh/i.test(myName) || (myEmail && myEmail.toLowerCase().indexOf('jeshuakoh2008@gmail.com') !== -1));
-  if (isCreator && /(?:^|\W)@creator\b/i.test(lower)) return true;
+  if (isCreator && hasPortalMention(lower, ['creator'])) return true;
 
   return false;
 }
@@ -5072,7 +5053,7 @@ async function handleTaskCommentSubmit(input) {
           if (u && targetUsers.indexOf(u) === -1) targetUsers.push(u);
         });
       }
-      var isAllMention = /(?:^|\W)@(all|everyone|everybody)\b/i.test(commentText);
+      var isAllMention = hasPortalMention(commentText, ['all', 'everyone', 'everybody']);
       var cleanCommentText = (typeof cleanSnippet === 'function')
         ? cleanSnippet(commentText, 140)
         : (commentText || '').replace(/&nbsp;/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
@@ -5614,20 +5595,7 @@ function getDepartmentMentionCandidates(query) {
     });
   }
 
-  // Source E: Assignees from loaded tasks
-  _allLoadedTasks.forEach(function(t) {
-    if (t.assignee_name && t.assignee_name !== 'Unassigned' && !memberMap[t.assignee_name]) {
-      addCandidateMember({
-        name: t.assignee_name,
-        department: t.department || 'Department NCO',
-        rank: 'NCO',
-        email: t.assignee_ic || '',
-        ic: t.assignee_ic || ''
-      });
-    }
-  });
-
-  // Source F: Authorized accounts (Creator and testing accounts)
+  // Source E: Authorized accounts (Creator and testing accounts)
   if (!memberMap['Jeshua Koh']) {
     addCandidateMember({
       name: 'Jeshua Koh',
@@ -6211,52 +6179,16 @@ function selectMentionCandidate(idx, event) {
 }
 
 /**
- * Retrieves all unique candidate mention names sorted by length descending (longest first)
+ * Retrieves supported groups and member names from the current directory.
  * @returns {Array<string>}
  */
 function getAllMentionCandidateNames() {
-  var list = ['all', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers', 'Jeshua Koh', 'Tester Account'];
-  if (Array.isArray(_cachedDepartmentMembers)) {
-    _cachedDepartmentMembers.forEach(function(m) {
-      if (m && m.name && m.name.trim()) list.push(m.name.trim());
-    });
-  }
-  var myName = (typeof sessionGet === 'function' ? sessionGet('name') : '') || '';
-  if (myName && myName.trim()) list.push(myName.trim());
-  if (Array.isArray(_allLoadedTasks)) {
-    _allLoadedTasks.forEach(function(t) {
-      if (t.assignee_name && t.assignee_name !== 'Unassigned' && t.assignee_name.trim()) {
-        list.push(t.assignee_name.trim());
-      }
-    });
-  }
-  try {
-    if (typeof localStorage !== 'undefined') {
-      ['bb_members_cache', 'bb_all_members', 'bb_cached_members'].forEach(function(key) {
-        var raw = localStorage.getItem(key);
-        if (raw) {
-          var parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            parsed.forEach(function(m) {
-              if (m && m.name && m.name.trim()) list.push(m.name.trim());
-            });
-          }
-        }
-      });
-    }
-  } catch (_) {}
-
-  var seen = {};
-  var unique = [];
-  list.forEach(function(name) {
-    var k = name.toLowerCase();
-    if (!seen[k]) {
-      seen[k] = true;
-      unique.push(name);
-    }
-  });
-  unique.sort(function(a, b) { return b.length - a.length; });
-  return unique;
+  var names = ['all', 'everyone', 'everybody', 'Secretariat', 'Logistics', 'Media', 'HQ', 'Officers', 'Officer',
+    'NCO', 'NCOs', 'Hotel', 'Hotel Platoon', 'Papa', 'Alpha', 'Zulu', 'admin', 'admins', 'superadmin', 'superadmins',
+    'creator', 'Jeshua Koh', 'Tester Account'];
+  if (typeof sessionGet === 'function') names.push(sessionGet('name'));
+  getMentionDirectoryMembers(_cachedDepartmentMembers).forEach(function(member) { names.push(member.name); });
+  return names;
 }
 
 function _safeCommentMentionToken(str) {
@@ -6277,49 +6209,14 @@ function _safeCommentMentionToken(str) {
  * @returns {string}
  */
 function formatCommentMentions(text) {
-  return highlightTaskMentions(String(text || ''), _safeCommentMentionToken);
+  var safe = _safeCommentMentionToken(text);
+  return safe.includes('@') ? highlightPortalMentions(safe, getAllMentionCandidateNames()) : safe;
 }
 
 function formatTaskDescriptionMentions(html, editableChecklist) {
   if (typeof sanitizeHtml !== 'function') return formatCommentMentions(html);
-  return sanitizeHtml(html, { editableChecklist: editableChecklist }).split(/(<[^>]+>)/g).map(function(part, index) {
-    return index % 2 ? part : highlightTaskMentions(part, function(value) { return value; });
-  }).join('');
-}
-
-function highlightTaskMentions(text, escapeText) {
-  var candidates = getAllMentionCandidateNames();
-  var out = escapeText(text);
-
-  // 1. Replace known full candidate names (longest first so 3-4 word names match before sub-parts)
-  candidates.forEach(function(name) {
-    if (!name) return;
-    var esc = escapeText(name).replace(/[.*+?^${}()|[\]\\]/g, function(ch) { return '\\' + ch; });
-    var rx = new RegExp('(^|[^a-zA-Z0-9_>])@(' + esc + ')(?=[^a-zA-Z0-9_]|$)', 'gi');
-    out = out.replace(rx, function(match, prefix, matchedName) {
-      return prefix + '<span class="tb-mention-pill">@' + matchedName + '</span>';
-    });
-  });
-
-  // 2. Fallback for uppercase multi-word member names (e.g. OLIVER LING CHEE SHENG) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([A-Z0-9_]+(?:\s+[A-Z0-9_]+){1,5})(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeCommentMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
-
-  // 3. Fallback for 2-word names (e.g. Jeshua Koh) if not in candidate list
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_]+(?:\s+[a-zA-Z0-9_]+)?)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeCommentMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
-
-  // 4. Fallback for any other single-word @mentions not in directory
-  out = out.replace(/(^|[^a-zA-Z0-9_>])@([a-zA-Z0-9_-]+)(?=[^a-zA-Z0-9_]|$)/g, function(match, prefix, mName) {
-    var safe = _safeCommentMentionToken(mName);
-    return prefix + '<span class="tb-mention-pill">@' + safe + '</span>';
-  });
-
-  return out;
+  var safe = sanitizeHtml(html, { editableChecklist: editableChecklist });
+  return safe.includes('@') ? highlightPortalMentions(safe, getAllMentionCandidateNames()) : safe;
 }
 
 

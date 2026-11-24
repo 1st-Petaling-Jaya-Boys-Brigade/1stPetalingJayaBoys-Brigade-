@@ -4013,9 +4013,22 @@ async function getJson(url) {
           window._activeDetailTaskId = null;
           window._cachedDepartmentMembers = [
             { name: 'Anchor Alpha', email: 'anchor-alpha@example.test', rank: 'Corporal', department: 'Media' },
-            { name: 'Anchor Beta', email: 'anchor-beta@example.test', rank: 'Corporal', department: 'Media' }
+            { name: 'Anchor Beta', email: 'anchor-beta@example.test', rank: 'Corporal', department: 'Media' },
+            { name: "Zoë D'Angelo", email: 'zoe@example.test', rank: 'Corporal', department: 'Media' }
           ];
           brief.setAttribute('contenteditable', 'true');
+          const oldBrief = '<p><span class="tb-mention-pill">@Anchor</span> and <strong>@Anchor Beta</strong>' +
+            " and @Zoë&nbsp;D'Angelo. <code>@Anchor Beta</code></p>";
+          paintTaskBriefEditors({ id: 'mention-paint-fixture', description: oldBrief }, true);
+          const reopensWithValidMentions = Array.from(brief.querySelectorAll('.tb-mention-pill'), el => el.textContent.replace(/\\s+/g, ' ')).join('|') ===
+            "@Anchor Beta|@Zoë D'Angelo" && brief.textContent.startsWith('@Anchor and ') && !!brief.querySelector('strong .tb-mention-pill');
+          const richContent = document.createElement('div');
+          const markup = '<a title="attribute @Anchor Beta" href="#tasks">@Anchor</a> @Anchor Beta; @AnchorWrong';
+          const richMentionsRespectMarkup = [formatForumMentions, html => formatAnnouncementMentions(sanitizeAnnouncementHtml(html), true)].every(format => {
+            richContent.innerHTML = format(markup);
+            return richContent.querySelector('a').getAttribute('title') === 'attribute @Anchor Beta' &&
+              richContent.querySelectorAll('.tb-mention-pill').length === 1 && richContent.querySelector('.tb-mention-pill').textContent === '@Anchor Beta';
+          });
           card.scrollTop = 0;
           const narrow = window.innerWidth < 500;
           typeMention(brief, handleTaskBriefDescInput, '<p>Earlier task brief line</p>'.repeat(narrow ? 5 : 8));
@@ -4045,7 +4058,8 @@ async function getJson(url) {
           dropdown.querySelector('.tb-mention-item').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
           const pointerInserts = newBrief.querySelector('.tb-mention-pill')?.textContent === '@Anchor Alpha' &&
             dropdown.style.display === 'none' && !create.hasAttribute('aria-owns');
-          return { briefNearCaret, followsScroll, keyboardInserts, escapeClosesMenu, commentPlacement, createNearCaret, pointerInserts };
+          return { briefNearCaret, followsScroll, keyboardInserts, escapeClosesMenu, commentPlacement, createNearCaret, pointerInserts,
+            reopensWithValidMentions, richMentionsRespectMarkup };
         } finally {
           hideMentionDropdown();
           [detail.style.display, create.style.display, brief.innerHTML, comment.innerHTML, newBrief.innerHTML] = previous;
@@ -4061,8 +4075,9 @@ async function getJson(url) {
       assert.ok(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
       assert.deepStrictEqual(result.result.value, {
         briefNearCaret: true, followsScroll: true, keyboardInserts: true, escapeClosesMenu: true,
-        commentPlacement: true, createNearCaret: true, pointerInserts: true
-      }, `Task mentions follow the brief caret and preserve comment placement at ${viewport}`);
+        commentPlacement: true, createNearCaret: true, pointerInserts: true,
+        reopensWithValidMentions: true, richMentionsRespectMarkup: true
+      }, `Mention placement and verified highlighting work at ${viewport}`);
     };
     await verifyMentionPlacement('desktop width');
     await sendCmd('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
@@ -4072,6 +4087,7 @@ async function getJson(url) {
       await sendCmd('Emulation.clearDeviceMetricsOverride');
     }
     console.log('  ✔ Mention menus follow the brief caret on desktop and mobile and preserve comment placement');
+    console.log('  ✔ Reopened briefs, forum text, and announcements only highlight confirmed mentions');
 
     // [Task Comment Actions (3-Dots Menu, Edit, Delete) & Author Mention Notification Exclusion]
     console.log('\n[Task Comment Actions & Mention Notification Filtering Verification]');
