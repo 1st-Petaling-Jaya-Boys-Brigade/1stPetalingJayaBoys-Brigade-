@@ -64,7 +64,7 @@ Keep an encrypted backup of the keystore and its password in the Brigade's secur
 
 1. Open the portal in **Safari**.
 2. Tap **Share → Add to Home Screen**, enable **Open as Web App** if shown, and tap **Add**. Open the new icon to start the portal in standalone mode. The phone still controls its status area and Home indicator. [Apple's Home Screen instructions](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios)
-3. On iOS or iPadOS 16.4 or newer, sign in from the Home Screen app. Open **Settings → Notifications & Audio Alerts**, switch on **Desktop & Mobile System Popups**, and tap **Allow** when prompted. Tap **Test** to send a real push. Reopen the portal from its Home Screen icon to enable alerts on an existing installation. [WebKit Home Screen push requirements](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)
+3. On iOS or iPadOS 16.4 or newer, sign in from the Home Screen app. Choose **Enable alerts** in the portal's setup prompt, then tap **Allow**. New members can enable alerts in the notification step of onboarding. Use **Settings → Notifications & Audio Alerts → Test** to send a real push. [WebKit Home Screen push requirements](https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/)
 
 ## Notification delivery
 
