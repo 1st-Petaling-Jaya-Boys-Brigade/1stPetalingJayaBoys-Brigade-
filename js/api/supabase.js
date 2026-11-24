@@ -1526,7 +1526,7 @@ var PortalRealtime = (function() {
             }
           }).catch(function() {});
         }
-        var activeTaskRow = await client.get('bb_tasks?id=eq.' + encodeURIComponent(activeTid) + '&select=id,title,description,status,priority,due_date,estimate', { cache: false });
+        var activeTaskRow = await client.get('bb_tasks?id=eq.' + encodeURIComponent(activeTid) + '&limit=1', { cache: false });
         if (Array.isArray(activeTaskRow)) {
           if (activeTaskRow.length === 0) {
             triggerEntityUpdate('tasks', 'delete', { id: activeTid }, true);

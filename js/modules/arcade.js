@@ -1933,7 +1933,7 @@
       var roster = null;
       if (typeof client.get === 'function') {
         try {
-          var remoteMems = await client.get('bb_members?select=ic,name,rank,department,email,section,att_section,squad,platoon,role&order=name.asc');
+          var remoteMems = await client.get('bb_members?select=ic,name,rank,department,email,section,att_section,squad&order=name.asc');
           if (Array.isArray(remoteMems) && remoteMems.length > 0) {
             roster = remoteMems;
             if (typeof localStorage !== 'undefined') {

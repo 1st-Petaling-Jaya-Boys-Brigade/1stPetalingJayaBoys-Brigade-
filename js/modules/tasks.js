@@ -5282,7 +5282,7 @@ async function fetchDepartmentMembers() {
   var client = getSupaClient();
   if (!client) return _cachedDepartmentMembers;
   try {
-    var members = await client.get('bb_members?select=ic,name,rank,department,email,section,att_section,role&order=name.asc');
+    var members = await client.get('bb_members?select=ic,name,rank,department,email,section,att_section,squad&order=name.asc');
     if (Array.isArray(members) && members.length) {
       var eligible = members.filter(isMemberDepartmentRole);
       _cachedDepartmentMembers = eligible;

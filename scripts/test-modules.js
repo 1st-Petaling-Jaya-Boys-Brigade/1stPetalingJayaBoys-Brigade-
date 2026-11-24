@@ -17587,6 +17587,77 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
   }
 
+  {
+    console.log('\nTesting live refreshes against the deployed table schema...');
+    const tasksModule = require('../js/modules/tasks.js');
+    const arcadeModule = require('../js/modules/arcade.js');
+    const { PortalRealtime } = require('../js/api/supabase.js');
+    const previousSupa = global.supa;
+    const previousWindow = global.window;
+    const activeTask = { id: 'schema-task', title: 'Before edit' };
+    const officer = { ic: 'schema-officer', email: 'officer@example.com', name: 'Schema Officer', rank: 'Lieutenant', department: 'Officers', squad: 'Hotel' };
+    const recruit = { ic: 'schema-recruit', name: 'Schema Recruit', rank: 'Recruit' };
+    const loadedRosterPaths = [];
+    const leaderboardKeys = [];
+    let loadedTaskReads = 0;
+    let taskRow = { id: activeTask.id, title: 'New brief', description: 'Estimate: 3h', status: 'todo' };
+
+    const fixture = {
+      get: async (request) => {
+        if (request.startsWith('bb_members?select=ic,name,')) {
+          const fields = new URLSearchParams(request.split('?')[1]).get('select').split(',');
+          if (fields.includes('role') || fields.includes('platoon')) throw new Error('Member column does not exist');
+          loadedRosterPaths.push(request);
+          return [officer, recruit];
+        }
+        if (request.startsWith('bb_tasks?id=eq.schema-task&')) {
+          const select = new URLSearchParams(request.split('?')[1]).get('select');
+          if (!Object.hasOwn(taskRow, 'estimate') && select?.split(',').includes('estimate')) {
+            throw new Error('Task estimate column does not exist');
+          }
+          loadedTaskReads++;
+          return [{ ...taskRow }];
+        }
+        return [];
+      },
+      batchConfigGet: async (keys) => {
+        leaderboardKeys.push(...keys);
+        return {};
+      }
+    };
+
+    global.supa = fixture;
+    global.window = {
+      ...previousWindow,
+      supa: fixture,
+      getSupaClient: () => fixture,
+      isLeaderTab: () => true,
+      _activeDetailTaskId: activeTask.id,
+      _allLoadedTasks: [activeTask],
+      _taskMap: { [activeTask.id]: activeTask }
+    };
+    try {
+      const eligible = await tasksModule.fetchDepartmentMembers();
+      assert.ok(eligible.some(member => member.ic === officer.ic), 'Task mentions must load eligible members on the production schema');
+      assert.ok(!eligible.some(member => member.ic === recruit.ic), 'Task mentions must still exclude an ineligible recruit');
+      await arcadeModule.syncArcadeLeaderboard();
+      assert.strictEqual(loadedRosterPaths.length, 2, 'Task mentions and the arcade must both load the roster');
+      assert.strictEqual(loadedRosterPaths[0], loadedRosterPaths[1], 'Shared client cache must be able to reuse the same roster read');
+      assert.ok(leaderboardKeys.includes('bb_arcade_schema-officer'), 'The arcade must still fetch leaderboard stats for roster members');
+
+      await PortalRealtime.checkDeltaSync();
+      assert.strictEqual(loadedTaskReads, 1, 'An open task must refresh when the optional estimate column is absent');
+      taskRow = { ...taskRow, estimate: '4h' };
+      await PortalRealtime.checkDeltaSync();
+      assert.strictEqual(loadedTaskReads, 2, 'An open task must still refresh when the estimate column is present');
+      assert.strictEqual(activeTask.estimate, '4h', 'An estimate change must still reach the open task');
+      console.log('  ✔ Member lookups and open-task refresh load on both supported task schemas');
+    } finally {
+      global.supa = previousSupa;
+      global.window = previousWindow;
+    }
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);
