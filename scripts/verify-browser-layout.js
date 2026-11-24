@@ -3324,6 +3324,71 @@ async function getJson(url) {
     console.log('  ✔ Creator "JK" with RGB animation and regular member single initial with unique color and hover tooltip verified in browser');
     console.log('  ✔ Remove profile picture toggle and buttons verified in browser');
 
+    const shellAvatarDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const identity = { ic: 'avatar-fixture@example.com', email: 'avatar-fixture@example.com', name: 'Avatar Fixture', photo_url: '' };
+        const previous = Object.fromEntries(Object.keys(identity).map(key => [key, sessionGet(key)]));
+        const previousClient = window.getSupa;
+        const realtime = window.PortalRealtime;
+        const previousBroadcast = realtime?.broadcast;
+        const previousTheme = document.documentElement.dataset.theme;
+        const previousDirectory = localStorage.getItem('bb_member_pfps');
+        const setSession = state => Object.entries(state).forEach(([key, value]) => sessionSet(key, value, { localOnly: true }));
+        const pairs = [['nav-avatar-img', 'nav-avatar-placeholder'], ['sidebar-user-avatar-img', 'sidebar-user-avatar-ph']];
+        const inspectAvatars = () => pairs.map(([imageId, placeholderId]) => {
+          const img = document.getElementById(imageId);
+          const fallback = document.getElementById(placeholderId);
+          return [getComputedStyle(img).display, img.naturalWidth > 0, getComputedStyle(fallback).display === 'none'];
+        });
+        let savedPhoto;
+        let uploaded = false;
+        try {
+          setSession(identity);
+          window.getSupa = () => ({
+            async uploadFile(bucket, path, image) { uploaded = bucket === 'avatars' && path === identity.ic + '.jpg' && image.type === 'image/jpeg' && image.size > 0; },
+            fileUrl: () => new URL('assets/portal-icon-192.png', location.href).href,
+            async patch(_path, values) { savedPhoto = values.photo_url; },
+            async upsert() {}
+          });
+          if (realtime) realtime.broadcast = () => {};
+          const bytes = Uint8Array.from(atob('${fixturePhoto}'), byte => byte.charCodeAt(0));
+          await handleSettingsAvatarUpload({ files: [new File([bytes], 'profile.png', { type: 'image/png' })] });
+          await Promise.all(pairs.map(([id]) => document.getElementById(id).decode()));
+          document.documentElement.dataset.theme = 'light';
+          const afterUpload = inspectAvatars();
+          document.documentElement.dataset.theme = 'dark';
+          updateNavUserHeader();
+          renderMemberAvatar(identity.name, identity.email);
+          const afterRender = inspectAvatars();
+          setSession({ photo_url: '' });
+          updateNavUserHeader();
+          const fallback = inspectAvatars().map(([display, , hidden]) => [display, hidden]);
+          return { stored: uploaded && savedPhoto?.includes('portal-icon-192.png?t='), afterUpload, afterRender, fallback };
+        } finally {
+          window.getSupa = previousClient;
+          if (realtime) realtime.broadcast = previousBroadcast;
+          delete _memberPfpsMap[identity.ic];
+          delete _memberPfpsMap[identity.name.toLowerCase()];
+          localStorage.removeItem('bb_pfp_' + identity.ic + '.jpg');
+          if (previousDirectory === null) localStorage.removeItem('bb_member_pfps');
+          else localStorage.setItem('bb_member_pfps', previousDirectory);
+          document.documentElement.dataset.theme = previousTheme;
+          setSession(previous);
+          updateNavUserHeader();
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(!shellAvatarDiag.exceptionDetails, JSON.stringify(shellAvatarDiag.exceptionDetails));
+    const shellAvatars = shellAvatarDiag.result.value;
+    const visiblePhotos = [['block', true, true], ['block', true, true]];
+    assert.strictEqual(shellAvatars.stored, true, 'Settings uploads and saves the fixture photo');
+    assert.deepStrictEqual(shellAvatars.afterUpload, visiblePhotos, 'Decoded profile photos replace the initials in the header and sidebar immediately after upload');
+    assert.deepStrictEqual(shellAvatars.afterRender, visiblePhotos, 'The saved photo stays visible after the header and sidebar render again');
+    assert.deepStrictEqual(shellAvatars.fallback, [['none', false], ['none', false]], 'Both icons show initials when there is no profile photo');
+    console.log('  ✔ Header and sidebar display the uploaded photo and retain their initials fallback');
+
     // ── Cloudflare Turnstile CAPTCHA Integration ──
     console.log('\n[Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA)]');
     const turnstileDiag = await sendCmd('Runtime.evaluate', {

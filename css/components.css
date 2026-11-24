@@ -9286,7 +9286,7 @@ body.light-theme .tb-mention-pill,
   overflow: hidden !important;
   aspect-ratio: 1 / 1 !important;
   box-sizing: border-box !important;
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer;
