@@ -43,6 +43,7 @@ async function getJson(url) {
     { stdio: 'ignore' }
   );
 
+  let ws;
   try {
     let targets = null;
     let pageTarget = null;
@@ -66,7 +67,7 @@ async function getJson(url) {
     const wsUrl = pageTarget.webSocketDebuggerUrl;
     console.log('Connected to Edge page target: 1st Petaling Jaya Boys Brigade Portal');
 
-    const ws = new WebSocket(wsUrl);
+    ws = new WebSocket(wsUrl);
     let idCounter = 1;
     const callbacks = new Map();
     let fulfillGalleryFixture;
@@ -1456,6 +1457,96 @@ async function getJson(url) {
       })()`);
     }
     console.log('  ✔ Task brief list shortcuts and desktop/mobile toolbar scrolling verified');
+
+    const richBrief = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const id = 'rich-brief-fixture';
+        const label = 'A wrapped checklist item that should align with the first line. '.repeat(9).trim();
+        let task = { id, title: 'Formatting test', status: 'planning', department: 'Media',
+          description: '<div class="tb-checklist-row" style="display:flex;align-items:center"><input type="checkbox" disabled><span>' + label + '</span></div><p><strong>Quoted</strong> text</p>' };
+        const originalGet = supa.get;
+        const originalRpc = supa.rpc;
+        const beforeMember = Object.fromEntries(['ic', 'email', 'rank', 'department'].map(key => [key, sessionGet(key)]));
+        const tasksPage = document.getElementById('page-tasks');
+        const wasActive = tasksPage.classList.contains('active');
+        const saved = [];
+        const editor = document.getElementById('tdm-desc');
+        const readBox = () => editor.querySelector('.tb-checklist-row > input');
+        const waitForSave = async count => {
+          for (let tries = 0; saved.length < count && tries < 12; tries++) await new Promise(resolve => setTimeout(resolve, 50));
+        };
+        try {
+          sessionSet('ic', 'task-editor@example.test', { localOnly: true });
+          sessionSet('email', 'task-editor@example.test', { localOnly: true });
+          sessionSet('rank', 'Sergeant', { localOnly: true });
+          sessionSet('department', 'Media', { localOnly: true });
+          tasksPage.classList.add('active');
+          window._taskMap[id] = task;
+          supa.get = async endpoint => endpoint.startsWith('bb_tasks?id=') ? [{ ...task }] : [];
+          supa.rpc = async (name, params) => {
+            if (name !== 'rpc_save_task_brief_field') return null;
+            saved.push(params.p_value);
+            task = { ...task, description: params.p_value };
+            return { saved: true, task };
+          };
+          openTaskDetail(id);
+          await refreshVisibleTaskBrief();
+          const box = readBox();
+          const text = box.nextElementSibling;
+          const range = document.createRange();
+          range.setStart(text.firstChild, 0);
+          range.setEnd(text.firstChild, 1);
+          const firstLine = range.getBoundingClientRect();
+          const boxRect = box.getBoundingClientRect();
+          const aligned = text.clientHeight > firstLine.height * 2 && Math.abs(
+            (boxRect.top + boxRect.height / 2) - (firstLine.top + firstLine.height / 2)
+          ) < 3;
+          const legacyEnabled = !box.disabled;
+          box.click();
+          const crossedOut = box.checked && getComputedStyle(text).textDecorationLine.includes('line-through');
+          await waitForSave(1);
+          const savedCheck = !!saved[0]?.match(/<input[^>]+checked/);
+          closeTaskDetail();
+          openTaskDetail(id);
+          await refreshVisibleTaskBrief();
+          const reopenedChecked = readBox()?.checked && !readBox().disabled;
+          readBox()?.click();
+          const textRestored = !getComputedStyle(readBox().nextElementSibling).textDecorationLine.includes('line-through');
+          await waitForSave(2);
+          const savedUncheck = !!saved[1] && !saved[1].match(/<input[^>]+checked/);
+
+          editor.focus();
+          getSelection().selectAllChildren(editor.querySelector('p'));
+          document.querySelector('#task-detail-modal .task-brief-toolbar button[title="Quote"]').click();
+          const quote = editor.querySelector('blockquote');
+          const quoteStyled = !!quote && getComputedStyle(quote).fontStyle === 'italic' &&
+            parseFloat(getComputedStyle(quote).borderInlineStartWidth) > 0;
+          await waitForSave(3);
+          const quoteSaved = !!saved[2]?.includes('<blockquote>') && !!saved[2]?.includes('<strong>Quoted</strong> text');
+          const readOnlyCopy = document.createElement('div');
+          readOnlyCopy.innerHTML = sanitizeHtml(task.description);
+          return {
+            legacyEnabled, aligned, crossedOut, savedCheck, reopenedChecked, textRestored, savedUncheck, quoteStyled, quoteSaved,
+            readOnlyCopyDisabled: readOnlyCopy.querySelector('input')?.disabled === true
+          };
+        } finally {
+          closeTaskDetail();
+          tasksPage.classList.toggle('active', wasActive);
+          for (const [key, value] of Object.entries(beforeMember)) sessionSet(key, value, { localOnly: true });
+          supa.get = originalGet;
+          supa.rpc = originalRpc;
+          delete window._taskMap[id];
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(!richBrief.exceptionDetails, JSON.stringify(richBrief.exceptionDetails));
+    assert.deepStrictEqual(richBrief.result.value, {
+      legacyEnabled: true, aligned: true, crossedOut: true, savedCheck: true, reopenedChecked: true,
+      textRestored: true, savedUncheck: true, quoteStyled: true, quoteSaved: true, readOnlyCopyDisabled: true
+    }, 'Existing checklist items toggle and autosave, wrapped items align, and the Quote button saves styled quotes');
+    console.log('  ✔ Task brief checkboxes, wrapped alignment, and block quotes verified through autosave');
 
     const briefTraffic = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
@@ -3988,8 +4079,9 @@ async function getJson(url) {
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {
     console.error('Error during Edge browser verification:', err);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
+    if (ws?.readyState === WebSocket.OPEN) ws.close();
     try {
       edgeProc.kill();
     } catch (e) {}

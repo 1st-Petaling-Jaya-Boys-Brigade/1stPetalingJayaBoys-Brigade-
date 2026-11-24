@@ -105,9 +105,10 @@ function sanitizeRichStyle(value) {
  * Eliminates XSS injection vectors while preserving safe formatting tags.
  * @param {string} dirtyHtml
  * @param {object} [options]
+ * @param {boolean} [options.editableChecklist] Enable checklist controls when rendering an editable brief.
  * @returns {string}
  */
-function sanitizeHtml(dirtyHtml, _options) {
+function sanitizeHtml(dirtyHtml, options) {
   if (!dirtyHtml || typeof dirtyHtml !== 'string') return '';
 
   if (typeof HTMLTemplateElement !== 'undefined') {
@@ -181,7 +182,15 @@ function sanitizeHtml(dirtyHtml, _options) {
             child.setAttribute('rel', 'noopener noreferrer');
           }
           if (tagName === 'IMG') child.setAttribute('referrerpolicy', 'no-referrer');
-          if (isChecklistInput) child.setAttribute('disabled', '');
+          if (isChecklistInput) {
+            if (options?.editableChecklist && child.parentElement?.matches('div.tb-checklist-row')) {
+              child.removeAttribute('disabled');
+              child.setAttribute('contenteditable', 'false');
+              child.setAttribute('aria-label', 'Toggle checklist item');
+            } else {
+              child.setAttribute('disabled', '');
+            }
+          }
           cleanNode(child);
         } else if (child.nodeType !== 3) {
           node.removeChild(child);

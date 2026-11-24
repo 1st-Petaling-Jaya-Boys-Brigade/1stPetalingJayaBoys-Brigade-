@@ -501,7 +501,12 @@
     return _activeRichEditor || document.getElementById('tdm-desc') || document.getElementById('ann-body-input');
   }
 
-    async function executeRichFormat(cmd, value, btnOrEl) {
+  function checklistRowContents(withPlaceholder) {
+    return '<input type="checkbox" contenteditable="false" aria-label="Toggle checklist item"><span>' +
+      (withPlaceholder ? 'Checklist item' : '<br>') + '</span>';
+  }
+
+  async function executeRichFormat(cmd, value, btnOrEl) {
     if (typeof document === 'undefined') return;
     var editor = resolveTargetRichEditor(btnOrEl);
     if (editor) {
@@ -515,8 +520,8 @@
       }
     }
 
-    if (cmd === 'formatBlock') {
-      var tag = value || 'p';
+    if (cmd === 'formatBlock' || cmd === 'blockquote') {
+      var tag = cmd === 'blockquote' ? 'blockquote' : (value || 'p');
       document.execCommand('formatBlock', false, '<' + tag + '>');
     } else if (cmd === 'code') {
       var selCode = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
@@ -545,7 +550,7 @@
         }
       }
     } else if (cmd === 'checklist') {
-      document.execCommand('insertHTML', false, '<div class="tb-checklist-row" style="display:flex;align-items:center;gap:8px;margin:4px 0;"><input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true">Checklist item</span></div><div><br></div>');
+      document.execCommand('insertHTML', false, '<div class="tb-checklist-row">' + checklistRowContents(true) + '</div><div><br></div>');
     } else if (cmd === 'table') {
       if (btnOrEl && btnOrEl.parentElement && btnOrEl.parentElement.querySelector('.tb-table-grid-popover')) {
         toggleTableGridPicker(btnOrEl);
@@ -1061,6 +1066,7 @@
   function handleRichEditorKeydown(e) {
     if (typeof document === 'undefined') return;
     var target = e.target;
+    if (target?.matches?.('.tb-checklist-row > input[type="checkbox"]')) return;
     var editor = (target && target.closest) ? target.closest('.task-editable-desc, .new-task-desc-input, #ann-body-input, [contenteditable="true"]') : null;
     if (!editor) return;
 
@@ -1103,8 +1109,7 @@
           // Append next checklist row
           var nextRow = document.createElement('div');
           nextRow.className = 'tb-checklist-row';
-          nextRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin:4px 0;';
-          nextRow.innerHTML = '<input type="checkbox" style="cursor:pointer;width:15px;height:15px;accent-color:var(--gold,#d9a323);flex-shrink:0;" /> <span style="outline:none;min-width:20px;display:inline-block;" contenteditable="true"><br></span>';
+          nextRow.innerHTML = checklistRowContents(false);
           checkRow.insertAdjacentElement('afterend', nextRow);
 
           var nextSpan = nextRow.querySelector('span');
@@ -1154,6 +1159,14 @@
   }
 
   if (typeof document !== 'undefined') {
+    document.addEventListener('input', function (event) {
+      var checkbox = event.target;
+      if (!checkbox?.matches?.('.tb-checklist-row > input[type="checkbox"]') ||
+          !checkbox.parentElement.isContentEditable) return;
+      // Native clicks update the property. Autosave reads HTML, so reflect it before input bubbles.
+      checkbox.toggleAttribute('checked', checkbox.checked);
+    }, true);
+
     // Save range on mouseup (never on every keystroke)
     // Save range on mousedown of toolbar button to preserve active caret
     document.addEventListener('mousedown', function(e) {
