@@ -909,16 +909,17 @@ const supa = {
    * @param {string} bucket - Target bucket ('avatars', 'gallery', 'receipts', etc.)
    * @param {string} filePath - Object path inside bucket
    * @param {number} [expiresIn=3600] - Expiration duration in seconds (default 1 hour)
+   * @param {object} [options] - Pass retryUrl to evict a rejected cached URL
    * @returns {Promise<{signedUrl: string, error: any}>}
    */
-  async createSignedUrl(bucket, filePath, expiresIn) {
+  async createSignedUrl(bucket, filePath, expiresIn, options) {
     expiresIn = expiresIn || 3600;
     const cacheKey = bucket + '/' + filePath;
-    if (_signedUrlCache.has(cacheKey)) {
-      const entry = _signedUrlCache.get(cacheKey);
-      if (entry && entry.expiresAt > Date.now() && entry.lifetime <= expiresIn) {
-        return { signedUrl: entry.signedUrl, error: null };
-      }
+    const cached = _signedUrlCache.get(cacheKey);
+    if (cached && cached.signedUrl === options?.retryUrl) {
+      _signedUrlCache.delete(cacheKey);
+    } else if (cached && cached.expiresAt > Date.now() && cached.lifetime <= expiresIn) {
+      return { signedUrl: cached.signedUrl, error: null };
     }
 
     const baseUrl =
@@ -1519,8 +1520,8 @@ var PortalRealtime = (function() {
       var activeTid = (typeof window !== 'undefined' && window._activeDetailTaskId)
         ? window._activeDetailTaskId
         : ((typeof global !== 'undefined' && global._activeDetailTaskId) ? global._activeDetailTaskId : null);
-      if (activeTid) {
-        if (typeof window !== 'undefined' && typeof window.fetchRemoteTaskComments === 'function') {
+      if (activeTid && (typeof document === 'undefined' || document.visibilityState !== 'hidden')) {
+        if (typeof window !== 'undefined' && !window.refreshVisibleTaskBrief && typeof window.fetchRemoteTaskComments === 'function') {
           window.fetchRemoteTaskComments(activeTid).then(function() {
             if (typeof window.renderTaskComments === 'function') {
               window.renderTaskComments(activeTid);
@@ -1571,13 +1572,7 @@ var PortalRealtime = (function() {
           connectWebSocket();
         }
         checkDeltaSync();
-        if (typeof window !== 'undefined' && window._activeDetailTaskId && typeof window.fetchRemoteTaskComments === 'function') {
-          window.fetchRemoteTaskComments(window._activeDetailTaskId).then(function() {
-            if (typeof window.renderTaskComments === 'function') {
-              window.renderTaskComments(window._activeDetailTaskId);
-            }
-          }).catch(function() {});
-        }
+        if (typeof window !== 'undefined') window.refreshVisibleTaskBrief?.();
       }
     });
     document.addEventListener('resume', function() {
@@ -1585,24 +1580,12 @@ var PortalRealtime = (function() {
         connectWebSocket();
       }
       checkDeltaSync();
-      if (typeof window !== 'undefined' && window._activeDetailTaskId && typeof window.fetchRemoteTaskComments === 'function') {
-        window.fetchRemoteTaskComments(window._activeDetailTaskId).then(function() {
-          if (typeof window.renderTaskComments === 'function') {
-            window.renderTaskComments(window._activeDetailTaskId);
-          }
-        }).catch(function() {});
-      }
+      if (typeof window !== 'undefined') window.refreshVisibleTaskBrief?.();
     });
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('focus', function() {
         checkDeltaSync();
-        if (typeof window !== 'undefined' && window._activeDetailTaskId && typeof window.fetchRemoteTaskComments === 'function') {
-          window.fetchRemoteTaskComments(window._activeDetailTaskId).then(function() {
-            if (typeof window.renderTaskComments === 'function') {
-              window.renderTaskComments(window._activeDetailTaskId);
-            }
-          }).catch(function() {});
-        }
+        window.refreshVisibleTaskBrief?.();
       });
       window.addEventListener('online', function() {
         resetCircuitBreaker();

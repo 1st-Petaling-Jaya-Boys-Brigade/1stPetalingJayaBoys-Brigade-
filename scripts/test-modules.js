@@ -4587,8 +4587,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261124b',
-    'sw.js CACHE_VERSION must be 20261124b'
+    '20261124c',
+    'sw.js CACHE_VERSION must be 20261124c'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4616,7 +4616,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124b',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124c',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -5359,11 +5359,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 4. Signed URLs and private bucket resolution
     const origFetch = global.fetch;
+    let signCalls = 0;
     global.fetch = async (url) => {
       if (url.includes('/storage/v1/object/sign/avatars/test_avatar.jpg')) {
+        const token = ++signCalls === 1 ? 'mock_signed_token_123' : 'mock_replacement';
         return {
           ok: true,
-          json: async () => ({ signedURL: '/storage/v1/object/sign/avatars/test_avatar.jpg?token=mock_signed_token_123' })
+          json: async () => ({ signedURL: '/storage/v1/object/sign/avatars/test_avatar.jpg?token=' + token })
         };
       }
       return { ok: false, status: 404, text: async () => 'Not found' };
@@ -5375,6 +5377,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     const cachedUrl = supaMod.supa.fileUrl('avatars', 'test_avatar.jpg');
     assert.ok(cachedUrl.includes('mock_signed_token_123'), 'fileUrl returns cached signed URL');
+
+    const retry = { retryUrl: signedRes.signedUrl };
+    const renewed = await supaMod.supa.createSignedUrl('avatars', 'test_avatar.jpg', 3600, retry);
+    assert.ok(renewed.signedUrl.endsWith('mock_replacement'), 'A rejected signature is replaced');
+    assert.deepStrictEqual(await supaMod.supa.createSignedUrl('avatars', 'test_avatar.jpg', 3600, retry), renewed);
+    assert.strictEqual(signCalls, 2, 'A late failure for the old URL does not evict its replacement');
 
     const unauthPrivate = supaMod.supa.fileUrl('receipts', 'order_receipt.jpg');
     assert.ok(unauthPrivate.includes('/storage/v1/object/authenticated/receipts/order_receipt.jpg'), 'Private bucket resolves to authenticated path');
@@ -7478,7 +7486,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124b'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124c'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8960,12 +8968,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124b', 'Service Worker cache version must be 20261124b');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124c', 'Service Worker cache version must be 20261124c');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261124b and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261124c and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10261,25 +10269,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124b', 'sw.js CACHE_VERSION must be 20261124b');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124b', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124b', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124c', 'sw.js CACHE_VERSION must be 20261124c');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124c', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124c', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261124b cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261124c cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261124b'), 'config.js must use v=20261124b');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124b'), 'forum.js must use v=20261124b');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261124b'), 'variables.css must use v=20261124b');
-    assert.ok(indexRaw.includes('css/base.css?v=20261124b'), 'base.css must use v=20261124b');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124b');
+    assert.ok(indexRaw.includes('js/config.js?v=20261124c'), 'config.js must use v=20261124c');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124c'), 'forum.js must use v=20261124c');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261124c'), 'variables.css must use v=20261124c');
+    assert.ok(indexRaw.includes('css/base.css?v=20261124c'), 'base.css must use v=20261124c');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124c');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -16416,7 +16424,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     );
     console.log('  ✔ normalizeAvatarUrl reliably bridges authenticated storage paths to public object URLs');
 
-    // 2. loadMemberProfilePictures warms up cache from both bb_config and bb_members
+    // 2. Custom schemas can opt in to the additional member-row photo mirror.
+    const previousPhotoConfig = window.APP_CONFIG;
+    window.APP_CONFIG = { MEMBER_PHOTO_URL_COLUMN: true };
     const mockSupaClient = {
       get: async (endpoint) => {
         if (endpoint.includes('bb_config')) {
@@ -16449,6 +16459,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     if (typeof window !== 'undefined') window.supa = mockSupaClient;
 
     const pfpsMap = await utilsMod.loadMemberProfilePictures();
+    window.APP_CONFIG = previousPhotoConfig;
     assert.strictEqual(
       pfpsMap['chickenfans0@gmail.com'],
       'https://abcdef.supabase.co/storage/v1/object/public/avatars/oliver_cat.jpg',
@@ -17436,9 +17447,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // Production supports the photo directory even when the member row has no photo_url column.
     const originalSupa = global.supa;
+    const originalConfig = global.window.APP_CONFIG;
     const photoDirectory = { 'jeshuakoh2008@gmail.com': testPhotoUrl };
+    const photoRequests = [];
+    global.window.APP_CONFIG = { MEMBER_PHOTO_URL_COLUMN: false };
     global.supa = {
-      get: async endpoint => endpoint.startsWith('bb_config?') ? [{ value: JSON.stringify(photoDirectory) }] : []
+      get: async endpoint => {
+        photoRequests.push(endpoint);
+        return endpoint.startsWith('bb_config?') ? [{ value: JSON.stringify(photoDirectory) }] : [];
+      }
     };
     try {
       await utilsMod.loadMemberProfilePictures();
@@ -17451,8 +17468,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       assert.strictEqual(utilsMod.getMemberAvatarUrl('Jeshua Koh', 'jeshuakoh2008@gmail.com'), null);
       photoDirectory['jeshuakoh2008@gmail.com'] = testPhotoUrl;
       await utilsMod.loadMemberProfilePictures();
+      assert.strictEqual(photoRequests.length, 4);
+      assert.ok(photoRequests.every(endpoint => endpoint.startsWith('bb_config?')), 'Hosted refresh must never query the missing member photo column');
     } finally {
       global.supa = originalSupa;
+      global.window.APP_CONFIG = originalConfig;
     }
 
     memberMod.renderMemberAvatar('Jeshua Koh', 'jeshuakoh2008@gmail.com');

@@ -74,6 +74,9 @@ var FILE_LIMITS = {
 var APP_CONFIG = Object.freeze({
   SUPABASE_URL: SUPA_URL,
   SUPABASE_ANON_KEY: SUPA_KEY,
+  // The portal's hosted schema uses the avatar directory. Custom schemas can opt into a member-row mirror.
+  MEMBER_PHOTO_URL_COLUMN: (typeof window !== 'undefined' && window.__ENV__?.VITE_MEMBER_PHOTO_URL_COLUMN === 'true')
+    || (typeof process !== 'undefined' && process.env?.VITE_MEMBER_PHOTO_URL_COLUMN === 'true'),
   TURNSTILE_SITE_KEY: TURNSTILE_SITE_KEY,
   GEMINI_API_KEY: GEMINI_API_KEY,
   DEPARTMENTS: DEPARTMENT_KEYS,

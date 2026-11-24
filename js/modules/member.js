@@ -4677,7 +4677,7 @@ async function removePfp(e) {
         await client.deleteFile('avatars', targetFileNames[i]);
       }
     }
-    if (client && typeof client.patch === 'function') {
+    if (client && typeof client.patch === 'function' && (typeof window === 'undefined' || window.APP_CONFIG?.MEMBER_PHOTO_URL_COLUMN !== false)) {
       try {
         var updateFilter = (ic && email && ic !== email)
           ? ('bb_members?or=(ic.eq.' + encodeURIComponent(ic) + ',email.eq.' + encodeURIComponent(email) + ')')
@@ -5485,13 +5485,15 @@ async function uploadPfp(input) {
       pfpUrl = (signed && signed.signedUrl) ? signed.signedUrl : (client.fileUrl('avatars', cleanFileName) + '?t=' + Date.now());
     }
 
-    try {
-      var patchFilter = (curIc && curEmail && curIc !== curEmail)
-        ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')')
-        : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
-      await client.patch(patchFilter, { photo_url: pfpUrl });
-    } catch (_) {
-      // bb_members does not have photo_url column in PostgreSQL schema; storage and bb_config are authoritative
+    if (typeof client.patch === 'function' && (typeof window === 'undefined' || window.APP_CONFIG?.MEMBER_PHOTO_URL_COLUMN !== false)) {
+      try {
+        var patchFilter = (curIc && curEmail && curIc !== curEmail)
+          ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')')
+          : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')');
+        await client.patch(patchFilter, { photo_url: pfpUrl });
+      } catch (_) {
+        // Storage and the avatar directory remain authoritative if the optional mirror fails.
+      }
     }
     if ((sessionGet('ic') || sessionGet('email')) !== id) return;
 

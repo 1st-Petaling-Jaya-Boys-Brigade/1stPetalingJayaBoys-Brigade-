@@ -92,21 +92,33 @@ function galleryStorageObject(rawUrl) {
 
 var pendingGallerySignatures = new Map();
 
-function signGalleryObject(path) {
+function signGalleryObject(path, retryUrl) {
   var client = getSupa();
   if (!client || typeof client.createSignedUrl !== 'function') return Promise.resolve('');
-  if (pendingGallerySignatures.has(path)) return pendingGallerySignatures.get(path);
+  var requestKey = retryUrl ? path + '\n' + retryUrl : path;
+  if (pendingGallerySignatures.has(requestKey)) return pendingGallerySignatures.get(requestKey);
   var request = Promise.resolve().then(function() {
-    return client.createSignedUrl('gallery', path, 3600);
+    return client.createSignedUrl('gallery', path, 3600, { retryUrl: retryUrl });
   }).then(function(result) {
     var signed = result?.signedUrl;
     var object = galleryStorageObject(signed);
     return object?.mode === 'sign' && object.path === path ? signed : '';
   }).catch(function() {
     return '';
-  }).finally(function() { pendingGallerySignatures.delete(path); });
-  pendingGallerySignatures.set(path, request);
+  }).finally(function() { pendingGallerySignatures.delete(requestKey); });
+  pendingGallerySignatures.set(requestKey, request);
   return request;
+}
+
+function isExpiredGallerySignature(url) {
+  try {
+    var token = new URL(url).searchParams.get('token');
+    var body = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    var expiry = JSON.parse(atob(body)).exp;
+    return Number.isFinite(expiry) && expiry * 1000 <= Date.now();
+  } catch (_) {
+    return false;
+  }
 }
 
 function loadGalleryMedia(image, rawUrl, initialUrl, failed) {
@@ -126,7 +138,10 @@ function loadGalleryMedia(image, rawUrl, initialUrl, failed) {
     if (triedFallback) { finish(); return; }
     triedFallback = true;
     if (storage) {
-      signGalleryObject(storage.path).then(load);
+      var failedUrl = image.src;
+      signGalleryObject(storage.path, galleryStorageObject(failedUrl)?.mode === 'sign' ? failedUrl : undefined).then(function(url) {
+        load(url === failedUrl ? '' : url);
+      });
     } else if (drive?.provider === 'drive') {
       var preview = new URL('https://drive.google.com/thumbnail');
       preview.searchParams.set('id', drive.id);
@@ -137,8 +152,9 @@ function loadGalleryMedia(image, rawUrl, initialUrl, failed) {
     } else finish();
   };
   if (storage && storage.mode !== 'public') {
-    triedFallback = true;
-    signGalleryObject(storage.path).then(function(url) { load(url || (storage.mode === 'sign' ? initialUrl : '')); });
+    signGalleryObject(storage.path).then(function(url) {
+      load(url || (storage.mode === 'sign' && !isExpiredGallerySignature(initialUrl) ? initialUrl : ''));
+    });
   } else {
     load(initialUrl);
   }
