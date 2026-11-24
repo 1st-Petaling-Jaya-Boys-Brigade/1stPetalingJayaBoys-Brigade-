@@ -415,6 +415,7 @@ function sessionClear(options) {
   options = options || {};
   var localOnly = options.localOnly === true || options.silent === true;
 
+  if (typeof window !== 'undefined') window.PortalWebPush?.signOut().catch(function () {});
   if (typeof window !== 'undefined' && typeof window.revokeAdminSession === 'function') {
     window.revokeAdminSession();
   }

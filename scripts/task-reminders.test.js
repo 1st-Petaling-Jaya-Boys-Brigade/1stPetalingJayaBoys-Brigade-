@@ -90,6 +90,7 @@ test('scheduled sender claims once per day and keeps task text out of phone payl
   let now = midnight;
   const claims = new Set();
   const sends = [];
+  const iosRequests = [];
   const { privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -104,6 +105,14 @@ test('scheduled sender claims once per day and keeps task text out of phone payl
       return Response.json({ name: 'sent' });
     }
     switch (url.pathname) {
+      case '/functions/v1/portal-web-push':
+        if (options.headers.apikey === 'test') assert.equal(options.headers.Authorization, 'Bearer test');
+        else {
+          assert.equal(options.headers.apikey, 'sb_secret_fixture');
+          assert.equal(options.headers.Authorization, undefined);
+        }
+        iosRequests.push(JSON.parse(options.body));
+        return Response.json({ sent: 0 });
       case '/rest/v1/bb_tasks':
         return Response.json([{ ...due, assignee_ic: 'member-1', title: 'Private task title' }]);
       case '/rest/v1/bb_members':
@@ -135,8 +144,15 @@ test('scheduled sender claims once per day and keeps task text out of phone payl
   assert.equal(sends[0].message.android.notification.channel_id, 'portal-alerts-v2');
   assert.equal(sends[0].message.android.notification.sound, 'portal_chime');
   assert.doesNotMatch(JSON.stringify(sends[0]), /Private task title|T-1/);
+  assert.equal(iosRequests.length, 0);
   now += 86400000;
+  env.PORTAL_WEB_PUSH_REMINDERS = 'true';
   await reminders.runOverdueReminders(env);
   assert.equal(sends.length, 2);
   assert.notEqual(sends[0].message.android.notification.tag, sends[1].message.android.notification.tag);
+  assert.deepEqual(iosRequests, [{ action: 'remind', topics: ['user_member1_example_test'] }]);
+  env.TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY = 'sb_secret_fixture';
+  await reminders.runOverdueReminders(env);
+  assert.equal(sends.length, 2);
+  assert.deepEqual(iosRequests[1], iosRequests[0]);
 });

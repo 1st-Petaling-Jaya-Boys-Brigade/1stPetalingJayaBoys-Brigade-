@@ -1,4 +1,4 @@
-name: Android overdue task reminders
+name: Mobile overdue task reminders
 
 on:
   schedule:
@@ -26,6 +26,7 @@ jobs:
           node-version: 22
       - run: node scripts/send-task-overdue.js
         env:
+          PORTAL_WEB_PUSH_REMINDERS: 'true'
           TASK_REMINDER_SUPABASE_URL: ${{ secrets.TASK_REMINDER_SUPABASE_URL }}
           TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY }}
           TASK_REMINDER_FCM_SERVICE_ACCOUNT: ${{ secrets.TASK_REMINDER_FCM_SERVICE_ACCOUNT }}

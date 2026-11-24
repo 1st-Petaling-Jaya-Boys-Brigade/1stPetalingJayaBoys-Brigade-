@@ -511,23 +511,28 @@
     };
 
     var promises = [];
+    var topics = new Set();
+    function sendTopic(topic) {
+      topics.add(topic);
+      promises.push(sendFcmTopicPush(topic, title, body, options));
+    }
 
     // 1. Explicit topic provided
     if (params.targetTopic) {
-      promises.push(sendFcmTopicPush(params.targetTopic, title, body, options));
+      sendTopic(params.targetTopic);
     }
 
     // 2. Announcements broadcast
     var isBroadcast = (type === 'announcement' && !params.targetTopic);
     if (isBroadcast) {
-      promises.push(sendFcmTopicPush('announcements', title, body, options));
+      sendTopic('announcements');
     }
 
     // 3. Department topic (Suppressed for personal 1-to-1 task assignments)
     if (params.targetDept && params.type !== 'task_assigned') {
       var deptTopic = getDepartmentTopic(params.targetDept);
       if (deptTopic) {
-        promises.push(sendFcmTopicPush(deptTopic, title, body, options));
+        sendTopic(deptTopic);
       }
     }
 
@@ -577,14 +582,13 @@
         }
       });
 
-      uniqueTopics.forEach(function (topic) {
-        promises.push(sendFcmTopicPush(topic, title, body, options));
-      });
+      uniqueTopics.forEach(sendTopic);
     }
 
     if (promises.length === 0) {
       return false;
     }
+    if (typeof window !== 'undefined') window.PortalWebPush?.notify(type, [...topics], targetId).catch(function () {});
 
     try {
       var results = await Promise.allSettled(promises);

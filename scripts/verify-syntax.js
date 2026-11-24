@@ -17,6 +17,7 @@ const jsFiles = [
   'js/core/loading.js',
   'js/api/supabase.js',
   'js/api/fcm.js',
+  'js/api/web-push.js',
   'js/api/sheets.js',
   'js/modules/member.js',
   'js/modules/attendance.js',
