@@ -1,5 +1,5 @@
 /**
- * Sends one daily Android reminder per assigned account through the existing FCM channel.
+ * Sends daily overdue reminders through Android FCM and optional Apple Web Push.
  * Run from a trusted scheduler with server-side credentials.
  */
 const { createHash } = require('node:crypto');
@@ -73,7 +73,18 @@ async function sendIOSReminders(db, key, topics) {
   console.log('iPhone and iPad overdue reminders sent: ' + sent + '.');
 }
 
-async function sendAndroidReminders(credentials, request, topics, now, day) {
+async function sendAndroidReminders(serviceAccount, request, topics, now, day) {
+  if (!serviceAccount?.trim()) throw new Error('Missing GitHub Actions secret: TASK_REMINDER_FCM_SERVICE_ACCOUNT.');
+  let credentials;
+  try {
+    credentials = JSON.parse(serviceAccount);
+  } catch {
+    throw new Error('TASK_REMINDER_FCM_SERVICE_ACCOUNT must contain JSON.');
+  }
+  if (!credentials?.project_id || !credentials.client_email || !credentials.private_key) {
+    throw new Error('TASK_REMINDER_FCM_SERVICE_ACCOUNT must contain project_id, client_email and private_key.');
+  }
+  if (!topics.length) return;
   const token = await getGoogleOAuthToken(credentials);
   if (!token) throw new Error('Could not authenticate the FCM reminder sender.');
   const endpoint = 'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(credentials.project_id) + '/messages:send';
@@ -113,18 +124,17 @@ async function sendAndroidReminders(credentials, request, topics, now, day) {
 
 async function runOverdueReminders(env) {
   const { TASK_REMINDER_SUPABASE_URL, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, TASK_REMINDER_FCM_SERVICE_ACCOUNT } = env;
-  if (!TASK_REMINDER_SUPABASE_URL || !TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY || !TASK_REMINDER_FCM_SERVICE_ACCOUNT) {
-    throw new Error('Configure the three TASK_REMINDER secrets for scheduled Android delivery.');
+  const sendWebPush = env.PORTAL_WEB_PUSH_REMINDERS === 'true';
+  const missing = ['TASK_REMINDER_SUPABASE_URL', 'TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY']
+    .filter(name => !env[name]?.trim());
+  if ((missing.length || !sendWebPush) && !TASK_REMINDER_FCM_SERVICE_ACCOUNT?.trim()) {
+    missing.push('TASK_REMINDER_FCM_SERVICE_ACCOUNT');
+  }
+  if (missing.length) {
+    throw new Error(`Missing GitHub Actions secret${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}.`);
   }
   const db = new URL(TASK_REMINDER_SUPABASE_URL);
   if (db.protocol !== 'https:' || db.username || db.password) throw new Error('The Supabase URL must use HTTPS.');
-  let credentials;
-  try {
-    credentials = JSON.parse(TASK_REMINDER_FCM_SERVICE_ACCOUNT);
-  } catch {
-    throw new Error('The FCM service-account secret must contain JSON.');
-  }
-  if (!credentials?.project_id) throw new Error('The FCM service-account secret is missing project_id.');
   const dbHeaders = { apikey: TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, 'Content-Type': 'application/json' };
   if (TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY.startsWith('eyJ')) {
     dbHeaders.Authorization = 'Bearer ' + TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY;
@@ -160,14 +170,10 @@ async function runOverdueReminders(env) {
   const now = Date.now();
   const day = tasksModule.getTaskMalaysiaDay(now);
   const topics = buildReminderTopics(tasks, members, readConfig('bb_blocked_emails', []), now);
-  if (!topics.length) {
-    console.log('No overdue task reminders to send.');
-    if (env.PORTAL_WEB_PUSH_REMINDERS === 'true') await sendIOSReminders(db, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, topics);
-    return;
-  }
+  if (!topics.length) console.log('No overdue task reminders to send.');
 
-  const deliveries = [sendAndroidReminders(credentials, request, topics, now, day)];
-  if (env.PORTAL_WEB_PUSH_REMINDERS === 'true') deliveries.push(sendIOSReminders(db, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, topics));
+  const deliveries = [sendAndroidReminders(TASK_REMINDER_FCM_SERVICE_ACCOUNT, request, topics, now, day)];
+  if (sendWebPush) deliveries.push(sendIOSReminders(db, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, topics));
   const failures = (await Promise.allSettled(deliveries)).filter(result => result.status === 'rejected');
   if (failures.length) throw new Error(failures.map(result => result.reason.message).join(' '));
 }
