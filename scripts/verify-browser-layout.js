@@ -1416,6 +1416,69 @@ async function getJson(url) {
       await sendCmd('Input.insertText', { text: 'List after paragraph' });
       assert.strictEqual(await taskBriefEval(`document.querySelector('#tdm-desc ol > li')?.textContent`), 'List after paragraph');
 
+      await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        editor.innerHTML = '<p>First quoted line</p><p>Next paragraph</p>';
+        editor.focus();
+        const first = editor.firstElementChild.firstChild;
+        getSelection().collapse(first, first.length);
+        document.querySelector('#task-detail-modal button[title="Quote"]').click();
+      })()`);
+      await pressBriefKey('Enter', 13);
+      await sendCmd('Input.insertText', { text: 'Second quoted line' });
+      const continuedQuote = await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        return [editor.querySelectorAll('blockquote').length, editor.querySelector('blockquote').innerText];
+      })()`);
+      await pressBriefKey('Enter', 13);
+      await pressBriefKey('Enter', 13);
+      await sendCmd('Input.insertText', { text: 'Normal text' });
+      const quoteAfterEnter = await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        return Array.from(editor.children, node => [node.tagName, node.innerText.trim()]);
+      })()`);
+      await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        const quote = editor.querySelector('blockquote');
+        getSelection().collapse(quote.firstChild, 0);
+        document.querySelector('#task-detail-modal button[title="Quote"]').click();
+      })()`);
+      const toggledQuote = await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        return [editor.querySelectorAll('blockquote').length, editor.firstElementChild.innerText.trim()];
+      })()`);
+
+      await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        editor.innerHTML = '<p>Run&nbsp;</p>';
+        editor.focus();
+        const text = editor.querySelector('p').firstChild;
+        getSelection().collapse(text, text.length);
+        document.querySelector('#task-detail-modal button[title^="Inline Code"]').click();
+      })()`);
+      await sendCmd('Input.insertText', { text: 'npm test' });
+      const typedCode = await taskBriefEval(`(() => {
+        const editor = document.getElementById('tdm-desc');
+        const code = editor.querySelector('code, font[face="Consolas" i]');
+        const saved = document.createElement('template');
+        saved.innerHTML = sanitizeHtml(editor.innerHTML);
+        return [editor.textContent.replaceAll(String.fromCharCode(160), ' '), saved.content.querySelector('code')?.textContent, code && getComputedStyle(code).fontFamily.split(',')[0]];
+      })()`);
+      await taskBriefEval(`document.querySelector('#task-detail-modal button[title^="Inline Code"]').click()`);
+      await sendCmd('Input.insertText', { text: ' normally' });
+      const codeAfterToggle = await taskBriefEval(`(() => {
+        const saved = document.createElement('template');
+        saved.innerHTML = sanitizeHtml(document.getElementById('tdm-desc').innerHTML);
+        return [saved.content.querySelector('code')?.textContent, saved.content.textContent.trim().endsWith(' normally')];
+      })()`);
+      assert.deepStrictEqual(continuedQuote, [1, 'First quoted line\nSecond quoted line'], 'Enter keeps both lines within one quote');
+      assert.deepStrictEqual(quoteAfterEnter, [
+        ['BLOCKQUOTE', 'First quoted line\nSecond quoted line'], ['P', 'Normal text'], ['P', 'Next paragraph']
+      ], 'Enter on an empty quoted line exits the quote and preserves following text');
+      assert.deepStrictEqual(toggledQuote, [0, 'First quoted line\nSecond quoted line'], 'Clicking Quote again removes formatting and keeps both lines');
+      assert.deepStrictEqual(typedCode, ['Run npm test', 'npm test', 'Consolas'], 'Inline Code at the caret types in Consolas without placeholder text');
+      assert.deepStrictEqual(codeAfterToggle, ['npm test', true], 'Toggling off Inline Code keeps following text outside the saved code span');
+
       for (const [width, height, theme] of [[1280, 900, 'light'], [360, 800, 'dark']]) {
         await sendCmd('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 768 });
         const toolbar = await taskBriefEval(`(() => {
@@ -1523,10 +1586,26 @@ async function getJson(url) {
             parseFloat(getComputedStyle(quote).borderInlineStartWidth) > 0;
           await waitForSave(3);
           const quoteSaved = !!saved[2]?.includes('<blockquote>') && !!saved[2]?.includes('<strong>Quoted</strong> text');
+          getSelection().selectAllChildren(quote.querySelector('strong'));
+          document.querySelector('#task-detail-modal button[title^="Inline Code"]').click();
+          await waitForSave(4);
+          const savedFormatting = document.createElement('template');
+          savedFormatting.innerHTML = saved[3] || '';
+          const inlineCodeSaved = savedFormatting.content.querySelector('blockquote code')?.textContent === 'Quoted';
+          const end = editor.querySelector('blockquote').lastChild;
+          getSelection().collapse(end, end.length);
+          document.execCommand('insertLineBreak');
+          editor.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertParagraph', bubbles: true, cancelable: true }));
+          document.execCommand('insertText', false, 'After quote');
+          await waitForSave(5);
+          savedFormatting.innerHTML = saved[4] || '';
+          const quoteExitSaved = savedFormatting.content.querySelector('blockquote + p')?.textContent === 'After quote' &&
+            savedFormatting.content.querySelector('blockquote')?.textContent === 'Quoted text';
           const readOnlyCopy = document.createElement('div');
           readOnlyCopy.innerHTML = sanitizeHtml(task.description);
           return {
             legacyEnabled, aligned, crossedOut, savedCheck, reopenedChecked, textRestored, savedUncheck, quoteStyled, quoteSaved,
+            inlineCodeSaved, quoteExitSaved,
             readOnlyCopyDisabled: readOnlyCopy.querySelector('input')?.disabled === true
           };
         } finally {
@@ -1544,7 +1623,8 @@ async function getJson(url) {
     assert.ok(!richBrief.exceptionDetails, JSON.stringify(richBrief.exceptionDetails));
     assert.deepStrictEqual(richBrief.result.value, {
       legacyEnabled: true, aligned: true, crossedOut: true, savedCheck: true, reopenedChecked: true,
-      textRestored: true, savedUncheck: true, quoteStyled: true, quoteSaved: true, readOnlyCopyDisabled: true
+      textRestored: true, savedUncheck: true, quoteStyled: true, quoteSaved: true, inlineCodeSaved: true,
+      quoteExitSaved: true, readOnlyCopyDisabled: true
     }, 'Existing checklist items toggle and autosave, wrapped items align, and the Quote button saves styled quotes');
     console.log('  ✔ Task brief checkboxes, wrapped alignment, and block quotes verified through autosave');
 
