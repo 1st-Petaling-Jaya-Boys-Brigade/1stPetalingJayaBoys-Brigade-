@@ -5666,6 +5666,9 @@ function getDepartmentMentionCandidates(query) {
  * @param {HTMLElement} inputEl
  */
 var _activeMentionTarget = null;
+var _mentionDropdownHome = null;
+var _mentionScrollCard = null;
+var _mentionDialog = null;
 
 /**
  * Ensures a contenteditable element has a compatible .value getter/setter for tests and form submissions
@@ -5779,11 +5782,14 @@ function checkAndConvertCompletedMentionOnSpace(inputEl) {
  */
 function handleTaskBriefDescInput(el) {
   if (!el) return;
-  _activeMentionTarget = el;
 
   var text = '';
   var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
   if (sel && sel.focusNode) {
+    if (sel.focusNode.nodeType !== 3 || !el.contains(sel.focusNode)) {
+      hideMentionDropdown();
+      return;
+    }
     var nodeText = sel.focusNode.textContent || '';
     var offset = sel.focusOffset || 0;
     text = nodeText.slice(0, offset);
@@ -5807,7 +5813,6 @@ function handleTaskBriefDescInput(el) {
 }
 
 function handleTaskCommentInput(inputEl) {
-  _activeMentionTarget = inputEl;
   if (!inputEl) return;
   ensureCommentInputValueProperty(inputEl);
 
@@ -5901,6 +5906,80 @@ function renderMentionDropdownItems(dropdown, candidates) {
   dropdown.style.display = 'block';
 }
 
+function mentionCaretRect(input) {
+  var selection = window.getSelection();
+  var node = selection?.focusNode;
+  if (!node || !input.contains(node)) return null;
+  var range = document.createRange();
+  range.setStart(node, selection.focusOffset);
+  range.collapse(true);
+  var rect = range.getBoundingClientRect();
+  if (rect.height || node.nodeType !== 3 || !selection.focusOffset) return rect;
+  // Some browsers only report a rectangle for a selected character at an inline boundary.
+  range.setStart(node, selection.focusOffset - 1);
+  rect = range.getBoundingClientRect();
+  return { left: rect.right, top: rect.top, bottom: rect.bottom, height: rect.height };
+}
+
+function positionTaskBriefMentionDropdown() {
+  var input = _activeMentionTarget;
+  var dropdown = document.querySelector('.tb-mentions-dropdown');
+  var card = _mentionScrollCard;
+  var caret = input && mentionCaretRect(input);
+  if (!dropdown?.classList.contains('tb-mentions-at-caret')) return;
+  if (!caret?.height || !card) {
+    dropdown.style.visibility = 'hidden';
+    return;
+  }
+
+  var gap = 8;
+  var viewport = window.visualViewport;
+  var viewTop = viewport?.offsetTop || 0;
+  var viewLeft = viewport?.offsetLeft || 0;
+  var cardRect = card.getBoundingClientRect();
+  var toolbar = input.id === 'tdm-desc' ? input.parentElement.querySelector('.task-brief-toolbar') : null;
+  var topbar = card.querySelector('.task-brief-topbar');
+  var top = Math.max(viewTop, cardRect.top, topbar?.getBoundingClientRect().bottom || 0, toolbar?.getBoundingClientRect().bottom || 0) + gap;
+  var bottom = Math.min(viewTop + (viewport?.height || window.innerHeight), cardRect.bottom) - gap;
+  var left = Math.max(viewLeft, cardRect.left) + gap;
+  var right = Math.min(viewLeft + (viewport?.width || window.innerWidth), cardRect.right) - gap;
+  var below = bottom - caret.bottom - gap;
+  var above = caret.top - top - gap;
+  if (caret.bottom < top - gap || caret.top > bottom || right <= left || Math.max(below, above) < 44) {
+    dropdown.style.visibility = 'hidden';
+    return;
+  }
+
+  var width = Math.min(360, right - left);
+  dropdown.style.width = width + 'px';
+  var desiredHeight = Math.min(240, dropdown.scrollHeight + 2);
+  var useBelow = below >= desiredHeight || below >= above;
+  dropdown.style.maxHeight = Math.min(240, useBelow ? below : above) + 'px';
+  var x = Math.min(right - width, Math.max(left, caret.left));
+  var y = useBelow ? caret.bottom + gap : caret.top - gap - dropdown.getBoundingClientRect().height;
+  dropdown.style.left = x + 'px';
+  dropdown.style.top = y + 'px';
+  dropdown.style.visibility = '';
+}
+
+function resetTaskMentionPlacement(dropdown) {
+  if (!_mentionDropdownHome) return;
+  _mentionDropdownHome.appendChild(dropdown);
+  _mentionDropdownHome = null;
+  _mentionDialog?.removeAttribute('aria-owns');
+  _mentionDialog = null;
+  dropdown.removeAttribute('id');
+  dropdown.classList.remove('tb-mentions-at-caret');
+  ['width', 'max-height', 'top', 'left', 'visibility'].forEach(function (property) {
+    dropdown.style.removeProperty(property);
+  });
+  _mentionScrollCard?.removeEventListener('scroll', positionTaskBriefMentionDropdown, true);
+  _mentionScrollCard = null;
+  window.removeEventListener('resize', positionTaskBriefMentionDropdown);
+  window.visualViewport?.removeEventListener('scroll', positionTaskBriefMentionDropdown);
+  window.visualViewport?.removeEventListener('resize', positionTaskBriefMentionDropdown);
+}
+
 /**
  * Renders the floating mention dropdown menu
  * @param {HTMLElement} inputEl
@@ -5920,7 +5999,36 @@ function showMentionDropdown(inputEl, query) {
     return;
   }
 
+  _activeMentionTarget = inputEl;
+  var host = inputEl?.matches?.('.task-editable-desc') && inputEl.closest('[role="dialog"]');
+  if (host) {
+    if (!_mentionDropdownHome) {
+      _mentionDropdownHome = dropdown.parentElement;
+      // Keep the picker out of the transformed task page and scrolling modal card.
+      dropdown.id = 'task-brief-mentions-list';
+      document.body.appendChild(dropdown);
+      window.addEventListener('resize', positionTaskBriefMentionDropdown);
+      window.visualViewport?.addEventListener('scroll', positionTaskBriefMentionDropdown);
+      window.visualViewport?.addEventListener('resize', positionTaskBriefMentionDropdown);
+    }
+    if (_mentionDialog !== host) {
+      _mentionDialog?.removeAttribute('aria-owns');
+      _mentionDialog = host;
+      host.setAttribute('aria-owns', dropdown.id);
+    }
+    var card = inputEl.closest('.task-brief-modal-card, .task-create-modal-card');
+    if (card !== _mentionScrollCard) {
+      _mentionScrollCard?.removeEventListener('scroll', positionTaskBriefMentionDropdown, true);
+      _mentionScrollCard = card;
+      _mentionScrollCard?.addEventListener('scroll', positionTaskBriefMentionDropdown, true);
+    }
+    dropdown.classList.add('tb-mentions-at-caret');
+    dropdown.style.visibility = 'hidden';
+  } else {
+    resetTaskMentionPlacement(dropdown);
+  }
   renderMentionDropdownItems(dropdown, candidates);
+  if (host) positionTaskBriefMentionDropdown();
 }
 
 /**
@@ -5928,43 +6036,43 @@ function showMentionDropdown(inputEl, query) {
  */
 function hideMentionDropdown() {
   var dropdown = (typeof document !== 'undefined') ? document.querySelector('.tb-mentions-dropdown') : null;
-  if (dropdown) dropdown.style.display = 'none';
+  if (dropdown) {
+    dropdown.style.display = 'none';
+    resetTaskMentionPlacement(dropdown);
+  }
+  _activeMentionTarget = null;
   _currentMentionCandidates = [];
   _activeMentionIndex = 0;
 }
 
 /**
- * Handles keyboard navigation inside comment box (Arrow keys, Enter, Tab, Escape, Spacebar)
+ * Handles keyboard navigation for the active mention picker.
  * @param {KeyboardEvent} e
  * @param {HTMLElement} inputEl
  */
+function handleTaskMentionKeyDown(e, inputEl) {
+  var dropdown = (typeof document !== 'undefined') ? document.querySelector('.tb-mentions-dropdown') : null;
+  if (_activeMentionTarget !== inputEl || !dropdown || dropdown.style.display === 'none' || !_currentMentionCandidates.length ||
+      !['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(e.key)) return false;
+  if (dropdown.style.visibility === 'hidden' && e.key !== 'Escape') return false;
+  e.preventDefault();
+  e.stopPropagation?.();
+  if (e.key === 'Escape') {
+    hideMentionDropdown();
+  } else if (e.key === 'Enter' || e.key === 'Tab') {
+    selectMentionCandidate(_activeMentionIndex);
+  } else {
+    var items = dropdown.querySelectorAll('.tb-mention-item');
+    var step = e.key === 'ArrowDown' ? 1 : -1;
+    _activeMentionIndex = (_activeMentionIndex + step + items.length) % items.length;
+    updateActiveMentionItem(items);
+  }
+  return true;
+}
+
 function handleTaskCommentKeyDown(e, inputEl) {
   ensureCommentInputValueProperty(inputEl);
-  var dropdown = (typeof document !== 'undefined') ? document.querySelector('.tb-mentions-dropdown') : null;
-  var isDropdownOpen = dropdown && dropdown.style.display !== 'none' && _currentMentionCandidates.length > 0;
-
-  if (isDropdownOpen) {
-    var items = dropdown.querySelectorAll('.tb-mention-item');
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      _activeMentionIndex = (_activeMentionIndex + 1) % items.length;
-      updateActiveMentionItem(items);
-      return;
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      _activeMentionIndex = (_activeMentionIndex - 1 + items.length) % items.length;
-      updateActiveMentionItem(items);
-      return;
-    } else if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault();
-      selectMentionCandidate(_activeMentionIndex);
-      return;
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      hideMentionDropdown();
-      return;
-    }
-  }
+  if (handleTaskMentionKeyDown(e, inputEl)) return;
 
   // Spacebar handling: If user typed an exact complete candidate name, immediately turn into mention badge!
   if (e.key === ' ' || e.key === 'Spacebar') {
@@ -5978,7 +6086,7 @@ function handleTaskCommentKeyDown(e, inputEl) {
   }
 
   // Enter or Ctrl+Enter submits comment (Shift+Enter inserts newline in multiline)
-  if (e.key === 'Enter' && !isDropdownOpen) {
+  if (e.key === 'Enter') {
     if ((e.ctrlKey || e.metaKey) || !e.shiftKey) {
       e.preventDefault();
       handleTaskCommentSubmit(inputEl);
@@ -6023,19 +6131,28 @@ function selectMentionCandidate(idx, event) {
 
   var input = _activeMentionTarget || ((typeof document !== 'undefined') ? document.querySelector('.tb-comment-input') : null);
   if (!input) return;
+  var isBrief = input.matches?.('.task-editable-desc');
 
   ensureCommentInputValueProperty(input);
 
   if (input.isContentEditable || input.getAttribute('contenteditable') === 'true') {
     var sel = (typeof window !== 'undefined' && window.getSelection) ? window.getSelection() : null;
+    if (isBrief && (sel?.focusNode?.nodeType !== 3 || !input.contains(sel.focusNode))) {
+      hideMentionDropdown();
+      return;
+    }
     if (sel && sel.focusNode) {
       var node = sel.focusNode;
       if (node.nodeType === 3) {
         var nodeText = node.textContent || '';
-        var offset = sel.focusOffset || nodeText.length;
+        var offset = sel.focusOffset;
         var beforeC = nodeText.slice(0, offset);
         var afterC = nodeText.slice(offset);
         var newBeforeC = beforeC.replace(/@([a-zA-Z0-9_\s]*)$/, '');
+        if (isBrief && newBeforeC === beforeC) {
+          hideMentionDropdown();
+          return;
+        }
         node.textContent = newBeforeC;
 
         var pill = document.createElement('span');
@@ -6090,6 +6207,7 @@ function selectMentionCandidate(idx, event) {
   }
 
   hideMentionDropdown();
+  if (isBrief) input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 /**
@@ -6782,6 +6900,7 @@ async function editTaskDetailEstimate(e) {
  */
 function closeTaskDetail() {
   if (typeof document === 'undefined') return;
+  hideMentionDropdown();
   handleTaskTitleBlur();
   handleTaskDescBlur();
   var m = document.getElementById('task-detail-modal');
@@ -7101,6 +7220,7 @@ function openCreateTaskModal(defaultStatus, fromTasksView) {
  */
 function closeCreateTaskModal(clearDraft) {
   if (typeof document === 'undefined') return;
+  hideMentionDropdown();
   var modal = document.querySelector('.task-create-modal');
   if (modal) {
     modal.style.display = 'none';
@@ -8212,6 +8332,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.handleTaskCommentInput     = handleTaskCommentInput;
   window.handleTaskBriefBeforeInput = handleTaskBriefBeforeInput;
   window.handleTaskBriefDescInput   = handleTaskBriefDescInput;
+  window.handleTaskMentionKeyDown   = handleTaskMentionKeyDown;
   window.handleTaskCommentKeyDown   = handleTaskCommentKeyDown;
   window.handleTaskCommentPaste     = handleTaskCommentPaste;
   window.ensureCommentInputValueProperty = ensureCommentInputValueProperty;
@@ -8524,7 +8645,13 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 if (typeof document !== 'undefined') {
+  function dismissTaskMentionOutside(e) {
+    if (_activeMentionTarget && !_activeMentionTarget.contains(e.target) &&
+        !e.target.closest?.('.tb-mentions-dropdown')) hideMentionDropdown();
+  }
+  document.addEventListener('focusin', dismissTaskMentionOutside);
   document.addEventListener('click', function(e) {
+    dismissTaskMentionOutside(e);
     if (!e.target.closest || !e.target.closest('.tb-comment-actions')) {
       var commentMenus = document.querySelectorAll('.tb-comment-dropdown');
       commentMenus.forEach(function(m) { m.style.display = 'none'; });
