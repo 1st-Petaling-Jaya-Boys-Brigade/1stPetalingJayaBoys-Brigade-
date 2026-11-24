@@ -220,6 +220,7 @@ var _activeDetailTaskId = null;
 var _activeTaskPollTimer = null;
 var _taskBriefDrafts = new Map();
 var _taskBriefReads = new Map();
+var _taskBriefSectionReads = new Map();
 var _taskBriefReturnFocus = null;
 var TASK_BRIEF_SAVE_INTERVAL = 400;
 var _justDragged = false;
@@ -2873,6 +2874,42 @@ function refreshTaskBriefRow(id, followup) {
   return read.promise;
 }
 
+function refreshTaskBriefSections(id) {
+  var taskId = String(id || '');
+  var client = getSupaClient();
+  if (!taskId || taskId.startsWith('temp_') || !client || typeof client.get !== 'function') return Promise.resolve();
+  var pending = _taskBriefSectionReads.get(taskId);
+  if (pending) return pending;
+
+  var sections = [
+    ['comments', _taskCommentsMap, fetchRemoteTaskComments],
+    ['attachments', _taskAttachmentsMap, fetchRemoteTaskAttachments],
+    ['subtasks', _taskSubtasksMap, fetchRemoteTaskSubtasks],
+    ['links', _taskLinksMap, fetchRemoteTaskLinks]
+  ].map(function([section, cache, apply]) {
+    return { key: 'bb_task_' + section + '_' + taskId, cache: cache, original: cache[taskId], apply: apply };
+  });
+  var keys = sections.map(function(section) { return encodeURIComponent(section.key); }).join(',');
+  var read = Promise.resolve().then(function() {
+    return client.get('bb_config?key=in.(' + keys + ')&select=key,value', { cache: false });
+  }).then(function(rows) {
+    if (!Array.isArray(rows)) return;
+    var byKey = new Map(rows.map(function(row) { return [row.key, row]; }));
+    return Promise.all(sections.map(function(section) {
+      if (section.cache[taskId] !== section.original || !byKey.has(section.key)) return;
+      return section.apply(taskId, [byKey.get(section.key)]);
+    }));
+  }).catch(function() {}).finally(function() { _taskBriefSectionReads.delete(taskId); });
+  _taskBriefSectionReads.set(taskId, read);
+  return read;
+}
+
+function refreshVisibleTaskBrief() {
+  var id = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+  if (!id || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
+  return Promise.all([refreshTaskBriefRow(id), refreshTaskBriefSections(id)]);
+}
+
 /**
  * Fetches all tasks from Supabase and synchronizes in-memory collection
  * @param {boolean} [andRerender]
@@ -3487,44 +3524,9 @@ function openTaskDetail(id) {
   renderTaskSubtasks(id);
   renderTaskLinks(id);
 
-  if (typeof fetchRemoteTaskComments === 'function') {
-    fetchRemoteTaskComments(id).catch(function() {});
-  }
-  if (typeof fetchRemoteTaskAttachments === 'function') {
-    fetchRemoteTaskAttachments(id).catch(function() {});
-  }
-  if (typeof fetchRemoteTaskSubtasks === 'function') {
-    fetchRemoteTaskSubtasks(id).catch(function() {});
-  }
-  if (typeof fetchRemoteTaskLinks === 'function') {
-    fetchRemoteTaskLinks(id).catch(function() {});
-  }
-  if (typeof _activeTaskPollTimer !== 'undefined' && _activeTaskPollTimer) {
-    clearInterval(_activeTaskPollTimer);
-    _activeTaskPollTimer = null;
-  }
-  _activeTaskPollTimer = setInterval(function() {
-    var curActiveId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
-    if (!curActiveId) {
-      if (_activeTaskPollTimer) { clearInterval(_activeTaskPollTimer); _activeTaskPollTimer = null; }
-      return;
-    }
-    if (typeof document.visibilityState === 'undefined' || document.visibilityState === 'visible') {
-      refreshTaskBriefRow(curActiveId);
-    }
-    if (typeof fetchRemoteTaskComments === 'function') {
-      fetchRemoteTaskComments(curActiveId).catch(function() {});
-    }
-    if (typeof fetchRemoteTaskSubtasks === 'function') {
-      fetchRemoteTaskSubtasks(curActiveId).catch(function() {});
-    }
-    if (typeof fetchRemoteTaskLinks === 'function') {
-      fetchRemoteTaskLinks(curActiveId).catch(function() {});
-    }
-    if (typeof fetchRemoteTaskAttachments === 'function') {
-      fetchRemoteTaskAttachments(curActiveId).catch(function() {});
-    }
-  }, 4000);
+  refreshTaskBriefSections(id);
+  clearInterval(_activeTaskPollTimer);
+  _activeTaskPollTimer = setInterval(refreshVisibleTaskBrief, 4000);
 }
 
 function paintTaskBriefProperties(t) {
@@ -4006,13 +4008,13 @@ async function saveTaskSubtasks(taskId, subtasks) {
  * Fetches persisted subtasks for a task ID from Supabase bb_config
  * @param {string|number} taskId
  */
-async function fetchRemoteTaskSubtasks(taskId) {
+async function fetchRemoteTaskSubtasks(taskId, prefetchedRows) {
   var tid = String(taskId || _activeDetailTaskId || '');
   if (!tid) return [];
   var client = getSupaClient();
   if (client) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_task_subtasks_' + encodeURIComponent(tid) + '&select=value', { cache: false });
+      var rows = prefetchedRows || await client.get('bb_config?key=eq.bb_task_subtasks_' + encodeURIComponent(tid) + '&select=value', { cache: false });
       if (Array.isArray(rows) && rows.length && rows[0].value) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
@@ -4299,13 +4301,13 @@ async function saveTaskLinks(taskId, links) {
  * Fetches persisted links for a task ID from Supabase bb_config
  * @param {string|number} taskId
  */
-async function fetchRemoteTaskLinks(taskId) {
+async function fetchRemoteTaskLinks(taskId, prefetchedRows) {
   var tid = String(taskId || _activeDetailTaskId || '');
   if (!tid) return [];
   var client = getSupaClient();
   if (client) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_task_links_' + encodeURIComponent(tid) + '&select=value', { cache: false });
+      var rows = prefetchedRows || await client.get('bb_config?key=eq.bb_task_links_' + encodeURIComponent(tid) + '&select=value', { cache: false });
       if (Array.isArray(rows) && rows.length && rows[0].value) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
@@ -4637,12 +4639,12 @@ async function fetchAllRemoteTaskDetails(force) {
   }
 }
 
-async function fetchRemoteTaskComments(taskId) {
+async function fetchRemoteTaskComments(taskId, prefetchedRows) {
   if (!taskId) return [];
   var client = getSupaClient();
   if (client) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value', { cache: false });
+      var rows = prefetchedRows || await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value', { cache: false });
       if (Array.isArray(rows) && rows.length && rows[0].value) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
@@ -4653,7 +4655,7 @@ async function fetchRemoteTaskComments(taskId) {
           if (typeof renderNotifications === 'function') renderNotifications();
           else if (typeof window !== 'undefined' && typeof window.renderNotifications === 'function') window.renderNotifications();
           var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
-          if (activeId === taskId && typeof renderTaskComments === 'function') {
+          if (String(activeId) === String(taskId) && typeof renderTaskComments === 'function') {
             renderTaskComments(taskId);
           }
           return parsed;
@@ -5201,13 +5203,13 @@ async function saveTaskAttachments(taskId, attachments) {
  * Fetches persisted attachments for a task ID from Supabase bb_config
  * @param {string|number} taskId
  */
-async function fetchRemoteTaskAttachments(taskId) {
+async function fetchRemoteTaskAttachments(taskId, prefetchedRows) {
   var tid = String(taskId || _activeDetailTaskId || '');
   if (!tid) return [];
   var client = getSupaClient();
   if (client) {
     try {
-      var rows = await client.get('bb_config?key=eq.bb_task_attachments_' + encodeURIComponent(tid) + '&select=value', { cache: false });
+      var rows = prefetchedRows || await client.get('bb_config?key=eq.bb_task_attachments_' + encodeURIComponent(tid) + '&select=value', { cache: false });
       if (Array.isArray(rows) && rows.length && rows[0].value) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
@@ -8229,6 +8231,7 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.fetchAllRemoteTasks        = fetchAllRemoteTasks;
   window.fetchDepartmentMembers     = fetchDepartmentMembers;
   window.refreshCurrentTasksView    = refreshCurrentTasksView;
+  window.refreshVisibleTaskBrief    = refreshVisibleTaskBrief;
 
   window.getTaskSubtasks            = getTaskSubtasks;
   window.saveTaskSubtasks           = saveTaskSubtasks;

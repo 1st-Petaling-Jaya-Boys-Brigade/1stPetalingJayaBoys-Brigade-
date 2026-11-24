@@ -1501,19 +1501,21 @@ async function loadMemberProfilePictures() {
         }
       } catch (_) {}
 
-      // Optional fallback if bb_members table has photo_url column in custom environments
-      try {
-        var mRows = await client.get('bb_members?photo_url=not.is.null&select=ic,email,name,photo_url');
-        if (Array.isArray(mRows)) {
-          mRows.forEach(function(m) {
-            if (!m || !m.photo_url) return;
-            var norm = normalizeAvatarUrl(m.photo_url);
-            if (m.ic) photos[m.ic.trim().toLowerCase()] = norm;
-            if (m.email && !String(m.ic || '').toLowerCase().startsWith(m.email.toLowerCase() + '__')) photos[m.email.trim().toLowerCase()] = norm;
-            if (m.name) photos[m.name.trim().toLowerCase()] = norm;
-          });
-        }
-      } catch (_) {}
+      // The member-row mirror is optional on custom schemas.
+      if (typeof window === 'undefined' || window.APP_CONFIG?.MEMBER_PHOTO_URL_COLUMN !== false) {
+        try {
+          var mRows = await client.get('bb_members?photo_url=not.is.null&select=ic,email,name,photo_url');
+          if (Array.isArray(mRows)) {
+            mRows.forEach(function(m) {
+              if (!m || !m.photo_url) return;
+              var norm = normalizeAvatarUrl(m.photo_url);
+              if (m.ic) photos[m.ic.trim().toLowerCase()] = norm;
+              if (m.email && !String(m.ic || '').toLowerCase().startsWith(m.email.toLowerCase() + '__')) photos[m.email.trim().toLowerCase()] = norm;
+              if (m.name) photos[m.name.trim().toLowerCase()] = norm;
+            });
+          }
+        } catch (_) {}
+      }
 
       // Keep updates received while the directory request was in flight.
       var changed = false;

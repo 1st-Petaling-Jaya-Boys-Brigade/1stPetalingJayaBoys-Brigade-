@@ -1457,6 +1457,60 @@ async function getJson(url) {
     }
     console.log('  ✔ Task brief list shortcuts and desktop/mobile toolbar scrolling verified');
 
+    const briefTraffic = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const taskId = 'capacity-fixture';
+        let task = { id: taskId, title: 'Capacity test', description: '<p>Original</p>', department: 'Media', status: 'planning' };
+        const sections = ['comments', 'attachments', 'subtasks', 'links'];
+        const calls = [];
+        const originalGet = supa.get;
+        const previousVisibility = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+        try {
+          window._taskMap[taskId] = task;
+          supa.get = async endpoint => {
+            if (endpoint.includes(taskId)) calls.push(endpoint);
+            if (endpoint.startsWith('bb_tasks?id=')) return [{ ...task }];
+            if (endpoint.startsWith('bb_config?key=in.') && endpoint.includes(taskId)) {
+              return sections.map(section => ({ key: 'bb_task_' + section + '_' + taskId, value: '[]' }));
+            }
+            return [];
+          };
+          openTaskDetail(taskId);
+          await Promise.all([refreshVisibleTaskBrief(), refreshVisibleTaskBrief()]);
+          const visible = { taskReads: calls.filter(url => url.startsWith('bb_tasks?')).length, configReads: calls.filter(url => url.startsWith('bb_config?')).length };
+          const allSections = sections.every(section => calls.some(url => url.includes('bb_task_' + section + '_' + taskId)));
+
+          Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+          calls.length = 0;
+          await refreshVisibleTaskBrief();
+          const hiddenReads = calls.length;
+          task = { ...task, description: '<p>Saved from another device</p>' };
+          PortalRealtime.trigger('tasks', 'brief-saved', { id: taskId }, true);
+          await new Promise(resolve => setTimeout(resolve, 0));
+          const liveEdit = calls.length === 1 && document.getElementById('tdm-desc').textContent === 'Saved from another device';
+
+          Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+          calls.length = 0;
+          await refreshVisibleTaskBrief();
+          const resumedReads = calls.length;
+          return { visible, allSections, hiddenReads, liveEdit, resumedReads };
+        } finally {
+          closeTaskDetail();
+          if (previousVisibility) Object.defineProperty(document, 'visibilityState', previousVisibility);
+          else delete document.visibilityState;
+          supa.get = originalGet;
+          delete window._taskMap[taskId];
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    assert.ok(!briefTraffic.exceptionDetails, JSON.stringify(briefTraffic.exceptionDetails));
+    assert.deepStrictEqual(briefTraffic.result.value, {
+      visible: { taskReads: 1, configReads: 1 }, allSections: true, hiddenReads: 0, liveEdit: true, resumedReads: 2
+    }, 'Concurrent brief refreshes share two reads, hidden polling pauses, and live edits still arrive');
+    console.log('  ✔ Task brief network batching, hidden/resumed polling and live save events verified');
+
     // Exercise the gallery lightbox with a fresh signature and real image bytes.
     const fixturePhoto = fs.readFileSync(path.resolve('assets/logo.png')).toString('base64');
     let signatureRequests = 0;
@@ -1478,20 +1532,28 @@ async function getJson(url) {
           const originalOrigin = SUPA_URL;
           const origin = 'https://fixture.supabase.co';
           let signed = 0;
+          let currentSignature = origin + '/storage/v1/object/sign/gallery/restore-fixture.png?token=cached';
           try {
             SUPA_URL = origin;
             galleryImages.splice(0, galleryImages.length, {
               id: 'repair-photo', url: origin + '/storage/v1/object/sign/gallery/restore-fixture.png?token=expired', type: 'image'
             });
-            supa.createSignedUrl = async (bucket, storagePath) => {
-              if (bucket === 'gallery' && storagePath === 'restore-fixture.png') signed++;
-              return { signedUrl: origin + '/storage/v1/object/sign/gallery/restore-fixture.png?token=refreshed' };
+            supa.createSignedUrl = async (bucket, storagePath, _ttl, options) => {
+              if (bucket === 'gallery' && storagePath === 'restore-fixture.png' && options?.retryUrl === currentSignature) {
+                signed++;
+                currentSignature = origin + '/storage/v1/object/sign/gallery/restore-fixture.png?token=refreshed';
+              }
+              return { signedUrl: currentSignature };
             };
             filterGallery('photos');
+            const thumbnail = document.querySelector('#gallery-grid img');
+            thumbnail.loading = 'eager';
             document.querySelector('#gallery-grid [data-lightbox-idx="0"]').click();
             for (let attempt = 0; attempt < 40; attempt++) {
               const preview = document.querySelector('.gallery-lb-img');
-              if (preview?.naturalWidth > 0) return { loaded: true, signed, thumbnail: document.querySelector('#gallery-grid img')?.src.endsWith('token=refreshed') };
+              if (preview?.naturalWidth > 0 && thumbnail.naturalWidth > 0) {
+                return { loaded: true, signed, thumbnail: thumbnail.src.endsWith('token=refreshed') };
+              }
               await new Promise(resolve => setTimeout(resolve, 50));
             }
             return { loaded: false, signed };
@@ -3342,13 +3404,16 @@ async function getJson(url) {
         });
         let savedPhoto;
         let uploaded = false;
+        let memberRowWrites = 0;
         try {
           setSession(identity);
           window.getSupa = () => ({
             async uploadFile(bucket, path, image) { uploaded = bucket === 'avatars' && path === identity.ic + '.jpg' && image.type === 'image/jpeg' && image.size > 0; },
             fileUrl: () => new URL('assets/portal-icon-192.png', location.href).href,
-            async patch(_path, values) { savedPhoto = values.photo_url; },
-            async upsert() {}
+            async patch() { memberRowWrites++; },
+            async upsert(table, row) {
+              if (table === 'bb_config' && row.key === 'bb_member_pfps') savedPhoto = JSON.parse(row.value)[identity.ic];
+            }
           });
           if (realtime) realtime.broadcast = () => {};
           const bytes = Uint8Array.from(atob('${fixturePhoto}'), byte => byte.charCodeAt(0));
@@ -3363,7 +3428,7 @@ async function getJson(url) {
           setSession({ photo_url: '' });
           updateNavUserHeader();
           const fallback = inspectAvatars().map(([display, , hidden]) => [display, hidden]);
-          return { stored: uploaded && savedPhoto?.includes('portal-icon-192.png?t='), afterUpload, afterRender, fallback };
+          return { stored: uploaded && savedPhoto?.includes('portal-icon-192.png?t='), afterUpload, afterRender, fallback, memberRowWrites };
         } finally {
           window.getSupa = previousClient;
           if (realtime) realtime.broadcast = previousBroadcast;
@@ -3384,6 +3449,7 @@ async function getJson(url) {
     const shellAvatars = shellAvatarDiag.result.value;
     const visiblePhotos = [['block', true, true], ['block', true, true]];
     assert.strictEqual(shellAvatars.stored, true, 'Settings uploads and saves the fixture photo');
+    assert.strictEqual(shellAvatars.memberRowWrites, 0, 'Photo upload skips the undeployed member-row mirror');
     assert.deepStrictEqual(shellAvatars.afterUpload, visiblePhotos, 'Decoded profile photos replace the initials in the header and sidebar immediately after upload');
     assert.deepStrictEqual(shellAvatars.afterRender, visiblePhotos, 'The saved photo stays visible after the header and sidebar render again');
     assert.deepStrictEqual(shellAvatars.fallback, [['none', false], ['none', false]], 'Both icons show initials when there is no profile photo');
