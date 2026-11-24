@@ -7,7 +7,7 @@
  * Zero external dependencies. Zero npm runtime libraries.
  */
 
-/* global supa, sessionGet, isNCO, _cachedDepartmentMembers */
+/* global supa, sessionGet, isNCO, _cachedDepartmentMembers, getMentionDirectoryMembers, createMentionMatcher, normalizeMentionName */
 
 (function (global) {
   'use strict';
@@ -105,112 +105,36 @@
     return text;
   }
 
-  function escapeRegExp(str) {
-    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  function addResolvedMember(identifier, dir, targetSet) {
-    if (!identifier) return;
-    var trimmed = String(identifier).trim();
-    if (!trimmed) return;
-
-    if (Array.isArray(dir)) {
-      var lowerId = trimmed.toLowerCase();
-      var cleanDigits = trimmed.replace(/[^0-9]/g, '');
-      var found = dir.find(function(m) {
-        if (!m) return false;
-        var mName = (m.name || '').toLowerCase().trim();
-        var mEmail = (m.email || '').toLowerCase().trim();
-        var mIc = (m.ic || '').toLowerCase().replace(/[^0-9]/g, '');
-        return mName === lowerId || mEmail === lowerId || (cleanDigits && mIc === cleanDigits) || (mName && (mName.indexOf(lowerId) !== -1 || lowerId.indexOf(mName) !== -1));
-      });
-      if (found) {
-        if (found.name) {
-          targetSet.add(found.name.trim());
-        } else if (found.email) {
-          targetSet.add(found.email.trim());
-        } else if (found.ic) {
-          targetSet.add(found.ic.trim());
-        }
-        return;
-      }
-    }
-
-    targetSet.add(trimmed);
-  }
-
   /**
-   * Resolves mentions from raw text, HTML mention pills, or member names against directory.
+   * Resolves complete member names and supported groups from text or rich content.
    * @param {string} text
    * @param {Array<Object>} [memberDirectory]
    * @returns {{ targetUsers: Array<string>, topics: Array<string> }}
    */
   function resolveMentionTargets(text, memberDirectory) {
-    if (!text || typeof text !== 'string') return { targetUsers: [], topics: [] };
+    if (typeof text !== 'string' || !text.includes('@')) return { targetUsers: [], topics: [] };
     var targetUsers = new Set();
     var topics = new Set();
-
-    var dir = Array.isArray(memberDirectory) ? memberDirectory.slice() : ((typeof _cachedDepartmentMembers !== 'undefined' && Array.isArray(_cachedDepartmentMembers)) ? _cachedDepartmentMembers.slice() : []);
-    if (!dir.length && typeof window !== 'undefined' && Array.isArray(window._cachedDepartmentMembers)) {
-      dir = window._cachedDepartmentMembers.slice();
-    }
-    if (typeof localStorage !== 'undefined') {
-      ['bb_members_cache', 'bb_all_members', 'bb_cached_members'].forEach(function(key) {
-        try {
-          var raw = localStorage.getItem(key);
-          if (raw) {
-            var parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              parsed.forEach(function(m) {
-                if (m && m.name && !dir.some(function(x) { return x.name === m.name; })) {
-                  dir.push(m);
-                }
-              });
-            }
-          }
-        } catch (_) {}
+    var cached = (typeof _cachedDepartmentMembers !== 'undefined') ? _cachedDepartmentMembers : [];
+    var directory = getMentionDirectoryMembers(Array.isArray(memberDirectory) ? memberDirectory : cached);
+    var membersByMention = new Map();
+    directory.forEach(function(member) {
+      [member.name, member.email, member.ic].map(normalizeMentionName).filter(Boolean).forEach(function(name) {
+        if (!membersByMention.has(name)) membersByMention.set(name, member.name.trim());
       });
-    }
-
-    // 1. Group mentions
-    if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(text)) topics.add('announcements');
-    if (/(?:^|\W)@secretariat\b/i.test(text)) topics.add('dept_secretariat');
-    if (/(?:^|\W)@logistics\b/i.test(text)) topics.add('dept_logistics');
-    if (/(?:^|\W)@media\b/i.test(text)) topics.add('dept_media');
-    if (/(?:^|\W)@hq\b/i.test(text)) topics.add('dept_hq');
-    if (/(?:^|\W)@officers?\b/i.test(text)) topics.add('dept_officers');
-    if (/(?:^|\W)@ncos?\b/i.test(text)) topics.add('dept_nco');
-
-    // 2. HTML pills: <span class="tb-mention-pill">@Name</span>
-    var pillMatches = text.match(/<span[^>]*class=["'][^"']*tb-mention-pill[^"']*["'][^>]*>@([^<]+)<\/span>/gi) || [];
-    pillMatches.forEach(function(p) {
-      var m = p.match(/>@([^<]+)</);
-      if (m && m[1]) {
-        addResolvedMember(m[1].trim(), dir, targetUsers);
-      }
     });
-
-    // 3. Match against known members in directory
-    if (Array.isArray(dir)) {
-      dir.forEach(function(member) {
-        if (!member || !member.name) return;
-        var mName = member.name.trim();
-        if (mName.length < 2) return;
-        var rx = new RegExp('(?:^|\\W)@' + escapeRegExp(mName) + '(?=[\\s,;!?.)\'"]|$)', 'i');
-        if (rx.test(text)) {
-          addResolvedMember(mName, dir, targetUsers);
-        }
-      });
+    var groupTopics = {
+      all: 'announcements', everyone: 'announcements', everybody: 'announcements',
+      secretariat: 'dept_secretariat', logistics: 'dept_logistics', media: 'dept_media', hq: 'dept_hq',
+      officer: 'dept_officers', officers: 'dept_officers', nco: 'dept_nco', ncos: 'dept_nco'
+    };
+    var matcher = createMentionMatcher(Object.keys(groupTopics).concat(Array.from(membersByMention.keys())));
+    var plainText = decodeHtmlEntities(text.replace(/<[^>]+>/g, ' '));
+    for (var match of plainText.matchAll(matcher)) {
+      var mention = normalizeMentionName(match[2]);
+      if (Object.hasOwn(groupTopics, mention)) topics.add(groupTopics[mention]);
+      if (membersByMention.has(mention)) targetUsers.add(membersByMention.get(mention));
     }
-
-    // 4. Raw @ single words or email addresses
-    var singleMatches = text.match(/@([a-zA-Z0-9._-]+)/g) || [];
-    singleMatches.forEach(function(sw) {
-      var word = sw.slice(1).trim();
-      if (word && !/^(all|everyone|everybody|secretariat|logistics|media|hq|officers?|ncos?)$/i.test(word)) {
-        addResolvedMember(word, dir, targetUsers);
-      }
-    });
 
     return {
       targetUsers: Array.from(targetUsers),

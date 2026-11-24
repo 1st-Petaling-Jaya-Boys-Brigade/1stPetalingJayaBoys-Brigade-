@@ -25,16 +25,16 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261124h"></script>
+<script src="js/core/theme.js?v=20261124i"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261124h">
-<link rel="stylesheet" href="css/base.css?v=20261124h">
-<link rel="stylesheet" href="css/nav.css?v=20261124h">
-<link rel="stylesheet" href="css/components.css?v=20261124h">
-<link rel="stylesheet" href="css/admin.css?v=20261124h">
+<link rel="stylesheet" href="css/variables.css?v=20261124i">
+<link rel="stylesheet" href="css/base.css?v=20261124i">
+<link rel="stylesheet" href="css/nav.css?v=20261124i">
+<link rel="stylesheet" href="css/components.css?v=20261124i">
+<link rel="stylesheet" href="css/admin.css?v=20261124i">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -3273,31 +3273,31 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261124h"></script>
+<script src="js/config.js?v=20261124i"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261124h" defer></script>
-<script src="js/api/supabase.js?v=20261124h"></script>
-<script src="js/api/web-push.js?v=20261124h"></script>
-<script src="js/api/fcm.js?v=20261124h"></script>
-<script src="js/core/session.js?v=20261124h"></script>
-<script src="js/core/rbac.js?v=20261124h"></script>
-<script src="js/core/utils.js?v=20261124h"></script>
-<script src="js/core/ui.js?v=20261124h"></script>
-<script src="js/core/loading.js?v=20261124h"></script>
-<script src="js/modules/member.js?v=20261124h"></script>
-<script src="js/api/sheets.js?v=20261124h"></script>
-<script src="js/modules/attendance.js?v=20261124h"></script>
-<script src="js/modules/announcements.js?v=20261124h"></script>
-<script src="js/modules/gallery.js?v=20261124h"></script>
-<script src="js/modules/resources.js?v=20261124h"></script>
-<script src="js/modules/calendar.js?v=20261124h"></script>
-<script src="js/modules/orders.js?v=20261124h"></script>
-<script src="js/modules/forms.js?v=20261124h"></script>
-<script src="js/modules/badges.js?v=20261124h"></script>
-<script src="js/modules/tasks.js?v=20261124h"></script>
-<script src="js/modules/admin.js?v=20261124h"></script>
-<script src="js/modules/forum.js?v=20261124h"></script>
-<script src="js/modules/arcade.js?v=20261124h"></script>
+<script src="js/core/install.js?v=20261124i" defer></script>
+<script src="js/api/supabase.js?v=20261124i"></script>
+<script src="js/api/web-push.js?v=20261124i"></script>
+<script src="js/api/fcm.js?v=20261124i"></script>
+<script src="js/core/session.js?v=20261124i"></script>
+<script src="js/core/rbac.js?v=20261124i"></script>
+<script src="js/core/utils.js?v=20261124i"></script>
+<script src="js/core/ui.js?v=20261124i"></script>
+<script src="js/core/loading.js?v=20261124i"></script>
+<script src="js/modules/member.js?v=20261124i"></script>
+<script src="js/api/sheets.js?v=20261124i"></script>
+<script src="js/modules/attendance.js?v=20261124i"></script>
+<script src="js/modules/announcements.js?v=20261124i"></script>
+<script src="js/modules/gallery.js?v=20261124i"></script>
+<script src="js/modules/resources.js?v=20261124i"></script>
+<script src="js/modules/calendar.js?v=20261124i"></script>
+<script src="js/modules/orders.js?v=20261124i"></script>
+<script src="js/modules/forms.js?v=20261124i"></script>
+<script src="js/modules/badges.js?v=20261124i"></script>
+<script src="js/modules/tasks.js?v=20261124i"></script>
+<script src="js/modules/admin.js?v=20261124i"></script>
+<script src="js/modules/forum.js?v=20261124i"></script>
+<script src="js/modules/arcade.js?v=20261124i"></script>
 
 <script>
 
@@ -4648,30 +4648,10 @@ function syncTaskNotifications(tasks, isSilent) {
 
   function isExplicitSelfMention(text, name, email) {
     if (!text) return false;
-    var lower = String(text).toLowerCase();
-    if (/(?:^|\W)@(all|everyone|everybody)\b/i.test(lower)) return true;
-    if (name) {
-      var nameLower = name.toLowerCase().trim();
-      if (lower.indexOf('@' + nameLower) !== -1) return true;
-      var parts = nameLower.split(/\s+/).filter(function(p) { return p.length >= 3; });
-      for (var i = 0; i < parts.length; i++) {
-        var rx = new RegExp('(?:^|\\W)@' + parts[i] + '\\b', 'i');
-        if (rx.test(lower)) return true;
-      }
-    }
-    if (email) {
-      var emailLower = email.toLowerCase().trim();
-      if (lower.indexOf('@' + emailLower) !== -1) return true;
-      var prefix = emailLower.split('@')[0];
-      if (prefix && prefix.length >= 3) {
-        var erx = new RegExp('(?:^|\\W)@' + prefix + '\\b', 'i');
-        if (erx.test(lower)) return true;
-      }
-    }
-    if (typeof isPortalCreator === 'function' && isPortalCreator(name, email)) {
-      if (/(?:^|\W)@creator\b/i.test(lower)) return true;
-    }
-    return false;
+    var names = ['all', 'everyone', 'everybody', name, email];
+    if (typeof isPortalCreator === 'function' && isPortalCreator(name, email)) names.push('creator');
+    var cleanText = String(text).replace(/&nbsp;/g, ' ').replace(/<[^>]+>/g, ' ');
+    return hasPortalMention(cleanText, names);
   }
 
   // 3A. Mentions in Task Brief Description & Title

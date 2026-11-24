@@ -216,6 +216,91 @@ function sanitizeHtml(dirtyHtml, options) {
     .map(function(part, index) { return index % 2 ? part : escapeHtml(part); }).join('');
 }
 
+function normalizeMentionName(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function createMentionMatcher(names, encode = String) {
+  var namesByLength = Array.from(new Set(names.map(normalizeMentionName).filter(Boolean)))
+    .sort(function(a, b) { return b.length - a.length; });
+  if (!namesByLength.length) return null;
+  var alternatives = namesByLength.map(function(name) {
+    return name.split(' ').map(function(word) {
+      return encode(word).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }).join('[\\t \\u00a0]+');
+  });
+  // Require a complete name and leave email addresses and longer handles alone.
+  return new RegExp('(^|[^\\p{L}\\p{N}\\p{M}_.@+-])@(' + alternatives.join('|')
+    + ')(?![\\p{L}\\p{N}\\p{M}_@+-]|\\.[\\p{L}\\p{N}\\p{M}])', 'giu');
+}
+
+function hasPortalMention(text, names) {
+  if (!text || !text.includes('@')) return false;
+  return !!(createMentionMatcher(names)?.test(text) ||
+    (text.includes('&') && createMentionMatcher(names, escapeHtml)?.test(text)));
+}
+
+function getMentionDirectoryMembers(inMemory) {
+  var members = Array.isArray(inMemory) ? inMemory.slice() : [];
+  if (typeof localStorage !== 'undefined') {
+    ['bb_members_cache', 'bb_all_members', 'bb_cached_members'].forEach(function(key) {
+      try {
+        var cached = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(cached)) members.push(...cached);
+      } catch (_) {}
+    });
+  }
+  return members.filter(function(member) {
+    return member && typeof member.name === 'string' && member.name.trim() && !isDeletedOrTestAccount(member);
+  });
+}
+
+/** Formats confirmed mentions in already escaped or sanitized HTML. */
+function highlightPortalMentions(html, names) {
+  if (!html || !html.includes('@')) return html || '';
+  if (typeof HTMLTemplateElement === 'undefined') {
+    var encodedMatcher = createMentionMatcher(names, escapeHtml);
+    if (!encodedMatcher) return html;
+    return html.split(/(<[^>]+>)/g).map(function(part, index) {
+      return index % 2 ? part : part.replace(encodedMatcher, '$1<span class="tb-mention-pill">@$2</span>');
+    }).join('');
+  }
+
+  var template = document.createElement('template');
+  template.innerHTML = html;
+  // Stored marks from earlier versions are revalidated against the current directory.
+  template.content.querySelectorAll('span.tb-mention-pill').forEach(function(pill) {
+    pill.replaceWith(...pill.childNodes);
+  });
+  var matcher = createMentionMatcher(names);
+  if (!matcher) return template.innerHTML;
+
+  var walker = document.createTreeWalker(template.content, NodeFilter.SHOW_TEXT);
+  var textNodes = [];
+  while (walker.nextNode()) {
+    if (walker.currentNode.data.includes('@') && !walker.currentNode.parentElement?.closest('a, code, pre')) {
+      textNodes.push(walker.currentNode);
+    }
+  }
+  textNodes.forEach(function(node) {
+    var offset = 0;
+    var replacement = document.createDocumentFragment();
+    for (var match of node.data.matchAll(matcher)) {
+      var start = match.index + match[1].length;
+      var pill = document.createElement('span');
+      pill.className = 'tb-mention-pill';
+      pill.textContent = '@' + match[2];
+      replacement.append(node.data.slice(offset, start), pill);
+      offset = start + pill.textContent.length;
+    }
+    if (offset) {
+      replacement.append(node.data.slice(offset));
+      node.replaceWith(replacement);
+    }
+  });
+  return template.innerHTML;
+}
+
 /**
  * Formats an ISO or timestamp date string to en-MY localized string
  * @param {string|Date} dateStr
@@ -3033,6 +3118,11 @@ if (typeof window !== 'undefined') {
   window.getMemberAvatarInitial = getMemberAvatarInitial;
   window.getMemberAvatarColor = getMemberAvatarColor;
   window.resolveMemberDirectoryInfo = resolveMemberDirectoryInfo;
+  window.createMentionMatcher = createMentionMatcher;
+  window.normalizeMentionName = normalizeMentionName;
+  window.hasPortalMention = hasPortalMention;
+  window.getMentionDirectoryMembers = getMentionDirectoryMembers;
+  window.highlightPortalMentions = highlightPortalMentions;
   window.isDeletedOrTestAccount = isDeletedOrTestAccount;
   window.cleanMembersCache = cleanMembersCache;
   window.isNameMatch = isNameMatch;
@@ -3116,6 +3206,11 @@ if (typeof module !== 'undefined' && module.exports) {
     getMemberAvatarInitial: getMemberAvatarInitial,
     getMemberAvatarColor: getMemberAvatarColor,
     resolveMemberDirectoryInfo: resolveMemberDirectoryInfo,
+    createMentionMatcher: createMentionMatcher,
+    normalizeMentionName: normalizeMentionName,
+    hasPortalMention: hasPortalMention,
+    getMentionDirectoryMembers: getMentionDirectoryMembers,
+    highlightPortalMentions: highlightPortalMentions,
     isDeletedOrTestAccount: isDeletedOrTestAccount,
     cleanMembersCache: cleanMembersCache,
     isNameMatch: isNameMatch,

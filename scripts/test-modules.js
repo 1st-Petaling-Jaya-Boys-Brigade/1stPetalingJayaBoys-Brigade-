@@ -4587,8 +4587,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261124h',
-    'sw.js CACHE_VERSION must be 20261124h'
+    '20261124i',
+    'sw.js CACHE_VERSION must be 20261124i'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4616,7 +4616,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124h',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124i',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7486,7 +7486,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124h'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124i'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8968,12 +8968,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124h', 'Service Worker cache version must be 20261124h');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124i', 'Service Worker cache version must be 20261124i');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261124h and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261124i and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10269,25 +10269,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124h', 'sw.js CACHE_VERSION must be 20261124h');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124h', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124h', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124i', 'sw.js CACHE_VERSION must be 20261124i');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124i', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124i', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261124h cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261124i cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261124h'), 'config.js must use v=20261124h');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124h'), 'forum.js must use v=20261124h');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261124h'), 'variables.css must use v=20261124h');
-    assert.ok(indexRaw.includes('css/base.css?v=20261124h'), 'base.css must use v=20261124h');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124h');
+    assert.ok(indexRaw.includes('js/config.js?v=20261124i'), 'config.js must use v=20261124i');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124i'), 'forum.js must use v=20261124i');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261124i'), 'variables.css must use v=20261124i');
+    assert.ok(indexRaw.includes('css/base.css?v=20261124i'), 'base.css must use v=20261124i');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124i');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -10644,6 +10644,34 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(annFormatted.includes('<span class="tb-mention-pill">@super admins</span>'), 'Must wrap @super admins in pill');
     assert.ok(annFormatted.includes('<span class="tb-mention-pill">@creator</span>'), 'Must wrap @creator in pill');
     assert.ok(annFormatted.includes('<span class="tb-mention-pill">@all</span>'), 'Must wrap @all in pill');
+
+    const savedMentionDirectory = localStorage.getItem('bb_cached_members');
+    const recipient = { name: 'Joshua Ethan Example', email: 'joshua.ethan@example.test', department: 'HQ', rank: 'Corporal' };
+    localStorage.setItem('bb_cached_members', JSON.stringify([recipient]));
+    try {
+      const unresolved = '@joshua, @JOSHUA ETHAN, @No Such Person, and @Joshua Ethan Example-Wrong.';
+      const resolved = '@Joshua Ethan Example, please review.';
+      const expected = '<span class="tb-mention-pill">@Joshua Ethan Example</span>, please review.';
+      for (const format of [tasksMod.formatCommentMentions, tasksMod.formatTaskDescriptionMentions,
+        forumMentionsMod.formatForumMentions, annMentionsMod.formatAnnouncementMentions]) {
+        assert.strictEqual(format(unresolved), unresolved, `${format.name} must leave unresolved mentions plain`);
+        assert.strictEqual(format(resolved), expected, `${format.name} must highlight a complete directory name`);
+      }
+      const { resolveMentionTargets } = require('../js/api/fcm.js');
+      assert.deepStrictEqual(resolveMentionTargets(unresolved, [recipient]).targetUsers, [], 'Partial and unknown names cannot trigger mention push');
+      assert.deepStrictEqual(resolveMentionTargets(resolved, [recipient]).targetUsers, [recipient.name], 'An exact name still triggers mention push');
+      assert.deepStrictEqual(resolveMentionTargets('Email contact@media.example or @all-time', [recipient]).topics, [], 'Email domains and partial groups cannot trigger a group push');
+      assert.strictEqual(tasksMod.isUserMentionedInComment(unresolved, '', '', recipient.name, recipient.email), false);
+      assert.strictEqual(forumMentionsMod.isUserMentionedInForum(unresolved, '', '', recipient.name, recipient.email), false);
+      assert.strictEqual(annMentionsMod.isUserMentionedInAnnouncement(unresolved, recipient.name, recipient.email), false);
+      assert.strictEqual(tasksMod.isUserMentionedInComment('@Media-Team', '', '', recipient.name, recipient.email, 'Media'), false);
+      assert.strictEqual(forumMentionsMod.isUserMentionedInForum('@all-time', '', '', recipient.name, recipient.email), false);
+      assert.strictEqual(annMentionsMod.isUserMentionedInAnnouncement('@Media-Team', recipient.name, recipient.email, 'Media'), false);
+    } finally {
+      if (savedMentionDirectory === null) localStorage.removeItem('bb_cached_members');
+      else localStorage.setItem('bb_cached_members', savedMentionDirectory);
+    }
+    console.log('  ✔ Unknown and partial member names stay plain and do not trigger mention alerts');
 
     // Announcement mention evaluation
     assert.strictEqual(
