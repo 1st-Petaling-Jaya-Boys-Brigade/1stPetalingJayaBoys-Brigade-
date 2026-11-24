@@ -16,7 +16,7 @@ on:
         default: 'v1.0.0'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-apk:
@@ -25,16 +25,18 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: 'npm'
 
       - name: Set up Java 21 (Temurin)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -87,24 +89,58 @@ jobs:
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs mobile/android/app/build/outputs/apk/release/app-release.apk
 
       - name: Calculate APK SHA-256
+        working-directory: mobile/android/app/build/outputs/apk/release
         run: |
-          sha256sum mobile/android/app/build/outputs/apk/release/app-release.apk > mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
-          cat mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
+          sha256sum app-release.apk > app-release.apk.sha256
+          cat app-release.apk.sha256
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: app-release
-          path: mobile/android/app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-
-      - name: Attach APK to GitHub Release
-        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target_release_tag != '')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.target_release_tag || (github.ref == 'refs/heads/main' && 'v1.0.0') || github.ref_name }}
-          files: |
+          path: |
             mobile/android/app/build/outputs/apk/release/app-release.apk
             mobile/android/app/build/outputs/apk/release/app-release.apk.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
+          overwrite: true
+
+  publish-apk:
+    name: Publish Release APK
+    needs: build-apk
+    if: >-
+      github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v') ||
+      github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.target_release_tag != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download signed APK artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: app-release
+          path: release
+
+      - name: Verify downloaded APK checksum
+        working-directory: release
+        run: sha256sum --check app-release.apk.sha256
+
+      - name: Attach APK to GitHub Release
+        id: publish
+        continue-on-error: true
+        uses: softprops/action-gh-release@v3
+        with: &release_inputs
+          tag_name: ${{ github.event.release.tag_name || inputs.target_release_tag || (github.ref == 'refs/heads/main' && 'v1.0.0') || github.ref_name }}
+          fail_on_unmatched_files: true
+          files: |
+            release/app-release.apk
+            release/app-release.apk.sha256
+
+      - name: Wait before retrying release upload
+        if: steps.publish.outcome == 'failure'
+        run: sleep 20
+
+      - name: Retry attaching APK to GitHub Release
+        if: steps.publish.outcome == 'failure'
+        uses: softprops/action-gh-release@v3
+        with: *release_inputs
