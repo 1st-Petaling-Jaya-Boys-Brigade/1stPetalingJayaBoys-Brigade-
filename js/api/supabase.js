@@ -1365,7 +1365,8 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('config', 'update', { key: key }, true);
               }
             } else if (table === 'bb_tasks') {
-              triggerEntityUpdate('tasks', evType || 'update', record, true);
+              var taskEvent = String(evType || 'update').toLowerCase();
+              triggerEntityUpdate('tasks', taskEvent === 'insert' ? 'create' : taskEvent, taskEvent === 'delete' ? oldRecord : record, true);
             } else if (table === 'bb_announcements') {
               triggerEntityUpdate('announcements', evType || 'update', record, true);
             } else if (table === 'bb_members') {
@@ -1532,8 +1533,8 @@ var PortalRealtime = (function() {
             triggerEntityUpdate('tasks', 'delete', { id: activeTid }, true);
           } else {
             var at = activeTaskRow[0];
-            var atKey = [at.id, at.title, at.status, at.priority, at.due_date, at.estimate, (at.description || '').length].join(':');
-            if (_lastEntityTimestamps['bb_task_active_' + activeTid] && _lastEntityTimestamps['bb_task_active_' + activeTid] !== atKey) {
+            var atKey = JSON.stringify(at);
+            if (_lastEntityTimestamps['bb_task_active_' + activeTid] !== atKey) {
               triggerEntityUpdate('tasks', 'update', at, true);
             }
             _lastEntityTimestamps['bb_task_active_' + activeTid] = atKey;
@@ -2202,6 +2203,16 @@ var PortalRealtime = (function() {
     } else if (entity === 'tasks' || entity === 'comments') {
       var tid = (data && (data.taskId || data.id)) || (data && data.key && data.key.startsWith('bb_task_comments_') ? data.key.replace('bb_task_comments_', '') : null);
       if (typeof window !== 'undefined') {
+        if (entity === 'tasks' && action === 'brief-saved' && tid && typeof window.refreshTaskBriefRow === 'function') {
+          invalidateCache('bb_tasks');
+          window.refreshTaskBriefRow(tid, true);
+          return;
+        }
+        if (entity === 'tasks' && action === 'update' && tid && typeof window.applyTaskBriefRow === 'function') {
+          invalidateCache('bb_tasks');
+          var row = Object.assign({}, data, data.field && Object.hasOwn(data, 'value') ? { [data.field]: data.value } : {});
+          if (window.applyTaskBriefRow(row)) return;
+        }
         invalidateCache('bb_config');
         invalidateCache('bb_tasks');
 

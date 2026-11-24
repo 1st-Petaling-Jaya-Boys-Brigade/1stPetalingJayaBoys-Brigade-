@@ -4587,8 +4587,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261124a',
-    'sw.js CACHE_VERSION must be 20261124a'
+    '20261124b',
+    'sw.js CACHE_VERSION must be 20261124b'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4616,7 +4616,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124a',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124b',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7478,7 +7478,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124a'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124b'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8960,12 +8960,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124a', 'Service Worker cache version must be 20261124a');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124b', 'Service Worker cache version must be 20261124b');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261124a and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261124b and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10261,25 +10261,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124a', 'sw.js CACHE_VERSION must be 20261124a');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124a', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124a', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261124b', 'sw.js CACHE_VERSION must be 20261124b');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124b', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124b', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261124a cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261124b cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261124a'), 'config.js must use v=20261124a');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124a'), 'forum.js must use v=20261124a');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261124a'), 'variables.css must use v=20261124a');
-    assert.ok(indexRaw.includes('css/base.css?v=20261124a'), 'base.css must use v=20261124a');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124a');
+    assert.ok(indexRaw.includes('js/config.js?v=20261124b'), 'config.js must use v=20261124b');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124b'), 'forum.js must use v=20261124b');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261124b'), 'variables.css must use v=20261124b');
+    assert.ok(indexRaw.includes('css/base.css?v=20261124b'), 'base.css must use v=20261124b');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124b');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -10559,7 +10559,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Full-name mention highlighting verified across multi-word members and groups');
 
     // 22. Task brief description mentions highlighting
-    assert.ok(tasksSrc.includes('formatTaskDescriptionMentions(cleanDesc)'), 'openTaskDetail must format mentions in task brief description');
+    assert.ok(tasksSrc.includes('formatTaskDescriptionMentions(getTaskBriefBody(value))'), 'Initial and live task brief rendering must format mentions');
     assert.ok(tasksSrc.includes('split(/\\s+/).length <= 6'), 'Mention typing threshold must allow multi-word names up to 6 words');
     console.log('  ✔ Task brief description mention highlighting and multi-word input threshold verified');
 
@@ -16068,12 +16068,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     fakeCreatedTask._creationPromise = Promise.resolve(9876);
     fakeCreatedTask._realDbId = 9876;
 
-    // Now updating field resolves the real database ID and patches successfully
-    patchedEndpoint = null;
-    patchedBody = null;
+    // Now updating the estimate resolves the real database ID and compares the saved brief.
+    const originalBriefRpc = supaMod.supa.rpc;
+    supaMod.supa.rpc = async (name, payload) => {
+      if (name !== 'rpc_save_task_brief_field') return originalBriefRpc.call(supaMod.supa, name, payload);
+      patchedEndpoint = payload.p_task_id;
+      patchedBody = payload;
+      return { saved: true, task: { ...fakeCreatedTask, id: 9876, description: payload.p_value } };
+    };
     await tasksMod.saveTaskField(tempId, 'estimate', '4h');
-    assert.ok(patchedEndpoint && patchedEndpoint.includes('id=eq.9876'), 'Resolves tempId to real numeric database ID 9876 before remote patch');
-    assert.ok(patchedBody && patchedBody.description && patchedBody.description.includes('4h'), 'Patches updated estimate metadata with real ID');
+    supaMod.supa.rpc = originalBriefRpc;
+    assert.strictEqual(patchedEndpoint, '9876', 'Resolves tempId before saving the brief');
+    assert.strictEqual(patchedBody.p_expected, 'Annual training camp');
+    assert.ok(patchedBody.p_value.includes('4h'), 'Saves updated estimate metadata with real ID');
     console.log('  ✔ Task creation temp ID resolution prevents PostgreSQL bigint 400 syntax errors');
 
     // Strict 388 Unique DOM IDs Invariant
