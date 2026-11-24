@@ -8441,6 +8441,14 @@ html.task-brief-open {
   -webkit-overflow-scrolling: touch;
 }
 
+.tb-mentions-dropdown.tb-mentions-at-caret {
+  position: fixed;
+  bottom: auto;
+  right: auto;
+  box-sizing: border-box;
+  transition: none;
+}
+
 .tb-mention-item {
   display: flex;
   align-items: center;

@@ -3974,6 +3974,105 @@ async function getJson(url) {
     assert.strictEqual(attRes.hasMentionsDropdown, true, 'Task comment box must contain .tb-mentions-dropdown');
     console.log('  ✔ Lock button removed, multi-file attachments, and @mentions dropdown verified in browser');
 
+    const mentionPlacementExpression = `(async () => {
+        const page = document.getElementById('page-tasks');
+        const detail = document.getElementById('task-detail-modal');
+        const card = detail.querySelector('.task-brief-modal-card');
+        const brief = document.getElementById('tdm-desc');
+        const comment = detail.querySelector('.tb-comment-input');
+        const dropdown = detail.querySelector('.tb-mentions-dropdown');
+        const create = document.querySelector('.task-create-modal');
+        const newBrief = create.querySelector('.new-task-desc-input');
+        const wasActive = page.classList.contains('active');
+        const briefWasOpen = document.documentElement.classList.contains('task-brief-open');
+        const previous = [detail.style.display, create.style.display, brief.innerHTML, comment.innerHTML, newBrief.innerHTML,
+          brief.getAttribute('contenteditable'), window._cachedDepartmentMembers, window._activeDetailTaskId];
+        const typeMention = (input, handler, padding = '') => {
+          input.innerHTML = padding + '<p>@Anchor</p>';
+          input.focus();
+          const text = input.lastElementChild.firstChild;
+          getSelection().collapse(text, text.length);
+          handler(input);
+        };
+        const caretGap = () => {
+          const caret = getSelection().getRangeAt(0).getBoundingClientRect();
+          const menu = dropdown.getBoundingClientRect();
+          return Math.min(Math.abs(menu.top - caret.bottom), Math.abs(menu.bottom - caret.top));
+        };
+        const menuFits = () => {
+          const menu = dropdown.getBoundingClientRect();
+          return menu.width > 0 && menu.height > 0 && dropdown.style.visibility !== 'hidden' &&
+            menu.left >= 0 && menu.right <= window.innerWidth && menu.top >= 0 && menu.bottom <= window.innerHeight;
+        };
+        const key = (input, value) => input.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true }));
+        try {
+          page.classList.add('active');
+          await Promise.allSettled(page.getAnimations().map(animation => animation.finished));
+          document.documentElement.classList.add('task-brief-open');
+          detail.style.display = 'block';
+          window._activeDetailTaskId = null;
+          window._cachedDepartmentMembers = [
+            { name: 'Anchor Alpha', email: 'anchor-alpha@example.test', rank: 'Corporal', department: 'Media' },
+            { name: 'Anchor Beta', email: 'anchor-beta@example.test', rank: 'Corporal', department: 'Media' }
+          ];
+          brief.setAttribute('contenteditable', 'true');
+          card.scrollTop = 0;
+          const narrow = window.innerWidth < 500;
+          typeMention(brief, handleTaskBriefDescInput, '<p>Earlier task brief line</p>'.repeat(narrow ? 5 : 8));
+          const briefNearCaret = menuFits() && caretGap() < 20 && dropdown.getBoundingClientRect().width <= 420;
+          const scrollBefore = card.scrollTop;
+          card.scrollTop += narrow ? 60 : 90;
+          card.dispatchEvent(new Event('scroll'));
+          const followsScroll = card.scrollTop > scrollBefore && menuFits() && caretGap() < 20;
+          key(brief, 'ArrowDown');
+          const second = dropdown.querySelector('.tb-mention-item.active')?.textContent.includes('Anchor Beta');
+          key(brief, 'Enter');
+          const keyboardInserts = second && brief.querySelector('.tb-mention-pill')?.textContent === '@Anchor Beta' &&
+            dropdown.style.display === 'none';
+          typeMention(brief, handleTaskBriefDescInput);
+          key(brief, 'Escape');
+          const escapeClosesMenu = dropdown.style.display === 'none' && detail.style.display === 'block';
+          typeMention(comment, handleTaskCommentInput);
+          comment.scrollIntoView({ block: 'end' });
+          const commentPlacement = dropdown.parentElement === comment.parentElement && dropdown.style.display === 'block' &&
+            dropdown.getBoundingClientRect().bottom <= comment.getBoundingClientRect().top;
+          hideMentionDropdown();
+          detail.style.display = 'none';
+          document.documentElement.classList.remove('task-brief-open');
+          create.style.display = 'flex';
+          typeMention(newBrief, handleTaskBriefDescInput);
+          const createNearCaret = !!dropdown.id && create.getAttribute('aria-owns') === dropdown.id && menuFits() && caretGap() < 20;
+          dropdown.querySelector('.tb-mention-item').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+          const pointerInserts = newBrief.querySelector('.tb-mention-pill')?.textContent === '@Anchor Alpha' &&
+            dropdown.style.display === 'none' && !create.hasAttribute('aria-owns');
+          return { briefNearCaret, followsScroll, keyboardInserts, escapeClosesMenu, commentPlacement, createNearCaret, pointerInserts };
+        } finally {
+          hideMentionDropdown();
+          [detail.style.display, create.style.display, brief.innerHTML, comment.innerHTML, newBrief.innerHTML] = previous;
+          brief.setAttribute('contenteditable', previous[5]);
+          window._cachedDepartmentMembers = previous[6];
+          window._activeDetailTaskId = previous[7];
+          page.classList.toggle('active', wasActive);
+          document.documentElement.classList.toggle('task-brief-open', briefWasOpen);
+        }
+      })()`;
+    const verifyMentionPlacement = async viewport => {
+      const result = await sendCmd('Runtime.evaluate', { expression: mentionPlacementExpression, awaitPromise: true, returnByValue: true });
+      assert.ok(!result.exceptionDetails, JSON.stringify(result.exceptionDetails));
+      assert.deepStrictEqual(result.result.value, {
+        briefNearCaret: true, followsScroll: true, keyboardInserts: true, escapeClosesMenu: true,
+        commentPlacement: true, createNearCaret: true, pointerInserts: true
+      }, `Task mentions follow the brief caret and preserve comment placement at ${viewport}`);
+    };
+    await verifyMentionPlacement('desktop width');
+    await sendCmd('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    try {
+      await verifyMentionPlacement('390px mobile width');
+    } finally {
+      await sendCmd('Emulation.clearDeviceMetricsOverride');
+    }
+    console.log('  ✔ Mention menus follow the brief caret on desktop and mobile and preserve comment placement');
+
     // [Task Comment Actions (3-Dots Menu, Edit, Delete) & Author Mention Notification Exclusion]
     console.log('\n[Task Comment Actions & Mention Notification Filtering Verification]');
     const commentActionDiag = await sendCmd('Runtime.evaluate', {
