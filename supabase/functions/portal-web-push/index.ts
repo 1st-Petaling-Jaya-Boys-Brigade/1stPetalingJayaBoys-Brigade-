@@ -53,6 +53,26 @@ function budget(key: string, limit: number, seconds: number) {
   return db<boolean>('rpc/rpc_claim_portal_push_limit', 'POST', { p_key: key, p_limit: limit, p_seconds: seconds });
 }
 
+async function isReminderSender(request: Request) {
+  if (request.headers.has('origin')) return false;
+  const key = request.headers.get('apikey');
+  if (key && (key === SERVICE || SERVICE_API_KEYS.has(key))) return true;
+
+  const authorization = request.headers.get('authorization') || '';
+  if (SERVICE && authorization === 'Bearer ' + SERVICE) return true;
+  // Legacy service-role JWTs can differ from the function's injected key.
+  // Have PostgREST validate the JWT and require permission on a server-only table.
+  const legacyKey = key || authorization.replace(/^Bearer /, '');
+  if (!/^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(legacyKey)) return false;
+  const response = await fetch(PROJECT + '/rest/v1/bb_portal_push_devices?select=endpoint&limit=0', {
+    headers: { apikey: legacyKey, Authorization: 'Bearer ' + legacyKey },
+    signal: AbortSignal.timeout(5000),
+    redirect: 'error',
+  });
+  await response.body?.cancel();
+  return response.ok;
+}
+
 function active(member: Member) {
   return !['deleted', 'archived_deleted'].includes(normalize(member.department)) && !normalize(member.ic).startsWith('archived_');
 }
@@ -212,9 +232,7 @@ Deno.serve(async request => {
       typeof topic === 'string' && /^(announcements|(?:user|dept)_[\w~-]{1,108})$/.test(topic))));
 
     if (action === 'remind') {
-      const secret = request.headers.get('apikey');
-      const legacy = SERVICE && request.headers.get('authorization') === 'Bearer ' + SERVICE;
-      if (origin || !(legacy || (secret && SERVICE_API_KEYS.has(secret)))) return json({ error: 'Unauthorized' }, 401);
+      if (!await isReminderSender(request)) return json({ error: 'Unauthorized' }, 401);
       const day = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
       const expired = encodeURIComponent(new Date().toISOString());
       await Promise.all([

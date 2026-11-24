@@ -106,7 +106,11 @@ test('scheduled sender claims once per day and keeps task text out of phone payl
     }
     switch (url.pathname) {
       case '/functions/v1/portal-web-push':
-        assert.ok(options.headers.Authorization === 'Bearer test' || options.headers.apikey === 'sb_secret_fixture');
+        if (options.headers.apikey === 'test') assert.equal(options.headers.Authorization, 'Bearer test');
+        else {
+          assert.equal(options.headers.apikey, 'sb_secret_fixture');
+          assert.equal(options.headers.Authorization, undefined);
+        }
         iosRequests.push(JSON.parse(options.body));
         return Response.json({ sent: 0 });
       case '/rest/v1/bb_tasks':

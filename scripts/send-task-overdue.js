@@ -61,7 +61,8 @@ async function sendIOSReminders(db, key, topics) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(key.startsWith('sb_secret_') ? { apikey: key } : { Authorization: 'Bearer ' + key })
+      apikey: key,
+      ...(key.startsWith('sb_secret_') ? {} : { Authorization: 'Bearer ' + key })
     },
     body: JSON.stringify({ action: 'remind', topics }),
     redirect: 'error',
