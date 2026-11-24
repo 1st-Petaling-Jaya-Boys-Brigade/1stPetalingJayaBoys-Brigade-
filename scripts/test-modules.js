@@ -13455,6 +13455,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // In-memory config mock for bb_config and bb_announcements
     const mockDbConfig = {};
+    const announcementConfigReads = [];
     const mockDbAnnouncements = [
       {
         id: 'ann-poll-test',
@@ -13468,6 +13469,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     const mockSupaClient = {
       get: async (endpoint) => {
+        if (endpoint.startsWith('bb_config?key=in.(')) {
+          announcementConfigReads.push(endpoint);
+          const keys = endpoint.split('(', 2)[1].split(')', 1)[0].split(',').map(decodeURIComponent);
+          return keys.filter(key => Object.hasOwn(mockDbConfig, key)).map(key => ({
+            key, value: JSON.stringify(mockDbConfig[key])
+          }));
+        }
         if (endpoint.includes('bb_config?key=eq.bb_announcements_allowed_reactions')) {
           const val = mockDbConfig['bb_announcements_allowed_reactions'];
           return val ? [{ key: 'bb_announcements_allowed_reactions', value: JSON.stringify(val) }] : [];
@@ -13485,7 +13493,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
         }
         return [];
       },
+      batchConfigGet: require('../js/api/supabase.js').supa.batchConfigGet,
       safeConfigGet: async (key, fallback) => {
+        announcementConfigReads.push(key);
         return mockDbConfig[key] !== undefined ? mockDbConfig[key] : fallback;
       },
       upsert: async (table, record) => {
@@ -13529,9 +13539,19 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Strip direct column and object metadata to test recovery from bb_config
     mockDbAnnouncements[0].allowed_reactions = null;
     mockDbAnnouncements[0].reactions = {};
+    mockDbConfig.bb_announcements_images = { 'ann-poll-test': 'https://example.com/parade.jpg' };
+    mockDbConfig.bb_announcements_pinned = { 'ann-poll-test': true };
+    announcementConfigReads.length = 0;
     await annMod.loadAnnouncements();
+    assert.deepStrictEqual(
+      announcementConfigReads,
+      ['bb_config?key=in.(bb_announcements_images,bb_announcements_pinned,bb_announcements_allowed_reactions)&select=key,value'],
+      'Refreshing announcements must fetch all announcement settings in one request'
+    );
     const loaded = annMod.announcements.find(a => a.id === 'ann-poll-test');
     assert.ok(loaded, 'Announcement was loaded');
+    assert.strictEqual(loaded.image_url, 'https://example.com/parade.jpg', 'The feed must retain the announcement image');
+    assert.strictEqual(loaded.is_pinned, true, 'The feed must retain the pinned announcement');
     assert.deepStrictEqual(loaded.allowed_reactions, ['✅', '❌'], 'loadAnnouncements must restore allowed_reactions from bb_config');
     assert.deepStrictEqual(loaded.reactions._allowed, ['✅', '❌'], 'loadAnnouncements must sync reactions._allowed metadata');
     console.log('  ✔ loadAnnouncements restores allowed reactions from bb_config when column is missing');
@@ -13620,6 +13640,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(postBtn.getAttribute('data-edit-idx'), null, 'data-edit-idx cleared after save');
     assert.ok(mockDbConfig['bb_announcements_allowed_reactions']['ann-poll-test'], 'bb_config updated after save');
     console.log('  ✔ addAnnouncement saves updates, synchronizes allowed reactions, and resets edit button state');
+
+    const savedAnnouncements = mockDbAnnouncements.splice(0);
+    await annMod.loadAnnouncements();
+    assert.strictEqual(annMod.announcements.length, 0, 'A confirmed empty feed must clear the previous announcements');
+    mockDbAnnouncements.push(...savedAnnouncements);
+    await annMod.loadAnnouncements();
 
     // Cleanup & restore mocks
     global.document = origDoc;

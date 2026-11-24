@@ -529,56 +529,42 @@ async function loadAnnouncements(isSilent) {
 
   var fetchFn = async function(signal) {
     if (typeof supa !== 'undefined' && supa.get) {
-      var annImageMap = {};
-      var annPinnedMap = {};
-      var annAllowedMap = {};
+      var configKeys = ['bb_announcements_images', 'bb_announcements_pinned', 'bb_announcements_allowed_reactions'];
       var options = { force: true, cache: false, signal: signal };
-      var cfgPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_images', {}, options)
-        : supa.get('bb_config?key=eq.bb_announcements_images&select=value', options);
-      var pinPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_pinned', {}, options)
-        : supa.get('bb_config?key=eq.bb_announcements_pinned&select=value', options);
-      var allowedPromise = (typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function')
-        ? supa.safeConfigGet('bb_announcements_allowed_reactions', {}, options)
-        : supa.get('bb_config?key=eq.bb_announcements_allowed_reactions&select=value', options);
+      var configPromise;
+      if (typeof supa.batchConfigGet === 'function') {
+        configPromise = supa.batchConfigGet(configKeys, options);
+      } else {
+        configPromise = Promise.allSettled(configKeys.map(function(key) {
+          return typeof supa.safeConfigGet === 'function'
+            ? supa.safeConfigGet(key, {}, options)
+            : supa.get('bb_config?key=eq.' + key + '&select=value', options);
+        })).then(function(configResults) {
+          var config = {};
+          configResults.forEach(function(result, index) {
+            if (result.status !== 'fulfilled' || !result.value) return;
+            var value = result.value;
+            if (Array.isArray(value) && value.length && value[0].value) {
+              try {
+                value = typeof value[0].value === 'string' ? JSON.parse(value[0].value) : value[0].value;
+              } catch (_) { return; }
+            }
+            if (value && typeof value === 'object') config[configKeys[index]] = value;
+          });
+          return config;
+        });
+      }
       var annPromise = supa.get('bb_announcements?order=created_at.asc&select=*', options);
 
-      var results = await Promise.allSettled([cfgPromise, pinPromise, allowedPromise, annPromise]);
+      var [configResult, announcementResult] = await Promise.allSettled([configPromise, annPromise]);
       if (signal?.aborted) return;
-      if (results[0].status === 'fulfilled' && results[0].value) {
-        var cfgVal = results[0].value;
-        if (Array.isArray(cfgVal) && cfgVal.length && cfgVal[0].value) {
-          try {
-            annImageMap = typeof cfgVal[0].value === 'string' ? JSON.parse(cfgVal[0].value) : cfgVal[0].value;
-          } catch (_) {}
-        } else if (typeof cfgVal === 'object') {
-          annImageMap = cfgVal;
-        }
-      }
-      if (results[1].status === 'fulfilled' && results[1].value) {
-        var pinVal = results[1].value;
-        if (Array.isArray(pinVal) && pinVal.length && pinVal[0].value) {
-          try {
-            annPinnedMap = typeof pinVal[0].value === 'string' ? JSON.parse(pinVal[0].value) : pinVal[0].value;
-          } catch (_) {}
-        } else if (typeof pinVal === 'object') {
-          annPinnedMap = pinVal;
-        }
-      }
-      if (results[2].status === 'fulfilled' && results[2].value) {
-        var allowedVal = results[2].value;
-        if (Array.isArray(allowedVal) && allowedVal.length && allowedVal[0].value) {
-          try {
-            annAllowedMap = typeof allowedVal[0].value === 'string' ? JSON.parse(allowedVal[0].value) : allowedVal[0].value;
-          } catch (_) {}
-        } else if (typeof allowedVal === 'object') {
-          annAllowedMap = allowedVal;
-        }
-      }
+      var config = (configResult.status === 'fulfilled' && configResult.value) || {};
+      var annImageMap = config.bb_announcements_images;
+      var annPinnedMap = config.bb_announcements_pinned;
+      var annAllowedMap = config.bb_announcements_allowed_reactions;
 
-      var rows = (results[3].status === 'fulfilled' && Array.isArray(results[3].value)) ? results[3].value : null;
-      if (results[3].status !== 'fulfilled' && announcements.length === 0) {
+      var rows = (announcementResult.status === 'fulfilled' && Array.isArray(announcementResult.value)) ? announcementResult.value : null;
+      if (announcementResult.status !== 'fulfilled' && announcements.length === 0) {
         // Network or server timeout: preserve cached or fallback data
         if (version === _announcementLoadVersion && !_announcementDeletes.size) {
           DEFAULT_ANNOUNCEMENTS.forEach(function(item) { announcements.push(JSON.parse(JSON.stringify(item))); });
@@ -656,7 +642,7 @@ async function loadAnnouncements(isSilent) {
             localStorage.setItem('bb_announcements_cache', JSON.stringify(announcements));
           }
         } catch (_) {}
-      } else if (results[3].status === 'fulfilled' && rows && rows.length === 0) {
+      } else if (rows && rows.length === 0) {
         if (version !== _announcementLoadVersion) return;
         // Explicit empty announcements confirmed by server
         announcements.length = 0;
