@@ -1396,7 +1396,7 @@
           <!-- Divider tool (horizontal rule) -->
           <button type="button" class="tb-btn" onmousedown="event.preventDefault()" onclick="executeRichFormat('divider', null, this)" title="Horizontal Divider (—)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
         </div>
-        <div class="task-brief-body task-editable-desc" id="tdm-desc" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="Task description and deliverables" placeholder="Add a description or deliverables brief..." onblur="handleTaskDescBlur(this)" oninput="handleTaskBriefDescInput(this);queueTaskBriefEdit(this,'description',event)" oncompositionend="queueTaskBriefEdit(this,'description')"></div>
+        <div class="task-brief-body task-editable-desc" id="tdm-desc" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="Task description and deliverables" placeholder="Add a description or deliverables brief..." onblur="handleTaskDescBlur(this)" onbeforeinput="handleTaskBriefBeforeInput(event)" oninput="handleTaskBriefDescInput(this);queueTaskBriefEdit(this,'description',event)" oncompositionend="queueTaskBriefEdit(this,'description')"></div>
         </div>
         <div id="tdm-status-btns" style="display:none !important;"></div>
 
