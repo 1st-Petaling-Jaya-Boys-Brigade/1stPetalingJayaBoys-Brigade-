@@ -156,3 +156,42 @@ test('scheduled sender claims once per day and keeps task text out of phone payl
   assert.equal(sends.length, 2);
   assert.deepEqual(iosRequests[1], iosRequests[0]);
 });
+
+test('scheduled sender reports the unavailable shared secret by name before contacting any provider', async ({ mock }) => {
+  const fetch = mock.method(global, 'fetch', () => { throw new Error('Unexpected network request'); });
+  await assert.rejects(reminders.runOverdueReminders({
+    TASK_REMINDER_SUPABASE_URL: 'https://db.example.test',
+    TASK_REMINDER_FCM_SERVICE_ACCOUNT: 'fixture'
+  }), { message: 'Missing GitHub Actions secret: TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY.' });
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('iPhone reminders still run when the Android secret is missing or invalid', async ({ mock }) => {
+  mock.method(Date, 'now', () => midnight);
+  const iosRequests = [];
+  mock.method(global, 'fetch', async (input, options = {}) => {
+    const url = new URL(input);
+    if (url.origin !== 'https://db.example.test') throw new Error('Unexpected provider request');
+    switch (url.pathname) {
+      case '/rest/v1/bb_tasks':
+        return Response.json([{ ...due, assignee_ic: 'member-1' }]);
+      case '/rest/v1/bb_members':
+        return Response.json([{ ic: 'member-1', email: 'member1@example.test' }]);
+      case '/rest/v1/bb_config':
+        return Response.json([]);
+      case '/functions/v1/portal-web-push':
+        iosRequests.push(JSON.parse(options.body));
+        return Response.json({ sent: 1 });
+      default:
+        throw new Error('Unexpected test request');
+    }
+  });
+  const shared = {
+    PORTAL_WEB_PUSH_REMINDERS: 'true',
+    TASK_REMINDER_SUPABASE_URL: 'https://db.example.test',
+    TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY: 'fixture'
+  };
+  await assert.rejects(reminders.runOverdueReminders(shared), /TASK_REMINDER_FCM_SERVICE_ACCOUNT/);
+  await assert.rejects(reminders.runOverdueReminders({ ...shared, TASK_REMINDER_FCM_SERVICE_ACCOUNT: '{' }), /must contain JSON/);
+  assert.deepEqual(iosRequests, Array.from({ length: 2 }, () => ({ action: 'remind', topics: ['user_member1_example_test'] })));
+});

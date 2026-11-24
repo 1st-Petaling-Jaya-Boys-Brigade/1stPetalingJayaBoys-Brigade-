@@ -72,7 +72,15 @@ Apply `supabase/migrations/029_task_completion_and_overdue_reminders.sql` when d
 
 The signed-in portal checks overdue assignments as it refreshes notifications. Browser and desktop popups depend on device notification permission and the portal running. Android receives a daily FCM reminder at about 8:05 AM Malaysia time. A second scheduled run at 8:35 AM retries sends the provider rejected, using a database claim to avoid repeats. Android uses the existing portal alert channel and chime. The device controls sound and notification permissions.
 
-Enable the scheduled mobile sender by setting the repository Actions secrets `TASK_REMINDER_SUPABASE_URL`, `TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY`, and `TASK_REMINDER_FCM_SERVICE_ACCOUNT`. The Firebase secret contains service-account JSON for the same Firebase project as the APK. Keep these credentials in Actions secrets. Verify delivery with an assigned test task and signed-in phones with notification permission before inviting members.
+In the repository's **Settings → Secrets and variables → Actions**, add the following repository secrets for the scheduled mobile sender.
+
+| Secret | Value |
+| --- | --- |
+| `TASK_REMINDER_SUPABASE_URL` | The production Supabase project's HTTPS URL |
+| `TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY` | The production project's server-side key. Use an `sb_secret_` key or a legacy `service_role` JWT. |
+| `TASK_REMINDER_FCM_SERVICE_ACCOUNT` | The Firebase service-account JSON for the same project as the Android APK |
+
+Both platforms need the Supabase secrets. The Firebase secret is required for Android. A Firebase configuration error still lets the iPhone and iPad Web Push step run and marks the workflow as failed so the Android problem is visible. Use **Actions → Mobile overdue task reminders → Run workflow** on `main` to verify delivery with an assigned overdue test task and signed-in phones that allow notifications. The workflow can also send reminders to other eligible assignees, with deduplication for the same day.
 
 ### iPhone and iPad Web Push backend
 
