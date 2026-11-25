@@ -10198,45 +10198,106 @@ body.light-theme .tb-mention-pill,
    AI Support Helper Agent ("Ask Stedfast") & Bug Forum
    ═════════════════════════════════════════════════════════════════════════ */
 
-/* ── Floating Helper Agent Trigger Pill (Bottom-Right) ── */
-.helper-agent-btn {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 9999;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 18px 10px 13px;
-  border-radius: 999px;
-  background: var(--bg-card);
-  border: 1.5px solid var(--border-card);
+/* ── Uniform Order Payment Proof ── */
+.uniform-payment-proof {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  background: var(--bg-card-subtle);
   color: var(--text-primary);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.uniform-payment-proof label {
+  font-weight: 700;
+}
+
+.uniform-payment-proof label span,
+.uniform-payment-proof p,
+.uniform-payment-proof [role="status"] {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.uniform-payment-proof p {
+  margin: 6px 0 12px;
+}
+
+.uniform-payment-proof input {
+  max-width: 100%;
+  color: var(--text-primary);
+}
+
+.uniform-payment-proof input::file-selector-button {
+  margin-inline-end: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.2s ease,
-              box-shadow 0.2s ease,
-              background 0.2s ease;
-  user-select: none;
-  -webkit-user-select: none;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+}
+
+.uniform-payment-proof [role="status"]:not(:empty) {
+  margin-top: 8px;
+}
+
+.uniform-proof-view {
+  margin-inline-end: 6px;
+}
+
+.uniform-proof-dialog {
+  max-width: min(92vw, 900px);
+  max-height: 90dvh;
+  padding: 12px;
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.uniform-proof-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+.uniform-proof-dialog form {
+  margin-bottom: 8px;
+  text-align: right;
+}
+
+.uniform-proof-dialog img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* ── Header Helper Agent Trigger ── */
+.helper-agent-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 @media (hover: hover) {
   .helper-agent-btn:hover {
-    transform: translateY(-2.5px);
     border-color: var(--accent);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 16px rgba(245, 197, 66, 0.2);
   }
 }
 
 .helper-agent-btn.active {
-  background: var(--accent);
+  background: var(--surface-tint);
   border-color: var(--accent);
-  color: var(--btn-on-accent, #121418);
-  box-shadow: 0 4px 18px rgba(245, 197, 66, 0.4);
 }
 
 .helper-agent-icon-wrap {
@@ -10252,12 +10313,6 @@ body.light-theme .tb-mention-pill,
   color: var(--accent);
   flex-shrink: 0;
   transition: background 0.2s ease;
-}
-
-.helper-agent-btn.active .helper-agent-icon-wrap {
-  background: rgba(0, 0, 0, 0.15);
-  border-color: transparent;
-  color: #121418;
 }
 
 .helper-anchor-icon {
@@ -10292,7 +10347,7 @@ body.light-theme .tb-mention-pill,
 
 .helper-agent-drawer {
   position: fixed;
-  bottom: 82px;
+  top: calc(var(--header-height) + 8px);
   right: 24px;
   z-index: 10000;
   width: 390px;
@@ -10309,6 +10364,16 @@ body.light-theme .tb-mention-pill,
   animation: slideUpHelper 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+@media (min-width: 1024px) and (max-width: 1150px) {
+  .helper-agent-btn {
+    padding: 0;
+  }
+
+  .helper-agent-label {
+    display: none;
+  }
 }
 
 @keyframes slideUpHelper {

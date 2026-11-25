@@ -217,6 +217,44 @@
       .then(result => Boolean(result && ((result.sent || 0) > 0 || (result.fcmSent || 0) > 0))).catch(() => false);
   }
 
-  window.PortalWebPush = { isIOS, isEnabled, readyForSetup, authorize, enable, disable, signOut, test, notify };
+  async function uploadPaymentProof(order, memberId, image) {
+    const checkoutMember = () => member() || email();
+    let token = activeToken();
+    if (!token && typeof showPromptModal === 'function') {
+      const password = await showPromptModal('Confirm your portal password', 'Password', '', {
+        password: true,
+        subtitle: 'Verify your account to submit your payment screenshot.',
+        confirmText: 'Continue'
+      });
+      if (password && checkoutMember() === memberId) {
+        token = await authorize(email(), password, false, 8000);
+      }
+    }
+    if (!token || checkoutMember() !== memberId) throw new Error('Portal verification is required.');
+    const form = new FormData();
+    form.set('token', token);
+    form.set('member', memberId);
+    form.set('order', order);
+    form.set('proof', image, 'payment.jpg');
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body: form,
+      credentials: 'omit',
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem(signInKey);
+        localStorage.removeItem(signInKey);
+      }
+      throw new Error('Payment screenshot could not be uploaded.');
+    }
+  }
+
+  function viewPaymentProof(order, adminToken) {
+    return request('payment_proof_view', { order, token: adminToken });
+  }
+
+  window.PortalWebPush = { isIOS, isEnabled, readyForSetup, authorize, enable, disable, signOut, test, notify, uploadPaymentProof, viewPaymentProof };
   prepare();
 })();

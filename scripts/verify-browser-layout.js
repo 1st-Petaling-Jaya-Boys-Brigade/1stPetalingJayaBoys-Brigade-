@@ -1882,8 +1882,27 @@ async function getJson(url) {
         if (allTab) allTab.click();
 
         const gridComputed = grid ? window.getComputedStyle(grid) : null;
-
+        ctaBtn?.click();
+        const confirm = document.getElementById('confirm-btn');
+        const proofInput = document.getElementById('uniform-proof-input');
+        const proofRequired = confirm?.disabled === true && proofInput?.required === true;
+        const canvas = document.createElement('canvas');
+        canvas.width = 1400;
+        canvas.height = 2000;
+        const context = canvas.getContext('2d');
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = 'black';
+        context.font = '48px sans-serif';
+        context.fillText('Sample payment RM 45.00', 32, 80);
+        const screenshot = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const proofReady = await stageUniformPaymentProof(screenshot);
+        const proofEnablesConfirm = proofReady && confirm?.disabled === false &&
+          document.getElementById('uniform-proof-status')?.textContent.startsWith('Screenshot ready');
+        goBackOrder();
         return {
+          proofRequired,
+          proofEnablesConfirm,
           hasCatTabs: !!catTabs,
           hasGrid: !!grid,
           cardCount: cards.length,
@@ -1908,6 +1927,8 @@ async function getJson(url) {
     });
     assert.ok(!evalUniformGrid.exceptionDetails, evalUniformGrid.exceptionDetails?.exception?.description);
     const uniformGrid = evalUniformGrid.result.value;
+    assert.strictEqual(uniformGrid.proofRequired, true, 'Review disables submit until a payment screenshot is prepared');
+    assert.strictEqual(uniformGrid.proofEnablesConfirm, true, 'A real PNG screenshot enables submit after browser compression');
     assert.strictEqual(uniformGrid.hasCatTabs, true, 'Category tabs container must exist');
     assert.strictEqual(uniformGrid.hasGrid, true, 'Product grid container must exist');
     assert.ok(uniformGrid.cardCount >= 1, 'Grid must render uniform product cards from catalog');
@@ -4268,7 +4289,7 @@ async function getJson(url) {
           sessionSet('ic', '010101-14-1234');
         }
 
-        // 1. Verify Floating Trigger Button
+        // 1. Verify the header trigger next to Quick Search
         const trigger = document.getElementById('helper-agent-trigger');
         const drawer = document.getElementById('helper-agent-drawer');
         const triggerLabel = trigger ? trigger.querySelector('.helper-agent-label').textContent : '';
@@ -4302,6 +4323,8 @@ async function getJson(url) {
 
         return {
           hasTrigger: !!trigger,
+          triggerBesideSearch: trigger?.previousElementSibling?.id === 'nav-search-trigger' &&
+            trigger.closest('#site-header') !== null && getComputedStyle(trigger).position !== 'fixed',
           triggerLabel,
           hasDrawer: !!drawer,
           drawerOpened,
@@ -4318,7 +4341,8 @@ async function getJson(url) {
     });
 
     const faRes = (forumAgentDiag.result && forumAgentDiag.result.value) || {};
-    assert.strictEqual(faRes.hasTrigger, true, '#helper-agent-trigger floating pill button must exist');
+    assert.strictEqual(faRes.hasTrigger, true, '#helper-agent-trigger must exist');
+    assert.strictEqual(faRes.triggerBesideSearch, true, 'Ask Stedfast sits in the header beside global search');
     assert.ok(faRes.triggerLabel.includes('Stedfast'), 'Helper Agent trigger button must display "Ask Stedfast"');
     assert.strictEqual(faRes.hasDrawer, true, '#helper-agent-drawer overlay must exist');
     assert.strictEqual(faRes.drawerOpened, true, 'Clicking trigger must open helper agent drawer');
@@ -4328,7 +4352,8 @@ async function getJson(url) {
     assert.strictEqual(faRes.hasHeroCard, true, 'Support forum must render .forum-hero-card');
     assert.ok(faRes.postCards >= 1, 'Support forum must render initial discussion threads');
     assert.ok(faRes.filterPills >= 6, 'Support forum must render category filter pills');
-    console.log('  ✔ Floating Helper Agent ("Ask Stedfast") drawer and Support Forum tab layout verified in browser');
+    console.log('  ✔ Header Ask Stedfast trigger, chat drawer and Support Forum layout verified in browser');
+
 
     // ── Stedfast Helper Conversational Support & Navigation CDP Verification ──
     const stedfastDiag = await sendCmd('Runtime.evaluate', {
