@@ -217,13 +217,13 @@
       .then(result => Boolean(result && ((result.sent || 0) > 0 || (result.fcmSent || 0) > 0))).catch(() => false);
   }
 
-  async function uploadPaymentProof(order, memberId, image) {
+  async function uploadPaymentProof(order, memberId, proof) {
     const checkoutMember = () => member() || email();
     let token = activeToken();
     if (!token && typeof showPromptModal === 'function') {
       const password = await showPromptModal('Confirm your portal password', 'Password', '', {
         password: true,
-        subtitle: 'Verify your account to submit your payment screenshot.',
+        subtitle: 'Verify your account to submit your proof of payment.',
         confirmText: 'Continue'
       });
       if (password && checkoutMember() === memberId) {
@@ -235,7 +235,7 @@
     form.set('token', token);
     form.set('member', memberId);
     form.set('order', order);
-    form.set('proof', image, 'payment.jpg');
+    form.set('proof', proof, proof.type === 'application/pdf' ? 'payment.pdf' : 'payment.jpg');
     const response = await fetch(endpoint, {
       method: 'POST',
       body: form,
@@ -247,7 +247,7 @@
         sessionStorage.removeItem(signInKey);
         localStorage.removeItem(signInKey);
       }
-      throw new Error('Payment screenshot could not be uploaded.');
+      throw new Error('Proof of payment could not be uploaded.');
     }
   }
 
