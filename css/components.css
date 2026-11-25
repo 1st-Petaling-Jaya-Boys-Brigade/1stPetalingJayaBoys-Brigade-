@@ -10241,7 +10241,6 @@ body.light-theme .tb-mention-pill,
   margin-top: 8px;
 }
 
-.uniform-payment-proof [data-state="required"],
 .uniform-payment-proof [data-state="error"] {
   color: var(--text-primary);
   border-inline-start: 3px solid var(--red);

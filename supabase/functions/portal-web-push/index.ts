@@ -12,7 +12,7 @@ const encoder = new TextEncoder();
 const dayMs = 86_400_000;
 const MEMBER_FIELDS = 'ic,email,name,rank,department';
 const PROOF_IMAGE_MAX_BYTES = 256 * 1024;
-const PROOF_PDF_MAX_BYTES = 1024 * 1024;
+const PROOF_PDF_MAX_BYTES = 10 * 1024 * 1024;
 const PROOF_BUCKET = 'uniform-payment-proofs';
 const proofOrderPattern = /^BB-[A-F0-9]{16}$/;
 const MESSAGES: Record<string, [string, string, string]> = {
@@ -412,9 +412,10 @@ async function fanout(devices: Device[], type: string, target: string, targetId 
 
 async function readPaymentUpload(request: Request) {
   const limit = PROOF_PDF_MAX_BYTES + 4096;
-  if (Number(request.headers.get('content-length')) > limit) return null;
+  const declaredSize = Number(request.headers.get('content-length'));
+  if (declaredSize > limit) return null;
   const reader = request.body!.getReader();
-  const buffer = new Uint8Array(limit);
+  let buffer = new Uint8Array(Number.isSafeInteger(declaredSize) && declaredSize > 0 ? declaredSize : 64 * 1024);
   let size = 0;
   while (true) {
     const { value, done } = await reader.read();
@@ -422,6 +423,11 @@ async function readPaymentUpload(request: Request) {
     if (size + value.length > limit) {
       await reader.cancel();
       return null;
+    }
+    if (size + value.length > buffer.length) {
+      const next = new Uint8Array(Math.min(limit, Math.max(buffer.length * 2, size + value.length)));
+      next.set(buffer.subarray(0, size));
+      buffer = next;
     }
     buffer.set(value, size);
     size += value.length;
@@ -444,12 +450,12 @@ async function paymentProofExtension(file: FormDataEntryValue | null) {
   return start[0] === 255 && start[1] === 216 && start[2] === 255 && end[0] === 255 && end[1] === 217 ? '.jpg' : '';
 }
 
-function proofStorage(path: string, method: string, body?: BodyInit, headers: Record<string, string> = {}) {
+function proofStorage(path: string, method: string, body?: BodyInit, headers: Record<string, string> = {}, timeout = 7500) {
   return fetch(PROJECT + '/storage/v1/object/' + path, {
     method,
     body,
     headers: { apikey: SERVICE, Authorization: 'Bearer ' + SERVICE, ...headers },
-    signal: AbortSignal.timeout(7500),
+    signal: AbortSignal.timeout(timeout),
     redirect: 'error',
   });
 }
@@ -570,7 +576,10 @@ Deno.serve(async request => {
         return json({ error: 'Too many payment proof uploads' }, 429);
       }
       const path = PROOF_BUCKET + '/' + await hash(actor.ic) + '/' + data.order + extension;
-      const result = await proofStorage(path, 'POST', proof, { 'Content-Type': proof.type, 'Cache-Control': 'private, no-store' });
+      const result = await proofStorage(path, 'POST', proof, {
+        'Content-Type': proof.type,
+        'Cache-Control': 'private, no-store',
+      }, extension === '.pdf' ? 25000 : 7500);
       if (result.ok) return json({ ok: true });
       if (result.status === 409 || result.status === 400) {
         const existing = await proofStorage(path, 'HEAD');
