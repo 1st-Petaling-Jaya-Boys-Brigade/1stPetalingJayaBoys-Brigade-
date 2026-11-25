@@ -687,13 +687,16 @@ const supa = {
 
   /**
    * Concurrency-safe mutator for bb_config JSON blobs with sequential key locking,
-   * optimistic 3-way merge conflict resolution, and retry protection
+   * database-level optimistic concurrency (updated_at CAS), 3-way merge conflict resolution,
+   * and retry protection across concurrent devices.
    * @param {string} key - Config key in bb_config (e.g. 'bb_resources', 'bb_custom_forms')
    * @param {Function|Array|Object} updater - Function receiving (currentRemote, baseSnapshot) or direct updated value
    * @param {Object} [options]
    * @param {string} [options.idProp='id'] - Property used as item identifier ('id' or 'key')
    * @param {boolean} [options.enableMerge=true] - Whether to perform 3-way merge on concurrent changes
-   * @param {number} [options.maxRetries=3] - Maximum retry attempts upon collision
+   * @param {Function} [options.merge] - Optional custom 3-way merger (baseSnapshot, currentRemote, updater)
+   * @param {boolean} [options.mergeObjects=false] - Whether to perform 3-way key merge on plain objects
+   * @param {number} [options.maxRetries=5] - Maximum retry attempts upon collision
    * @returns {Promise<any>} The persisted value
    */
   async safeConfigUpdate(key, updater, options) {
@@ -701,31 +704,69 @@ const supa = {
     options = options || {};
     const idProp = options.idProp || 'id';
     const enableMerge = options.enableMerge !== false;
-    const maxRetries = options.maxRetries || 3;
+    const maxRetries = options.maxRetries || 5;
 
     if (!_configLocks[key]) {
       _configLocks[key] = Promise.resolve();
     }
+
+    const mergePlainObjects = (baseObj, remoteObj, clientObj) => {
+      const merged = Object.assign({}, remoteObj);
+      const base = baseObj && typeof baseObj === 'object' && !Array.isArray(baseObj) ? baseObj : null;
+      const allClientKeys = Object.keys(clientObj);
+      allClientKeys.forEach(k => {
+        if (!base || JSON.stringify(base[k]) !== JSON.stringify(clientObj[k]) || !Object.hasOwn(remoteObj, k)) {
+          merged[k] = clientObj[k];
+        }
+      });
+      if (base) {
+        Object.keys(base).forEach(k => {
+          if (!Object.hasOwn(clientObj, k) && JSON.stringify(base[k]) === JSON.stringify(remoteObj[k])) {
+            delete merged[k];
+          }
+        });
+      }
+      return merged;
+    };
 
     const runUpdate = async () => {
       let attempt = 0;
       while (attempt < maxRetries) {
         attempt++;
         try {
+          let rows = null;
           let currentRemote = null;
           try {
-            const rows = await client.get(
-              'bb_config?key=eq.' + encodeURIComponent(key) + '&select=key,value'
+            rows = await client.get(
+              'bb_config?key=eq.' + encodeURIComponent(key) + '&select=key,value,updated_at',
+              { cache: false }
             );
-            if (rows && rows.length > 0 && rows[0].value) {
-              try {
-                currentRemote = JSON.parse(rows[0].value);
-              } catch (e) {
-                currentRemote = rows[0].value;
-              }
-            }
           } catch (fetchErr) {
-            console.warn('safeConfigUpdate read error:', fetchErr.message);
+            const msg = String((fetchErr && (fetchErr.message || fetchErr.code)) || '');
+            if (msg.includes('PGRST204') || msg.includes('42703') || msg.includes('updated_at')) {
+              try {
+                rows = await client.get(
+                  'bb_config?key=eq.' + encodeURIComponent(key) + '&select=key,value',
+                  { cache: false }
+                );
+              } catch (fallbackErr) {
+                console.warn('safeConfigUpdate read error:', fallbackErr.message);
+              }
+            } else {
+              console.warn('safeConfigUpdate read error:', fetchErr.message);
+            }
+          }
+
+          const remoteRow = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+          const hasRemoteVersion = Boolean(remoteRow && Object.hasOwn(remoteRow, 'updated_at'));
+          const remoteUpdatedAt = hasRemoteVersion ? remoteRow.updated_at : undefined;
+
+          if (remoteRow && remoteRow.value !== undefined && remoteRow.value !== null) {
+            try {
+              currentRemote = typeof remoteRow.value === 'string' ? JSON.parse(remoteRow.value) : remoteRow.value;
+            } catch (_) {
+              currentRemote = remoteRow.value;
+            }
           }
 
           const baseSnapshot = _configSnapshots[key] || null;
@@ -733,22 +774,79 @@ const supa = {
           let nextValue;
           if (typeof updater === 'function') {
             nextValue = updater(currentRemote, baseSnapshot);
+          } else if (typeof options.merge === 'function' && currentRemote !== null) {
+            nextValue = options.merge(baseSnapshot, currentRemote, updater);
           } else if (enableMerge && Array.isArray(updater) && Array.isArray(currentRemote)) {
             nextValue = mergeConfigCollections(baseSnapshot, currentRemote, updater, idProp);
+          } else if (
+            options.mergeObjects &&
+            updater &&
+            typeof updater === 'object' &&
+            !Array.isArray(updater) &&
+            currentRemote &&
+            typeof currentRemote === 'object' &&
+            !Array.isArray(currentRemote)
+          ) {
+            nextValue = mergePlainObjects(baseSnapshot, currentRemote, updater);
           } else {
             nextValue = updater;
           }
 
           const serialized = typeof nextValue === 'string' ? nextValue : JSON.stringify(nextValue);
+          let nextUpdatedAt = new Date().toISOString();
+          if (remoteUpdatedAt && nextUpdatedAt === remoteUpdatedAt) {
+            nextUpdatedAt = new Date(Date.now() + 1).toISOString();
+          }
 
-          await client.upsert(
-            'bb_config',
-            {
-              key: key,
-              value: serialized
-            },
-            'key'
-          );
+          if (remoteRow && hasRemoteVersion && typeof client.req === 'function') {
+            // Database-level optimistic concurrency (Compare-And-Swap on updated_at)
+            const versionFilter =
+              remoteUpdatedAt == null ? 'is.null' : 'eq.' + encodeURIComponent(remoteUpdatedAt);
+            const patched = await client.req(
+              'PATCH',
+              'bb_config?key=eq.' + encodeURIComponent(key) + '&updated_at=' + versionFilter,
+              { value: serialized, updated_at: nextUpdatedAt },
+              { Prefer: 'return=representation' },
+              { maxRetries: 0 }
+            );
+            if (!Array.isArray(patched) || patched.length !== 1) {
+              const conflictErr = new Error('Concurrent config update conflict on ' + key);
+              conflictErr.code = 'BB_CONFIG_CONFLICT';
+              throw conflictErr;
+            }
+          } else if (
+            !remoteRow &&
+            Array.isArray(rows) &&
+            rows.length === 0 &&
+            typeof client.req === 'function' &&
+            typeof client.upsert !== 'function'
+          ) {
+            await client.req(
+              'POST',
+              'bb_config?on_conflict=key',
+              { key: key, value: serialized, updated_at: nextUpdatedAt },
+              { Prefer: 'return=representation,resolution=merge-duplicates' },
+              { maxRetries: 0 }
+            );
+          } else if (typeof client.upsert === 'function') {
+            await client.upsert(
+              'bb_config',
+              {
+                key: key,
+                value: serialized,
+                updated_at: nextUpdatedAt
+              },
+              'key'
+            );
+          } else if (typeof client.req === 'function') {
+            await client.req(
+              'POST',
+              'bb_config?on_conflict=key',
+              { key: key, value: serialized, updated_at: nextUpdatedAt },
+              { Prefer: 'return=representation,resolution=merge-duplicates' },
+              { maxRetries: 0 }
+            );
+          }
 
           if (client.recordConfigSnapshot) {
             client.recordConfigSnapshot(key, nextValue);
@@ -760,7 +858,7 @@ const supa = {
           if (attempt >= maxRetries) {
             throw err;
           }
-          await new Promise(r => setTimeout(r, 40 * Math.pow(2, attempt) + Math.random() * 20));
+          await new Promise(r => setTimeout(r, 40 * Math.pow(2, attempt) + Math.random() * 40));
         }
       }
     };
@@ -785,6 +883,7 @@ const supa = {
 
   /**
    * Supabase Storage: Upload a file/blob to a bucket with strict security verification
+   * and CDN-friendly Cache-Control metadata.
    */
   async uploadFile(bucket, filePath, blob) {
     if (typeof validateFileSecurity === 'function') {
@@ -815,6 +914,12 @@ const supa = {
           : '';
 
     const contentType = blob && blob.type ? blob.type : 'application/octet-stream';
+    const cacheControl =
+      bucket === 'receipts' || bucket === 'waivers'
+        ? 'max-age=3600, private'
+        : bucket === 'avatars'
+          ? 'max-age=86400, public'
+          : 'max-age=31536000, public';
 
     // Tier 1: Try POST with x-upsert: true
     let r = await fetch(url, {
@@ -823,6 +928,7 @@ const supa = {
         apikey: key,
         Authorization: 'Bearer ' + key,
         'Content-Type': contentType,
+        'cache-control': cacheControl,
         'x-upsert': 'true'
       },
       body: blob
@@ -837,7 +943,8 @@ const supa = {
           headers: {
             apikey: key,
             Authorization: 'Bearer ' + key,
-            'Content-Type': contentType
+            'Content-Type': contentType,
+            'cache-control': cacheControl
           },
           body: blob
         });
@@ -853,7 +960,8 @@ const supa = {
           headers: {
             apikey: key,
             Authorization: 'Bearer ' + key,
-            'Content-Type': contentType
+            'Content-Type': contentType,
+            'cache-control': cacheControl
           },
           body: blob
         });
@@ -1278,19 +1386,16 @@ var PortalRealtime = (function() {
 
       _ws.onopen = function() {
         _reconnectAttempts = 0;
-        // Join realtime:public channel to receive postgres change events
+        // Join realtime:public channel for instant cross-device Broadcast push.
+        // postgres_changes is left empty because tables are not published to supabase_realtime;
+        // requesting unpublished tables generates an error log on every client join.
         var joinMsg = {
           topic: 'realtime:public',
           event: 'phx_join',
           payload: {
             config: {
               broadcast: { self: false },
-              postgres_changes: [
-                { event: '*', schema: 'public', table: 'bb_config' },
-                { event: '*', schema: 'public', table: 'bb_tasks' },
-                { event: '*', schema: 'public', table: 'bb_announcements' },
-                { event: '*', schema: 'public', table: 'bb_orders' }
-              ]
+              postgres_changes: []
             }
           },
           ref: String(_refCounter++)
@@ -1364,12 +1469,29 @@ var PortalRealtime = (function() {
 
             if (table === 'bb_config') {
               var key = record.key || oldRecord.key || '';
+              var parsedCfgValue = null;
+              if (key && record && record.value !== undefined && record.value !== null && record.value !== '') {
+                try {
+                  parsedCfgValue = typeof record.value === 'string' ? JSON.parse(record.value) : record.value;
+                  if (typeof supa !== 'undefined' && typeof supa.recordConfigSnapshot === 'function') {
+                    supa.recordConfigSnapshot(key, parsedCfgValue);
+                  }
+                } catch (_) {
+                  parsedCfgValue = null;
+                }
+              }
               if (key === 'bb_forum_posts') {
-                triggerEntityUpdate('forum', 'update', record, true);
+                triggerEntityUpdate('forum', 'update', Array.isArray(parsedCfgValue) ? { key: key, posts: parsedCfgValue } : record, true);
               } else if (key === 'bb_company_calendar') {
                 triggerEntityUpdate('calendar', 'update', record, true);
               } else if (key.startsWith('bb_task_comments_')) {
-                triggerEntityUpdate('comments', 'update', { key: key }, true);
+                var cmtTaskId = key.replace('bb_task_comments_', '');
+                triggerEntityUpdate(
+                  'comments',
+                  'update',
+                  Array.isArray(parsedCfgValue) ? { key: key, taskId: cmtTaskId, comments: parsedCfgValue } : { key: key, taskId: cmtTaskId },
+                  true
+                );
               } else if (key === 'bb_projects' || key === 'bb_project_statuses') {
                 triggerEntityUpdate('projects', 'update', record, true);
               } else if (key === 'bb_announcements' || key.startsWith('bb_announcements_')) {
@@ -1386,7 +1508,12 @@ var PortalRealtime = (function() {
               } else if (key === 'bb_custom_avatar_outlines') {
                 triggerEntityUpdate('avatar_outlines', 'update', record, true);
               } else if (key === 'bb_custom_forms' || key.startsWith('bb_form_responses')) {
-                triggerEntityUpdate('forms', 'update', record, true);
+                triggerEntityUpdate(
+                  'forms',
+                  key.startsWith('bb_form_responses') ? 'response' : 'update',
+                  record,
+                  true
+                );
               } else if (key === 'bb_resources') {
                 triggerEntityUpdate('resources', 'update', record, true);
               } else if (key.startsWith('bb_arcade_')) {
@@ -1591,8 +1718,17 @@ var PortalRealtime = (function() {
       _deltaSyncBackoff = Math.min(120000, _deltaSyncBackoff * 2);
     } finally {
       _deltaSyncInFlight = false;
+      _lastDeltaSyncFinishedAt = Date.now();
     }
     scheduleNextDeltaSync(_deltaSyncBackoff);
+  }
+
+  var _lastDeltaSyncFinishedAt = 0;
+  var _DELTA_SYNC_FOCUS_COOLDOWN_MS = 15000;
+
+  function maybeCheckDeltaSyncOnResume() {
+    if (Date.now() - _lastDeltaSyncFinishedAt < _DELTA_SYNC_FOCUS_COOLDOWN_MS) return;
+    checkDeltaSync();
   }
 
   function scheduleNextDeltaSync(delayMs) {
@@ -1613,7 +1749,7 @@ var PortalRealtime = (function() {
         if (!_ws || _ws.readyState !== 1) {
           connectWebSocket();
         }
-        checkDeltaSync();
+        maybeCheckDeltaSyncOnResume();
         if (typeof window !== 'undefined') window.refreshVisibleTaskBrief?.();
       }
     });
@@ -1621,12 +1757,12 @@ var PortalRealtime = (function() {
       if (!_ws || _ws.readyState !== 1) {
         connectWebSocket();
       }
-      checkDeltaSync();
+      maybeCheckDeltaSyncOnResume();
       if (typeof window !== 'undefined') window.refreshVisibleTaskBrief?.();
     });
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('focus', function() {
-        checkDeltaSync();
+        maybeCheckDeltaSyncOnResume();
         window.refreshVisibleTaskBrief?.();
       });
       window.addEventListener('online', function() {
@@ -1635,6 +1771,71 @@ var PortalRealtime = (function() {
         checkDeltaSync();
       });
     }
+  }
+
+  var _lastRemoteRefetchTs = {};
+
+  function shouldCoalesceRemoteRefetch(entityKey, cooldownMs) {
+    var now = Date.now();
+    var last = _lastRemoteRefetchTs[entityKey] || 0;
+    if (now - last < (cooldownMs || 1500)) return true;
+    _lastRemoteRefetchTs[entityKey] = now;
+    return false;
+  }
+
+  function isPayloadForCurrentUser(data) {
+    if (!data || typeof data !== 'object') return true;
+    var pIc = data.ic ? String(data.ic).trim().toLowerCase() : '';
+    var pEmail = data.email ? String(data.email).trim().toLowerCase() : '';
+    if (!pIc && !pEmail) return true;
+    var sessGetFn = (typeof sessionGet === 'function')
+      ? sessionGet
+      : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+        ? window.sessionGet
+        : (typeof global !== 'undefined' && typeof global.sessionGet === 'function')
+          ? global.sessionGet
+          : null;
+    if (!sessGetFn) return true;
+    var curIc = String(sessGetFn('ic') || '').trim().toLowerCase();
+    var curEmail = String(sessGetFn('email') || '').trim().toLowerCase();
+    if (!curIc && !curEmail) return false;
+    return Boolean(
+      (pIc && (pIc === curIc || pIc === curEmail)) ||
+      (pEmail && (pEmail === curEmail || pEmail === curIc))
+    );
+  }
+
+  function isAdminPanelVisible() {
+    if (typeof document === 'undefined') return false;
+    var admOverlay = document.getElementById('admin-overlay');
+    var admPanel = document.getElementById('admin-panel');
+    return Boolean((admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none'));
+  }
+
+  function hasTasksAccessForBackgroundSync() {
+    if (isAdminPanelVisible()) return true;
+    if (typeof window !== 'undefined') {
+      if (window._activeDetailTaskId) return true;
+      if (Array.isArray(window._allLoadedTasks) && window._allLoadedTasks.length > 0) return true;
+      if (typeof window.hasTaskAdminSession === 'function' && window.hasTaskAdminSession()) return true;
+      if (typeof window.checkIsNCO === 'function' && window.checkIsNCO()) return true;
+      if (typeof window.checkIsNCO !== 'function') return true;
+    }
+    if (typeof document !== 'undefined') {
+      var pTasks = document.getElementById('page-tasks');
+      if (pTasks && (pTasks.classList?.contains('active') || (pTasks.style && pTasks.style.display !== 'none'))) return true;
+      var tTab = document.getElementById('tab-tasks');
+      if (tTab && tTab.style && tTab.style.display !== 'none') return true;
+    }
+    var sessGetFn = (typeof sessionGet === 'function')
+      ? sessionGet
+      : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
+        ? window.sessionGet
+        : null;
+    if (!sessGetFn) return true;
+    var dept = String(sessGetFn('department') || '').trim().toLowerCase();
+    if (dept && dept !== 'none' && dept !== 'deleted' && dept !== 'archived_deleted') return true;
+    return false;
   }
 
   // 4. Central Realtime Dispatcher
@@ -1678,36 +1879,48 @@ var PortalRealtime = (function() {
     }
 
     if (entity === 'presence') {
-      if (data && data.key && data.member) {
+      var applyPresenceMap = function(nextMap) {
+        if (!nextMap || typeof nextMap !== 'object') return;
         if (typeof window !== 'undefined') {
-          if (!window._globalPresenceMap) window._globalPresenceMap = {};
-          window._globalPresenceMap[data.key] = data.member;
+          window._globalPresenceMap = Object.assign({}, window._globalPresenceMap || {}, nextMap);
           try {
-            var rawPres = localStorage.getItem('bb_member_presence');
-            var mapPres = rawPres ? JSON.parse(rawPres) : {};
-            mapPres[data.key] = data.member;
-            localStorage.setItem('bb_member_presence', JSON.stringify(mapPres));
+            localStorage.setItem('bb_member_presence', JSON.stringify(window._globalPresenceMap));
           } catch (_) {}
           if (typeof window.dispatchEvent === 'function') {
             window.dispatchEvent(new CustomEvent('bb:presence_updated', { detail: window._globalPresenceMap }));
           }
         }
         if (typeof global !== 'undefined') {
-          if (!global._globalPresenceMap) global._globalPresenceMap = {};
-          global._globalPresenceMap[data.key] = data.member;
+          global._globalPresenceMap = Object.assign({}, global._globalPresenceMap || {}, nextMap);
         }
-        var refreshDotsFn = (typeof refreshLivePresenceDots === 'function')
+        var refreshDotsInline = (typeof refreshLivePresenceDots === 'function')
           ? refreshLivePresenceDots
           : (typeof window !== 'undefined' && typeof window.refreshLivePresenceDots === 'function' ? window.refreshLivePresenceDots : null);
-        if (refreshDotsFn) {
-          try { refreshDotsFn(); } catch (_) {}
+        if (refreshDotsInline) {
+          try { refreshDotsInline(); } catch (_) {}
         }
+      };
+
+      if (data && data.key && data.member) {
+        var singleEntry = {};
+        singleEntry[data.key] = data.member;
+        applyPresenceMap(singleEntry);
+      } else if (data && data.key === 'bb_member_presence' && data.value !== undefined) {
+        // Inline postgres_changes payload: apply directly with 0 PostgREST HTTP requests!
+        try {
+          var inlinePresence = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+          if (inlinePresence && typeof inlinePresence === 'object') {
+            applyPresenceMap(inlinePresence);
+            return;
+          }
+        } catch (_) {}
       } else {
         var fetchPresFn = (typeof fetchRemoteMemberPresence === 'function')
           ? fetchRemoteMemberPresence
           : (typeof window !== 'undefined' && typeof window.fetchRemoteMemberPresence === 'function' ? window.fetchRemoteMemberPresence : null);
         if (fetchPresFn) {
-          fetchPresFn(true).catch(function() {});
+          // Use throttled cache (false) to avoid O(N^2) presence refetch storms across 60+ users
+          fetchPresFn(false).catch(function() {});
         }
       }
       return;
@@ -1801,40 +2014,37 @@ var PortalRealtime = (function() {
       var loadOrdersFn = (typeof window !== 'undefined' && typeof window.loadMemberOrders === 'function')
         ? window.loadMemberOrders
         : null;
-      if (loadOrdersFn) {
+      if (loadOrdersFn && isPayloadForCurrentUser(data)) {
         try { loadOrdersFn(action === 'update' ? data : null); } catch (_) {}
       }
-      if (typeof document !== 'undefined') {
-        var admOverlay = document.getElementById('admin-overlay');
-        var admPanel = document.getElementById('admin-panel');
-        var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
-        if (isAdmOpen && typeof window !== 'undefined' && typeof window.renderAdminOrders === 'function') {
-          try { window.renderAdminOrders(true); } catch (_) {}
-        }
+      if (isAdminPanelVisible() && typeof window !== 'undefined' && typeof window.renderAdminOrders === 'function') {
+        try { window.renderAdminOrders(true); } catch (_) {}
       }
       return;
     }
 
     if (entity === 'forms') {
       if (typeof window !== 'undefined') {
-        if (typeof window.loadCustomForms === 'function') {
-          window.loadCustomForms(true).then(function() {
-            var pForms = document.getElementById('page-forms');
-            if (pForms && pForms.style.display !== 'none' && typeof window.renderFormsHub === 'function') {
-              window.renderFormsHub();
-            }
-            var admOverlay = document.getElementById('admin-overlay');
-            var admPanel = document.getElementById('admin-panel');
-            var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
-            if (isAdmOpen && typeof window.renderAdminForms === 'function') {
-              window.renderAdminForms();
-            }
-          }).catch(function() {});
+        var isFormResponseEvent = action === 'response' || Boolean(data && data.key && String(data.key).startsWith('bb_form_responses'));
+        var isAdminOpenForms = isAdminPanelVisible();
+        if (!isFormResponseEvent && typeof window.loadCustomForms === 'function') {
+          var hasInlineForms = Boolean(data && data.key === 'bb_custom_forms' && data.value !== undefined);
+          if (hasInlineForms || !shouldCoalesceRemoteRefetch('forms', 1500)) {
+            window.loadCustomForms(!hasInlineForms).then(function() {
+              var pForms = document.getElementById('page-forms');
+              if (pForms && pForms.style.display !== 'none' && typeof window.renderFormsHub === 'function') {
+                window.renderFormsHub();
+              }
+              if (isAdminPanelVisible() && typeof window.renderAdminForms === 'function') {
+                window.renderAdminForms();
+              }
+            }).catch(function() {});
+          }
         }
-        if (typeof window.renderGfResponsesTab === 'function') {
+        if ((isAdminOpenForms || !isFormResponseEvent) && typeof window.renderGfResponsesTab === 'function') {
           try { window.renderGfResponsesTab(); } catch (_) {}
         }
-        if (typeof window.loadMemberOrders === 'function') {
+        if (isPayloadForCurrentUser(data) && typeof window.loadMemberOrders === 'function') {
           try { window.loadMemberOrders(); } catch (_) {}
         }
       }
@@ -1843,19 +2053,19 @@ var PortalRealtime = (function() {
 
     if (entity === 'resources') {
       if (typeof window !== 'undefined' && typeof window.loadResources === 'function') {
-        window.loadResources(true).then(function() {
-          window.syncResourceNotifications?.();
-          var pRes = document.getElementById('page-resources');
-          if (pRes && pRes.style.display !== 'none' && typeof window.renderResourcesPage === 'function') {
-            window.renderResourcesPage();
-          }
-          var admOverlay = document.getElementById('admin-overlay');
-          var admPanel = document.getElementById('admin-panel');
-          var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
-          if (isAdmOpen && typeof window.renderAdminResourcesList === 'function') {
-            window.renderAdminResourcesList();
-          }
-        }).catch(function() {});
+        var hasInlineResources = Boolean(data && data.key === 'bb_resources' && data.value !== undefined);
+        if (hasInlineResources || !shouldCoalesceRemoteRefetch('resources', 1500)) {
+          window.loadResources(!hasInlineResources).then(function() {
+            window.syncResourceNotifications?.();
+            var pRes = document.getElementById('page-resources');
+            if (pRes && pRes.style.display !== 'none' && typeof window.renderResourcesPage === 'function') {
+              window.renderResourcesPage();
+            }
+            if (isAdminPanelVisible() && typeof window.renderAdminResourcesList === 'function') {
+              window.renderAdminResourcesList();
+            }
+          }).catch(function() {});
+        }
       }
       return;
     }
@@ -2113,18 +2323,21 @@ var PortalRealtime = (function() {
       }
     } else if (entity === 'forum') {
       if (typeof window !== 'undefined' && typeof window.loadForumPosts === 'function') {
-        window.loadForumPosts().then(function() {
-          var pForum = document.getElementById('page-forum');
-          if (pForum && pForum.style.display !== 'none' && typeof window.renderForumFeed === 'function') {
-            window.renderForumFeed();
-          }
-          if (typeof window.syncForumNotifications === 'function') {
-            window.syncForumNotifications();
-          }
-          if (typeof window.renderNotifications === 'function') {
-            window.renderNotifications();
-          }
-        }).catch(function() {});
+        var inlineForumPosts = (data && Array.isArray(data.posts)) ? data.posts : null;
+        if (inlineForumPosts || !shouldCoalesceRemoteRefetch('forum', 1500)) {
+          window.loadForumPosts(false, inlineForumPosts).then(function() {
+            var pForum = document.getElementById('page-forum');
+            if (pForum && pForum.style.display !== 'none' && typeof window.renderForumFeed === 'function') {
+              window.renderForumFeed();
+            }
+            if (typeof window.syncForumNotifications === 'function') {
+              window.syncForumNotifications();
+            }
+            if (typeof window.renderNotifications === 'function') {
+              window.renderNotifications();
+            }
+          }).catch(function() {});
+        }
       }
     } else if (entity === 'tasks' || entity === 'comments') {
       var tid = (data && (data.taskId || data.id)) || (data && data.key && data.key.startsWith('bb_task_comments_') ? data.key.replace('bb_task_comments_', '') : null);
@@ -2151,6 +2364,7 @@ var PortalRealtime = (function() {
           if (typeof window.syncTaskNotifications === 'function') window.syncTaskNotifications();
           if (typeof window.renderNotifications === 'function') window.renderNotifications();
           if (typeof window.renderTaskComments === 'function') window.renderTaskComments(tid);
+          return;
         }
 
         // Immediate 0ms local update for task cards/columns (instant Google Docs-style sync)
@@ -2238,12 +2452,17 @@ var PortalRealtime = (function() {
           }
         }
 
-        var fetchTasksP = (typeof window.fetchAllRemoteTasks === 'function')
+        // Prevent non-NCO/non-department members from hammering Postgres on every NCO task event
+        if (!hasTasksAccessForBackgroundSync()) return;
+        // Coalesce back-to-back broadcast + postgres_changes events within 1.5s
+        if (shouldCoalesceRemoteRefetch('tasks:' + (tid || 'all'), 1500)) return;
+
+        var fetchTasksP = (entity === 'tasks' && typeof window.fetchAllRemoteTasks === 'function')
           ? window.fetchAllRemoteTasks(true)
           : Promise.resolve();
         var fetchCommentsP = (tid && typeof window.fetchRemoteTaskComments === 'function')
           ? window.fetchRemoteTaskComments(tid)
-          : ((typeof window.fetchAllRemoteTaskComments === 'function') ? window.fetchAllRemoteTaskComments(true) : Promise.resolve());
+          : ((entity === 'comments' && typeof window.fetchAllRemoteTaskComments === 'function') ? window.fetchAllRemoteTaskComments(true) : Promise.resolve());
 
         Promise.all([fetchTasksP, fetchCommentsP]).then(function(results) {
           var tList = results[0] || (window._allLoadedTasks || []);
@@ -2253,13 +2472,8 @@ var PortalRealtime = (function() {
           if (typeof window.refreshCurrentTasksView === 'function') {
             try { window.refreshCurrentTasksView(tid); } catch (_) {}
           }
-          if (typeof document !== 'undefined') {
-            var admOverlay = document.getElementById('admin-overlay');
-            var admPanel = document.getElementById('admin-panel');
-            var isAdmOpen = (admOverlay && admOverlay.style.display !== 'none') || (admPanel && admPanel.style.display !== 'none');
-            if (isAdmOpen && typeof window.renderAdminTasks === 'function') {
-              try { window.renderAdminTasks(); } catch (_) {}
-            }
+          if (isAdminPanelVisible() && typeof window.renderAdminTasks === 'function') {
+            try { window.renderAdminTasks(); } catch (_) {}
           }
         }).catch(function() {});
       }
@@ -2565,6 +2779,9 @@ var PortalRealtime = (function() {
       startDeltaSync();
     },
     disconnect: disconnectWebSocket,
+    isConnected: function() {
+      return Boolean(_ws && _ws.readyState === WebSocket.OPEN);
+    },
     broadcast: broadcastLocalChange,
     trigger: triggerEntityUpdate,
     triggerEntityUpdate: triggerEntityUpdate,

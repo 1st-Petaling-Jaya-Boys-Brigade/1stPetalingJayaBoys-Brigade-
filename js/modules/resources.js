@@ -40,10 +40,10 @@ var STANDARD_OFFICER_RANKS = [
 /**
  * Loads resources from Supabase bb_config, filtering out any legacy placeholder docs
  */
-async function loadResources() {
+async function loadResources(force) {
   try {
     var client = (typeof supa !== 'undefined') ? supa : (typeof getSupa === 'function' ? getSupa() : null);
-    if (client && typeof client.getConfigSnapshot === 'function') {
+    if (!force && client && typeof client.getConfigSnapshot === 'function') {
       var snapRes = client.getConfigSnapshot('bb_resources');
       if (Array.isArray(snapRes)) {
         var LEGACY_PLACEHOLDER_IDS = ['res_handbook', 'res_drill', 'res_founders', 'res_songs', 'res_leave_form'];
@@ -62,7 +62,7 @@ async function loadResources() {
       }
     }
     if (typeof supa !== 'undefined' && supa.get) {
-      var rows = await supa.get('bb_config?key=eq.bb_resources&select=value');
+      var rows = await supa.get('bb_config?key=eq.bb_resources&select=value', force ? { cache: false } : undefined);
       if (rows && rows.length && rows[0].value) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
@@ -78,6 +78,9 @@ async function loadResources() {
 
           resources.length = 0;
           realDocs.forEach(function(r) { resources.push(r); });
+          if (typeof supa.recordConfigSnapshot === 'function') {
+            supa.recordConfigSnapshot('bb_resources', resources);
+          }
 
         }
       }
@@ -142,15 +145,19 @@ function handleResourceUrlInput(val) {
  */
 async function saveResources(list) {
   var next = Array.isArray(list) ? list : resources;
-  var serialized = JSON.stringify(next);
 
   if (typeof supa === 'undefined') throw new Error('Database unavailable');
-  var record = { key: 'bb_resources', value: serialized };
-  if (typeof supa.req === 'function') await supa.req('POST', 'bb_config?on_conflict=key', record, {
-    Prefer: 'return=representation,resolution=merge-duplicates'
-  });
-  else await supa.upsert('bb_config', record, 'key');
+  if (typeof supa.safeConfigUpdate === 'function') {
+    next = await supa.safeConfigUpdate('bb_resources', next, { idProp: 'id' });
+  } else {
+    var record = { key: 'bb_resources', value: JSON.stringify(next) };
+    if (typeof supa.req === 'function') await supa.req('POST', 'bb_config?on_conflict=key', record, {
+      Prefer: 'return=representation,resolution=merge-duplicates'
+    });
+    else await supa.upsert('bb_config', record, 'key');
+  }
 
+  var serialized = JSON.stringify(next);
   resources.splice(0, resources.length, ...JSON.parse(serialized));
   if (typeof supa.recordConfigSnapshot === 'function') supa.recordConfigSnapshot('bb_resources', resources);
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
@@ -1115,6 +1122,12 @@ async function deleteResource(id) {
   try {
     var updated = resources.filter(function(r) { return r.id !== id; });
     await saveResources(updated);
+    var storageObj = getResourceStorageObject(parseResourceUrl(item.url));
+    if (storageObj && typeof supa !== 'undefined' && typeof supa.deleteFile === 'function') {
+      try {
+        await supa.deleteFile(storageObj.bucket, decodeURIComponent(storageObj.path));
+      } catch (_) {}
+    }
     if (typeof logAuditEvent === 'function') {
       logAuditEvent({
         action: 'resource.delete',

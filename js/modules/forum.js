@@ -3496,17 +3496,116 @@ function syncForumNotifications(posts, isSilent) {
 }
 
 // ── Persistence Layer ────────────────────────────────────────────────────────
-async function loadForumPosts(isSilent) {
+function mergeForumPostLists(basePosts, remotePosts, clientPosts) {
+  if (!Array.isArray(remotePosts) || !Array.isArray(clientPosts)) {
+    return Array.isArray(clientPosts) ? clientPosts : [];
+  }
+  var baseMap = new Map();
+  if (Array.isArray(basePosts)) {
+    basePosts.forEach(function(p) { if (p && p.id) baseMap.set(String(p.id), p); });
+  }
+  var remoteMap = new Map();
+  remotePosts.forEach(function(p) { if (p && p.id) remoteMap.set(String(p.id), p); });
+
+  var mergeReplies = function(baseReplies, remoteReplies, clientReplies) {
+    var bArr = Array.isArray(baseReplies) ? baseReplies : [];
+    var rArr = Array.isArray(remoteReplies) ? remoteReplies : [];
+    var cArr = Array.isArray(clientReplies) ? clientReplies : [];
+    var bSet = new Set(bArr.map(function(r) { return r && String(r.id); }).filter(Boolean));
+    var cMap = new Map();
+    cArr.forEach(function(r) { if (r && r.id) cMap.set(String(r.id), r); });
+    var merged = cArr.slice();
+    rArr.forEach(function(r) {
+      if (!r || !r.id) return;
+      var rid = String(r.id);
+      if (!cMap.has(rid) && !bSet.has(rid)) {
+        merged.push(r);
+      }
+    });
+    return merged.sort(function(a, b) {
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+    });
+  };
+
+  var mergeUpvotes = function(baseList, remoteList, clientList) {
+    var bSet = new Set(Array.isArray(baseList) ? baseList : []);
+    var rSet = new Set(Array.isArray(remoteList) ? remoteList : []);
+    var cSet = new Set(Array.isArray(clientList) ? clientList : []);
+    var out = new Set(rSet);
+    cSet.forEach(function(email) {
+      if (!bSet.has(email)) out.add(email);
+    });
+    bSet.forEach(function(email) {
+      if (!cSet.has(email)) out.delete(email);
+    });
+    return Array.from(out);
+  };
+
+  var mergedPosts = [];
+  var seenIds = new Set();
+
+  clientPosts.forEach(function(cPost) {
+    if (!cPost || !cPost.id) return;
+    var pid = String(cPost.id);
+    seenIds.add(pid);
+    var rPost = remoteMap.get(pid);
+    var bPost = baseMap.get(pid);
+    if (rPost) {
+      var clientEditedCore = !bPost ||
+        bPost.title !== cPost.title ||
+        bPost.content !== cPost.content ||
+        bPost.status !== cPost.status ||
+        bPost.category !== cPost.category ||
+        bPost.tag !== cPost.tag;
+      var chosen = Object.assign({}, clientEditedCore ? cPost : rPost);
+      chosen.replies = mergeReplies(bPost && bPost.replies, rPost.replies, cPost.replies);
+      chosen.upvotedBy = mergeUpvotes(bPost && bPost.upvotedBy, rPost.upvotedBy, cPost.upvotedBy);
+      chosen.upvotes = chosen.upvotedBy.length;
+      mergedPosts.push(chosen);
+    } else if (!bPost || JSON.stringify(bPost) !== JSON.stringify(cPost)) {
+      mergedPosts.push(cPost);
+    }
+  });
+
+  remotePosts.forEach(function(rPost) {
+    if (!rPost || !rPost.id) return;
+    var pid = String(rPost.id);
+    if (!seenIds.has(pid) && !baseMap.has(pid)) {
+      mergedPosts.unshift(rPost);
+    }
+  });
+
+  return mergedPosts;
+}
+
+async function loadForumPosts(isSilent, inlinePosts) {
   if (typeof fetchRemoteMemberPresence === 'function') {
     try { await fetchRemoteMemberPresence(); } catch (_) {}
   } else if (typeof window !== 'undefined' && typeof window.fetchRemoteMemberPresence === 'function') {
     try { await window.fetchRemoteMemberPresence(); } catch (_) {}
+  }
+  if (Array.isArray(inlinePosts)) {
+    forumPosts = inlinePosts;
+    if (typeof supa !== 'undefined' && typeof supa.recordConfigSnapshot === 'function') {
+      supa.recordConfigSnapshot('bb_forum_posts', forumPosts);
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('bb_forum_posts', JSON.stringify(forumPosts));
+      }
+    } catch (_) {}
+    renderForumFeed();
+    syncForumNotifications(forumPosts, isSilent);
+    return;
   }
   try {
     if (typeof supa !== 'undefined' && typeof supa.getConfig === 'function') {
       var remote = await supa.getConfig('bb_forum_posts');
       if (Array.isArray(remote)) {
         forumPosts = remote;
+        if (typeof supa.recordConfigSnapshot === 'function') {
+          supa.recordConfigSnapshot('bb_forum_posts', forumPosts);
+        }
         try {
           if (typeof localStorage !== 'undefined') {
             localStorage.setItem('bb_forum_posts', JSON.stringify(forumPosts));
@@ -3552,7 +3651,21 @@ async function saveForumPosts(posts) {
   var saved = false;
   try {
     if (typeof supa !== 'undefined') {
-      if (typeof supa.setConfig === 'function') {
+      if (typeof supa.safeConfigUpdate === 'function') {
+        var persisted = await supa.safeConfigUpdate('bb_forum_posts', forumPosts, {
+          idProp: 'id',
+          merge: mergeForumPostLists
+        });
+        if (Array.isArray(persisted)) {
+          forumPosts = persisted;
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem('bb_forum_posts', JSON.stringify(forumPosts));
+            }
+          } catch (_) {}
+        }
+        saved = true;
+      } else if (typeof supa.setConfig === 'function') {
         saved = await supa.setConfig('bb_forum_posts', forumPosts) !== false;
       } else {
         var client = supa.getClient ? supa.getClient() : supa;
@@ -5709,13 +5822,21 @@ function clearForumScreenshot(event) {
 async function uploadForumScreenshotFile(file) {
   if (!file) return null;
   var client = (typeof supa !== 'undefined' ? supa : ((typeof window !== 'undefined' && window.supa) ? window.supa : null));
+  var uploadBlob = file;
+  if (typeof stripExifAndCompress === 'function' && file.type && file.type.startsWith('image/') && file.type !== 'image/gif') {
+    try {
+      var compressed = await stripExifAndCompress(file, { maxDimension: 1400, quality: 0.8, bucket: 'gallery' });
+      if (compressed && compressed.blob) uploadBlob = compressed.blob;
+    } catch (_) {}
+  }
   var ext = (file.name ? file.name.split('.').pop() || 'jpg' : 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (uploadBlob !== file) ext = 'jpg';
   var rand = Math.random().toString(36).substring(2, 7);
   var fname = 'shot_' + Date.now() + '_' + rand + '.' + (ext || 'jpg');
 
   try {
     if (client && typeof client.uploadFile === 'function') {
-      await client.uploadFile('gallery', 'forum/' + fname, file);
+      await client.uploadFile('gallery', 'forum/' + fname, uploadBlob);
       var shotUrl = client.fileUrl('gallery', 'forum/' + fname);
       if (typeof client.createSignedUrl === 'function') {
         var signed = await client.createSignedUrl('gallery', 'forum/' + fname, 3600 * 24 * 30);
@@ -5727,13 +5848,17 @@ async function uploadForumScreenshotFile(file) {
     console.warn('uploadForumScreenshotFile error:', err);
   }
 
-  // Fallback to data URL if direct upload fails
+  // Fallback to data URL ONLY for small compressed images (<= 400KB) to prevent bb_config payload bloat
+  var fallbackSize = (uploadBlob && uploadBlob.size) || (file && file.size) || 0;
+  if (fallbackSize > 400 * 1024) {
+    return null;
+  }
   return new Promise(function(resolve) {
     if (typeof FileReader === 'undefined') return resolve(null);
     var r = new FileReader();
     r.onload = function(ev) { resolve({ url: ev.target.result, filename: fname }); };
     r.onerror = function() { resolve(null); };
-    r.readAsDataURL(file);
+    r.readAsDataURL(uploadBlob);
   });
 }
 
@@ -6962,6 +7087,7 @@ if (typeof module !== 'undefined' && module.exports) {
     hideForumMentionDropdown: hideForumMentionDropdown,
     handleForumMentionInput: handleForumMentionInput,
     handleForumMentionKeyDown: handleForumMentionKeyDown,
-    selectForumMentionCandidate: selectForumMentionCandidate
+    selectForumMentionCandidate: selectForumMentionCandidate,
+    mergeForumPostLists: mergeForumPostLists
   };
 }

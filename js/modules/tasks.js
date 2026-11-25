@@ -495,16 +495,29 @@ function deduplicateTasks(tasks) {
  * Persists _companyProjects to localStorage and Supabase bb_config
  */
 async function saveProjectsCatalog() {
-  if (typeof localStorage !== 'undefined') {
-    try { localStorage.setItem('bb_company_projects', JSON.stringify(_companyProjects)); } catch (_) {}
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('projects', 'update');
-  }
   var client = getSupaClient();
   if (client) {
     try {
-      await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_projects', value: JSON.stringify(_companyProjects) }, {
-        headers: { 'Prefer': 'resolution=merge-duplicates' }
-      });
+      if (typeof client.safeConfigUpdate === 'function') {
+        var mergedProjects = await client.safeConfigUpdate('bb_projects', function(currentRemote, baseSnapshot) {
+          var baseSet = new Set(Array.isArray(baseSnapshot) ? baseSnapshot : []);
+          var remoteArr = Array.isArray(currentRemote) ? currentRemote : [];
+          var out = _companyProjects.slice();
+          remoteArr.forEach(function(p) {
+            if (p && out.indexOf(p) === -1 && !baseSet.has(p)) {
+              out.push(p);
+            }
+          });
+          return out;
+        });
+        if (Array.isArray(mergedProjects)) {
+          _companyProjects = mergedProjects;
+        }
+      } else {
+        await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_projects', value: JSON.stringify(_companyProjects) }, {
+          headers: { 'Prefer': 'resolution=merge-duplicates' }
+        });
+      }
     } catch (_) {
       try {
         await client.patch('bb_config?key=eq.bb_projects', { value: JSON.stringify(_companyProjects) });
@@ -513,32 +526,45 @@ async function saveProjectsCatalog() {
       }
     }
   }
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.setItem('bb_company_projects', JSON.stringify(_companyProjects)); } catch (_) {}
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') window.PortalRealtime.broadcast('projects', 'update');
+  }
 }
 
 /**
  * Persists _projectStatusesMap to localStorage and Supabase bb_config
  */
 async function saveProjectStatusesCatalog() {
-  if (typeof localStorage !== 'undefined') {
-    try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
-    if (typeof window !== 'undefined') window._projectStatusesMap = _projectStatusesMap;
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-      window.PortalRealtime.broadcast('projects', 'update', { key: 'bb_project_statuses', map: _projectStatusesMap });
-      window.PortalRealtime.broadcast('project_statuses', 'update', { key: 'bb_project_statuses', map: _projectStatusesMap });
-    }
-  }
   var client = getSupaClient();
   if (client) {
     try {
-      await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_project_statuses', value: JSON.stringify(_projectStatusesMap) }, {
-        headers: { 'Prefer': 'resolution=merge-duplicates' }
-      });
+      if (typeof client.safeConfigUpdate === 'function') {
+        var mergedStatuses = await client.safeConfigUpdate('bb_project_statuses', _projectStatusesMap, {
+          mergeObjects: true
+        });
+        if (mergedStatuses && typeof mergedStatuses === 'object' && !Array.isArray(mergedStatuses)) {
+          _projectStatusesMap = mergedStatuses;
+        }
+      } else {
+        await client.req('POST', 'bb_config?on_conflict=key', { key: 'bb_project_statuses', value: JSON.stringify(_projectStatusesMap) }, {
+          headers: { 'Prefer': 'resolution=merge-duplicates' }
+        });
+      }
     } catch (_) {
       try {
         await client.patch('bb_config?key=eq.bb_project_statuses', { value: JSON.stringify(_projectStatusesMap) });
       } catch (_) {
         try { await client.post('bb_config', { key: 'bb_project_statuses', value: JSON.stringify(_projectStatusesMap) }); } catch (_) {}
       }
+    }
+  }
+  if (typeof localStorage !== 'undefined') {
+    try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
+    if (typeof window !== 'undefined') window._projectStatusesMap = _projectStatusesMap;
+    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+      window.PortalRealtime.broadcast('projects', 'update', { key: 'bb_project_statuses', map: _projectStatusesMap });
+      window.PortalRealtime.broadcast('project_statuses', 'update', { key: 'bb_project_statuses', map: _projectStatusesMap });
     }
   }
 }
@@ -567,6 +593,9 @@ async function loadProjectStatusesCatalog() {
         var remoteMap = JSON.parse(rows[0].value);
         if (remoteMap && typeof remoteMap === 'object') {
           _projectStatusesMap = Object.assign({}, remoteMap);
+          if (typeof client.recordConfigSnapshot === 'function') {
+            client.recordConfigSnapshot('bb_project_statuses', _projectStatusesMap);
+          }
           if (typeof window !== 'undefined') window._projectStatusesMap = _projectStatusesMap;
           if (typeof localStorage !== 'undefined') {
             try { localStorage.setItem('bb_project_statuses', JSON.stringify(_projectStatusesMap)); } catch (_) {}
@@ -618,6 +647,9 @@ async function loadProjectsCatalog() {
           remoteArr.forEach(function(p) {
             if (p && _companyProjects.indexOf(p) === -1) _companyProjects.push(p);
           });
+          if (typeof client.recordConfigSnapshot === 'function') {
+            client.recordConfigSnapshot('bb_projects', remoteArr);
+          }
         }
       }
     } catch (_) {}
@@ -3734,9 +3766,16 @@ function refreshTaskBriefSections(id) {
   return read;
 }
 
-function refreshVisibleTaskBrief() {
+var _lastTaskBriefPollAt = 0;
+
+function refreshVisibleTaskBrief(fromPoll) {
   var id = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
   if (!id || (typeof document !== 'undefined' && document.visibilityState === 'hidden')) return;
+  if (fromPoll === true) {
+    var wsLive = Boolean(typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.isConnected === 'function' && window.PortalRealtime.isConnected());
+    if (wsLive && (Date.now() - _lastTaskBriefPollAt < 20000)) return;
+  }
+  _lastTaskBriefPollAt = Date.now();
   return Promise.all([refreshTaskBriefRow(id), refreshTaskBriefSections(id)]);
 }
 
@@ -4639,8 +4678,9 @@ function openTaskDetail(id) {
   renderTaskLinks(id);
 
   refreshTaskBriefSections(id);
+  _lastTaskBriefPollAt = Date.now();
   clearInterval(_activeTaskPollTimer);
-  _activeTaskPollTimer = setInterval(refreshVisibleTaskBrief, 4000);
+  _activeTaskPollTimer = setInterval(function() { refreshVisibleTaskBrief(true); }, 4000);
 }
 
 function paintTaskBriefProperties(t) {
@@ -5132,15 +5172,27 @@ async function saveTaskSubtasks(taskId, subtasks) {
   var client = getSupaClient();
   if (client) {
     try {
-      var payload = {
-        key: 'bb_task_subtasks_' + tid,
-        value: JSON.stringify(subtasks),
-        updated_at: new Date().toISOString()
-      };
-      if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', payload, 'key');
+      var subKey = 'bb_task_subtasks_' + tid;
+      if (typeof client.safeConfigUpdate === 'function') {
+        var mergedSubs = await client.safeConfigUpdate(subKey, subtasks, { idProp: 'id' });
+        if (Array.isArray(mergedSubs)) {
+          subtasks = mergedSubs;
+          _taskSubtasksMap[tid] = subtasks;
+          if (typeof window !== 'undefined') window._taskSubtasksMap[tid] = subtasks;
+          if (t) t.subtasks = subtasks;
+          try { if (typeof localStorage !== 'undefined') localStorage.setItem(subKey, JSON.stringify(subtasks)); } catch (_) {}
+        }
       } else {
-        await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+        var payload = {
+          key: subKey,
+          value: JSON.stringify(subtasks),
+          updated_at: new Date().toISOString()
+        };
+        if (typeof client.upsert === 'function') {
+          await client.upsert('bb_config', payload, 'key');
+        } else {
+          await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+        }
       }
     } catch (e) {
       console.warn('saveTaskSubtasks remote error:', e);
@@ -5177,6 +5229,7 @@ async function fetchRemoteTaskSubtasks(taskId, prefetchedRows) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
           _taskSubtasksMap[tid] = parsed;
+          if (typeof client.recordConfigSnapshot === 'function') client.recordConfigSnapshot('bb_task_subtasks_' + tid, parsed);
           if (typeof window !== 'undefined') {
             window._taskSubtasksMap = window._taskSubtasksMap || {};
             window._taskSubtasksMap[tid] = parsed;
@@ -5425,15 +5478,27 @@ async function saveTaskLinks(taskId, links) {
   var client = getSupaClient();
   if (client) {
     try {
-      var payload = {
-        key: 'bb_task_links_' + tid,
-        value: JSON.stringify(links),
-        updated_at: new Date().toISOString()
-      };
-      if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', payload, 'key');
+      var lnkKey = 'bb_task_links_' + tid;
+      if (typeof client.safeConfigUpdate === 'function') {
+        var mergedLinks = await client.safeConfigUpdate(lnkKey, links, { idProp: 'id' });
+        if (Array.isArray(mergedLinks)) {
+          links = mergedLinks;
+          _taskLinksMap[tid] = links;
+          if (typeof window !== 'undefined') window._taskLinksMap[tid] = links;
+          if (t) t.links = links;
+          try { if (typeof localStorage !== 'undefined') localStorage.setItem(lnkKey, JSON.stringify(links)); } catch (_) {}
+        }
       } else {
-        await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+        var payload = {
+          key: lnkKey,
+          value: JSON.stringify(links),
+          updated_at: new Date().toISOString()
+        };
+        if (typeof client.upsert === 'function') {
+          await client.upsert('bb_config', payload, 'key');
+        } else {
+          await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+        }
       }
     } catch (e) {
       console.warn('saveTaskLinks remote error:', e);
@@ -5470,6 +5535,7 @@ async function fetchRemoteTaskLinks(taskId, prefetchedRows) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
           _taskLinksMap[tid] = parsed;
+          if (typeof client.recordConfigSnapshot === 'function') client.recordConfigSnapshot('bb_task_links_' + tid, parsed);
           if (typeof window !== 'undefined') {
             window._taskLinksMap = window._taskLinksMap || {};
             window._taskLinksMap[tid] = parsed;
@@ -5605,63 +5671,79 @@ function saveTaskComments(taskId, comments, options) {
   if (!client || (typeof client.upsert !== 'function' && typeof client.req !== 'function')) return Promise.resolve(false);
 
   var doSave = async function() {
+    var maxAttempts = (options && options.isAppend && options.newComment) ? 4 : 1;
     var finalComments = comments;
-    var currentRow;
-    if (options?.editedComment) {
-      var currentRows = await client.get('bb_config?key=eq.bb_task_comments_' + encodeURIComponent(taskId) + '&select=value,updated_at', { cache: false });
-      currentRow = currentRows?.[0];
-      var current = currentRow ? JSON.parse(currentRow.value) : comments;
-      var edited = options.editedComment;
-      if (!Array.isArray(current) || !current.some(function(comment) { return comment.id === edited.id && ownsTaskComment(comment); })) return false;
-      finalComments = current.map(function(comment) {
-        return comment.id === edited.id ? Object.assign({}, comment, { text: edited.text, edited_at: edited.edited_at }) : comment;
-      });
-    }
-    if (options && options.isAppend && options.newComment) {
-      try {
-        var remoteRows = await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value', { cache: false });
-        if (Array.isArray(remoteRows) && remoteRows.length && remoteRows[0].value) {
-          var remoteList = JSON.parse(remoteRows[0].value);
-          if (Array.isArray(remoteList) && remoteList.length) {
-            var cMap = new Map();
-            remoteList.forEach(function(c) { if (c && c.id) cMap.set(c.id, c); });
-            comments.forEach(function(c) { if (c && c.id) cMap.set(c.id, c); });
-            cMap.set(options.newComment.id, options.newComment);
-            finalComments = Array.from(cMap.values()).sort(function(a, b) {
-              return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-            });
-            _taskCommentsMap[taskId] = finalComments;
-            try { localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(finalComments)); } catch (_) {}
-            var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
-            if (activeId === taskId && typeof renderTaskComments === 'function') {
-              renderTaskComments(taskId);
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      finalComments = comments;
+      var currentRow;
+      if (options?.editedComment) {
+        var currentRows = await client.get('bb_config?key=eq.bb_task_comments_' + encodeURIComponent(taskId) + '&select=value,updated_at', { cache: false });
+        currentRow = currentRows?.[0];
+        var current = currentRow ? JSON.parse(currentRow.value) : comments;
+        var edited = options.editedComment;
+        if (!Array.isArray(current) || !current.some(function(comment) { return comment.id === edited.id && ownsTaskComment(comment); })) return false;
+        finalComments = current.map(function(comment) {
+          return comment.id === edited.id ? Object.assign({}, comment, { text: edited.text, edited_at: edited.edited_at }) : comment;
+        });
+      }
+      if (options && options.isAppend && options.newComment) {
+        try {
+          var remoteRows = await client.get('bb_config?key=eq.bb_task_comments_' + encodeURIComponent(taskId) + '&select=value,updated_at', { cache: false });
+          currentRow = Array.isArray(remoteRows) && remoteRows.length ? remoteRows[0] : undefined;
+          if (currentRow && currentRow.value) {
+            var remoteList = JSON.parse(currentRow.value);
+            if (Array.isArray(remoteList) && remoteList.length) {
+              var cMap = new Map();
+              remoteList.forEach(function(c) { if (c && c.id) cMap.set(c.id, c); });
+              comments.forEach(function(c) { if (c && c.id) cMap.set(c.id, c); });
+              cMap.set(options.newComment.id, options.newComment);
+              finalComments = Array.from(cMap.values()).sort(function(a, b) {
+                return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+              });
+              _taskCommentsMap[taskId] = finalComments;
+              try { localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(finalComments)); } catch (_) {}
+              var activeId = _activeDetailTaskId || (typeof window !== 'undefined' && window._activeDetailTaskId);
+              if (activeId === taskId && typeof renderTaskComments === 'function') {
+                renderTaskComments(taskId);
+              }
             }
           }
+        } catch (_) {}
+      }
+
+      var nextTs = new Date().toISOString();
+      if (currentRow && currentRow.updated_at && nextTs === currentRow.updated_at) {
+        nextTs = new Date(Date.now() + 1).toISOString();
+      }
+      var payload = {
+        key: 'bb_task_comments_' + taskId,
+        value: JSON.stringify(finalComments),
+        updated_at: nextTs
+      };
+      if (currentRow && Object.hasOwn(currentRow, 'updated_at') && typeof client.req === 'function') {
+        var version = currentRow.updated_at == null ? 'is.null' : 'eq.' + encodeURIComponent(currentRow.updated_at);
+        var updated = await client.req('PATCH', 'bb_config?key=eq.' + encodeURIComponent(payload.key) + '&updated_at=' + version,
+          { value: payload.value, updated_at: payload.updated_at }, { Prefer: 'return=representation' }, { maxRetries: 0 });
+        if (!Array.isArray(updated) || updated.length !== 1) {
+          if (attempt + 1 < maxAttempts) {
+            await new Promise(function(r) { setTimeout(r, 40 * Math.pow(2, attempt) + Math.random() * 40); });
+            continue;
+          }
+          return false;
         }
-      } catch (_) {}
-    }
+      } else if (typeof client.upsert === 'function') {
+        await client.upsert('bb_config', payload, 'key');
+      } else {
+        await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+      }
+      if (options?.editedComment) cacheTaskComments(taskId, finalComments);
 
-    var payload = {
-      key: 'bb_task_comments_' + taskId,
-      value: JSON.stringify(finalComments),
-      updated_at: new Date().toISOString()
-    };
-    if (currentRow && Object.hasOwn(currentRow, 'updated_at') && typeof client.req === 'function') {
-      var version = currentRow.updated_at == null ? 'is.null' : 'eq.' + encodeURIComponent(currentRow.updated_at);
-      var updated = await client.req('PATCH', 'bb_config?key=eq.' + encodeURIComponent(payload.key) + '&updated_at=' + version,
-        { value: payload.value, updated_at: payload.updated_at }, { Prefer: 'return=representation' }, { maxRetries: 0 });
-      if (!Array.isArray(updated) || updated.length !== 1) return false;
-    } else if (typeof client.upsert === 'function') {
-      await client.upsert('bb_config', payload, 'key');
-    } else {
-      await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+      if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
+        window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId, comments: finalComments });
+      }
+      return true;
     }
-    if (options?.editedComment) cacheTaskComments(taskId, finalComments);
-
-    if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-      window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId, comments: finalComments });
-    }
-    return true;
+    return false;
   };
 
   return doSave().catch(function() { return false; });
@@ -5733,7 +5815,7 @@ var _lastFetchRemoteTaskDetailsTime = 0;
 
 async function fetchAllRemoteTaskDetails(force) {
   var now = Date.now();
-  if (!force && (_isFetchingRemoteTaskDetails || (now - _lastFetchRemoteTaskDetailsTime < 5000))) return;
+  if (!force && (_isFetchingRemoteTaskDetails || (now - _lastFetchRemoteTaskDetailsTime < 30000))) return;
   _isFetchingRemoteTaskDetails = true;
   _lastFetchRemoteTaskDetailsTime = now;
   var client = getSupaClient();
@@ -6349,15 +6431,27 @@ async function saveTaskAttachments(taskId, attachments) {
   var client = getSupaClient();
   if (client) {
     try {
-      var payload = {
-        key: 'bb_task_attachments_' + tid,
-        value: JSON.stringify(atts),
-        updated_at: new Date().toISOString()
-      };
-      if (typeof client.upsert === 'function') {
-        await client.upsert('bb_config', payload, 'key');
+      var attKey = 'bb_task_attachments_' + tid;
+      if (typeof client.safeConfigUpdate === 'function') {
+        var mergedAtts = await client.safeConfigUpdate(attKey, atts, { idProp: 'id' });
+        if (Array.isArray(mergedAtts)) {
+          atts = mergedAtts;
+          _taskAttachmentsMap[tid] = atts;
+          if (typeof window !== 'undefined') window._taskAttachmentsMap[tid] = atts;
+          if (t) t.attachments = atts;
+          try { if (typeof localStorage !== 'undefined') localStorage.setItem(attKey, JSON.stringify(atts)); } catch (_) {}
+        }
       } else {
-        await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+        var payload = {
+          key: attKey,
+          value: JSON.stringify(atts),
+          updated_at: new Date().toISOString()
+        };
+        if (typeof client.upsert === 'function') {
+          await client.upsert('bb_config', payload, 'key');
+        } else {
+          await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+        }
       }
     } catch (e) {
       console.warn('saveTaskAttachments remote error:', e);
@@ -6394,6 +6488,7 @@ async function fetchRemoteTaskAttachments(taskId, prefetchedRows) {
         var parsed = JSON.parse(rows[0].value);
         if (Array.isArray(parsed)) {
           _taskAttachmentsMap[tid] = parsed;
+          if (typeof client.recordConfigSnapshot === 'function') client.recordConfigSnapshot('bb_task_attachments_' + tid, parsed);
           if (typeof window !== 'undefined') {
             window._taskAttachmentsMap = window._taskAttachmentsMap || {};
             window._taskAttachmentsMap[tid] = parsed;
