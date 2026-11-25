@@ -18029,14 +18029,30 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(mMyTasks95.innerHTML.includes('task-cal-shell') && mMyTasks95.innerHTML.includes('my-tasks-calendar-card'), 'Tasks Calendar View must render Month/Year calendar across all projects');
     assert.ok(mMyTasks95.innerHTML.includes('task-cal-pill-red') && mMyTasks95.innerHTML.includes('task-cal-pill-late'), 'Tasks Calendar View must differentiate overdue (red) and completed late (orange-red)');
 
-    // Leaving Tasks section -> Projects -> returning to Tasks must auto-reset back to Assigned to me + Open
+    // Leaving Tasks section -> Projects -> returning to Tasks must auto-reset back to Assigned to me + Open AND List View
     tasksMod95.setTasksViewMode('projects');
     tasksMod95.setTasksViewMode('mytasks');
+    assert.strictEqual(tasksMod95._myTasksDisplayMode, 'list', 'Tasks section must default/auto-reset to List View on re-entry');
+    assert.ok(mMyTasks95.innerHTML.includes('data-mytasks-active-view="list"'), 'Tasks section DOM must render List View by default');
     assert.ok(
       mMyTasks95.innerHTML.includes('filter-chip-option active" onclick="setMyTasksScopeFilter(\'me\')">Assigned to me')
       && mMyTasks95.innerHTML.includes('filter-chip-option active" onclick="setMyTasksStatusFilter(\'open\')">Open'),
       'Leaving Tasks to Projects and returning must auto-reset filters to Assigned to me + Open'
     );
+
+    // Project section must always default/auto-reset to Board View on openProjectBoard & re-entry
+    tasksMod95.openProjectBoard('Logistics', { skipRemoteFetch: true });
+    assert.strictEqual(tasksMod95._projectDisplayModeValue, 'board', 'Opening a project must default to Board View');
+    tasksMod95.setProjectDisplayMode('calendar');
+    assert.strictEqual(tasksMod95._projectDisplayModeValue, 'calendar');
+    tasksMod95.setTasksViewMode('projects');
+    tasksMod95.openProjectBoard('Logistics', { skipRemoteFetch: true });
+    assert.strictEqual(tasksMod95._projectDisplayModeValue, 'board', 'Re-entering a project must reset Project view back to Board View');
+
+    // Unified dark-mode status color tokens in variables.css & shared usage in components.css
+    const varsCss95 = fs.readFileSync(path.join(__dirname, '../css/variables.css'), 'utf8');
+    assert.ok(varsCss95.includes('--task-status-near-color: #fde047;') && varsCss95.includes('--task-status-near-bg: rgba(250, 204, 21, 0.18);'), 'variables.css must define pure yellow dark-mode tokens for nearing due date');
+    assert.ok(css95.includes('color: var(--task-status-near-color)') && css95.includes('background: var(--task-status-near-bg)'), 'components.css must unify Board/List/Calendar nearing-due yellow via shared tokens');
     assert.ok(idxHtml95.includes("window.addEventListener('pageshow'") && idxHtml95.includes('resetTasksFiltersToDefault()'), 'index.html must auto-reset Tasks filters on tab switch, load, and pageshow');
     const adminJs95 = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
     assert.ok(adminJs95.includes('resetTasksFiltersToDefault'), 'admin.js must auto-reset Tasks filters when closing Admin Console');
