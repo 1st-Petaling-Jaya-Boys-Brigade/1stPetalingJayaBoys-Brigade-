@@ -213,7 +213,10 @@ function getTabCount(status) {
 
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
 var _tasksViewMode      = 'projects'; // 'projects' | 'board' | 'mytasks'
-var _projectDisplayMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_proj_view_mode') === 'list') ? 'list' : 'board'; // 'board' | 'list'
+var _savedProjViewMode  = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_proj_view_mode') : '';
+var _projectDisplayMode = (_savedProjViewMode === 'list' || _savedProjViewMode === 'calendar') ? _savedProjViewMode : 'board'; // 'board' | 'list' | 'calendar'
+var _savedMyTasksViewMode = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_mytasks_view_mode') : '';
+var _myTasksDisplayMode = (_savedMyTasksViewMode === 'board' || _savedMyTasksViewMode === 'calendar') ? _savedMyTasksViewMode : 'list'; // 'board' | 'list' | 'calendar'
 var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;
@@ -229,17 +232,28 @@ var _cachedDepartmentMembers = [];
 if (typeof window !== 'undefined') window._cachedDepartmentMembers = _cachedDepartmentMembers;
 var _currentDeptFilter  = 'all';
 var _taskSearchQuery    = '';
-var _myTasksScopeFilter = 'me';     // 'me' | 'all'
-var _myTasksStatusFilter = 'open';  // 'open' | 'completed' | 'all'
-var _myTasksProjectFilter = 'all';  // 'all' | <projectName>
-var _projectProgressFilter = 'all'; // 'all' | '25' | '50' | '75' | '100'
-var _projectMemberFilter   = 'all'; // 'all' | <memberName>
+var _myTasksScopeFilter = 'all';     // 'all' | 'me'
+var _myTasksStatusFilter = 'all';    // 'all' | 'open' | 'completed' | 'overdue' | 'near'
+var _myTasksProjectFilter = 'all';   // 'all' | <projectName>
+var _myTasksAssigneeFilter = 'all';  // 'all' | <assigneeName>
+var _projectProgressFilter = 'all';  // 'all' | '25' | '50' | '75' | '100'
+var _projectMemberFilter   = 'all';  // 'all' | <memberName>
 var _projectSearchQuery    = '';
 
+// Task Calendar state (Month / Year views, Malaysia local calendar date)
+var _taskCalInitIso = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+var _taskCalSubMode = 'month'; // 'month' | 'year'
+var _taskCalYear    = parseInt(_taskCalInitIso.slice(0, 4), 10) || new Date().getFullYear();
+var _taskCalMonth   = (parseInt(_taskCalInitIso.slice(5, 7), 10) || (new Date().getMonth() + 1)) - 1; // 0..11
+var _taskCalPopoverDate = null;
+var _taskCalPopoverContext = 'project'; // 'project' | 'mytasks'
+var _taskCalLastTrigger = null;
+
 function resetTasksFiltersToDefault() {
-  _myTasksScopeFilter    = 'me';
-  _myTasksStatusFilter   = 'open';
+  _myTasksScopeFilter    = 'all';
+  _myTasksStatusFilter   = 'all';
   _myTasksProjectFilter  = 'all';
+  _myTasksAssigneeFilter = 'all';
   _taskSearchQuery       = '';
   _projectProgressFilter = 'all';
   _projectMemberFilter   = 'all';
@@ -1013,6 +1027,8 @@ function setTasksViewMode(mode, options) {
   var delProjBtn = document.querySelector('.project-delete-header-btn');
   var projToggle = document.querySelector('.project-board-view-toggle');
   var listView   = document.querySelector('.tasks-board-list-view');
+  var calView    = document.querySelector('.tasks-board-calendar-view');
+  if (typeof closeTaskCalendarDayPopover === 'function') closeTaskCalendarDayPopover();
 
   if (_tasksViewMode === 'projects') {
     if (boardCol) {
@@ -1020,7 +1036,8 @@ function setTasksViewMode(mode, options) {
       boardCol.classList.add('hidden');
     }
     if (colTabs) colTabs.style.display = 'none';
-    if (listView) listView.style.display = 'none';
+    if (listView) setElementDisplayNone(listView);
+    if (calView) setElementDisplayNone(calView);
     if (projToggle) projToggle.style.display = 'none';
     if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'none';
@@ -1038,16 +1055,20 @@ function setTasksViewMode(mode, options) {
 
     if (hasActiveProject) {
       if (projToggle) projToggle.style.display = 'inline-flex';
-      var bBtn = document.querySelector('.project-view-btn[data-proj-vmode="board"]');
-      var lBtn = document.querySelector('.project-view-btn[data-proj-vmode="list"]');
-      if (bBtn) bBtn.classList.toggle('active', _projectDisplayMode === 'board');
-      if (lBtn) lBtn.classList.toggle('active', _projectDisplayMode === 'list');
+      syncProjectViewToggleButtons();
       if (_projectDisplayMode === 'list') {
         if (boardCol) setElementDisplayNone(boardCol);
         if (colTabs) setElementDisplayNone(colTabs);
+        if (calView) setElementDisplayNone(calView);
         if (listView) showElementDisplay(listView, 'block');
+      } else if (_projectDisplayMode === 'calendar') {
+        if (boardCol) setElementDisplayNone(boardCol);
+        if (colTabs) setElementDisplayNone(colTabs);
+        if (listView) setElementDisplayNone(listView);
+        if (calView) showElementDisplay(calView, 'block');
       } else {
         if (listView) setElementDisplayNone(listView);
+        if (calView) setElementDisplayNone(calView);
         if (boardCol) showElementDisplay(boardCol, 'flex');
         if (colTabs) showElementDisplay(colTabs, (typeof window !== 'undefined' && window.innerWidth <= 768) ? 'flex' : 'none');
       }
@@ -1074,7 +1095,8 @@ function setTasksViewMode(mode, options) {
         boardCol.classList.add('hidden');
       }
       if (colTabs) colTabs.style.display = 'none';
-      if (listView) listView.style.display = 'none';
+      if (listView) setElementDisplayNone(listView);
+      if (calView) setElementDisplayNone(calView);
       if (projToggle) projToggle.style.display = 'none';
       if (noProjEl) noProjEl.style.display = 'block';
       if (myTasks) myTasks.style.display = 'none';
@@ -1091,7 +1113,8 @@ function setTasksViewMode(mode, options) {
       boardCol.classList.add('hidden');
     }
     if (colTabs) colTabs.style.display = 'none';
-    if (listView) listView.style.display = 'none';
+    if (listView) setElementDisplayNone(listView);
+    if (calView) setElementDisplayNone(calView);
     if (projToggle) projToggle.style.display = 'none';
     if (noProjEl) noProjEl.style.display = 'none';
     if (myTasks) myTasks.style.display = 'block';
@@ -1305,7 +1328,10 @@ async function renderProjectsView() {
   var colTabs = document.getElementById('task-col-tabs');
   if (colTabs) colTabs.style.display = 'none';
   var listView = document.querySelector('.tasks-board-list-view');
-  if (listView) listView.style.display = 'none';
+  if (listView) setElementDisplayNone(listView);
+  var calView = document.querySelector('.tasks-board-calendar-view');
+  if (calView) setElementDisplayNone(calView);
+  if (typeof closeTaskCalendarDayPopover === 'function') closeTaskCalendarDayPopover();
   var noProjEl = document.querySelector('.tasks-no-project-placeholder');
   if (noProjEl) noProjEl.style.display = 'none';
   var myTasks = document.querySelector('.my-tasks-container');
@@ -1646,8 +1672,7 @@ async function confirmMoveTasksAndDeleteStatus(sourceStatusId, destStatusId) {
   await saveProjectStatusesCatalog();
 
   closeMoveTasksModal();
-  if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+  renderActiveProjectSubView();
 
   if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
     window.PortalRealtime.broadcast('tasks', 'update');
@@ -1693,8 +1718,7 @@ async function deleteProjectStatus(statusId) {
 
     _projectStatusesMap[pKey] = statuses.filter(function(s) { return s.id.toLowerCase() !== statusId.toLowerCase(); });
     await saveProjectStatusesCatalog();
-    if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-    else renderColumnsFromTasks(_allLoadedTasks);
+    renderActiveProjectSubView();
     if (typeof showToast === 'function') showToast('Status "' + statusObj.label + '" deleted.', 'success');
     return;
   }
@@ -1817,8 +1841,7 @@ async function saveEditStatusTitle(statusId, form) {
     }
   }
 
-  if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+  renderActiveProjectSubView();
   if (typeof showToast === 'function') {
     showToast('Status renamed to "' + newLabel + '".', 'success');
   }
@@ -1909,8 +1932,7 @@ async function confirmAddStatus(btnOrInput) {
   _projectStatusesMap[pKey] = statuses;
   await saveProjectStatusesCatalog();
 
-  if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+  renderActiveProjectSubView();
   if (typeof showToast === 'function') {
     showToast('Status "' + val + '" created.', 'success');
   }
@@ -1926,8 +1948,7 @@ async function reorderProjectStatuses(fromIndex, toIndex) {
   statuses.splice(toIndex, 0, moved);
   _projectStatusesMap[pKey] = statuses;
   await saveProjectStatusesCatalog();
-  if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+  renderActiveProjectSubView();
 }
 
 /**
@@ -1960,7 +1981,9 @@ function changeTaskDeptFilter(dept) {
 function filterProjectTasks(query) {
   _taskSearchQuery = (query || '').toLowerCase().trim();
   if (_tasksViewMode === 'mytasks') {
-    renderMyTasksView();
+    renderMyTasksView(true);
+  } else if (_tasksViewMode === 'board') {
+    renderActiveProjectSubView();
   } else {
     renderTasksBoard(_currentDeptFilter);
   }
@@ -2227,7 +2250,7 @@ function getAssigneeAvatarBg(name) {
 
 function renderColumnsFromTasks(tasksList) {
   if (typeof document !== 'undefined') {
-    if (_tasksViewMode === 'projects' || _projectDisplayMode === 'list') {
+    if (_tasksViewMode === 'projects' || _projectDisplayMode === 'list' || _projectDisplayMode === 'calendar') {
       var bEl = document.getElementById('tasks-columns');
       if (bEl) setElementDisplayNone(bEl);
       var cTabs = document.getElementById('task-col-tabs');
@@ -2236,6 +2259,8 @@ function renderColumnsFromTasks(tasksList) {
     }
     var lView = document.querySelector('.tasks-board-list-view');
     if (lView) setElementDisplayNone(lView);
+    var calView = document.querySelector('.tasks-board-calendar-view');
+    if (calView) setElementDisplayNone(calView);
   }
   tasksList = deduplicateTasks(tasksList);
   var pName = _activeProject || '';
@@ -2453,11 +2478,42 @@ function renderColumnsFromTasks(tasksList) {
 }
 
 /**
- * Switches between Kanban Board View and Project List View (Image 1 & 2)
- * @param {"board"|"list"} mode
+ * Synchronizes active class & aria-pressed on the 3-way Project view mode toggle (Board / List / Calendar)
+ */
+function syncProjectViewToggleButtons() {
+  if (typeof document === 'undefined') return;
+  var modes = ['board', 'list', 'calendar'];
+  modes.forEach(function(m) {
+    var btn = document.querySelector('.project-view-btn[data-proj-vmode="' + m + '"]');
+    if (btn) {
+      var isActive = (_projectDisplayMode === m);
+      btn.classList.toggle('active', isActive);
+      if (typeof btn.setAttribute === 'function') {
+        btn.setAttribute('aria-pressed', String(isActive));
+      }
+    }
+  });
+}
+
+/**
+ * Re-renders whichever sub-view (board, list, or calendar) is active for the current project
+ */
+function renderActiveProjectSubView() {
+  if (_projectDisplayMode === 'list') {
+    renderTasksListView(_activeProject);
+  } else if (_projectDisplayMode === 'calendar') {
+    renderTasksCalendarView(_activeProject);
+  } else {
+    renderColumnsFromTasks(_allLoadedTasks);
+  }
+}
+
+/**
+ * Switches between Kanban Board View, Project List View, and Project Calendar View
+ * @param {"board"|"list"|"calendar"} mode
  */
 function setProjectDisplayMode(mode) {
-  _projectDisplayMode = (mode === 'list') ? 'list' : 'board';
+  _projectDisplayMode = (mode === 'list' || mode === 'calendar') ? mode : 'board';
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('bb_proj_view_mode', _projectDisplayMode);
@@ -2465,34 +2521,41 @@ function setProjectDisplayMode(mode) {
   } catch (_) {}
 
   if (typeof document === 'undefined') return;
+  if (typeof closeTaskCalendarDayPopover === 'function') closeTaskCalendarDayPopover();
 
-  var boardBtn = document.querySelector('.project-view-btn[data-proj-vmode="board"]');
-  var listBtn  = document.querySelector('.project-view-btn[data-proj-vmode="list"]');
-  if (boardBtn) boardBtn.classList.toggle('active', _projectDisplayMode === 'board');
-  if (listBtn) listBtn.classList.toggle('active', _projectDisplayMode === 'list');
+  syncProjectViewToggleButtons();
 
   var boardCol = document.getElementById('tasks-columns');
   var colTabs  = document.getElementById('task-col-tabs');
   var listView = document.querySelector('.tasks-board-list-view');
+  var calView  = document.querySelector('.tasks-board-calendar-view');
 
-  if (_tasksViewMode === 'projects') {
+  if (_tasksViewMode === 'projects' || _tasksViewMode === 'mytasks') {
     if (boardCol) setElementDisplayNone(boardCol);
     if (colTabs) setElementDisplayNone(colTabs);
     if (listView) setElementDisplayNone(listView);
+    if (calView) setElementDisplayNone(calView);
     return;
   }
 
   if (_projectDisplayMode === 'list') {
     if (boardCol) setElementDisplayNone(boardCol);
     if (colTabs) setElementDisplayNone(colTabs);
+    if (calView) setElementDisplayNone(calView);
     if (listView) showElementDisplay(listView, 'block');
     renderTasksListView(_activeProject);
+  } else if (_projectDisplayMode === 'calendar') {
+    if (boardCol) setElementDisplayNone(boardCol);
+    if (colTabs) setElementDisplayNone(colTabs);
+    if (listView) setElementDisplayNone(listView);
+    if (calView) showElementDisplay(calView, 'block');
+    renderTasksCalendarView(_activeProject);
   } else {
     if (listView) setElementDisplayNone(listView);
+    if (calView) setElementDisplayNone(calView);
     if (boardCol) showElementDisplay(boardCol, 'flex');
     if (colTabs) showElementDisplay(colTabs, (typeof window !== 'undefined' && window.innerWidth <= 768) ? 'flex' : 'none');
-    if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-    else renderColumnsFromTasks(_allLoadedTasks);
+    renderColumnsFromTasks(_allLoadedTasks);
   }
 }
 
@@ -2505,16 +2568,18 @@ function renderTasksListView(projectName) {
   var listView = document.querySelector('.tasks-board-list-view');
   if (!listView) return;
 
-  if (_tasksViewMode === 'projects') {
+  if (_tasksViewMode === 'projects' || _tasksViewMode === 'mytasks') {
     setElementDisplayNone(listView);
     return;
   }
 
-  // Ensure board columns and column tabs are strictly hidden when in list view
+  // Ensure board columns, column tabs, and calendar view are strictly hidden when in list view
   var boardCol = document.getElementById('tasks-columns');
   if (boardCol) setElementDisplayNone(boardCol);
   var colTabs = document.getElementById('task-col-tabs');
   if (colTabs) setElementDisplayNone(colTabs);
+  var calView = document.querySelector('.tasks-board-calendar-view');
+  if (calView) setElementDisplayNone(calView);
   showElementDisplay(listView, 'block');
 
   var pName = projectName || _activeProject;
@@ -2673,6 +2738,714 @@ function renderTasksListView(projectName) {
   listView.innerHTML = html;
 }
 
+var TASK_CAL_MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+var TASK_CAL_MONTH_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
+var TASK_CAL_WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+var TASK_CAL_WEEKDAYS_MINI = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/**
+ * Location-agnostic YYYY-MM-DD calendar date parser.
+ * Uses Temporal.PlainDate when available natively, with pure integer calendar validation fallback.
+ * @param {string} dateStr
+ * @returns {{ year: number, month: number, day: number, iso: string }|null}
+ */
+function parseTaskPlainDate(dateStr) {
+  var iso = getTaskDueDay(dateStr);
+  if (!iso) return null;
+  if (typeof globalThis !== 'undefined' && globalThis.Temporal && globalThis.Temporal.PlainDate) {
+    try {
+      var pd = globalThis.Temporal.PlainDate.from(iso);
+      return { year: pd.year, month: pd.month, day: pd.day, iso: pd.toString() };
+    } catch (_) {}
+  }
+  var parts = iso.split('-');
+  return {
+    year: parseInt(parts[0], 10),
+    month: parseInt(parts[1], 10),
+    day: parseInt(parts[2], 10),
+    iso: iso
+  };
+}
+
+function formatTaskCalIso(year, month1Based, day) {
+  var y = String(year).padStart(4, '0');
+  var m = String(month1Based).padStart(2, '0');
+  var d = String(day).padStart(2, '0');
+  return y + '-' + m + '-' + d;
+}
+
+/**
+ * Computes the calendar visual status & color classification for a task:
+ * - red: overdue (uncompleted past due date) OR completed late (completed_at after due date midnight MYT)
+ * - yellow: uncompleted and nearing due date (0..2 days remaining)
+ * - green: completed on time / early (or completed without late timestamp)
+ * - gray: uncompleted and not near due date (> 2 days left or undated)
+ * @param {Object} task
+ * @param {string} [projectName]
+ * @param {number} [now]
+ * @returns {{ key: string, color: string, cls: string, dotCls: string, label: string, priority: number }}
+ */
+function getTaskCalendarColorState(task, projectName, now) {
+  var refNow = typeof now === 'number' ? now : Date.now();
+  var pName = projectName || getTaskProjectName(task) || _activeProject || 'General Project';
+  var completed = isTaskCompleted(task, pName);
+  var day = getTaskDueDay(task && task.due_date);
+
+  if (completed) {
+    var completedTs = task && task.completed_at ? Date.parse(task.completed_at) : NaN;
+    if (day && Number.isFinite(completedTs)) {
+      var remaining = Date.parse(day) + TASK_DAY_MS - TASK_MY_OFFSET_MS - completedTs;
+      if (remaining <= 0) {
+        return {
+          key: 'overdue',
+          color: 'red',
+          cls: 'task-cal-pill-red',
+          dotCls: 'dot-red',
+          label: 'Completed late',
+          priority: 1
+        };
+      }
+      return {
+        key: 'completed',
+        color: 'green',
+        cls: 'task-cal-pill-green',
+        dotCls: 'dot-green',
+        label: 'Completed on time',
+        priority: 4
+      };
+    }
+    return {
+      key: 'completed',
+      color: 'green',
+      cls: 'task-cal-pill-green',
+      dotCls: 'dot-green',
+      label: 'Completed',
+      priority: 4
+    };
+  }
+
+  var diffDays = getTaskDaysUntilDue(day, refNow);
+  if (diffDays !== null && diffDays < 0) {
+    return {
+      key: 'overdue',
+      color: 'red',
+      cls: 'task-cal-pill-red',
+      dotCls: 'dot-red',
+      label: 'Overdue',
+      priority: 0
+    };
+  }
+  if (diffDays !== null && diffDays >= 0 && diffDays <= 2) {
+    var nearLabel = diffDays === 0 ? 'Due today' : (diffDays === 1 ? 'Due tomorrow' : 'Due in 2 days');
+    return {
+      key: 'near',
+      color: 'yellow',
+      cls: 'task-cal-pill-yellow',
+      dotCls: 'dot-yellow',
+      label: nearLabel,
+      priority: 2
+    };
+  }
+  return {
+    key: 'normal',
+    color: 'gray',
+    cls: 'task-cal-pill-gray',
+    dotCls: 'dot-gray',
+    label: 'Scheduled',
+    priority: 3
+  };
+}
+
+/**
+ * Generates Sunday-Saturday month matrix cells with overflow days and Malaysia today highlight.
+ * @param {number} year
+ * @param {number} month0Based (0..11)
+ * @param {number} [now]
+ * @returns {Array<{ iso: string, year: number, month: number, day: number, inMonth: boolean, isWeekend: boolean, isToday: boolean }>}
+ */
+function getTaskCalendarMonthGrid(year, month0Based, now) {
+  var refNow = typeof now === 'number' ? now : Date.now();
+  var todayIso = getTaskMalaysiaDay(refNow);
+  var firstDow = new Date(Date.UTC(year, month0Based, 1)).getUTCDay();
+  var daysInMonth = new Date(Date.UTC(year, month0Based + 1, 0)).getUTCDate();
+  var prevMonthYear = month0Based === 0 ? year - 1 : year;
+  var prevMonthIdx = month0Based === 0 ? 11 : month0Based - 1;
+  var daysInPrevMonth = new Date(Date.UTC(prevMonthYear, prevMonthIdx + 1, 0)).getUTCDate();
+  var nextMonthYear = month0Based === 11 ? year + 1 : year;
+  var nextMonthIdx = month0Based === 11 ? 0 : month0Based + 1;
+
+  var totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+  var cells = [];
+  for (var idx = 0; idx < totalCells; idx++) {
+    var cYear, cMonth, cDay, inMonth;
+    if (idx < firstDow) {
+      cYear = prevMonthYear;
+      cMonth = prevMonthIdx;
+      cDay = daysInPrevMonth - firstDow + idx + 1;
+      inMonth = false;
+    } else if (idx >= firstDow + daysInMonth) {
+      cYear = nextMonthYear;
+      cMonth = nextMonthIdx;
+      cDay = idx - (firstDow + daysInMonth) + 1;
+      inMonth = false;
+    } else {
+      cYear = year;
+      cMonth = month0Based;
+      cDay = idx - firstDow + 1;
+      inMonth = true;
+    }
+    var iso = formatTaskCalIso(cYear, cMonth + 1, cDay);
+    var col = idx % 7;
+    cells.push({
+      iso: iso,
+      year: cYear,
+      month: cMonth,
+      day: cDay,
+      inMonth: inMonth,
+      isWeekend: col === 0 || col === 6,
+      isToday: iso === todayIso
+    });
+  }
+  return cells;
+}
+
+/**
+ * Formats an ISO calendar date string for popover heading (e.g. "27 Dec" or "27 Dec 2027")
+ * @param {string} isoDate
+ * @param {number} [now]
+ * @returns {string}
+ */
+function formatTaskCalendarDayHeading(isoDate, now) {
+  var parsed = parseTaskPlainDate(isoDate);
+  if (!parsed) return isoDate || '';
+  var currentYear = parseInt(getTaskMalaysiaDay(typeof now === 'number' ? now : Date.now()).slice(0, 4), 10);
+  var base = parsed.day + ' ' + TASK_CAL_MONTH_SHORT[parsed.month - 1];
+  return parsed.year !== currentYear ? (base + ' ' + parsed.year) : base;
+}
+
+function wireTaskCalendarToolbarKeys(rootEl) {
+  if (!rootEl || typeof HTMLElement === 'undefined' || ('focusGroup' in HTMLElement.prototype)) return;
+  var bar = rootEl.querySelector('.task-cal-controls[role="toolbar"]');
+  if (!bar || bar._rovingBound) return;
+  bar._rovingBound = true;
+  var items = Array.from(bar.querySelectorAll('button'));
+  if (!items.length) return;
+  items.forEach(function(btn, i) { btn.tabIndex = i === 0 ? 0 : -1; });
+  bar.addEventListener('focusin', function(e) {
+    if (items.indexOf(e.target) !== -1) {
+      items.forEach(function(btn) { btn.tabIndex = btn === e.target ? 0 : -1; });
+    }
+  });
+  bar.addEventListener('keydown', function(e) {
+    var curIdx = items.indexOf(document.activeElement);
+    if (curIdx === -1) return;
+    var nextIdx = -1;
+    if (e.key === 'ArrowRight') nextIdx = (curIdx + 1) % items.length;
+    else if (e.key === 'ArrowLeft') nextIdx = (curIdx - 1 + items.length) % items.length;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = items.length - 1;
+    if (nextIdx !== -1) {
+      e.preventDefault();
+      items[nextIdx].focus();
+    }
+  });
+}
+
+/**
+ * Builds the Month or Year Task Calendar HTML for either a single Project or the All-Tasks overview.
+ * @param {Array<Object>} tasksList
+ * @param {{ context?: 'project'|'mytasks', projectName?: string, showProjectTag?: boolean, now?: number }} [options]
+ * @returns {string}
+ */
+function buildTaskCalendarHtml(tasksList, options) {
+  var opts = options || {};
+  var context = opts.context === 'mytasks' ? 'mytasks' : 'project';
+  var isAllTasks = context === 'mytasks';
+  var showProjectTag = Boolean(opts.showProjectTag);
+  var refNow = typeof opts.now === 'number' ? opts.now : Date.now();
+  var todayIso = getTaskMalaysiaDay(refNow);
+  var esc = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s || ''); };
+
+  var tasksByDate = Object.create(null);
+  var undatedTasks = [];
+
+  (tasksList || []).forEach(function(t) {
+    if (!t || !/^[\w-]+$/.test(String(t.id || '')) || _deletedTaskIds[String(t.id)]) return;
+    _taskMap[t.id] = t;
+    if (typeof window !== 'undefined') {
+      window._taskMap = window._taskMap || {};
+      window._taskMap[t.id] = t;
+    }
+    var pName = opts.projectName || getTaskProjectName(t) || 'General Project';
+    var state = getTaskCalendarColorState(t, pName, refNow);
+    var entry = { task: t, projectName: pName, state: state };
+    var dueIso = getTaskDueDay(t.due_date);
+    if (dueIso) {
+      if (!tasksByDate[dueIso]) tasksByDate[dueIso] = [];
+      tasksByDate[dueIso].push(entry);
+    } else {
+      undatedTasks.push(entry);
+    }
+  });
+
+  Object.keys(tasksByDate).forEach(function(iso) {
+    tasksByDate[iso].sort(function(a, b) {
+      if (a.state.priority !== b.state.priority) return a.state.priority - b.state.priority;
+      return String(a.task.title || '').localeCompare(String(b.task.title || ''));
+    });
+  });
+
+  var isYearMode = _taskCalSubMode === 'year';
+  var periodTitle = isYearMode
+    ? String(_taskCalYear)
+    : (TASK_CAL_MONTH_NAMES[_taskCalMonth] + ' ' + _taskCalYear);
+  var prevAria = isYearMode ? 'Previous year' : 'Previous month';
+  var nextAria = isYearMode ? 'Next year' : 'Next month';
+
+  var html = '<div class="task-cal-shell" data-cal-context="' + context + '" data-cal-mode="' + (isYearMode ? 'year' : 'month') + '">'
+    + '<div class="task-cal-header">'
+    +   '<div class="task-cal-title-block">'
+    +     '<h3 class="task-cal-period-title">' + esc(periodTitle) + '</h3>'
+    +     '<div class="task-cal-legend" aria-label="Task due status color legend">'
+    +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-red" aria-hidden="true"></span><span>Overdue / Late</span></span>'
+    +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-yellow" aria-hidden="true"></span><span>Due Soon (≤2d)</span></span>'
+    +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-green" aria-hidden="true"></span><span>Completed</span></span>'
+    +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-gray" aria-hidden="true"></span><span>Upcoming</span></span>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="task-cal-controls" role="toolbar" focusgroup="toolbar wrap" aria-label="Calendar controls">'
+    +     '<div class="task-cal-mode-switch" role="group" aria-label="Calendar view">'
+    +       '<button type="button" class="task-cal-mode-btn' + (!isYearMode ? ' active' : '') + '" data-cal-submode="month" aria-pressed="' + String(!isYearMode) + '" onclick="setTaskCalendarSubMode(\'month\')">Month</button>'
+    +       '<button type="button" class="task-cal-mode-btn' + (isYearMode ? ' active' : '') + '" data-cal-submode="year" aria-pressed="' + String(isYearMode) + '" onclick="setTaskCalendarSubMode(\'year\')">Year</button>'
+    +     '</div>'
+    +     '<span class="task-cal-toolbar-sep" role="separator" aria-orientation="vertical"></span>'
+    +     '<div class="task-cal-nav-group" role="group" aria-label="Calendar navigation">'
+    +       '<button type="button" class="task-cal-nav-btn" onclick="navigateTaskCalendar(-1)" aria-label="' + prevAria + '" title="' + prevAria + '">'
+    +         '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>'
+    +       '</button>'
+    +       '<button type="button" class="task-cal-today-btn" onclick="jumpTaskCalendarToday()" title="Jump to today (' + todayIso + ')">Today</button>'
+    +       '<button type="button" class="task-cal-nav-btn" onclick="navigateTaskCalendar(1)" aria-label="' + nextAria + '" title="' + nextAria + '">'
+    +         '<svg class="ui-icon-xs" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>'
+    +       '</button>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
+
+  if (!isYearMode) {
+    var cells = getTaskCalendarMonthGrid(_taskCalYear, _taskCalMonth, refNow);
+    html += '<div class="task-cal-month-frame">'
+      + '<div class="task-cal-weekdays" role="row">';
+    TASK_CAL_WEEKDAYS.forEach(function(wd) {
+      html += '<div class="task-cal-weekday" role="columnheader">' + wd + '</div>';
+    });
+    html += '</div><div class="task-cal-month-grid" role="grid" aria-label="' + esc(periodTitle) + ' task calendar">';
+
+    cells.forEach(function(cell) {
+      var dayEntries = tasksByDate[cell.iso] || [];
+      var cellCls = 'task-cal-cell'
+        + (cell.inMonth ? '' : ' is-outside')
+        + (cell.isWeekend ? ' is-weekend' : '')
+        + (cell.isToday ? ' is-today' : '');
+      var dayPad = String(cell.day).padStart(2, '0');
+      var maxVisible = 3;
+      var visibleEntries = dayEntries.slice(0, maxVisible);
+      var extraCount = dayEntries.length - visibleEntries.length;
+
+      html += '<div class="' + cellCls + '" data-cal-date="' + cell.iso + '" role="gridcell" tabindex="0"'
+        + (cell.isToday ? ' aria-current="date"' : '')
+        + ' aria-label="' + esc(formatTaskCalendarDayHeading(cell.iso, refNow) + (cell.isToday ? ' (Today)' : '') + (dayEntries.length ? (', ' + dayEntries.length + ' task' + (dayEntries.length === 1 ? '' : 's')) : '')) + '"'
+        + ' onclick="openTaskCalendarDayPopover(\'' + cell.iso + '\', \'' + context + '\', this, event)"'
+        + ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openTaskCalendarDayPopover(\'' + cell.iso + '\', \'' + context + '\', this, event);}">'
+        + '<div class="task-cal-cell-top">'
+        +   '<div class="task-cal-day-wrap">'
+        +     '<span class="task-cal-day-num' + (cell.isToday ? ' is-today' : '') + '">' + dayPad + '</span>'
+        +     (cell.isToday ? '<span class="task-cal-today-chip">Today</span>' : '')
+        +   '</div>'
+        +   '<button type="button" class="task-cal-cell-add-btn" onclick="event.stopPropagation(); openCreateTaskFromCalendar(\'' + cell.iso + '\', ' + String(isAllTasks) + ')" title="Add task for ' + esc(formatTaskCalendarDayHeading(cell.iso, refNow)) + '" aria-label="Add task for ' + esc(formatTaskCalendarDayHeading(cell.iso, refNow)) + '">'
+        +     '<svg class="ui-icon-xs" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+        +   '</button>'
+        + '</div>'
+        + '<div class="task-cal-pills">';
+
+      visibleEntries.forEach(function(item) {
+        var t = item.task;
+        var st = item.state;
+        var avatar = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 18);
+        var safeTitle = esc(t.title || 'Untitled Task');
+        var safeProj = esc(item.projectName || '');
+        var safeAssignee = esc(t.assignee_name || 'Unassigned');
+        var pillTooltip = (showProjectTag && safeProj ? ('[' + safeProj + '] ') : '') + safeTitle + ' • ' + safeAssignee + ' • ' + st.label;
+
+        html += '<button type="button" class="task-cal-pill ' + st.cls + '" data-task-id="' + esc(t.id) + '" data-cal-status="' + st.key + '" title="' + pillTooltip + '" aria-label="' + pillTooltip + '" onclick="event.stopPropagation(); openTaskDetail(this.getAttribute(\'data-task-id\'))">'
+          +   '<span class="task-cal-pill-avatar">' + avatar + '</span>'
+          +   '<span class="task-cal-pill-content">'
+          +     '<span class="task-cal-pill-title">' + safeTitle + '</span>'
+          +     (showProjectTag && safeProj ? ('<span class="task-cal-pill-proj">' + safeProj + '</span>') : '')
+          +   '</span>'
+          + '</button>';
+      });
+
+      if (extraCount > 0) {
+        html += '<button type="button" class="task-cal-more-btn" onclick="event.stopPropagation(); openTaskCalendarDayPopover(\'' + cell.iso + '\', \'' + context + '\', this.closest(\'.task-cal-cell\'), event)">+' + extraCount + ' more</button>';
+      }
+
+      html += '</div></div>';
+    });
+
+    html += '</div></div>';
+  } else {
+    // Year View: 12 interactive mini-months with today highlight & status color dots
+    html += '<div class="task-cal-year-grid">';
+    for (var mIdx = 0; mIdx < 12; mIdx++) {
+      var mCells = getTaskCalendarMonthGrid(_taskCalYear, mIdx, refNow);
+      var monthPrefix = formatTaskCalIso(_taskCalYear, mIdx + 1, 1).slice(0, 7);
+      var monthCount = 0;
+      var hasRed = false;
+      var hasYellow = false;
+      var hasGreen = false;
+      Object.keys(tasksByDate).forEach(function(iso) {
+        if (iso.slice(0, 7) === monthPrefix) {
+          var arr = tasksByDate[iso];
+          monthCount += arr.length;
+          arr.forEach(function(e) {
+            if (e.state.color === 'red') hasRed = true;
+            else if (e.state.color === 'yellow') hasYellow = true;
+            else if (e.state.color === 'green') hasGreen = true;
+          });
+        }
+      });
+
+      html += '<div class="task-cal-year-card" data-cal-year-month="' + monthPrefix + '">'
+        + '<div class="task-cal-year-card-header">'
+        +   '<button type="button" class="task-cal-year-month-btn" onclick="openTaskCalendarMonth(' + _taskCalYear + ', ' + mIdx + ')" title="Open ' + TASK_CAL_MONTH_NAMES[mIdx] + ' ' + _taskCalYear + '">'
+        +     TASK_CAL_MONTH_NAMES[mIdx]
+        +   '</button>'
+        +   (monthCount > 0
+          ? ('<span class="task-cal-year-count">'
+              + (hasRed ? '<span class="task-cal-dot dot-red" aria-hidden="true"></span>' : '')
+              + (hasYellow ? '<span class="task-cal-dot dot-yellow" aria-hidden="true"></span>' : '')
+              + (hasGreen ? '<span class="task-cal-dot dot-green" aria-hidden="true"></span>' : '')
+              + '<span>' + monthCount + '</span></span>')
+          : '')
+        + '</div>'
+        + '<div class="task-cal-year-weekdays">';
+      TASK_CAL_WEEKDAYS_MINI.forEach(function(w) {
+        html += '<span>' + w + '</span>';
+      });
+      html += '</div><div class="task-cal-year-days">';
+
+      mCells.forEach(function(c) {
+        var cEntries = tasksByDate[c.iso] || [];
+        var uniqueColors = [];
+        cEntries.forEach(function(e) {
+          if (uniqueColors.indexOf(e.state.dotCls) === -1 && uniqueColors.length < 3) {
+            uniqueColors.push(e.state.dotCls);
+          }
+        });
+        var dCls = 'task-cal-year-day'
+          + (c.inMonth ? '' : ' is-outside')
+          + (c.isToday ? ' is-today' : '')
+          + (cEntries.length ? ' has-tasks' : '');
+        var dotsHtml = uniqueColors.length
+          ? ('<span class="task-cal-year-dots">' + uniqueColors.map(function(dc) { return '<span class="task-cal-dot ' + dc + '" aria-hidden="true"></span>'; }).join('') + '</span>')
+          : '';
+        html += '<button type="button" class="' + dCls + '" data-cal-date="' + c.iso + '"'
+          + (c.isToday ? ' aria-current="date"' : '')
+          + ' aria-label="' + esc(formatTaskCalendarDayHeading(c.iso, refNow) + (c.isToday ? ' (Today)' : '') + (cEntries.length ? (', ' + cEntries.length + ' task' + (cEntries.length === 1 ? '' : 's')) : '')) + '"'
+          + ' onclick="openTaskCalendarDayPopover(\'' + c.iso + '\', \'' + context + '\', this, event)">'
+          +   '<span class="task-cal-year-day-num">' + c.day + '</span>'
+          +   dotsHtml
+          + '</button>';
+      });
+
+      html += '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  if (undatedTasks.length > 0) {
+    html += '<details class="task-cal-undated-strip">'
+      + '<summary class="task-cal-undated-summary">'
+      +   '<span>Unscheduled tasks (no due date)</span>'
+      +   '<span class="task-cal-undated-count">' + undatedTasks.length + '</span>'
+      + '</summary>'
+      + '<div class="task-cal-undated-list">';
+    undatedTasks.forEach(function(item) {
+      var ut = item.task;
+      var ust = item.state;
+      var uAvatar = getAssigneeAvatarHtml(ut.assignee_name, ut.assignee_ic, 18);
+      var uTitle = esc(ut.title || 'Untitled Task');
+      var uProj = esc(item.projectName || '');
+      html += '<button type="button" class="task-cal-pill ' + ust.cls + ' task-cal-undated-pill" data-task-id="' + esc(ut.id) + '" data-cal-status="' + ust.key + '" onclick="openTaskDetail(this.getAttribute(\'data-task-id\'))">'
+        +   '<span class="task-cal-pill-avatar">' + uAvatar + '</span>'
+        +   '<span class="task-cal-pill-content">'
+        +     '<span class="task-cal-pill-title">' + uTitle + '</span>'
+        +     (showProjectTag && uProj ? ('<span class="task-cal-pill-proj">' + uProj + '</span>') : '')
+        +   '</span>'
+        + '</button>';
+    });
+    html += '</div></details>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+/**
+ * Renders the Project Calendar View inside .tasks-board-calendar-view
+ * @param {string} [projectName]
+ */
+function renderTasksCalendarView(projectName) {
+  if (typeof document === 'undefined') return;
+  var calView = document.querySelector('.tasks-board-calendar-view');
+  if (!calView) return;
+
+  if (_tasksViewMode === 'projects' || _tasksViewMode === 'mytasks' || _projectDisplayMode !== 'calendar') {
+    setElementDisplayNone(calView);
+    return;
+  }
+
+  var boardCol = document.getElementById('tasks-columns');
+  if (boardCol) setElementDisplayNone(boardCol);
+  var colTabs = document.getElementById('task-col-tabs');
+  if (colTabs) setElementDisplayNone(colTabs);
+  var listView = document.querySelector('.tasks-board-list-view');
+  if (listView) setElementDisplayNone(listView);
+  showElementDisplay(calView, 'block');
+
+  var pName = projectName || _activeProject;
+  if (!pName || pName.toLowerCase() === 'all tasks' || pName.toLowerCase() === 'all') {
+    calView.innerHTML = '<div class="tasks-no-project-placeholder" style="padding:48px 20px;text-align:center;color:var(--text-muted);background:var(--bg-card-subtle);border:1px dashed var(--border-card);border-radius:var(--radius-lg);">Please select a project to view its calendar.</div>';
+    return;
+  }
+
+  var tasks = deduplicateTasks(_allLoadedTasks).filter(function(t) {
+    if (!t || _deletedTaskIds[String(t.id)]) return false;
+    var taskProj = (t.project_name && t.project_name.trim()) ? t.project_name.trim() : getTaskProjectName(t);
+    return taskProj && taskProj.toLowerCase() === pName.toLowerCase();
+  });
+
+  if (_taskSearchQuery) {
+    var q = _taskSearchQuery.toLowerCase();
+    tasks = tasks.filter(function(t) {
+      var titleMatch = t.title && t.title.toLowerCase().indexOf(q) !== -1;
+      var assMatch = t.assignee_name && t.assignee_name.toLowerCase().indexOf(q) !== -1;
+      var deptMatch = t.department && t.department.toLowerCase().indexOf(q) !== -1;
+      var idMatch = t.id && String(t.id).toLowerCase().indexOf(q) !== -1;
+      return titleMatch || assMatch || deptMatch || idMatch;
+    });
+  }
+
+  calView.innerHTML = buildTaskCalendarHtml(tasks, {
+    context: 'project',
+    projectName: pName,
+    showProjectTag: false
+  });
+  wireTaskCalendarToolbarKeys(calView);
+}
+
+function rerenderActiveTaskCalendar() {
+  if (_tasksViewMode === 'mytasks') {
+    renderMyTasksView(true);
+  } else if (_tasksViewMode === 'board' && _projectDisplayMode === 'calendar') {
+    renderTasksCalendarView(_activeProject);
+  }
+}
+
+function setTaskCalendarSubMode(subMode) {
+  _taskCalSubMode = (subMode === 'year') ? 'year' : 'month';
+  closeTaskCalendarDayPopover();
+  rerenderActiveTaskCalendar();
+}
+
+function navigateTaskCalendar(delta) {
+  var step = Number(delta) || 0;
+  if (!step) return;
+  if (_taskCalSubMode === 'year') {
+    _taskCalYear += step;
+  } else {
+    var total = (_taskCalYear * 12 + _taskCalMonth) + step;
+    _taskCalYear = Math.floor(total / 12);
+    _taskCalMonth = ((total % 12) + 12) % 12;
+  }
+  closeTaskCalendarDayPopover();
+  rerenderActiveTaskCalendar();
+}
+
+function jumpTaskCalendarToday() {
+  var todayIso = getTaskMalaysiaDay(Date.now());
+  _taskCalYear = parseInt(todayIso.slice(0, 4), 10);
+  _taskCalMonth = parseInt(todayIso.slice(5, 7), 10) - 1;
+  closeTaskCalendarDayPopover();
+  rerenderActiveTaskCalendar();
+}
+
+function openTaskCalendarMonth(year, month0Based) {
+  var y = parseInt(year, 10);
+  var m = parseInt(month0Based, 10);
+  if (!isNaN(y)) _taskCalYear = y;
+  if (!isNaN(m) && m >= 0 && m <= 11) _taskCalMonth = m;
+  _taskCalSubMode = 'month';
+  closeTaskCalendarDayPopover();
+  rerenderActiveTaskCalendar();
+}
+
+function getCalendarPopoverTasksForDate(isoDate, context) {
+  var list = [];
+  if (context === 'mytasks') {
+    list = getFilteredMyTasks().filtered;
+  } else {
+    var pName = _activeProject || '';
+    list = deduplicateTasks(_allLoadedTasks).filter(function(t) {
+      if (!t || _deletedTaskIds[String(t.id)]) return false;
+      var tp = (t.project_name && t.project_name.trim()) ? t.project_name.trim() : getTaskProjectName(t);
+      return !pName || (tp && tp.toLowerCase() === pName.toLowerCase());
+    });
+    if (_taskSearchQuery) {
+      var q = _taskSearchQuery.toLowerCase();
+      list = list.filter(function(t) {
+        return (t.title || '').toLowerCase().indexOf(q) !== -1
+          || (t.assignee_name || '').toLowerCase().indexOf(q) !== -1
+          || String(t.id || '').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+  }
+  return list.filter(function(t) {
+    return getTaskDueDay(t && t.due_date) === isoDate;
+  }).map(function(t) {
+    var pName = getTaskProjectName(t) || _activeProject || 'General Project';
+    return {
+      task: t,
+      projectName: pName,
+      state: getTaskCalendarColorState(t, pName)
+    };
+  }).sort(function(a, b) {
+    if (a.state.priority !== b.state.priority) return a.state.priority - b.state.priority;
+    return String(a.task.title || '').localeCompare(String(b.task.title || ''));
+  });
+}
+
+function openTaskCalendarDayPopover(isoDate, context, anchorEl, evt) {
+  if (evt && typeof evt.stopPropagation === 'function') evt.stopPropagation();
+  if (typeof document === 'undefined' || !isoDate) return;
+  var pop = document.querySelector('.task-cal-day-popover');
+  if (!pop) return;
+
+  var ctx = context === 'mytasks' ? 'mytasks' : 'project';
+  var isAllTasks = ctx === 'mytasks';
+  _taskCalPopoverDate = isoDate;
+  _taskCalPopoverContext = ctx;
+  _taskCalLastTrigger = anchorEl || null;
+
+  var esc = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s || ''); };
+  var todayIso = getTaskMalaysiaDay(Date.now());
+  var isToday = isoDate === todayIso;
+  var heading = formatTaskCalendarDayHeading(isoDate);
+  var dayEntries = getCalendarPopoverTasksForDate(isoDate, ctx);
+
+  var itemsHtml = '';
+  if (dayEntries.length > 0) {
+    itemsHtml = '<div class="task-cal-popover-list">';
+    dayEntries.forEach(function(item) {
+      var t = item.task;
+      var st = item.state;
+      var avatar = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 24);
+      var safeTitle = esc(t.title || 'Untitled Task');
+      var safeAssignee = esc(t.assignee_name || 'Unassigned');
+      var safeProj = esc(item.projectName || '');
+      itemsHtml += '<button type="button" class="task-cal-popover-task ' + st.cls + '" data-task-id="' + esc(t.id) + '" data-cal-status="' + st.key + '" onclick="closeTaskCalendarDayPopover(); openTaskDetail(this.getAttribute(\'data-task-id\'))">'
+        +   '<span class="task-cal-popover-avatar">' + avatar + '</span>'
+        +   '<span class="task-cal-popover-task-info">'
+        +     '<span class="task-cal-popover-task-title">' + safeTitle + '</span>'
+        +     '<span class="task-cal-popover-task-meta">'
+        +       '<span>' + safeAssignee + '</span>'
+        +       (isAllTasks && safeProj ? ('<span>·</span><span class="task-cal-popover-proj">' + safeProj + '</span>') : '')
+        +       '<span>·</span>'
+        +       '<span class="task-cal-popover-status">' + esc(st.label) + '</span>'
+        +     '</span>'
+        +   '</span>'
+        + '</button>';
+    });
+    itemsHtml += '</div>';
+  }
+
+  pop.innerHTML = '<div class="task-cal-popover-header">'
+    +   '<div class="task-cal-popover-date-wrap">'
+    +     '<h4 class="task-cal-popover-date">' + esc(heading) + '</h4>'
+    +     (isToday ? '<span class="task-cal-today-chip">Today</span>' : '')
+    +   '</div>'
+    +   '<button type="button" class="task-cal-popover-close" onclick="closeTaskCalendarDayPopover(true)" aria-label="Close day popover" title="Close (Esc)">'
+    +     '<svg class="ui-icon-sm" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+    +   '</button>'
+    + '</div>'
+    + itemsHtml
+    + '<div class="task-cal-popover-footer">'
+    +   '<button type="button" class="task-cal-popover-new-btn" onclick="openCreateTaskFromCalendar(\'' + esc(isoDate) + '\', ' + String(isAllTasks) + ')">'
+    +     '<svg class="ui-icon-sm" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    +     '<span>New task</span>'
+    +   '</button>'
+    + '</div>';
+
+  pop.setAttribute('aria-label', 'Tasks for ' + heading);
+  pop.style.display = 'block';
+
+  // Position smoothly inside viewport near clicked cell (centered sheet on narrow mobile)
+  var vw = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1280;
+  var vh = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 800;
+  if (vw <= 640 || !anchorEl || typeof anchorEl.getBoundingClientRect !== 'function') {
+    pop.classList.add('is-centered');
+    pop.style.top = '';
+    pop.style.left = '';
+  } else {
+    pop.classList.remove('is-centered');
+    var rect = anchorEl.getBoundingClientRect();
+    var popRect = typeof pop.getBoundingClientRect === 'function' ? pop.getBoundingClientRect() : { width: 320, height: 180 };
+    var popW = Math.min(popRect.width || 320, vw - 24);
+    var popH = popRect.height || 180;
+    var left = rect.left + (rect.width / 2) - (popW / 2);
+    left = Math.max(12, Math.min(left, vw - popW - 12));
+    var top = rect.top + 28;
+    if (top + popH > vh - 16) {
+      top = Math.max(12, rect.bottom - popH - 8);
+    }
+    if (top + popH > vh - 16) {
+      top = Math.max(12, vh - popH - 16);
+    }
+    pop.style.left = Math.round(left) + 'px';
+    pop.style.top = Math.round(top) + 'px';
+  }
+
+  var focusTarget = pop.querySelector('.task-cal-popover-new-btn') || pop.querySelector('.task-cal-popover-close');
+  if (focusTarget && typeof focusTarget.focus === 'function') {
+    focusTarget.focus({ preventScroll: true });
+  }
+}
+
+function closeTaskCalendarDayPopover(restoreFocus) {
+  if (typeof document === 'undefined') return;
+  var pop = document.querySelector('.task-cal-day-popover');
+  if (pop) {
+    pop.style.display = 'none';
+    pop.classList.remove('is-centered');
+  }
+  _taskCalPopoverDate = null;
+  if (restoreFocus && _taskCalLastTrigger && typeof _taskCalLastTrigger.focus === 'function') {
+    try { _taskCalLastTrigger.focus(); } catch (_) {}
+  }
+  _taskCalLastTrigger = null;
+}
+
+function openCreateTaskFromCalendar(isoDate, fromTasksView) {
+  closeTaskCalendarDayPopover();
+  openCreateTaskModal('todo', Boolean(fromTasksView), isoDate);
+}
+
 async function renderTasksBoard(deptOrProject, options) {
   if (typeof document === 'undefined') return;
 
@@ -2691,6 +3464,8 @@ async function renderTasksBoard(deptOrProject, options) {
       boardColEl.style.display = 'none';
       boardColEl.classList.add('hidden');
     }
+    var calElP = document.querySelector('.tasks-board-calendar-view');
+    if (calElP) setElementDisplayNone(calElP);
     return;
   }
 
@@ -2699,6 +3474,7 @@ async function renderTasksBoard(deptOrProject, options) {
   var noProjEl   = document.querySelector('.tasks-no-project-placeholder');
   var projToggle = document.querySelector('.project-board-view-toggle');
   var listView   = document.querySelector('.tasks-board-list-view');
+  var calView    = document.querySelector('.tasks-board-calendar-view');
 
   var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
   if (!hasActiveProject) {
@@ -2707,24 +3483,29 @@ async function renderTasksBoard(deptOrProject, options) {
       boardCol.classList.add('hidden');
     }
     if (colTabs) colTabs.style.display = 'none';
-    if (listView) listView.style.display = 'none';
+    if (listView) setElementDisplayNone(listView);
+    if (calView) setElementDisplayNone(calView);
     if (projToggle) projToggle.style.display = 'none';
     if (noProjEl) noProjEl.style.display = 'block';
     return;
   }
 
   if (projToggle) projToggle.style.display = 'inline-flex';
-  var bBtn = document.querySelector('.project-view-btn[data-proj-vmode="board"]');
-  var lBtn = document.querySelector('.project-view-btn[data-proj-vmode="list"]');
-  if (bBtn) bBtn.classList.toggle('active', _projectDisplayMode === 'board');
-  if (lBtn) lBtn.classList.toggle('active', _projectDisplayMode === 'list');
+  syncProjectViewToggleButtons();
 
   if (_projectDisplayMode === 'list') {
     if (boardCol) setElementDisplayNone(boardCol);
     if (colTabs) setElementDisplayNone(colTabs);
+    if (calView) setElementDisplayNone(calView);
     if (listView) showElementDisplay(listView, 'block');
+  } else if (_projectDisplayMode === 'calendar') {
+    if (boardCol) setElementDisplayNone(boardCol);
+    if (colTabs) setElementDisplayNone(colTabs);
+    if (listView) setElementDisplayNone(listView);
+    if (calView) showElementDisplay(calView, 'block');
   } else {
     if (listView) setElementDisplayNone(listView);
+    if (calView) setElementDisplayNone(calView);
     if (boardCol) showElementDisplay(boardCol, 'flex');
     if (colTabs) showElementDisplay(colTabs, (typeof window !== 'undefined' && window.innerWidth <= 768) ? 'flex' : 'none');
   }
@@ -2736,12 +3517,7 @@ async function renderTasksBoard(deptOrProject, options) {
   }
 
   // 1. Instant synchronous render from local cache (< 2ms)
-  if (_projectDisplayMode === 'list') {
-    renderTasksListView(_activeProject);
-  } else {
-    if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
-  }
+  renderActiveProjectSubView();
 
   // 2. Background fetch and refresh
   if (!(options && options.skipRemoteFetch)) {
@@ -2767,21 +3543,31 @@ function refreshCurrentTasksView(affectedTaskId) {
       if (prContainerB) setElementDisplayNone(prContainerB);
       var bCol = document.getElementById('tasks-columns');
       var lView = document.querySelector('.tasks-board-list-view');
+      var calV = document.querySelector('.tasks-board-calendar-view');
       var cTabs = document.getElementById('task-col-tabs');
       if (_projectDisplayMode === 'list') {
         if (bCol) setElementDisplayNone(bCol);
         if (cTabs) setElementDisplayNone(cTabs);
+        if (calV) setElementDisplayNone(calV);
         if (lView) showElementDisplay(lView, 'block');
         if (typeof renderTasksListView === 'function') {
           renderTasksListView(_activeProject);
         }
+      } else if (_projectDisplayMode === 'calendar') {
+        if (bCol) setElementDisplayNone(bCol);
+        if (cTabs) setElementDisplayNone(cTabs);
+        if (lView) setElementDisplayNone(lView);
+        if (calV) showElementDisplay(calV, 'block');
+        if (typeof renderTasksCalendarView === 'function') {
+          renderTasksCalendarView(_activeProject);
+        }
       } else {
         if (lView) setElementDisplayNone(lView);
+        if (calV) setElementDisplayNone(calV);
         if (bCol) showElementDisplay(bCol, 'flex');
         if (cTabs) showElementDisplay(cTabs, (typeof window !== 'undefined' && window.innerWidth <= 768) ? 'flex' : 'none');
         if (typeof renderColumnsFromTasks === 'function') {
-          if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-          else renderColumnsFromTasks(_allLoadedTasks);
+          renderColumnsFromTasks(_allLoadedTasks);
         }
       }
     } else if (_tasksViewMode === 'projects') {
@@ -2792,6 +3578,8 @@ function refreshCurrentTasksView(affectedTaskId) {
       if (bColP) setElementDisplayNone(bColP);
       var lViewP = document.querySelector('.tasks-board-list-view');
       if (lViewP) setElementDisplayNone(lViewP);
+      var calVP = document.querySelector('.tasks-board-calendar-view');
+      if (calVP) setElementDisplayNone(calVP);
       var cTabsP = document.getElementById('task-col-tabs');
       if (cTabsP) setElementDisplayNone(cTabsP);
     }
@@ -3078,8 +3866,130 @@ function setupKanbanDragAndDrop() {
 }
 
 /**
- * Renders the "My Tasks" view (Image 4) with filter chips and interactive table
+ * Computes filtered tasks, project/assignee catalogs, and overview metrics for the all-projects Tasks section.
+ * @returns {{ filtered: Array<Object>, taskProjectsMap: Object, assigneesList: Array<string>, stats: { total: number, overdue: number, near: number, completed: number } }}
  */
+function getFilteredMyTasks() {
+  var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
+  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
+  if (!myName && typeof document !== 'undefined') {
+    var sbName = document.getElementById('sidebar-user-name');
+    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member' && sbName.textContent.trim() !== 'Guest Member') {
+      myName = sbName.textContent.trim();
+    }
+  }
+  if (!myName && typeof localStorage !== 'undefined') {
+    try {
+      var sess = JSON.parse(localStorage.getItem('bb_session') || '{}');
+      if (sess && sess.name) myName = sess.name;
+    } catch (_) {}
+  }
+  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
+
+  function isAssignedToUser(t) {
+    var aName = (t.assignee_name || '').trim().toLowerCase();
+    var aIc = (t.assignee_ic || '').trim().toLowerCase();
+    var sName = myName.trim().toLowerCase();
+    var sIc = myIc.trim().toLowerCase();
+    var sEmail = myEmail.trim().toLowerCase();
+
+    if (aName && sName) {
+      if (aName === sName || aName.indexOf(sName) !== -1 || sName.indexOf(aName) !== -1) return true;
+    }
+    if (aIc && sIc && aIc === sIc) return true;
+    if (aIc && sEmail && aIc === sEmail) return true;
+    return false;
+  }
+
+  var allClean = deduplicateTasks(_allLoadedTasks).filter(function(t) {
+    return t && !_deletedTaskIds[String(t.id)];
+  });
+
+  var taskProjectsMap = { 'all': 'All Projects' };
+  var assigneesSet = Object.create(null);
+  allClean.forEach(function(t) {
+    var p = getTaskProjectName(t);
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+      taskProjectsMap[p] = p;
+    }
+    if (t.assignee_name && t.assignee_name.trim()) {
+      assigneesSet[t.assignee_name.trim()] = true;
+    }
+  });
+  _companyProjects.forEach(function(p) {
+    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
+      taskProjectsMap[p] = p;
+    }
+  });
+  var assigneesList = Object.keys(assigneesSet).sort();
+
+  var filtered = allClean.filter(function(t) {
+    var proj = getTaskProjectName(t) || 'General Project';
+
+    // 1. Assignment Scope filter
+    if (_myTasksScopeFilter === 'me') {
+      if (!isAssignedToUser(t)) return false;
+    }
+
+    // 2. Assignee filter
+    if (_myTasksAssigneeFilter && _myTasksAssigneeFilter !== 'all') {
+      var aName = (t.assignee_name || '').trim().toLowerCase();
+      if (_myTasksAssigneeFilter === '__unassigned__') {
+        if (aName) return false;
+      } else if (aName !== _myTasksAssigneeFilter.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // 3. Status filter ('all' | 'open' | 'completed' | 'overdue' | 'near')
+    var isDone = isTaskCompleted(t, proj);
+    if (_myTasksStatusFilter === 'open' && isDone) return false;
+    if (_myTasksStatusFilter === 'completed' && !isDone) return false;
+    if (_myTasksStatusFilter === 'overdue') {
+      var calOver = getTaskCalendarColorState(t, proj);
+      if (calOver.color !== 'red') return false;
+    }
+    if (_myTasksStatusFilter === 'near') {
+      var calNear = getTaskCalendarColorState(t, proj);
+      if (calNear.color !== 'yellow') return false;
+    }
+
+    // 4. Project filter
+    if (_myTasksProjectFilter && _myTasksProjectFilter !== 'all') {
+      if (proj.toLowerCase() !== _myTasksProjectFilter.toLowerCase()) return false;
+    }
+
+    // 5. Search query
+    if (_taskSearchQuery) {
+      var q = _taskSearchQuery.toLowerCase();
+      var matchTitle = (t.title || '').toLowerCase().indexOf(q) !== -1;
+      var matchDesc  = (t.description || '').toLowerCase().indexOf(q) !== -1;
+      var matchId    = String(t.id || '').toLowerCase().indexOf(q) !== -1;
+      var matchProj  = proj.toLowerCase().indexOf(q) !== -1;
+      var matchAsg   = (t.assignee_name || '').toLowerCase().indexOf(q) !== -1;
+      if (!matchTitle && !matchDesc && !matchId && !matchProj && !matchAsg) return false;
+    }
+
+    return true;
+  });
+
+  var stats = { total: filtered.length, overdue: 0, near: 0, completed: 0 };
+  filtered.forEach(function(t) {
+    var proj = getTaskProjectName(t) || 'General Project';
+    var cs = getTaskCalendarColorState(t, proj);
+    if (cs.color === 'red') stats.overdue++;
+    else if (cs.color === 'yellow') stats.near++;
+    else if (cs.color === 'green') stats.completed++;
+  });
+
+  return {
+    filtered: filtered,
+    taskProjectsMap: taskProjectsMap,
+    assigneesList: assigneesList,
+    stats: stats
+  };
+}
+
 function handleMyTasksSearchInput(val) {
   _taskSearchQuery = val || '';
   filterMyTasksList(_taskSearchQuery);
@@ -3088,6 +3998,15 @@ function handleMyTasksSearchInput(val) {
 function filterMyTasksList(query) {
   _taskSearchQuery = query || '';
   var q = (_taskSearchQuery || '').toLowerCase().trim();
+  if (_myTasksDisplayMode !== 'list') {
+    var bodyOnlyTarget = document.querySelector('.my-tasks-view-body');
+    if (bodyOnlyTarget) {
+      renderMyTasksView(true);
+      return;
+    }
+    renderMyTasksView();
+    return;
+  }
   var rows = document.querySelectorAll('.my-tasks-table-row');
   var card = document.querySelector('.my-tasks-table-card');
   if (rows.length && card) {
@@ -3120,151 +4039,29 @@ function filterMyTasksList(query) {
 }
 
 /**
- * Renders the My Tasks view styled identically to Projects Overview (Image 2)
+ * Switches the all-projects Tasks section between Board View, List View, and Calendar View.
+ * @param {"board"|"list"|"calendar"} mode
  */
-function renderMyTasksView() {
-  if (typeof document === 'undefined') return;
-  var container = document.querySelector('.my-tasks-container');
-  if (!container) return;
-
-  var myIc = (typeof sessionGet === 'function') ? (sessionGet('ic') || '') : '';
-  var myName = (typeof sessionGet === 'function') ? (sessionGet('name') || '') : '';
-  if (!myName && typeof document !== 'undefined') {
-    var sbName = document.getElementById('sidebar-user-name');
-    if (sbName && sbName.textContent && sbName.textContent.trim() !== 'Member' && sbName.textContent.trim() !== 'Guest Member') {
-      myName = sbName.textContent.trim();
+function setMyTasksDisplayMode(mode) {
+  _myTasksDisplayMode = (mode === 'board' || mode === 'calendar') ? mode : 'list';
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('bb_mytasks_view_mode', _myTasksDisplayMode);
     }
-  }
-  if (!myName && typeof localStorage !== 'undefined') {
-    try {
-      var sess = JSON.parse(localStorage.getItem('bb_session') || '{}');
-      if (sess && sess.name) myName = sess.name;
-    } catch (_) {}
-  }
-  var myEmail = (typeof sessionGet === 'function') ? (sessionGet('email') || '') : '';
+  } catch (_) {}
+  closeTaskCalendarDayPopover();
+  renderMyTasksView();
+}
 
-  function isAssignedToUser(t) {
-    var aName = (t.assignee_name || '').trim().toLowerCase();
-    var aIc = (t.assignee_ic || '').trim().toLowerCase();
-    var sName = myName.trim().toLowerCase();
-    var sIc = myIc.trim().toLowerCase();
-    var sEmail = myEmail.trim().toLowerCase();
-
-    if (aName && sName) {
-      if (aName === sName || aName.indexOf(sName) !== -1 || sName.indexOf(aName) !== -1) return true;
-    }
-    if (aIc && sIc && aIc === sIc) return true;
-    if (aIc && sEmail && aIc === sEmail) return true;
-    return false;
-  }
-
-  // Filter tasks based on Scope, Status, Project, and Search Query
-  var filtered = _allLoadedTasks.filter(function(t) {
-    // 1. Assignment Scope filter
-    if (_myTasksScopeFilter === 'me') {
-      if (!isAssignedToUser(t)) return false;
-    }
-
-    // 2. Status filter ('open' vs 'completed' vs 'all')
-    var isDone = isTaskCompleted(t, getTaskProjectName(t) || 'General Project');
-    if (_myTasksStatusFilter === 'open' && isDone) return false;
-    if (_myTasksStatusFilter === 'completed' && !isDone) return false;
-
-    // 3. Project filter
-    if (_myTasksProjectFilter && _myTasksProjectFilter !== 'all') {
-      var p = getTaskProjectName(t);
-      if (p.toLowerCase() !== _myTasksProjectFilter.toLowerCase()) return false;
-    }
-
-    // 4. Search query
-    if (_taskSearchQuery) {
-      var q = _taskSearchQuery.toLowerCase();
-      var matchTitle = (t.title || '').toLowerCase().indexOf(q) !== -1;
-      var matchDesc  = (t.description || '').toLowerCase().indexOf(q) !== -1;
-      var matchId    = String(t.id || '').toLowerCase().indexOf(q) !== -1;
-      var matchProj  = (getTaskProjectName(t) || '').toLowerCase().indexOf(q) !== -1;
-      var matchAsg   = (t.assignee_name || '').toLowerCase().indexOf(q) !== -1;
-      if (!matchTitle && !matchDesc && !matchId && !matchProj && !matchAsg) return false;
-    }
-
-    return true;
-  });
-
-  // Projects map for the filter dropdown
-  var taskProjectsMap = { 'all': 'All Projects' };
-  _allLoadedTasks.forEach(function(t) {
-    var p = getTaskProjectName(t);
-    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
-      taskProjectsMap[p] = p;
-    }
-  });
-  _companyProjects.forEach(function(p) {
-    if (p && !p.toLowerCase().includes('sprint') && p !== 'General Project') {
-      taskProjectsMap[p] = p;
-    }
-  });
-
-  var hasNonDefaultTaskFilters = (_myTasksScopeFilter !== 'me' || _myTasksStatusFilter !== 'open' || _myTasksProjectFilter !== 'all');
-
-  var html = '<div class="projects-overview-header">'
-    + '<div>'
-    +   '<h2 class="projects-overview-title">Tasks <span class="sr-only" style="display:none;">My Tasks</span></h2>'
-    +   '<p class="projects-overview-sub">View and track tasks across all projects. Select a task to view its brief.</p>'
-    + '</div>'
-    + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal(\'todo\', true)">'
-    +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-    +   '<span>Add Task</span>'
-    + '</button>'
-    + '</div>'
-    + '<div class="projects-search-bar my-tasks-search-bar" style="display:flex;align-items:center;gap:10px;position:relative;flex-wrap:wrap;">'
-    +   '<div class="task-search-box" style="width:100%;max-width:320px;">'
-    +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-    +     '<input type="search" class="task-search-input my-tasks-search-input" style="width:100%;" placeholder="Search tasks..." value="' + (typeof escapeHtml === 'function' ? escapeHtml(_taskSearchQuery) : _taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" name="task_search_query" />'
-    +   '</div>'
-    +   '<div class="filter-dropdown-wrapper" style="position:relative;">'
-    +     '<button type="button" class="my-tasks-filter-btn' + (hasNonDefaultTaskFilters ? ' active' : '') + '" onclick="toggleMyTasksFilterMenu(event)" title="Filter Tasks">'
-    +       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
-    +       '<span>Filter</span>'
-    +       (hasNonDefaultTaskFilters ? '<span class="filter-active-dot"></span>' : '')
-    +     '</button>'
-    +     '<div class="my-tasks-filter-dropdown" style="display:none;" onclick="event.stopPropagation()">'
-    +       '<div class="filter-menu-header">'
-    +         '<span class="filter-menu-title">Filter Tasks</span>'
-    +         '<button type="button" class="filter-reset-link" onclick="resetMyTasksFilters()">Reset to Defaults</button>'
-    +       '</div>'
-    +       '<div class="filter-section">'
-    +         '<span class="filter-section-label">Assignment</span>'
-    +         '<div class="filter-chip-group">'
-    +           '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'me\')">Assigned to me</button>'
-    +           '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'all\')">All Tasks</button>'
-    +         '</div>'
-    +       '</div>'
-    +       '<div class="filter-section" style="margin-top:10px;">'
-    +         '<span class="filter-section-label">Status</span>'
-    +         '<div class="filter-chip-group">'
-    +           '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'open\')">Open</button>'
-    +           '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'completed' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'completed\')">Completed</button>'
-    +           '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'all\')">All Statuses</button>'
-    +         '</div>'
-    +       '</div>'
-    +       '<div class="filter-section" style="margin-top:10px;">'
-    +         '<span class="filter-section-label">Project</span>'
-    +         '<select class="filter-select-input" onchange="setMyTasksProjectFilter(this.value)">'
-    +           Object.keys(taskProjectsMap).map(function(pk) {
-                  return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(pk) : pk) + '"' + (_myTasksProjectFilter === pk ? ' selected' : '') + '>' + (typeof escapeHtml === 'function' ? escapeHtml(taskProjectsMap[pk]) : taskProjectsMap[pk]) + '</option>';
-                }).join('')
-    +         '</select>'
-    +       '</div>'
-    +     '</div>'
-    +   '</div>'
-    + '</div>'
-    + '<div class="projects-table-card my-tasks-card my-tasks-table-card">';
+function buildMyTasksListHtml(filtered) {
+  var esc = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s || ''); };
+  var html = '<div class="projects-table-card my-tasks-card my-tasks-table-card">';
 
   if (!filtered.length) {
     html += '<div style="padding:48px 20px;text-align:center;color:var(--text-muted);">'
       + '<svg class="ui-icon-xl" style="margin:0 auto 12px;opacity:0.4;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
       + '<div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">No tasks found</div>'
-      + '<div style="font-size:13px;margin-bottom:16px;">' + (_myTasksScopeFilter === 'me' ? 'You have no open tasks assigned to you. Try switching to "All Tasks" or creating a new task.' : 'Try adjusting your search query or filters.') + '</div>'
+      + '<div style="font-size:13px;margin-bottom:16px;">' + (_myTasksScopeFilter === 'me' ? 'You have no matching tasks assigned to you. Try switching to "All Tasks" or creating a new task.' : 'Try adjusting your search query or filters, or create a new task.') + '</div>'
       + '<div style="display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">'
       +   (_myTasksScopeFilter === 'me' ? '<button type="button" class="task-secondary-btn" onclick="setMyTasksScopeFilter(\'all\')">View All Tasks</button>' : '')
       +   '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal(\'todo\', true)"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Task</button>'
@@ -3282,7 +4079,7 @@ function renderMyTasksView() {
       +     '<th style="width:90px;">ID</th>'
       +     '<th style="width:110px;">Priority</th>'
       +     '<th style="min-width:140px;">Assignee</th>'
-      +     '<th style="width:110px;">Due Date</th>'
+      +     '<th style="width:130px;">Due Date</th>'
       +     '<th style="width:90px;">Estimate</th>'
       +     '<th style="width:44px;text-align:center;"></th>'
       +   '</tr>'
@@ -3290,13 +4087,16 @@ function renderMyTasksView() {
       + '<tbody>';
 
     filtered.forEach(function(t, idx) {
+      if (!/^[\w-]+$/.test(String(t.id || ''))) return;
       _taskMap[t.id] = t;
       if (typeof window !== 'undefined') {
         window._taskMap = window._taskMap || {};
         window._taskMap[t.id] = t;
       }
       var project = getTaskProjectName(t) || 'General Project';
-      var normStatus = normalizeTaskStatus(t.status, project);
+      var pStatuses = getProjectStatuses(project);
+      var statusMatch = findProjectTaskStatus(t.status, pStatuses);
+      var normStatus = statusMatch ? statusMatch.id : normalizeTaskStatus(t.status, project);
       var isDone = isTaskCompleted(t, project);
       var taskId = formatTaskId(t, idx);
       var assigneeName = t.assignee_name || 'Unassigned';
@@ -3305,58 +4105,55 @@ function renderMyTasksView() {
       var statusLabels = {
         'todo': 'To Do',
         'planning': 'Planning',
+        'inprogress': 'In Progress',
         'in_progress': 'In Progress',
+        'inreview': 'In Review',
         'in_review': 'In Review',
-        'completed': 'Completed'
+        'completed': 'Complete'
       };
-      var statusLabel = statusLabels[normStatus] || (normStatus.charAt(0).toUpperCase() + normStatus.slice(1));
-      var statusPillClass = (normStatus === 'in_progress') ? 'status-inprogress' : (normStatus === 'in_review') ? 'status-inreview' : ('status-' + normStatus);
+      var statusLabel = (statusMatch && statusMatch.label) || statusLabels[normStatus] || (normStatus.charAt(0).toUpperCase() + normStatus.slice(1));
+      var statusKind = getTaskStatusKind(statusLabel || normStatus);
+      var statusPillClass = statusKind ? ('status-' + statusKind) : ('status-' + normStatus);
 
       var prioVal = (t.priority || 'medium').toLowerCase();
       var prioIcon = getPriorityIconSvg(prioVal, 13);
       var prioLabel = prioVal.charAt(0).toUpperCase() + prioVal.slice(1);
 
-      var avatarHtml = '';
-      if (t.assignee_name) {
-        avatarHtml = getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20);
-      } else {
-        avatarHtml = '<span class="assignee-empty-avatar" style="width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.08);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted);">—</span>';
+      var avatarHtml = t.assignee_name
+        ? getAssigneeAvatarHtml(assigneeName, t.assignee_ic, 20)
+        : '<span class="assignee-empty-avatar" style="width:20px;height:20px;border-radius:50%;background:var(--surface-tint-hover);display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted);">—</span>';
+
+      var dueDisplay = getTaskDueDisplay(t, project);
+      var dueCellHtml = '<span style="color:var(--text-muted);">—</span>';
+      if (dueDisplay) {
+        var calSt = getTaskCalendarColorState(t, project);
+        var duePillCls = calSt.color === 'red' ? 'due-overdue' : (calSt.color === 'yellow' ? 'due-near' : (calSt.color === 'green' ? 'due-completed' : 'due-normal'));
+        dueCellHtml = '<span class="task-due-pill ' + duePillCls + '">'
+          + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+          + '<span>' + esc(dueDisplay.label) + '</span>'
+          + '</span>';
       }
 
-      var dueStr = '—';
-      if (t.due_date) {
-        dueStr = formatTaskDueDateStr(t.due_date);
-        if (dueStr === 'Due Date') dueStr = '—';
-      }
+      var estStr = getTaskEstimate(t) || '—';
 
-      var estStr = '—';
-      if (t.estimate) {
-        estStr = t.estimate;
-      } else if (t.estimated_hours) {
-        estStr = t.estimated_hours + 'h';
-      } else if (t.description) {
-        var em = t.description.match(/\[Estimate:\s*([^\]|]+)/i);
-        if (em && em[1]) estStr = em[1].trim();
-      }
-
-      html += '<tr class="my-tasks-table-row my-tasks-row" onclick="openTaskDetail(\'' + t.id + '\')">'
+      html += '<tr class="my-tasks-table-row my-tasks-row" data-task-id="' + esc(t.id) + '" onclick="openTaskDetail(this.getAttribute(\'data-task-id\'))">'
         + '<td style="width:40px;text-align:center;" onclick="event.stopPropagation()">'
-        +   '<input type="checkbox" class="task-checkbox my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="toggleTaskCheckbox(\'' + t.id + '\', event)" aria-label="Toggle task status" />'
+        +   '<input type="checkbox" class="task-checkbox my-tasks-checkbox" ' + (isDone ? 'checked ' : '') + 'onclick="toggleTaskCheckbox(\'' + esc(t.id) + '\', event)" aria-label="Toggle task status" />'
         + '</td>'
         + '<td style="min-width:180px;">'
-        +   '<span class="project-row-name ' + (isDone ? 'completed-task-title' : '') + '" style="' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : 'font-weight:600;color:var(--text-primary);') + '">' + (typeof escapeHtml === 'function' ? escapeHtml(t.title) : t.title) + '</span>'
+        +   '<span class="project-row-name ' + (isDone ? 'completed-task-title' : '') + '" style="' + (isDone ? 'text-decoration:line-through;color:var(--text-muted);' : 'font-weight:600;color:var(--text-primary);') + '">' + esc(t.title) + '</span>'
         + '</td>'
         + '<td style="width:110px;">'
-        +   '<span class="my-tasks-status-pill ' + statusPillClass + '">' + statusLabel + '</span>'
+        +   '<span class="my-tasks-status-pill ' + statusPillClass + '">' + esc(statusLabel) + '</span>'
         + '</td>'
         + '<td style="width:130px;">'
         +   '<div class="my-tasks-project-cell">'
-        +     '<svg class="ui-icon-xs" style="width:14px;height:14px;opacity:0.75;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
-        +     '<span style="font-size:12px;font-weight:500;">' + (typeof escapeHtml === 'function' ? escapeHtml(projName) : projName) + '</span>'
+        +     '<svg class="ui-icon-xs" style="width:14px;height:14px;opacity:0.75;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>'
+        +     '<span style="font-size:12px;font-weight:500;">' + esc(projName) + '</span>'
         +   '</div>'
         + '</td>'
         + '<td style="width:90px;">'
-        +   '<span class="task-id-badge" style="font-size:11px;color:var(--text-muted);font-weight:700;">' + (typeof escapeHtml === 'function' ? escapeHtml(taskId) : taskId) + '</span>'
+        +   '<span class="task-id-badge" style="font-size:11px;color:var(--text-muted);font-weight:700;">' + esc(taskId) + '</span>'
         + '</td>'
         + '<td style="width:110px;">'
         +   '<div class="my-tasks-priority-indicator priority-' + prioVal + '" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;">'
@@ -3367,20 +4164,17 @@ function renderMyTasksView() {
         + '<td style="min-width:140px;">'
         +   '<div style="display:flex;align-items:center;gap:7px;">'
         +     avatarHtml
-        +     '<span style="font-size:12px;font-weight:500;color:var(--text-primary);white-space:nowrap;">' + (typeof escapeHtml === 'function' ? escapeHtml(assigneeName) : assigneeName) + '</span>'
+        +     '<span style="font-size:12px;font-weight:500;color:var(--text-primary);white-space:nowrap;">' + esc(assigneeName) + '</span>'
         +   '</div>'
         + '</td>'
-        + '<td style="width:110px;">'
-        +   '<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:' + (dueStr !== '—' ? 'var(--text-secondary)' : 'var(--text-muted)') + ';white-space:nowrap;">'
-        +     '<svg class="ui-icon-xs" style="width:13px;height:13px;opacity:0.75;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-        +     '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(dueStr) : dueStr) + '</span>'
-        +   '</div>'
+        + '<td style="width:130px;">'
+        +   dueCellHtml
         + '</td>'
         + '<td style="width:90px;">'
-        +   '<span style="font-size:12px;color:' + (estStr !== '—' ? 'var(--text-primary)' : 'var(--text-muted)') + ';font-weight:500;">' + (typeof escapeHtml === 'function' ? escapeHtml(estStr) : estStr) + '</span>'
+        +   '<span style="font-size:12px;color:' + (estStr !== '—' ? 'var(--text-primary)' : 'var(--text-muted)') + ';font-weight:500;">' + esc(estStr) + '</span>'
         + '</td>'
         + '<td style="width:44px;text-align:center;" onclick="event.stopPropagation()">'
-        +   '<button type="button" class="project-delete-btn" onclick="deleteTask(\'' + t.id + '\')" title="Delete Task" aria-label="Delete Task">'
+        +   '<button type="button" class="project-delete-btn" onclick="deleteTask(\'' + esc(t.id) + '\')" title="Delete Task" aria-label="Delete Task">'
         +     '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
         +   '</button>'
         + '</td>'
@@ -3391,9 +4185,252 @@ function renderMyTasksView() {
   }
 
   html += '</div>';
-  container.innerHTML = html;
+  return html;
 }
 
+function buildMyTasksBoardHtml(filtered) {
+  var esc = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s || ''); };
+  var columns = DEFAULT_PROJECT_STATUSES.map(function(s) {
+    return { id: s.id, label: s.label, kind: getTaskStatusKind(s.label), items: [] };
+  });
+  var colById = Object.create(null);
+  columns.forEach(function(c) { colById[c.id] = c; });
+  var customByLabel = Object.create(null);
+
+  (filtered || []).forEach(function(t) {
+    if (!t || !/^[\w-]+$/.test(String(t.id || ''))) return;
+    _taskMap[t.id] = t;
+    if (typeof window !== 'undefined') {
+      window._taskMap = window._taskMap || {};
+      window._taskMap[t.id] = t;
+    }
+    var pName = getTaskProjectName(t) || 'General Project';
+    var pStatuses = getProjectStatuses(pName);
+    var match = findProjectTaskStatus(t.status, pStatuses);
+    var kind = getTaskStatusKind((match && match.label) || t.status);
+    if (kind && colById[kind]) {
+      colById[kind].items.push(t);
+    } else {
+      var customLabel = (match && match.label) || String(t.status || 'To Do');
+      var customKey = customLabel.toLowerCase().trim();
+      if (!customByLabel[customKey]) {
+        var customId = (match && match.id) || compactTaskStatus(customLabel) || 'custom';
+        var newCol = { id: customId, label: customLabel, kind: '', isCustom: true, items: [] };
+        customByLabel[customKey] = newCol;
+        columns.push(newCol);
+      }
+      customByLabel[customKey].items.push(t);
+    }
+  });
+
+  var html = '<div class="my-tasks-card my-tasks-board-card">'
+    + '<div class="tasks-board-columns my-tasks-board-columns">';
+
+  columns.forEach(function(col) {
+    html += '<div class="task-col my-tasks-board-col" data-col-status="' + esc(col.id) + '">'
+      + '<div class="task-col-header">'
+      +   '<div class="task-col-title">' + esc(col.label) + '</div>'
+      +   '<span class="task-col-count-badge' + (col.isCustom ? ' custom-status-badge' : '') + '" data-status-kind="' + esc(col.kind || '') + '">' + col.items.length + '</span>'
+      +   '<button type="button" class="task-col-quick-add" onclick="openCreateTaskModal(\'' + esc(col.id) + '\', true)" title="Add task to ' + esc(col.label) + '" aria-label="Add task to ' + esc(col.label) + '">'
+      +     '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+      +   '</button>'
+      + '</div>'
+      + '<div class="task-col-body">';
+
+    if (!col.items.length) {
+      html += '<div class="task-col-empty"><div class="task-col-empty-text">No tasks</div></div>';
+    } else {
+      col.items.forEach(function(t, idx) {
+        var taskId = formatTaskId(t, idx);
+        var taskPName = getTaskProjectName(t) || 'General Project';
+        var projectPillHtml = '<span class="task-card-project-pill">' + esc(taskPName) + '</span>';
+
+        var priorityP = ['low', 'medium', 'high'].includes(t.priority) ? t.priority : 'medium';
+        var chevronCls = priorityP === 'high' ? 'priority-high' : (priorityP === 'low' ? 'priority-low' : 'priority-medium');
+        var priorityChevron = '<span class="task-card-priority-chevron ' + chevronCls + '" title="' + priorityP.toUpperCase() + ' Priority">'
+          + getPriorityIconSvg(priorityP, 14)
+          + '</span>';
+
+        var avatarHtml = getAssigneeAvatarHtml(t.assignee_name, t.assignee_ic, 24);
+        var dueDisplay = getTaskDueDisplay(t, taskPName);
+        var dueBadge = '';
+        if (dueDisplay) {
+          var calSt = getTaskCalendarColorState(t, taskPName);
+          var badgeCls = calSt.color === 'red' ? 'due-overdue' : (calSt.color === 'yellow' ? 'due-near' : (calSt.color === 'green' ? 'due-completed' : 'due-normal'));
+          dueBadge = '<span class="task-due-pill ' + badgeCls + '">'
+            + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+            + esc(dueDisplay.label)
+            + '</span>';
+        }
+        var taskEst = getTaskEstimate(t);
+        var estimateHtml = taskEst
+          ? ('<span class="task-card-estimate-pill" title="Estimated time"><svg class="ui-icon-xs" width="11" height="11" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>' + esc(taskEst) + '</span></span>')
+          : '';
+        var timingHtml = dueDisplay && dueDisplay.timing
+          ? '<span class="task-due-pill task-completion-timing ' + dueDisplay.badgeClass + '">' + esc(dueDisplay.timing) + '</span>'
+          : '';
+
+        html += '<div class="task-card" draggable="' + canManageTaskDepartment(t.department || taskPName) + '" data-task-id="' + esc(t.id) + '" onclick="openTaskDetail(this.getAttribute(\'data-task-id\'))">'
+          + '<div class="task-card-id-tag">' + esc(taskId) + '</div>'
+          + '<div class="task-card-title">' + esc(t.title) + '</div>'
+          + '<div class="task-card-meta-row">' + projectPillHtml + dueBadge + '</div>'
+          + '<div class="task-card-footer">'
+          +   '<div class="task-card-footer-left">' + estimateHtml + timingHtml + '</div>'
+          +   '<div class="task-card-footer-right">' + priorityChevron + avatarHtml + '</div>'
+          + '</div>'
+          + '</div>';
+      });
+    }
+
+    html += '<button type="button" class="task-col-add-bottom-btn" onclick="openCreateTaskModal(\'' + esc(col.id) + '\', true)">'
+      + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+      + '<span>Add Task</span>'
+      + '</button>'
+      + '</div></div>';
+  });
+
+  html += '</div></div>';
+  return html;
+}
+
+/**
+ * Renders the all-projects Tasks overview section with 3 view modes: Board View, List View, and Calendar View.
+ * @param {boolean} [bodyOnly] - When true, re-renders only .my-tasks-view-body to keep search input focus intact
+ */
+function renderMyTasksView(bodyOnly) {
+  if (typeof document === 'undefined') return;
+  var container = document.querySelector('.my-tasks-container');
+  if (!container) return;
+
+  var esc = typeof escapeHtml === 'function' ? escapeHtml : function(s) { return String(s || ''); };
+  var data = getFilteredMyTasks();
+  var filtered = data.filtered;
+  var taskProjectsMap = data.taskProjectsMap;
+  var assigneesList = data.assigneesList;
+  var stats = data.stats;
+
+  var bodyHtml = '';
+  if (_myTasksDisplayMode === 'board') {
+    bodyHtml = buildMyTasksBoardHtml(filtered);
+  } else if (_myTasksDisplayMode === 'calendar') {
+    bodyHtml = '<div class="my-tasks-card my-tasks-calendar-card">'
+      + buildTaskCalendarHtml(filtered, { context: 'mytasks', showProjectTag: true })
+      + '</div>';
+  } else {
+    bodyHtml = buildMyTasksListHtml(filtered);
+  }
+
+  if (bodyOnly === true && typeof container.querySelector === 'function') {
+    var existingBody = container.querySelector('.my-tasks-view-body');
+    if (existingBody) {
+      existingBody.innerHTML = bodyHtml;
+      var summaryStrip = container.querySelector('.my-tasks-summary-strip');
+      if (summaryStrip) {
+        summaryStrip.innerHTML = buildMyTasksSummaryHtml(stats);
+      }
+      if (_myTasksDisplayMode === 'board') setupKanbanDragAndDrop();
+      if (_myTasksDisplayMode === 'calendar') wireTaskCalendarToolbarKeys(existingBody);
+      return;
+    }
+  }
+
+  var hasNonDefaultTaskFilters = (_myTasksScopeFilter !== 'all' || _myTasksStatusFilter !== 'all' || _myTasksProjectFilter !== 'all' || _myTasksAssigneeFilter !== 'all');
+
+  var html = '<div class="projects-overview-header">'
+    + '<div>'
+    +   '<h2 class="projects-overview-title">Tasks <span class="sr-only" style="display:none;">My Tasks</span></h2>'
+    +   '<p class="projects-overview-sub">Overview of all tasks across all projects, assignees, and due dates.</p>'
+    + '</div>'
+    + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal(\'todo\', true)">'
+    +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+    +   '<span>Add Task</span>'
+    + '</button>'
+    + '</div>'
+    + '<div class="my-tasks-controls-row">'
+    +   '<div class="projects-search-bar my-tasks-search-bar">'
+    +     '<div class="task-search-box" style="width:100%;max-width:300px;">'
+    +       '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+    +       '<input type="search" class="task-search-input my-tasks-search-input" style="width:100%;" placeholder="Search tasks, projects, assignees..." value="' + esc(_taskSearchQuery) + '" oninput="handleMyTasksSearchInput(this.value)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" name="task_search_query" />'
+    +     '</div>'
+    +     '<div class="filter-dropdown-wrapper" style="position:relative;">'
+    +       '<button type="button" class="my-tasks-filter-btn' + (hasNonDefaultTaskFilters ? ' active' : '') + '" onclick="toggleMyTasksFilterMenu(event)" title="Filter Tasks">'
+    +         '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
+    +         '<span>Filter</span>'
+    +         (hasNonDefaultTaskFilters ? '<span class="filter-active-dot"></span>' : '')
+    +       '</button>'
+    +       '<div class="my-tasks-filter-dropdown" style="display:none;" onclick="event.stopPropagation()">'
+    +         '<div class="filter-menu-header">'
+    +           '<span class="filter-menu-title">Filter Tasks</span>'
+    +           '<button type="button" class="filter-reset-link" onclick="resetMyTasksFilters()">Reset to Defaults</button>'
+    +         '</div>'
+    +         '<div class="filter-section">'
+    +           '<span class="filter-section-label">Assignment</span>'
+    +           '<div class="filter-chip-group">'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'all\')">All Tasks</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'me\')">Assigned to me</button>'
+    +           '</div>'
+    +         '</div>'
+    +         '<div class="filter-section" style="margin-top:10px;">'
+    +           '<span class="filter-section-label">Status &amp; Schedule</span>'
+    +           '<div class="filter-chip-group">'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'all\')">All</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'open\')">Open</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'completed' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'completed\')">Completed</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'overdue' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'overdue\')">Overdue / Late</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'near' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'near\')">Due Soon</button>'
+    +           '</div>'
+    +         '</div>'
+    +         '<div class="filter-section" style="margin-top:10px;">'
+    +           '<span class="filter-section-label">Project</span>'
+    +           '<select class="filter-select-input" onchange="setMyTasksProjectFilter(this.value)">'
+    +             Object.keys(taskProjectsMap).map(function(pk) {
+                    return '<option value="' + esc(pk) + '"' + (_myTasksProjectFilter === pk ? ' selected' : '') + '>' + esc(taskProjectsMap[pk]) + '</option>';
+                  }).join('')
+    +           '</select>'
+    +         '</div>'
+    +         '<div class="filter-section" style="margin-top:10px;">'
+    +           '<span class="filter-section-label">Assignee</span>'
+    +           '<select class="filter-select-input" onchange="setMyTasksAssigneeFilter(this.value)">'
+    +             '<option value="all"' + (_myTasksAssigneeFilter === 'all' ? ' selected' : '') + '>All Assignees</option>'
+    +             '<option value="__unassigned__"' + (_myTasksAssigneeFilter === '__unassigned__' ? ' selected' : '') + '>Unassigned</option>'
+    +             assigneesList.map(function(name) {
+                    return '<option value="' + esc(name) + '"' + (_myTasksAssigneeFilter === name ? ' selected' : '') + '>' + esc(name) + '</option>';
+                  }).join('')
+    +           '</select>'
+    +         '</div>'
+    +       '</div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="my-tasks-view-toggle" role="group" aria-label="Tasks overview view mode">'
+    +     '<button type="button" class="my-tasks-view-btn' + (_myTasksDisplayMode === 'board' ? ' active' : '') + '" data-mytasks-vmode="board" aria-pressed="' + String(_myTasksDisplayMode === 'board') + '" onclick="setMyTasksDisplayMode(\'board\')" title="Board View">'
+    +       '<svg class="ui-icon-xs" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><line x1="8.5" y1="8" x2="8.5" y2="16" stroke-width="2.4"/><line x1="12" y1="8" x2="12" y2="12" stroke-width="2.4"/><line x1="15.5" y1="8" x2="15.5" y2="16" stroke-width="2.4"/></svg>'
+    +       '<span>Board</span>'
+    +     '</button>'
+    +     '<button type="button" class="my-tasks-view-btn' + (_myTasksDisplayMode === 'list' ? ' active' : '') + '" data-mytasks-vmode="list" aria-pressed="' + String(_myTasksDisplayMode === 'list') + '" onclick="setMyTasksDisplayMode(\'list\')" title="List View">'
+    +       '<svg class="ui-icon-xs" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>'
+    +       '<span>List</span>'
+    +     '</button>'
+    +     '<button type="button" class="my-tasks-view-btn' + (_myTasksDisplayMode === 'calendar' ? ' active' : '') + '" data-mytasks-vmode="calendar" aria-pressed="' + String(_myTasksDisplayMode === 'calendar') + '" onclick="setMyTasksDisplayMode(\'calendar\')" title="Calendar View">'
+    +       '<svg class="ui-icon-xs" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+    +       '<span>Calendar</span>'
+    +     '</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="my-tasks-summary-strip">' + buildMyTasksSummaryHtml(stats) + '</div>'
+    + '<div class="my-tasks-view-body" data-mytasks-active-view="' + _myTasksDisplayMode + '">' + bodyHtml + '</div>';
+
+  container.innerHTML = html;
+  if (_myTasksDisplayMode === 'board') setupKanbanDragAndDrop();
+  if (_myTasksDisplayMode === 'calendar') wireTaskCalendarToolbarKeys(container);
+}
+
+function buildMyTasksSummaryHtml(stats) {
+  var s = stats || { total: 0, overdue: 0, near: 0, completed: 0 };
+  return '<span class="my-tasks-stat-chip"><strong>' + s.total + '</strong> Total</span>'
+    + (s.overdue > 0 ? '<span class="my-tasks-stat-chip stat-red"><strong>' + s.overdue + '</strong> Overdue / Late</span>' : '')
+    + (s.near > 0 ? '<span class="my-tasks-stat-chip stat-yellow"><strong>' + s.near + '</strong> Due Soon</span>' : '')
+    + '<span class="my-tasks-stat-chip stat-green"><strong>' + s.completed + '</strong> Completed</span>';
+}
 
 function toggleMyTasksFilterMenu(e) {
   if (e) e.stopPropagation();
@@ -3406,12 +4443,12 @@ function toggleMyTasksFilterMenu(e) {
 }
 
 function setMyTasksScopeFilter(val) {
-  _myTasksScopeFilter = val || 'me';
+  _myTasksScopeFilter = val || 'all';
   renderMyTasksView();
 }
 
 function setMyTasksStatusFilter(val) {
-  _myTasksStatusFilter = val || 'open';
+  _myTasksStatusFilter = val || 'all';
   renderMyTasksView();
 }
 
@@ -3420,10 +4457,16 @@ function setMyTasksProjectFilter(pKey) {
   renderMyTasksView();
 }
 
+function setMyTasksAssigneeFilter(assigneeKey) {
+  _myTasksAssigneeFilter = assigneeKey || 'all';
+  renderMyTasksView();
+}
+
 function resetMyTasksFilters() {
-  _myTasksScopeFilter = 'me';
-  _myTasksStatusFilter = 'open';
+  _myTasksScopeFilter = 'all';
+  _myTasksStatusFilter = 'all';
   _myTasksProjectFilter = 'all';
+  _myTasksAssigneeFilter = 'all';
   _taskSearchQuery = '';
   renderMyTasksView();
 }
@@ -3472,6 +4515,7 @@ async function toggleTaskCheckbox(id, e) {
  */
 function openTaskDetail(id) {
   if (typeof document === 'undefined') return;
+  if (typeof closeTaskCalendarDayPopover === 'function') closeTaskCalendarDayPopover();
   if (_justDragged) {
     _justDragged = false;
     return;
@@ -6463,8 +7507,7 @@ async function saveTaskField(id, field, value) {
   } catch (_) {}
   // Optimistic updates on board
   if (_tasksViewMode === 'board') {
-    if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+    renderActiveProjectSubView();
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   } else if (_tasksViewMode === 'projects') {
@@ -6801,8 +7844,7 @@ async function selectTaskDetailAssignee(ic, name) {
 
   // Instant in-memory optimistic render
   if (_tasksViewMode === 'board') {
-    if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+    renderActiveProjectSubView();
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   }
@@ -6977,8 +8019,7 @@ async function deleteActiveTask() {
 
   // 5. Update UI view in-memory without racing server query
   if (_tasksViewMode === 'board') {
-    if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+    renderActiveProjectSubView();
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   } else {
@@ -7018,8 +8059,7 @@ async function deleteActiveTask() {
         }
       }
       if (_tasksViewMode === 'board') {
-        if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-  else renderColumnsFromTasks(_allLoadedTasks);
+        renderActiveProjectSubView();
       } else if (_tasksViewMode === 'mytasks') {
         renderMyTasksView();
       } else {
@@ -7056,8 +8096,7 @@ async function memberUpdateTaskStatus(id, status, _dept) {
   var paint = function() {
     if (_tasksViewMode === 'mytasks') renderMyTasksView();
     else if (_tasksViewMode === 'projects') renderProjectsView();
-    else if (_projectDisplayMode === 'list') renderTasksListView(_activeProject);
-    else renderColumnsFromTasks(_allLoadedTasks);
+    else renderActiveProjectSubView();
   };
   var cachedTask = _allLoadedTasks.find(function(row) { return String(row.id) === String(id) || String(row.id) === String(effectiveId); });
   var snapshots = Array.from(new Set([task, cachedTask, _taskMap[id], _taskMap[effectiveId]].filter(Boolean)))
@@ -7166,7 +8205,7 @@ function handleNewTaskProjectSelect(projectName) {
   loadNewTaskAssigneeOptions();
 }
 
-function openCreateTaskModal(defaultStatus, fromTasksView) {
+function openCreateTaskModal(defaultStatus, fromTasksView, prefillDueDate) {
   if (typeof document === 'undefined') return;
 
   var isFromTasks = fromTasksView === true || _tasksViewMode === 'mytasks';
@@ -7186,6 +8225,19 @@ function openCreateTaskModal(defaultStatus, fromTasksView) {
   var defStatus = defaultStatus || (targetProjStatuses[0] ? targetProjStatuses[0].id : 'todo');
   modal.setAttribute('data-target-status', defStatus);
 
+  var dueEl = modal.querySelector('.new-task-due-input');
+  var titleElCheck = modal.querySelector('.new-task-title-input');
+  var cleanPrefillDate = getTaskDueDay(prefillDueDate);
+  if (dueEl) {
+    if (cleanPrefillDate) {
+      dueEl.value = cleanPrefillDate;
+      if (dueEl.dataset) dueEl.dataset.calPrefilled = 'true';
+    } else if (prefillDueDate === '' || (dueEl.dataset && dueEl.dataset.calPrefilled === 'true' && (!titleElCheck || !titleElCheck.value.trim()))) {
+      dueEl.value = '';
+      if (dueEl.dataset) delete dueEl.dataset.calPrefilled;
+    }
+  }
+
   var projDisplay = modal.querySelector('.new-task-project-display');
   var projSelect = modal.querySelector('.new-task-project-select');
   var projInput = modal.querySelector('.new-task-project-input');
@@ -7199,7 +8251,9 @@ function openCreateTaskModal(defaultStatus, fromTasksView) {
         return '<option value="' + (typeof escapeHtml === 'function' ? escapeHtml(p) : p) + '">' + (typeof escapeHtml === 'function' ? escapeHtml(p) : p) + '</option>';
       }).join('');
       projSelect.style.display = 'block';
-      var initialProj = availableProjects[0] || 'Media';
+      var initialProj = (_myTasksProjectFilter && _myTasksProjectFilter !== 'all' && availableProjects.indexOf(_myTasksProjectFilter) !== -1)
+        ? _myTasksProjectFilter
+        : (availableProjects[0] || 'Media');
       projSelect.value = initialProj;
       if (projInput) projInput.value = initialProj;
       handleNewTaskProjectSelect(initialProj);
@@ -7626,11 +8680,7 @@ async function handleCreateTaskSubmit(e) {
 
   // Immediately render active view with zero network latency (< 25ms)
   if (_tasksViewMode === 'board') {
-    if (_projectDisplayMode === 'list') {
-      renderTasksListView(_activeProject);
-    } else {
-      renderTasksBoard(_activeProject);
-    }
+    renderActiveProjectSubView();
   } else if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
   } else {
@@ -7743,11 +8793,7 @@ async function handleCreateTaskSubmit(e) {
           delete window._taskMap[tempId];
         }
         if (_tasksViewMode === 'board') {
-          if (_projectDisplayMode === 'list') {
-            renderTasksListView(_activeProject);
-          } else {
-            renderTasksBoard(_activeProject);
-          }
+          renderActiveProjectSubView();
         } else if (_tasksViewMode === 'mytasks') {
           renderMyTasksView();
         } else {
@@ -8348,6 +9394,25 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.reorderProjectStatuses     = reorderProjectStatuses;
   window._projectStatusesMap        = _projectStatusesMap;
 
+  window.syncProjectViewToggleButtons = syncProjectViewToggleButtons;
+  window.renderActiveProjectSubView   = renderActiveProjectSubView;
+  window.renderTasksCalendarView      = renderTasksCalendarView;
+  window.parseTaskPlainDate           = parseTaskPlainDate;
+  window.getTaskCalendarColorState    = getTaskCalendarColorState;
+  window.getTaskCalendarMonthGrid     = getTaskCalendarMonthGrid;
+  window.formatTaskCalendarDayHeading = formatTaskCalendarDayHeading;
+  window.buildTaskCalendarHtml        = buildTaskCalendarHtml;
+  window.setTaskCalendarSubMode       = setTaskCalendarSubMode;
+  window.navigateTaskCalendar         = navigateTaskCalendar;
+  window.jumpTaskCalendarToday        = jumpTaskCalendarToday;
+  window.openTaskCalendarMonth        = openTaskCalendarMonth;
+  window.openTaskCalendarDayPopover   = openTaskCalendarDayPopover;
+  window.closeTaskCalendarDayPopover  = closeTaskCalendarDayPopover;
+  window.openCreateTaskFromCalendar   = openCreateTaskFromCalendar;
+  window.setMyTasksDisplayMode        = setMyTasksDisplayMode;
+  window.setMyTasksAssigneeFilter     = setMyTasksAssigneeFilter;
+  window.getFilteredMyTasks           = getFilteredMyTasks;
+
   if (typeof window.addEventListener === 'function') {
     window.addEventListener('bb_avatar_outlines_changed', function() {
       if (typeof refreshCurrentTasksView === 'function') refreshCurrentTasksView();
@@ -8580,6 +9645,38 @@ if (typeof module !== 'undefined' && module.exports) {
     handleAddStatusKeyDown,
     confirmAddStatus,
     reorderProjectStatuses,
+    syncProjectViewToggleButtons,
+    renderActiveProjectSubView,
+    renderTasksCalendarView,
+    parseTaskPlainDate,
+    getTaskCalendarColorState,
+    getTaskCalendarMonthGrid,
+    formatTaskCalendarDayHeading,
+    buildTaskCalendarHtml,
+    setTaskCalendarSubMode,
+    navigateTaskCalendar,
+    jumpTaskCalendarToday,
+    openTaskCalendarMonth,
+    openTaskCalendarDayPopover,
+    closeTaskCalendarDayPopover,
+    openCreateTaskFromCalendar,
+    setMyTasksDisplayMode,
+    setMyTasksAssigneeFilter,
+    getFilteredMyTasks,
+    buildMyTasksListHtml,
+    buildMyTasksBoardHtml,
+    get _projectDisplayModeValue() { return _projectDisplayMode; },
+    set _projectDisplayModeValue(v) { _projectDisplayMode = v; },
+    get _myTasksDisplayMode() { return _myTasksDisplayMode; },
+    set _myTasksDisplayMode(v) { _myTasksDisplayMode = v; },
+    get _myTasksAssigneeFilter() { return _myTasksAssigneeFilter; },
+    set _myTasksAssigneeFilter(v) { _myTasksAssigneeFilter = v; },
+    get _taskCalSubMode() { return _taskCalSubMode; },
+    set _taskCalSubMode(v) { _taskCalSubMode = v; },
+    get _taskCalYear() { return _taskCalYear; },
+    set _taskCalYear(v) { _taskCalYear = v; },
+    get _taskCalMonth() { return _taskCalMonth; },
+    set _taskCalMonth(v) { _taskCalMonth = v; },
     get _projectStatusesMap() { return _projectStatusesMap; },
     set _projectStatusesMap(v) { _projectStatusesMap = v; }
   };
@@ -8591,8 +9688,16 @@ if (typeof document !== 'undefined') {
         !e.target.closest?.('.tb-mentions-dropdown')) hideMentionDropdown();
   }
   document.addEventListener('focusin', dismissTaskMentionOutside);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && _taskCalPopoverDate) {
+      closeTaskCalendarDayPopover(true);
+    }
+  });
   document.addEventListener('click', function(e) {
     dismissTaskMentionOutside(e);
+    if (_taskCalPopoverDate && (!e.target.closest || (!e.target.closest('.task-cal-day-popover') && !e.target.closest('.task-cal-cell') && !e.target.closest('.task-cal-year-day')))) {
+      closeTaskCalendarDayPopover(false);
+    }
     if (!e.target.closest || !e.target.closest('.tb-comment-actions')) {
       var commentMenus = document.querySelectorAll('.tb-comment-dropdown');
       commentMenus.forEach(function(m) { m.style.display = 'none'; });

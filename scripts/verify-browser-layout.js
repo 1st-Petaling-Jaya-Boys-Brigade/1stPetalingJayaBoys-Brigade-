@@ -4388,44 +4388,59 @@ async function getJson(url) {
     // ── Mobile Notification Deep-Link Routing CDP Verification ──
     const notifDeepLinkDiag = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
-        if (typeof sessionSet === 'function') {
-          sessionSet('ic', 'jeshuakoh2008@gmail.com');
-          sessionSet('email', 'jeshuakoh2008@gmail.com');
-          sessionSet('name', 'Jeshua Koh');
-          sessionSet('rank', 'Sergeant');
-          sessionSet('department', 'HQ');
+        const origClientDL = typeof getSupaClient === 'function' ? getSupaClient : null;
+        try {
+          if (typeof getSupaClient === 'function') {
+            getSupaClient = () => ({
+              get: async (url) => {
+                if (String(url).startsWith('bb_members?')) return [{ name: 'Jeshua Koh', department: 'HQ', rank: 'Sergeant', section: 'Senior' }];
+                return [];
+              },
+              patch: async () => [],
+              post: async () => []
+            });
+          }
+          if (typeof sessionSet === 'function') {
+            sessionSet('ic', 'jeshuakoh2008@gmail.com');
+            sessionSet('email', 'jeshuakoh2008@gmail.com');
+            sessionSet('name', 'Jeshua Koh');
+            sessionSet('rank', 'Sergeant');
+            sessionSet('department', 'HQ');
+          }
+          window._taskMap = window._taskMap || {};
+          window._taskMap['DL-TASK-99'] = {
+            id: 'DL-TASK-99',
+            title: 'Deep Link Test Task',
+            project_name: 'Portal Development',
+            department: 'hq',
+            status: 'todo',
+            due_date: '2026-11-20'
+          };
+          window._allLoadedTasks = Array.isArray(window._allLoadedTasks) ? window._allLoadedTasks : [];
+          if (!window._allLoadedTasks.some(t => t && t.id === 'DL-TASK-99')) {
+            window._allLoadedTasks.push(window._taskMap['DL-TASK-99']);
+          }
+
+          await window.handlePortalNotificationDeepLink({ tab: 'tasks', targetId: 'DL-TASK-99', category: 'task_due' });
+          const tasksPageActive = document.getElementById('page-tasks')?.classList.contains('active') || false;
+          const taskModal = document.getElementById('task-detail-modal');
+          const taskModalOpen = Boolean(taskModal && taskModal.style.display !== 'none');
+          const openedTaskTitle = (document.getElementById('tdm-title')?.textContent || '').trim();
+          if (typeof closeTaskDetail === 'function') closeTaskDetail(true);
+
+          await window.handlePortalNotificationDeepLink({ tab: 'home', targetId: 'ann-1', category: 'announcement' });
+          const homePageActive = document.getElementById('page-home')?.classList.contains('active') || false;
+
+          await window.handlePortalNotificationDeepLink({ tab: 'orders', targetId: 'BB-ORDER-1', category: 'order_status' });
+          const memberPageActive = document.getElementById('page-member')?.classList.contains('active') || false;
+
+          await window.handlePortalNotificationDeepLink({ tab: 'forum', category: 'forum_reply' });
+          const forumPageActive = document.getElementById('page-forum')?.classList.contains('active') || false;
+
+          return { tasksPageActive, taskModalOpen, openedTaskTitle, homePageActive, memberPageActive, forumPageActive };
+        } finally {
+          if (origClientDL) getSupaClient = origClientDL;
         }
-        window._taskMap = window._taskMap || {};
-        window._taskMap['DL-TASK-99'] = {
-          id: 'DL-TASK-99',
-          title: 'Deep Link Test Task',
-          project_name: 'Portal Development',
-          department: 'hq',
-          status: 'todo',
-          due_date: '2026-11-20'
-        };
-        window._allLoadedTasks = Array.isArray(window._allLoadedTasks) ? window._allLoadedTasks : [];
-        if (!window._allLoadedTasks.some(t => t && t.id === 'DL-TASK-99')) {
-          window._allLoadedTasks.push(window._taskMap['DL-TASK-99']);
-        }
-
-        await window.handlePortalNotificationDeepLink({ tab: 'tasks', targetId: 'DL-TASK-99', category: 'task_due' });
-        const tasksPageActive = document.getElementById('page-tasks')?.classList.contains('active') || false;
-        const taskModal = document.getElementById('task-detail-modal');
-        const taskModalOpen = Boolean(taskModal && taskModal.style.display !== 'none');
-        const openedTaskTitle = (document.getElementById('tdm-title')?.textContent || '').trim();
-        if (typeof closeTaskDetail === 'function') closeTaskDetail(true);
-
-        await window.handlePortalNotificationDeepLink({ tab: 'home', targetId: 'ann-1', category: 'announcement' });
-        const homePageActive = document.getElementById('page-home')?.classList.contains('active') || false;
-
-        await window.handlePortalNotificationDeepLink({ tab: 'orders', targetId: 'BB-ORDER-1', category: 'order_status' });
-        const memberPageActive = document.getElementById('page-member')?.classList.contains('active') || false;
-
-        await window.handlePortalNotificationDeepLink({ tab: 'forum', category: 'forum_reply' });
-        const forumPageActive = document.getElementById('page-forum')?.classList.contains('active') || false;
-
-        return { tasksPageActive, taskModalOpen, openedTaskTitle, homePageActive, memberPageActive, forumPageActive };
       })()`,
       awaitPromise: true,
       returnByValue: true
@@ -4438,6 +4453,147 @@ async function getJson(url) {
     assert.strictEqual(dlRes.memberPageActive, true, 'Order status notification click must navigate to Member Hub (My Orders)');
     assert.strictEqual(dlRes.forumPageActive, true, 'Forum reply notification click must navigate to Support Forum');
     console.log('  ✔ Mobile & portal notification click deep-link routing verified across Home, Tasks, Member Orders, and Forum');
+
+    // ── Project Calendar View & All-Tasks 3-View Overview (Desktop + Mobile 390px) ──
+    await sendCmd('Emulation.clearDeviceMetricsOverride');
+    const calAndOverviewDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origClientCal = typeof getSupaClient === 'function' ? getSupaClient : null;
+        try {
+          if (typeof getSupaClient === 'function') {
+            getSupaClient = () => ({
+              get: async (url) => {
+                if (String(url).startsWith('bb_members?')) return [{ name: 'Jeshua Koh', department: 'HQ', rank: 'Sergeant', section: 'Senior' }];
+                return [];
+              },
+              patch: async () => [],
+              post: async () => []
+            });
+          }
+          if (typeof sessionSet === 'function') {
+            sessionSet('ic', 'jeshuakoh2008@gmail.com');
+            sessionSet('email', 'jeshuakoh2008@gmail.com');
+            sessionSet('name', 'Jeshua Koh');
+            sessionSet('rank', 'Sergeant');
+            sessionSet('department', 'HQ');
+          }
+          const todayIso = typeof getTaskMalaysiaDay === 'function' ? getTaskMalaysiaDay(Date.now()) : new Date().toISOString().slice(0, 10);
+          const shiftDay = (iso, delta) => {
+            const d = new Date(Date.parse(iso) + delta * 86400000);
+            return d.toISOString().slice(0, 10);
+          };
+          const tOverdue = { id: 'CAL-OV-1', title: 'Overdue Parade Task', project_name: 'Portal Development', department: 'hq', status: 'todo', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: shiftDay(todayIso, -2) };
+          const tNear    = { id: 'CAL-NR-2', title: 'Due Soon Task', project_name: 'Portal Development', department: 'hq', status: 'inprogress', assignee_name: 'Tester Account', assignee_ic: '', due_date: shiftDay(todayIso, 1) };
+          const tDone    = { id: 'CAL-DN-3', title: 'Completed On Time Task', project_name: 'Logistics', department: 'logistics', status: 'completed', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: todayIso, completed_at: new Date().toISOString() };
+          const tFuture  = { id: 'CAL-FT-4', title: 'Scheduled Future Task', project_name: 'Media', department: 'media', status: 'planning', assignee_name: 'Officer Tan', assignee_ic: '', due_date: shiftDay(todayIso, 6) };
+          const demoTasks = [tOverdue, tNear, tDone, tFuture];
+          window._taskMap = window._taskMap || {};
+          demoTasks.forEach(t => { window._taskMap[t.id] = t; });
+          if (typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) {
+            demoTasks.forEach(t => { if (!_allLoadedTasks.some(x => x && x.id === t.id)) _allLoadedTasks.push(t); });
+          }
+
+          switchTabNav('tasks');
+          openProjectBoard('Portal Development', { skipRemoteFetch: true });
+          setProjectDisplayMode('calendar');
+          jumpTaskCalendarToday();
+
+          const projCalVisible = getComputedStyle(document.querySelector('.tasks-board-calendar-view')).display !== 'none';
+          const projBoardHidden = getComputedStyle(document.getElementById('tasks-columns')).display === 'none';
+          const projListHidden = getComputedStyle(document.querySelector('.tasks-board-list-view')).display === 'none';
+          const calModes = Array.from(document.querySelectorAll('.tasks-board-calendar-view .task-cal-mode-btn')).map(b => b.textContent.trim());
+          const hasTodayHighlight = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-cell.is-today'));
+          const hasRedPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill-red'));
+          const hasYellowPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill-yellow'));
+          const hasAvatarInPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill .task-cal-pill-avatar'));
+
+          // Open Day Popover & trigger + New task prefill
+          const todayCellEl = document.querySelector('.tasks-board-calendar-view .task-cal-cell.is-today');
+          if (todayCellEl) todayCellEl.click();
+          const popoverOpen = getComputedStyle(document.querySelector('.task-cal-day-popover')).display !== 'none';
+          const newBtn = document.querySelector('.task-cal-day-popover .task-cal-popover-new-btn');
+          if (newBtn) newBtn.click();
+          const createModalOpen = getComputedStyle(document.querySelector('.task-create-modal')).display !== 'none';
+          const prefilledDue = document.querySelector('.task-create-modal .new-task-due-input')?.value || '';
+          closeCreateTaskModal(true);
+
+          // Switch to Year view and back to Month view
+          setTaskCalendarSubMode('year');
+          const yearMonthCardsCount = document.querySelectorAll('.tasks-board-calendar-view .task-cal-year-card').length;
+          setTaskCalendarSubMode('month');
+
+          // Global Tasks section: Board, List, and Calendar views across all projects
+          setTasksViewMode('mytasks');
+          setMyTasksDisplayMode('board');
+          const allBoardCols = document.querySelectorAll('.my-tasks-container .my-tasks-board-col').length;
+          const allBoardHasMultiProjects = (document.querySelector('.my-tasks-container')?.textContent || '').includes('Logistics')
+            && (document.querySelector('.my-tasks-container')?.textContent || '').includes('Media');
+          const desktopBoardOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+
+          setMyTasksDisplayMode('list');
+          const allListRows = document.querySelectorAll('.my-tasks-container .my-tasks-table-row').length;
+
+          setMyTasksDisplayMode('calendar');
+          const allCalHasAllColors = Boolean(
+            document.querySelector('.my-tasks-container .task-cal-pill-red')
+            && document.querySelector('.my-tasks-container .task-cal-pill-yellow')
+            && document.querySelector('.my-tasks-container .task-cal-pill-green')
+            && document.querySelector('.my-tasks-container .task-cal-pill-gray')
+          );
+          const desktopCalOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+
+          return {
+            projCalVisible, projBoardHidden, projListHidden, calModes, hasTodayHighlight,
+            hasRedPill, hasYellowPill, hasAvatarInPill, popoverOpen, createModalOpen, prefilledDue,
+            todayIso, yearMonthCardsCount, allBoardCols, allBoardHasMultiProjects, allListRows,
+            allCalHasAllColors, desktopBoardOverflow, desktopCalOverflow
+          };
+        } finally {
+          if (origClientCal) getSupaClient = origClientCal;
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const taskCalRes = (calAndOverviewDiag.result && calAndOverviewDiag.result.value) || {};
+    assert.strictEqual(taskCalRes.projCalVisible, true, 'Project Calendar View must be visible when calendar mode is active');
+    assert.strictEqual(taskCalRes.projBoardHidden, true, 'Project Board must stay hidden in Calendar View');
+    assert.strictEqual(taskCalRes.projListHidden, true, 'Project List must stay hidden in Calendar View');
+    assert.deepStrictEqual(taskCalRes.calModes, ['Month', 'Year'], 'Calendar view must offer ONLY Month and Year options');
+    assert.strictEqual(taskCalRes.hasTodayHighlight, true, 'Calendar view must highlight today cell');
+    assert.strictEqual(taskCalRes.hasRedPill, true, 'Calendar view must display red pill for overdue tasks');
+    assert.strictEqual(taskCalRes.hasYellowPill, true, 'Calendar view must display yellow pill for tasks due within 2 days');
+    assert.strictEqual(taskCalRes.hasAvatarInPill, true, 'Calendar task pills must include assignee profile avatar');
+    assert.strictEqual(taskCalRes.popoverOpen, true, 'Clicking a calendar day cell must open the Day Popover');
+    assert.strictEqual(taskCalRes.createModalOpen, true, 'Clicking + New task in Day Popover must open Create Task modal');
+    assert.strictEqual(taskCalRes.prefilledDue, taskCalRes.todayIso, 'Create Task modal must prefill clicked calendar date');
+    assert.strictEqual(taskCalRes.yearMonthCardsCount, 12, 'Year view must render 12 mini-month cards');
+    assert.ok(taskCalRes.allBoardCols >= 5, 'Tasks Board View must render workflow columns across all projects');
+    assert.strictEqual(taskCalRes.allBoardHasMultiProjects, true, 'Tasks Board View must display tasks across multiple projects');
+    assert.ok(taskCalRes.allListRows >= 4, 'Tasks List View must list tasks across all projects');
+    assert.strictEqual(taskCalRes.allCalHasAllColors, true, 'Tasks Calendar View must display red, yellow, green, and gray task pills');
+    assert.strictEqual(taskCalRes.desktopBoardOverflow, 0, 'Tasks Board View must have 0px horizontal overflow on desktop');
+    assert.strictEqual(taskCalRes.desktopCalOverflow, 0, 'Tasks Calendar View must have 0px horizontal overflow on desktop');
+
+    // Verify 0px mobile page overflow (390px) across Tasks Calendar and Tasks Board views
+    await sendCmd('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+    const mobileCalDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        setMyTasksDisplayMode('calendar');
+        const calOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+        setMyTasksDisplayMode('board');
+        const boardOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+        const firstColDisplay = getComputedStyle(document.querySelector('.my-tasks-container .my-tasks-board-col')).display;
+        setMyTasksDisplayMode('list');
+        return { calOverflow, boardOverflow, firstColDisplay };
+      })()`,
+      returnByValue: true
+    });
+    const mCalRes = (mobileCalDiag.result && mobileCalDiag.result.value) || {};
+    assert.strictEqual(mCalRes.calOverflow, 0, 'Tasks Calendar View must have 0px page overflow on 390px mobile');
+    assert.strictEqual(mCalRes.boardOverflow, 0, 'Tasks Board View must have 0px page overflow on 390px mobile');
+    assert.strictEqual(mCalRes.firstColDisplay, 'flex', 'Tasks Board columns must remain visible on 390px mobile');
+    console.log('  ✔ Project Calendar View (Month/Year, 4 colors, Today highlight, Day Popover) & Tasks 3-view overview verified on desktop and mobile');
 
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');

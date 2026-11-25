@@ -2980,7 +2980,10 @@ select.form-input,
 #tasks-columns.hidden,
 .tasks-board-list-view[style*="display: none"],
 .tasks-board-list-view[style*="display:none"],
-.tasks-board-list-view.hidden {
+.tasks-board-list-view.hidden,
+.tasks-board-calendar-view[style*="display: none"],
+.tasks-board-calendar-view[style*="display:none"],
+.tasks-board-calendar-view.hidden {
   display: none !important;
 }
 
@@ -15852,4 +15855,1138 @@ body.light-theme .tb-mention-pill,
 [data-theme='light'] .uniform-prep-chip {
   background: #f8fafc;
   border: 1px solid #cbd5e1;
+}
+
+/* ── Project Calendar View & All-Tasks 3-View Overview (Board / List / Calendar) ── */
+.tasks-board-calendar-view {
+  margin-top: 14px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.project-view-btn[aria-pressed="true"] {
+  background: var(--bg-card, #0f172a);
+  color: var(--accent, #f59e0b);
+  border-color: var(--border-subtle, #475569);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.my-tasks-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.my-tasks-controls-row .my-tasks-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  flex-wrap: wrap;
+  flex: 1 1 280px;
+  margin-bottom: 0 !important;
+}
+
+.my-tasks-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-card-subtle, #1e293b);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border-card, #334155);
+  flex-shrink: 0;
+}
+
+.my-tasks-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-block-size: 32px;
+  min-inline-size: 32px;
+  padding: 5px 11px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted, #94a3b8);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .my-tasks-view-btn,
+  .task-cal-mode-btn,
+  .task-cal-nav-btn,
+  .task-cal-today-btn,
+  .task-cal-pill,
+  .task-cal-popover-new-btn {
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+}
+
+@media (hover: hover) {
+  .my-tasks-view-btn:hover {
+    color: var(--text-primary);
+    background: var(--surface-tint-hover);
+  }
+}
+
+.my-tasks-view-btn[aria-pressed="true"],
+.my-tasks-view-btn.active {
+  background: var(--bg-card, #0f172a);
+  color: var(--accent, #f59e0b);
+  border-color: var(--border-subtle, #475569);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+}
+
+[data-theme='light'] .my-tasks-view-toggle {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .my-tasks-view-btn {
+  color: #475569;
+}
+
+[data-theme='light'] .my-tasks-view-btn[aria-pressed="true"],
+[data-theme='light'] .my-tasks-view-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.my-tasks-summary-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.my-tasks-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.my-tasks-stat-chip strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.my-tasks-stat-chip.stat-red {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.32);
+  color: #fca5a5;
+}
+.my-tasks-stat-chip.stat-red strong { color: #fecaca; }
+
+.my-tasks-stat-chip.stat-yellow {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.34);
+  color: #fcd34d;
+}
+.my-tasks-stat-chip.stat-yellow strong { color: #fde68a; }
+
+.my-tasks-stat-chip.stat-green {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.32);
+  color: #6ee7b7;
+}
+.my-tasks-stat-chip.stat-green strong { color: #a7f3d0; }
+
+[data-theme='light'] .my-tasks-stat-chip.stat-red {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+[data-theme='light'] .my-tasks-stat-chip.stat-red strong { color: #7f1d1d; }
+
+[data-theme='light'] .my-tasks-stat-chip.stat-yellow {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+[data-theme='light'] .my-tasks-stat-chip.stat-yellow strong { color: #78350f; }
+
+[data-theme='light'] .my-tasks-stat-chip.stat-green {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+[data-theme='light'] .my-tasks-stat-chip.stat-green strong { color: #14532d; }
+
+.my-tasks-board-card {
+  width: 100%;
+  max-width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.my-tasks-board-columns {
+  min-height: 480px;
+}
+
+.my-tasks-calendar-card {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* ── Shared Task Calendar Component (Month & Year Views) ── */
+.task-cal-shell {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.task-cal-title-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.task-cal-period-title {
+  margin: 0;
+  font-family: var(--font-headline, sans-serif);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.task-cal-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.task-cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.task-cal-legend-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.task-cal-legend-swatch.swatch-red,
+.task-cal-dot.dot-red {
+  background: #ef4444;
+}
+
+.task-cal-legend-swatch.swatch-yellow,
+.task-cal-dot.dot-yellow {
+  background: #eab308;
+}
+
+.task-cal-legend-swatch.swatch-green,
+.task-cal-dot.dot-green {
+  background: #10b981;
+}
+
+.task-cal-legend-swatch.swatch-gray,
+.task-cal-dot.dot-gray {
+  background: #94a3b8;
+}
+
+.task-cal-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.task-cal-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  padding: 3px;
+  border-radius: 9px;
+}
+
+.task-cal-mode-btn {
+  min-block-size: 30px;
+  min-inline-size: 56px;
+  padding: 4px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .task-cal-mode-btn:hover {
+    color: var(--text-primary);
+  }
+}
+
+.task-cal-mode-btn[aria-pressed="true"],
+.task-cal-mode-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+[data-theme='light'] .task-cal-mode-switch {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+[data-theme='light'] .task-cal-mode-btn[aria-pressed="true"],
+[data-theme='light'] .task-cal-mode-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.task-cal-toolbar-sep {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  border-inline-start: 1px solid var(--border-subtle);
+}
+
+.task-cal-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-cal-nav-btn,
+.task-cal-today-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 34px;
+  min-inline-size: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.task-cal-today-btn {
+  padding: 0 14px;
+}
+
+@media (hover: hover) {
+  .task-cal-nav-btn:hover,
+  .task-cal-today-btn:hover {
+    background: var(--bg-card-subtle);
+    border-color: var(--accent);
+  }
+}
+
+[data-theme='light'] .task-cal-nav-btn,
+[data-theme='light'] .task-cal-today-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+.task-cal-mode-btn:focus-visible,
+.task-cal-nav-btn:focus-visible,
+.task-cal-today-btn:focus-visible,
+.task-cal-cell:focus-visible,
+.task-cal-pill:focus-visible,
+.task-cal-year-day:focus-visible,
+.task-cal-year-month-btn:focus-visible,
+.my-tasks-view-btn:focus-visible,
+.project-view-btn:focus-visible {
+  outline: 2px solid var(--accent, #f59e0b);
+  outline-offset: 2px;
+}
+
+/* Month View Frame & Grid (Matching Jira/Linear Reference) */
+.task-cal-month-frame {
+  width: 100%;
+  max-width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+[data-theme='light'] .task-cal-month-frame {
+  background: #ffffff;
+  border-color: #dbe2ea;
+}
+
+.task-cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  min-width: 640px;
+  background: var(--bg-card-subtle);
+  border-bottom: 1px solid var(--border-card);
+}
+
+[data-theme='light'] .task-cal-weekdays {
+  background: #f8fafc;
+  border-bottom-color: #dbe2ea;
+}
+
+.task-cal-weekday {
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.task-cal-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  min-width: 640px;
+}
+
+.task-cal-cell {
+  min-height: 118px;
+  padding: 7px 6px 8px;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: var(--bg-card);
+  cursor: pointer;
+  box-sizing: border-box;
+  min-width: 0;
+  position: relative;
+}
+
+.task-cal-cell:nth-child(7n) {
+  border-right: none;
+}
+
+.task-cal-cell.is-weekend {
+  background: rgba(148, 163, 184, 0.055);
+}
+
+[data-theme='light'] .task-cal-cell {
+  background: #ffffff;
+  border-color: #e5eaf0;
+}
+
+[data-theme='light'] .task-cal-cell.is-weekend {
+  background: #f5f6f8;
+}
+
+@media (hover: hover) {
+  .task-cal-cell:hover {
+    background: var(--surface-tint-hover);
+  }
+  [data-theme='light'] .task-cal-cell:hover {
+    background: #f1f5f9;
+  }
+  .task-cal-cell:hover .task-cal-cell-add-btn {
+    opacity: 1;
+  }
+}
+
+.task-cal-cell.is-outside .task-cal-day-num {
+  opacity: 0.36;
+}
+
+/* Current Day Highlight (Unmistakable in Light & Dark Themes) */
+.task-cal-cell.is-today {
+  background: rgba(245, 158, 11, 0.11) !important;
+  box-shadow: inset 0 3px 0 var(--accent, #f59e0b);
+}
+
+[data-theme='light'] .task-cal-cell.is-today {
+  background: #eff6ff !important;
+  box-shadow: inset 0 3px 0 #2563eb, inset 0 0 0 1px rgba(37, 99, 235, 0.22);
+}
+
+.task-cal-cell-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.task-cal-day-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.task-cal-day-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  line-height: 1;
+}
+
+.task-cal-day-num.is-today {
+  background: var(--accent, #f59e0b);
+  color: #0b1120;
+  font-weight: 800;
+  padding: 0 6px;
+}
+
+[data-theme='light'] .task-cal-day-num.is-today {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.task-cal-today-chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.22);
+  color: #fde68a;
+  text-transform: uppercase;
+}
+
+[data-theme='light'] .task-cal-today-chip {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.task-cal-cell-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  padding: 0;
+}
+
+.task-cal-cell:focus-within .task-cal-cell-add-btn {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .task-cal-cell-add-btn {
+    opacity: 0.8;
+    min-width: 26px;
+    min-height: 26px;
+  }
+}
+
+@media (hover: hover) {
+  .task-cal-cell-add-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+.task-cal-pills {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* 4-Color Task Pills: Red (Overdue / Late), Yellow (Due Soon <= 2d), Green (Completed), Light Gray (Upcoming) */
+.task-cal-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.task-cal-pill-avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.task-cal-pill-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.task-cal-pill-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.task-cal-pill-proj {
+  font-size: 9.5px;
+  font-weight: 500;
+  opacity: 0.78;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.task-cal-pill-red {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.task-cal-pill-yellow {
+  background: rgba(234, 179, 8, 0.2);
+  color: #fef08a;
+  border-color: rgba(234, 179, 8, 0.48);
+}
+
+.task-cal-pill-green {
+  background: rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border-color: rgba(16, 185, 129, 0.42);
+}
+
+.task-cal-pill-gray {
+  background: rgba(148, 163, 184, 0.16);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.32);
+}
+
+[data-theme='light'] .task-cal-pill-red {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+[data-theme='light'] .task-cal-pill-yellow {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+[data-theme='light'] .task-cal-pill-green {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+[data-theme='light'] .task-cal-pill-gray {
+  background: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+@media (hover: hover) {
+  .task-cal-pill:hover {
+    filter: brightness(1.06);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+  }
+  [data-theme='light'] .task-cal-pill:hover {
+    filter: brightness(0.96);
+  }
+}
+
+.task-cal-more-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .task-cal-more-btn:hover {
+    color: var(--accent);
+    background: var(--surface-tint-hover);
+  }
+}
+
+/* Year View: 12 Interactive Mini-Months */
+.task-cal-year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.task-cal-year-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+[data-theme='light'] .task-cal-year-card {
+  background: #ffffff;
+  border-color: #dbe2ea;
+}
+
+.task-cal-year-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.task-cal-year-month-btn {
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font-family: var(--font-headline, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .task-cal-year-month-btn:hover {
+    color: var(--accent);
+    background: var(--surface-tint-hover);
+  }
+}
+
+.task-cal-year-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.task-cal-year-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.task-cal-year-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.task-cal-year-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-block-size: 30px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.task-cal-year-day.is-outside {
+  opacity: 0.28;
+}
+
+.task-cal-year-day.has-tasks {
+  background: var(--bg-card-subtle);
+  font-weight: 700;
+}
+
+.task-cal-year-day.is-today {
+  background: var(--accent, #f59e0b) !important;
+  color: #0b1120 !important;
+  font-weight: 800;
+}
+
+[data-theme='light'] .task-cal-year-day.is-today {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+@media (hover: hover) {
+  .task-cal-year-day:hover {
+    border-color: var(--accent);
+    background: var(--surface-tint-hover);
+  }
+}
+
+.task-cal-year-dots {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 5px;
+}
+
+.task-cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Undated Tasks Collapsible Strip */
+.task-cal-undated-strip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+[data-theme='light'] .task-cal-undated-strip {
+  background: #ffffff;
+  border-color: #dbe2ea;
+}
+
+.task-cal-undated-summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.task-cal-undated-count {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-card-subtle);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.task-cal-undated-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.task-cal-undated-pill {
+  width: auto;
+  max-width: 260px;
+}
+
+/* Day Popover Card (Matching Image 2 Reference) */
+.task-cal-day-popover {
+  position: fixed;
+  z-index: 950;
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(420px, calc(100vh - 32px));
+  overflow-y: auto;
+  background: var(--bg-card, #0f172a);
+  border: 1px solid var(--border-card, #334155);
+  border-radius: 14px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.32);
+  padding: 14px 16px 16px;
+  box-sizing: border-box;
+}
+
+.task-cal-day-popover.is-centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+[data-theme='light'] .task-cal-day-popover {
+  background: #ffffff;
+  border-color: #dbe2ea;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+}
+
+.task-cal-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.task-cal-popover-date-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-cal-popover-date {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.task-cal-popover-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .task-cal-popover-close:hover {
+    background: var(--surface-tint-hover);
+    color: var(--text-primary);
+  }
+}
+
+.task-cal-popover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.task-cal-popover-task {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.task-cal-popover-avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.task-cal-popover-task-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.task-cal-popover-task-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-cal-popover-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.task-cal-popover-footer {
+  margin-top: 12px;
+}
+
+.task-cal-popover-new-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-block-size: 38px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-subtle);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+[data-theme='light'] .task-cal-popover-new-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+@media (hover: hover) {
+  .task-cal-popover-new-btn:hover {
+    border-color: var(--accent);
+    background: var(--surface-tint-hover);
+  }
+}
+
+/* Responsive Breakpoints (0px horizontal page overflow across 360px..1440px) */
+@media (max-width: 1150px) {
+  .task-cal-year-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px) {
+  .task-cal-year-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .my-tasks-board-columns {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x proximity;
+    gap: 12px;
+    padding-bottom: 16px;
+    max-width: 100%;
+  }
+
+  .my-tasks-board-columns .my-tasks-board-col {
+    display: flex !important;
+    flex: 0 0 min(82vw, 290px) !important;
+    min-width: min(82vw, 290px) !important;
+    max-width: min(82vw, 290px) !important;
+    width: min(82vw, 290px) !important;
+    scroll-snap-align: start;
+  }
+
+  .task-cal-header {
+    align-items: flex-start;
+  }
+
+  .task-cal-controls {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .task-cal-cell {
+    min-height: 98px;
+  }
+
+  .task-cal-today-chip {
+    display: none;
+  }
+
+  .my-tasks-view-toggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .my-tasks-view-btn {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .task-cal-year-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (pointer: coarse) {
+  .task-cal-nav-btn,
+  .task-cal-today-btn,
+  .task-cal-mode-btn,
+  .my-tasks-view-btn {
+    min-block-size: 40px;
+  }
 }

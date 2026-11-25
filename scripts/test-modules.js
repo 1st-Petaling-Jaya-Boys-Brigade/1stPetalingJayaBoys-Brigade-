@@ -17817,6 +17817,179 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Stedfast thinkingConfig, Pro-model purge, SSE streaming, response cache, and <2s SLA fallback verified');
   }
 
+  // ── Suite 95: Project Calendar View & All-Tasks 3-View Overview (Board / List / Calendar) ──
+  {
+    console.log('\n--- Suite 95: Project Calendar View & All-Tasks 3-View Overview ---');
+    const tasksMod95 = require('../js/modules/tasks.js');
+    const utilsMod95 = require('../js/core/utils.js');
+    const idxHtml95 = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const css95 = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+
+    // 1. Strict 388 unique DOM IDs preserved & Calendar button + containers present in index.html
+    const ids95 = new Set();
+    (idxHtml95.match(/\sid=["']([^"']+)["']/g) || []).forEach(m => {
+      const mm = m.match(/\sid=["']([^"']+)["']/);
+      if (mm) ids95.add(mm[1]);
+    });
+    assert.strictEqual(ids95.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${ids95.size})`);
+    assert.ok(idxHtml95.includes('data-proj-vmode="calendar"'), 'index.html must include Calendar View toggle button');
+    assert.ok(idxHtml95.includes('class="tasks-board-calendar-view hidden"'), 'index.html must include .tasks-board-calendar-view container');
+    assert.ok(idxHtml95.includes('class="task-cal-day-popover"'), 'index.html must include .task-cal-day-popover container');
+    assert.ok(css95.includes('.tasks-board-calendar-view.hidden'), 'components.css must isolate hidden .tasks-board-calendar-view');
+
+    // 2. Exact 4-color task calendar classification (Malaysia timezone reference: 2026-11-25 12:00 MYT)
+    const refNow95 = Date.parse('2026-11-25T04:00:00Z'); // 2026-11-25 12:00 MYT
+    const stOverdue = tasksMod95.getTaskCalendarColorState({ id: 'c1', status: 'todo', due_date: '2026-11-23' }, 'HQ', refNow95);
+    assert.strictEqual(stOverdue.color, 'red', 'Uncompleted past-due task must be red');
+    assert.strictEqual(stOverdue.cls, 'task-cal-pill-red');
+
+    const stCompLate = tasksMod95.getTaskCalendarColorState({
+      id: 'c2', status: 'completed', due_date: '2026-11-24', completed_at: '2026-11-24T16:05:00Z' // 2026-11-25 00:05 MYT -> late
+    }, 'HQ', refNow95);
+    assert.strictEqual(stCompLate.color, 'red', 'Completed late task must be red');
+    assert.strictEqual(stCompLate.label, 'Completed late');
+
+    const stNearToday = tasksMod95.getTaskCalendarColorState({ id: 'c3', status: 'inprogress', due_date: '2026-11-25' }, 'HQ', refNow95);
+    assert.strictEqual(stNearToday.color, 'yellow', 'Task due today must be yellow');
+
+    const stNear2d = tasksMod95.getTaskCalendarColorState({ id: 'c4', status: 'todo', due_date: '2026-11-27' }, 'HQ', refNow95);
+    assert.strictEqual(stNear2d.color, 'yellow', 'Task due in 2 days must be yellow');
+
+    const stCompOnTime = tasksMod95.getTaskCalendarColorState({
+      id: 'c5', status: 'completed', due_date: '2026-11-25', completed_at: '2026-11-25T15:50:00Z' // 2026-11-25 23:50 MYT -> on time
+    }, 'HQ', refNow95);
+    assert.strictEqual(stCompOnTime.color, 'green', 'Task completed on time/early must be green');
+    assert.strictEqual(stCompOnTime.cls, 'task-cal-pill-green');
+
+    const stCompNoTs = tasksMod95.getTaskCalendarColorState({ id: 'c6', status: 'completed', due_date: '2026-11-25' }, 'HQ', refNow95);
+    assert.strictEqual(stCompNoTs.color, 'green', 'Completed task without timestamp must be green');
+
+    const stUpcoming = tasksMod95.getTaskCalendarColorState({ id: 'c7', status: 'planning', due_date: '2026-12-05' }, 'HQ', refNow95);
+    assert.strictEqual(stUpcoming.color, 'gray', 'Uncompleted task > 2 days away must be light gray');
+    assert.strictEqual(stUpcoming.cls, 'task-cal-pill-gray');
+    console.log('  ✔ Task calendar 4-color classification (red/yellow/green/gray) verified across all edge cases');
+
+    // 3. Calendar grid generation, Today highlight, Month/Year navigation, and avatar rendering
+    const novGrid = tasksMod95.getTaskCalendarMonthGrid(2026, 10, refNow95); // Nov 2026
+    assert.strictEqual(novGrid.length % 7, 0, 'Month grid must contain complete 7-day weeks');
+    const todayCell = novGrid.find(c => c.iso === '2026-11-25');
+    assert.ok(todayCell && todayCell.isToday === true && todayCell.inMonth === true, 'Today (2026-11-25) must be highlighted');
+
+    utilsMod95._memberPfpsMap['caluser@example.test'] = 'https://example.com/cal-avatar.jpg';
+    tasksMod95._taskCalYear = 2026;
+    tasksMod95._taskCalMonth = 10;
+    tasksMod95._taskCalSubMode = 'month';
+    const calSampleTasks = [
+      { id: 'cal-red', title: 'Overdue Flag Check', status: 'todo', project_name: 'Logistics', assignee_name: 'Cal Tester', assignee_ic: 'caluser@example.test', due_date: '2026-11-20' },
+      { id: 'cal-yel', title: 'Near Parade Prep', status: 'inprogress', project_name: 'HQ', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: '2026-11-26' },
+      { id: 'cal-grn', title: 'Done Drill Plan', status: 'completed', project_name: 'Media', assignee_name: 'Cal Tester', assignee_ic: 'caluser@example.test', due_date: '2026-11-25', completed_at: '2026-11-24T08:00:00Z' },
+      { id: 'cal-gry', title: 'Future Camp Plan', status: 'planning', project_name: 'Secretariat', assignee_name: 'Officer Tan', assignee_ic: '', due_date: '2026-11-30' }
+    ];
+    const monthHtml = tasksMod95.buildTaskCalendarHtml(calSampleTasks, { context: 'mytasks', showProjectTag: true, now: refNow95 });
+    assert.ok(monthHtml.includes('November 2026'), 'Month view must render current month and year heading');
+    assert.ok(monthHtml.includes('data-cal-submode="month"') && monthHtml.includes('data-cal-submode="year"'), 'Calendar must offer Month and Year options');
+    assert.ok(!monthHtml.includes('Work week') && !monthHtml.includes('data-cal-submode="week"'), 'Calendar must ONLY expose Month and Year options');
+    assert.ok(monthHtml.includes('task-cal-cell is-today') || monthHtml.includes('is-today'), 'Month view must highlight today cell');
+    assert.ok(monthHtml.includes('task-cal-pill-red') && monthHtml.includes('task-cal-pill-yellow') && monthHtml.includes('task-cal-pill-green') && monthHtml.includes('task-cal-pill-gray'), 'Month view must render all 4 status color pills');
+    assert.ok(monthHtml.includes('cal-avatar.jpg'), 'Calendar task pills must render assignee uploaded profile image');
+    assert.ok(monthHtml.includes('Logistics') && monthHtml.includes('HQ') && monthHtml.includes('Media'), 'All-tasks calendar view must show project labels across projects');
+
+    // Switch to Year view & navigate across years/months
+    tasksMod95._taskCalSubMode = 'year';
+    const yearHtml = tasksMod95.buildTaskCalendarHtml(calSampleTasks, { context: 'project', projectName: 'Logistics', now: refNow95 });
+    assert.ok(yearHtml.includes('task-cal-year-grid') && yearHtml.includes('January') && yearHtml.includes('December'), 'Year view must render all 12 months');
+    assert.ok(yearHtml.includes('dot-red') && yearHtml.includes('dot-yellow') && yearHtml.includes('dot-green') && yearHtml.includes('dot-gray'), 'Year view must render task status dots');
+
+    tasksMod95._taskCalSubMode = 'month';
+    tasksMod95._taskCalYear = 2026;
+    tasksMod95._taskCalMonth = 11; // Dec 2026
+    tasksMod95.navigateTaskCalendar(1);
+    assert.strictEqual(tasksMod95._taskCalYear, 2027, 'Next month from Dec 2026 must roll over to 2027');
+    assert.strictEqual(tasksMod95._taskCalMonth, 0, 'Next month from Dec 2026 must be January (0)');
+    tasksMod95.navigateTaskCalendar(-1);
+    assert.strictEqual(tasksMod95._taskCalYear, 2026, 'Previous month from Jan 2027 must roll back to 2026');
+    assert.strictEqual(tasksMod95._taskCalMonth, 11, 'Previous month from Jan 2027 must be December (11)');
+    tasksMod95._taskCalSubMode = 'year';
+    tasksMod95.navigateTaskCalendar(1);
+    assert.strictEqual(tasksMod95._taskCalYear, 2027, 'Next year in Year view must increment year');
+    tasksMod95.jumpTaskCalendarToday();
+    assert.strictEqual(tasksMod95._taskCalYear, parseInt(tasksMod95.getTaskMalaysiaDay(Date.now()).slice(0, 4), 10), 'Today button must jump back to current year');
+    delete utilsMod95._memberPfpsMap['caluser@example.test'];
+    console.log('  ✔ Month/Year calendar views, Today highlight, arrows, and assignee profile avatars verified');
+
+    // 4. Project 3-way view mutual exclusivity (Board / List / Calendar) & All-Tasks 3-way overview (Board / List / Calendar)
+    const origGetEl95 = global.document.getElementById;
+    const origQS95 = global.document.querySelector;
+    const origQSA95 = global.document.querySelectorAll;
+    const mBoard95 = createMockElement('div');
+    const mTabs95 = createMockElement('div');
+    const mList95 = createMockElement('div');
+    const mCal95 = createMockElement('div');
+    const mMyTasks95 = createMockElement('div');
+    const mPopover95 = createMockElement('div');
+    const mCreateModal95 = createMockElement('div');
+    const mDueInput95 = createMockElement('input');
+    const mProjSelect95 = createMockElement('select');
+    const mProjDisplay95 = createMockElement('div');
+    mCreateModal95.querySelector = (s) => {
+      if (s === '.new-task-due-input') return mDueInput95;
+      if (s === '.new-task-project-select') return mProjSelect95;
+      if (s === '.new-task-project-display') return mProjDisplay95;
+      return createMockElement('div');
+    };
+    global.document.getElementById = (id) => {
+      if (id === 'tasks-columns') return mBoard95;
+      if (id === 'task-col-tabs') return mTabs95;
+      return origGetEl95 ? origGetEl95(id) : null;
+    };
+    global.document.querySelector = (sel) => {
+      if (sel === '.tasks-board-list-view') return mList95;
+      if (sel === '.tasks-board-calendar-view') return mCal95;
+      if (sel === '.my-tasks-container') return mMyTasks95;
+      if (sel === '.task-cal-day-popover') return mPopover95;
+      if (sel === '.task-create-modal') return mCreateModal95;
+      return origQS95 ? origQS95(sel) : null;
+    };
+    global.document.querySelectorAll = () => [];
+
+    const prevTasks95 = tasksMod95._allLoadedTasks.slice();
+    tasksMod95._allLoadedTasks = calSampleTasks.slice();
+    tasksMod95._activeProject = 'Logistics';
+    tasksMod95.setTasksViewMode('board');
+    tasksMod95.setProjectDisplayMode('calendar');
+    assert.strictEqual(mCal95.style.display, 'block', 'Calendar container must be visible in calendar mode');
+    assert.strictEqual(mBoard95.style.display, 'none', 'Board columns must be hidden in calendar mode');
+    assert.strictEqual(mList95.style.display, 'none', 'List view must be hidden in calendar mode');
+
+    // Day popover & task creation date prefill
+    tasksMod95.openTaskCalendarDayPopover('2026-11-26', 'mytasks');
+    assert.strictEqual(mPopover95.style.display, 'block', 'Day popover must open when day cell is clicked');
+    assert.ok(mPopover95.innerHTML.includes('Near Parade Prep') && mPopover95.innerHTML.includes('New task'), 'Day popover must list tasks on clicked date and New task button');
+    tasksMod95.openCreateTaskFromCalendar('2026-11-26', true);
+    assert.strictEqual(mPopover95.style.display, 'none', 'Day popover must close when clicking New task');
+    assert.strictEqual(mCreateModal95.style.display, 'flex', 'Create Task modal must open from calendar');
+    assert.strictEqual(mDueInput95.value, '2026-11-26', 'Create Task modal must prefill clicked calendar date');
+
+    // All-Tasks section 3 views: List, Board, Calendar across all projects
+    tasksMod95.resetTasksFiltersToDefault();
+    tasksMod95.setTasksViewMode('mytasks');
+    tasksMod95.setMyTasksDisplayMode('list');
+    assert.ok(mMyTasks95.innerHTML.includes('my-tasks-table') && mMyTasks95.innerHTML.includes('Logistics') && mMyTasks95.innerHTML.includes('Secretariat'), 'Tasks List View must show overview across all projects');
+    tasksMod95.setMyTasksDisplayMode('board');
+    assert.ok(mMyTasks95.innerHTML.includes('my-tasks-board-columns') && mMyTasks95.innerHTML.includes('Overdue Flag Check') && mMyTasks95.innerHTML.includes('Done Drill Plan'), 'Tasks Board View must render Kanban columns across all projects');
+    tasksMod95.setMyTasksDisplayMode('calendar');
+    assert.ok(mMyTasks95.innerHTML.includes('task-cal-shell') && mMyTasks95.innerHTML.includes('my-tasks-calendar-card'), 'Tasks Calendar View must render Month/Year calendar across all projects');
+
+    // Restore state & globals
+    tasksMod95._allLoadedTasks = prevTasks95;
+    tasksMod95.setMyTasksDisplayMode('list');
+    tasksMod95.setProjectDisplayMode('board');
+    global.document.getElementById = origGetEl95;
+    global.document.querySelector = origQS95;
+    global.document.querySelectorAll = origQSA95;
+    console.log('  ✔ Project Calendar mutual exclusivity, Day Popover + date prefill, and Tasks 3-view overview verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);
