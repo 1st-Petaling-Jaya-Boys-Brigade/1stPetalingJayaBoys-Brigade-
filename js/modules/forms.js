@@ -2766,19 +2766,52 @@ function renderGfQuestionsTab() {
 
     var imgFileInp = card.querySelector('.gf-image-file-input');
     if (imgFileInp) {
-      imgFileInp.addEventListener('change', function(e) {
+      imgFileInp.addEventListener('change', async function(e) {
         var file = e.target.files && e.target.files[0];
         if (!file) return;
+        var ext = (file.name || '').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (ext === 'svg' || ext === 'html' || ext === 'htm' || file.type === 'image/svg+xml') {
+          if (typeof showToast === 'function') showToast('Please upload a JPG, PNG, or WebP image.', 'error');
+          e.target.value = '';
+          return;
+        }
         if (file.size > 5 * 1024 * 1024) {
           if (typeof showToast === 'function') showToast('Image file exceeds 5MB limit.', 'error');
           return;
         }
-        var reader = new FileReader();
-        reader.onload = function(evt) {
-          it.url = evt.target.result;
+
+        var uploadedUrl = '';
+        try {
+          var client = (typeof supa !== 'undefined' && supa) ? supa : (typeof window !== 'undefined' ? window.supa : null);
+          if (client && typeof client.uploadFile === 'function' && typeof client.fileUrl === 'function') {
+            var uploadBlob = file;
+            var isPng = file.type === 'image/png' || ext === 'png';
+            var compressFn = (typeof window !== 'undefined' && typeof window.compressGalleryPhoto === 'function') ? window.compressGalleryPhoto : null;
+            if (!isPng && compressFn) {
+              uploadBlob = await compressFn(file, 1400, 0.82);
+              ext = 'jpg';
+            } else if (!['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+              ext = 'jpg';
+            }
+            var formImgPath = 'catalog/forms/form_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.' + ext;
+            await client.uploadFile('gallery', formImgPath, uploadBlob);
+            uploadedUrl = client.fileUrl('gallery', formImgPath, { private: false });
+          }
+        } catch (formImgErr) {
+          console.warn('Form image storage upload fallback:', formImgErr);
+        }
+
+        if (uploadedUrl) {
+          it.url = uploadedUrl;
           renderGfEditor();
-        };
-        reader.readAsDataURL(file);
+        } else if (typeof FileReader !== 'undefined') {
+          var reader = new FileReader();
+          reader.onload = function(evt) {
+            it.url = evt.target.result;
+            renderGfEditor();
+          };
+          reader.readAsDataURL(file);
+        }
       });
     }
 

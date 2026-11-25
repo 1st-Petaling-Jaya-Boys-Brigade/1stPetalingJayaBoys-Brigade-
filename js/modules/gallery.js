@@ -70,7 +70,15 @@ function galleryMediaSource(url) {
   var provider;
   if (host === 'drive.google.com' || host === 'docs.google.com') {
     provider = 'drive';
-    id = path[0] === 'file' && path[1] === 'd' ? path[2] : (['open', 'uc', 'thumbnail'].includes(path[0]) ? url.searchParams.get('id') : '');
+    if (path[0] === 'file' && path[1] === 'd') {
+      id = path[2];
+    } else if (path[0] === 'file' && path[1] === 'u' && path[3] === 'd') {
+      id = path[4];
+    } else if (['open', 'uc', 'thumbnail'].includes(path[0])) {
+      id = url.searchParams.get('id');
+    } else {
+      id = '';
+    }
   } else if (['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtube-nocookie.com', 'www.youtube-nocookie.com', 'youtu.be'].includes(host)) {
     provider = 'youtube';
     id = host === 'youtu.be' ? path[0] : (path[0] === 'watch' ? url.searchParams.get('v') : (['embed', 'shorts', 'live'].includes(path[0]) ? path[1] : ''));
@@ -983,140 +991,28 @@ function openGalleryLightbox(idx) {
 
 // ── Upload Operations ──────────────────────────────────────────────────────
 /**
- * Shared file uploader for gallery photos and videos (file input and drag-and-drop)
- * @param {FileList|File[]} files
+ * Direct gallery file uploads are disabled in favor of Google Drive links
+ * to protect free-tier storage & bandwidth while keeping existing media intact.
+ * (uploadSingleMediaFile remains available for announcements & story highlights.)
  */
-var _isUploadingGallery = false;
-
-async function uploadGalleryFiles(files) {
-  if (!files || !files.length) return;
-  if (_isUploadingGallery) {
-    if (typeof showToast === 'function') showToast('Media upload already in progress. Please wait.', 'warning');
-    return;
-  }
-  var validExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'avif', 'heic', 'mp4', 'webm', 'mov', 'm4v', 'ogg', 'ogv', 'mkv'];
-
-  var validFiles = Array.from(files).filter(function(f) {
-    if (!f) return false;
-    var ext = (f.name.split('.').pop() || '').toLowerCase();
-    var isMimeValid = (f.type && (f.type.startsWith('image/') || f.type.startsWith('video/')));
-    return isMimeValid || validExts.indexOf(ext) !== -1;
-  });
-
-  if (!validFiles.length) {
-    if (typeof showToast === 'function') {
-      showToast('Please select valid image or video files (JPG, PNG, WebP, MP4, MOV, WebM).', 'warning');
-    }
-    return;
-  }
-  _isUploadingGallery = true;
-
-  var dropZone = (typeof document !== 'undefined') ? document.getElementById('gallery-drop') : null;
-  if (dropZone) dropZone.style.opacity = '0.5';
-
-  var progressContainer = (typeof document !== 'undefined') ? document.getElementById('gallery-upload-progress') : null;
-  if (!progressContainer && dropZone && dropZone.parentNode) {
-    progressContainer = dropZone.parentNode;
-  }
-  var progressBar = (progressContainer && typeof createTaskProgressBar === 'function')
-    ? createTaskProgressBar(progressContainer, {
-        title: 'Uploading Media (' + validFiles.length + ' file' + (validFiles.length > 1 ? 's' : '') + ')',
-        totalSteps: validFiles.length
-      })
-    : null;
-
-  var successCount = 0;
-  var failCount = 0;
-  var lastUploadError = '';
-
-  for (var fi = 0; fi < validFiles.length; fi++) {
-    var file = validFiles[fi];
-    if (progressBar) {
-      var pct = Math.round((fi / validFiles.length) * 100);
-      progressBar.update(fi + 1, 'Processing & uploading ' + (file ? file.name : 'file') + '...', pct);
-    }
-    var file = validFiles[fi];
-    try {
-      var res = await uploadSingleMediaFile(file);
-      if (res && res.url) {
-        var client = getSupa();
-        var storage = galleryStorageObject(res.url);
-        var url = storage
-          ? new URL('/storage/v1/object/authenticated/gallery/' + storage.path, res.url).href
-          : res.url;
-        var row = null;
-        if (client && client.post) {
-          try {
-            row = await client.post('bb_gallery', {
-              url: url,
-              type: res.type,
-              created_at: new Date().toISOString()
-            });
-          } catch (errPostType) {
-            row = await client.post('bb_gallery', {
-              url: url,
-              created_at: new Date().toISOString()
-            });
-          }
-        }
-        var id = (row && row[0] && row[0].id) ? row[0].id : null;
-        galleryImages.push({ id: id, url: url, type: res.type });
-        successCount++;
-      }
-    } catch (e) {
-      console.error('Gallery upload error for file ' + file.name + ':', e);
-      lastUploadError = e.message || 'Storage error';
-      failCount++;
-    }
-  }
-
-  if (progressBar) {
-    if (failCount === 0) {
-      progressBar.complete('All ' + successCount + ' files uploaded successfully!');
-    } else {
-      progressBar.fail(successCount + ' uploaded, ' + failCount + ' failed: ' + lastUploadError);
-    }
-  }
-
-  if (dropZone) dropZone.style.opacity = '1';
-
-  renderGallery();
-
-  if (successCount > 0 && typeof logAuditEvent === 'function') {
-    logAuditEvent({
-      action: 'gallery.upload',
-      targetType: 'gallery',
-      targetId: 'multiple',
-      actorRole: 'officer_admin',
-      details: { uploaded_count: successCount, failed_count: failCount }
-    });
-  }
-
+async function uploadGalleryFiles() {
   if (typeof showToast === 'function') {
-    if (successCount > 0 && failCount === 0) {
-      showToast('Uploaded ' + successCount + ' media file' + (successCount > 1 ? 's' : '') + ' successfully!', 'success');
-    } else if (successCount > 0 && failCount > 0) {
-      showToast('Uploaded ' + successCount + ' file' + (successCount > 1 ? 's' : '') + ' (' + failCount + ' failed).', 'warning');
-    } else if (failCount > 0) {
-      showToast('Upload failed: ' + (lastUploadError || 'Please check storage bucket permissions.'), 'error');
-    }
+    showToast('Direct gallery uploads are disabled. Upload to Google Drive ("Anyone with the link" → Viewer) and paste the link.', 'warning');
   }
-  _isUploadingGallery = false;
+  return null;
 }
 
 /**
- * Handles file selection from the admin file input element
+ * Legacy file input handler (retained as no-op guard for backward compatibility)
  * @param {HTMLInputElement} input
  */
 async function handleGalleryUpload(input) {
-  if (!input || !input.files || !input.files.length) return;
-  var files = Array.from(input.files);
-  await uploadGalleryFiles(files);
-  input.value = ''; // Reset input to allow selecting identical file name again
+  if (input) input.value = '';
+  return uploadGalleryFiles();
 }
 
 /**
- * Ingests a Google Drive link, YouTube video, or direct web media link as a photo or video
+ * Ingests a Google Drive photo or video link into the Company Gallery.
  * Supports both DOM-driven interaction from the Admin Console and programmatic invocation.
  * @param {string} [explicitUrl]
  * @param {string} [explicitType]
@@ -1130,15 +1026,17 @@ async function addGalleryMediaByUrl(explicitUrl, explicitType) {
   var rawUrl = (explicitUrl && typeof explicitUrl === 'string') ? explicitUrl.trim() : (inputEl ? inputEl.value.trim() : '');
   if (!rawUrl) {
     if (typeof showToast === 'function') {
-      showToast('Please enter a Google Drive link or media URL.', 'warning');
+      showToast('Please paste a Google Drive link (set to "Anyone with the link" can view).', 'warning');
     }
     return null;
   }
 
-  // Security check: validate protocol
-  if (!/^https?:\/\//i.test(rawUrl)) {
+  // Security & policy check: enforce valid Google Drive file links only
+  var parsedUrl = parseGalleryUrl(rawUrl);
+  var mediaSource = parsedUrl ? galleryMediaSource(parsedUrl) : null;
+  if (!parsedUrl || !mediaSource || mediaSource.provider !== 'drive') {
     if (typeof showToast === 'function') {
-      showToast('Please enter a valid URL starting with http:// or https://', 'warning');
+      showToast('Only Google Drive file links are supported (e.g. https://drive.google.com/file/d/...). Set sharing to "Anyone with the link" (Viewer).', 'warning');
     }
     return null;
   }
@@ -1195,7 +1093,7 @@ async function addGalleryMediaByUrl(explicitUrl, explicitType) {
 
     if (typeof showToast === 'function') {
       var typeLabel = mediaType === 'video' ? 'video' : 'photo';
-      showToast('Google Drive / Media link ' + typeLabel + ' added successfully!', 'success');
+      showToast('Google Drive ' + typeLabel + ' added successfully!', 'success');
     }
 
     if (typeof logAuditEvent === 'function') {

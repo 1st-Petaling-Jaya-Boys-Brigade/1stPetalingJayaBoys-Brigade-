@@ -26,8 +26,200 @@ const MESSAGES: Record<string, [string, string, string]> = {
 type Member = { ic: string; email: string; name: string; rank: string; department: string; password?: string };
 type Device = { endpoint: string; member_ic: string; device_hash: string; p256dh: string; auth_key: string };
 type SignIn = { email: string; expires_at: string };
+type FcmServiceAccount = { project_id: string; client_email: string; private_key: string };
+type PushMeta = { title?: string; body?: string; tab?: string };
+
+const ALLOWED_TABS = new Set(['home', 'parade', 'tasks', 'resources', 'member', 'forum', 'orders', 'order', 'calendar', 'gallery', 'attendance', 'badges', 'admin']);
+let fcmAccountCache: FcmServiceAccount | null | undefined;
+let fcmTokenCache = '';
+let fcmTokenExpiry = 0;
 
 class ProviderRejected extends Error {}
+
+function getFcmServiceAccount(): FcmServiceAccount | null {
+  if (fcmAccountCache !== undefined) return fcmAccountCache;
+  const raw = (Deno.env.get('FCM_SERVICE_ACCOUNT_JSON') || '').trim();
+  if (!raw) {
+    fcmAccountCache = null;
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.project_id === 'string' &&
+      typeof parsed.client_email === 'string' &&
+      typeof parsed.private_key === 'string'
+    ) {
+      fcmAccountCache = {
+        project_id: parsed.project_id.trim(),
+        client_email: parsed.client_email.trim(),
+        private_key: parsed.private_key.replace(/\\n/g, '\n'),
+      };
+      return fcmAccountCache;
+    }
+  } catch {
+    // Ignore malformed secret configuration safely
+  }
+  fcmAccountCache = null;
+  return null;
+}
+
+function base64Url(input: string | Uint8Array): string {
+  const bytes = typeof input === 'string' ? encoder.encode(input) : input;
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+function pemToBytes(pem: string): Uint8Array {
+  const clean = pem
+    .replace(/-----BEGIN [A-Z ]+-----/g, '')
+    .replace(/-----END [A-Z ]+-----/g, '')
+    .replace(/\s+/g, '');
+  const bin = atob(clean);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function cleanPushText(value: unknown, maxLen: number): string {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[\x00-\x1F\x7F]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLen);
+}
+
+async function getFcmAccessToken(account: FcmServiceAccount): Promise<string> {
+  const now = Date.now();
+  if (fcmTokenCache && now < fcmTokenExpiry) return fcmTokenCache;
+  const keyBytes = pemToBytes(account.private_key);
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyBytes.buffer as ArrayBuffer,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const nowSec = Math.floor(now / 1000);
+  const unsigned = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' })) + '.' + base64Url(JSON.stringify({
+    iss: account.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: nowSec + 3600,
+    iat: nowSec,
+  }));
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, encoder.encode(unsigned));
+  const assertion = unsigned + '.' + base64Url(new Uint8Array(signature));
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }).toString(),
+    redirect: 'error',
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error('FCM OAuth token exchange failed');
+  }
+  const tokenJson = await response.json();
+  if (!tokenJson?.access_token) throw new Error('FCM OAuth token missing');
+  fcmTokenCache = String(tokenJson.access_token);
+  const expiresIn = typeof tokenJson.expires_in === 'number' ? tokenJson.expires_in : 3600;
+  fcmTokenExpiry = now + Math.max(60, expiresIn - 300) * 1000;
+  return fcmTokenCache;
+}
+
+async function sendFcmTopic(account: FcmServiceAccount, accessToken: string, topic: string, category: string, targetId: string, meta?: PushMeta): Promise<boolean> {
+  const [defaultTitle, defaultBody, defaultTab] = MESSAGES[category];
+  const title = cleanPushText(meta?.title, 80) || defaultTitle;
+  const body = cleanPushText(meta?.body, 160) || defaultBody;
+  const rawTab = typeof meta?.tab === 'string' ? meta.tab.trim().toLowerCase() : '';
+  const tab = ALLOWED_TABS.has(rawTab) ? rawTab : defaultTab;
+  const notifTag = 'portal_' + String(targetId || category || 'general');
+  const fcmUrl = 'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(account.project_id) + '/messages:send';
+  const payload = {
+    message: {
+      topic,
+      notification: { title, body },
+      data: {
+        title,
+        body,
+        snippet: body,
+        category,
+        tab,
+        targetId,
+      },
+      android: {
+        priority: 'HIGH',
+        notification: {
+          channel_id: 'portal-alerts-v2',
+          notification_priority: 'PRIORITY_MAX',
+          visibility: 'PUBLIC',
+          default_sound: true,
+          default_vibrate_timings: true,
+          sound: 'portal_chime',
+          icon: 'ic_launcher',
+          tag: notifTag,
+        },
+      },
+    },
+  };
+  const response = await fetch(fcmUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+    redirect: 'error',
+    signal: AbortSignal.timeout(8000),
+  });
+  await response.body?.cancel();
+  if (!response.ok) throw new ProviderRejected('FCM provider rejected delivery');
+  return true;
+}
+
+async function fanoutFcm(topics: string[], category: string, target: string, targetId = '', meta?: PushMeta) {
+  const account = getFcmServiceAccount();
+  if (!account || !topics.length) return { sent: 0, failed: 0 };
+  let accessToken = '';
+  try {
+    accessToken = await getFcmAccessToken(account);
+  } catch {
+    return { sent: 0, failed: topics.length };
+  }
+  let sent = 0;
+  let failed = 0;
+  for (let index = 0; index < topics.length; index += 10) {
+    const results = await Promise.allSettled(topics.slice(index, index + 10).map(async topic => {
+      if (category !== 'task_overdue') return sendFcmTopic(account, accessToken, topic, category, targetId, meta);
+      const key = await hash('fcm/' + topic);
+      const claim = await db<unknown[]>('bb_task_reminder_deliveries?on_conflict=reminder_day,recipient_key', 'POST',
+        { reminder_day: target, recipient_key: key }, 'resolution=ignore-duplicates,return=representation');
+      if (!claim.length) return false;
+      try {
+        return await sendFcmTopic(account, accessToken, topic, category, '', meta);
+      } catch (error) {
+        if (error instanceof ProviderRejected) {
+          await db('bb_task_reminder_deliveries?' + filter('reminder_day', target) + '&' + filter('recipient_key', key), 'DELETE');
+        }
+        throw error;
+      }
+    }));
+    for (const result of results) {
+      if (result.status === 'rejected') failed++;
+      else if (result.value) sent++;
+    }
+  }
+  return { sent, failed };
+}
 
 const normalize = (value: unknown) => typeof value === 'string' ? value.trim().toLowerCase() : '';
 const accountEmail = (member: Member) => normalize(member.email || member.ic.split('__')[0]);
@@ -223,7 +415,9 @@ Deno.serve(async request => {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (request.method === 'GET') return json({ applicationServerKey: PUBLIC_KEY });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!PUBLIC_KEY || !PRIVATE_KEY) return json({ error: 'Web Push is unavailable' }, 503);
+  const hasWebPush = Boolean(PUBLIC_KEY && PRIVATE_KEY);
+  const hasFcm = Boolean(getFcmServiceAccount());
+  if (!hasWebPush && !hasFcm) return json({ error: 'Push service is unavailable' }, 503);
 
   try {
     const raw = await request.text();
@@ -242,8 +436,18 @@ Deno.serve(async request => {
         db('bb_portal_push_sessions?expires_at=lt.' + expired, 'DELETE'),
         db('bb_portal_push_limits?resets_at=lt.' + expired, 'DELETE'),
       ]);
-      const result = await fanout(await recipients(topics.filter(topic => topic.startsWith('user_'))), 'task_overdue', day);
-      return json(result, result.failed ? 502 : 200);
+      const userTopics = topics.filter(topic => topic.startsWith('user_'));
+      const [webResult, fcmResult] = await Promise.all([
+        hasWebPush ? fanout(await recipients(userTopics), 'task_overdue', day) : Promise.resolve({ sent: 0, failed: 0 }),
+        hasFcm ? fanoutFcm(userTopics, 'task_overdue', day) : Promise.resolve({ sent: 0, failed: 0 }),
+      ]);
+      const combined = {
+        sent: webResult.sent,
+        failed: webResult.failed,
+        fcmSent: fcmResult.sent,
+        fcmFailed: fcmResult.failed,
+      };
+      return json(combined, (webResult.failed || fcmResult.failed) && !(webResult.sent || fcmResult.sent) ? 502 : 200);
     }
     if (!trustedOrigin) return json({ error: 'Invalid request origin' }, 403);
     if (action === 'session') {
@@ -268,6 +472,7 @@ Deno.serve(async request => {
     if (!actor || !active(actor) || accountEmail(actor) !== session.email) return json({ error: 'Member could not be verified' }, 403);
 
     if (action === 'register') {
+      if (!hasWebPush) return json({ error: 'Web Push is unavailable' }, 503);
       const p256dh = data.subscription?.keys?.p256dh;
       const authKey = data.subscription?.keys?.auth;
       if (!endpoint || !tokenPattern.test(deviceKey) || typeof p256dh !== 'string' || !/^[\w-]{87}$/.test(p256dh)
@@ -283,6 +488,7 @@ Deno.serve(async request => {
       return json({ ok: true });
     }
     if (action === 'test' && endpoint && tokenPattern.test(deviceKey)) {
+      if (!hasWebPush) return json({ error: 'Web Push is unavailable' }, 503);
       if (!await budget('test:' + await hash(session.email), 4, 900)) return json({ error: 'Too many tests' }, 429);
       const devices = await db<Device[]>('bb_portal_push_devices?select=*&' + filter('endpoint', endpoint)
         + '&' + filter('member_ic', actor.ic) + '&' + filter('device_hash', await hash(deviceKey)));
@@ -306,8 +512,24 @@ Deno.serve(async request => {
     const permitted = topics.filter(topic => topic.startsWith('user_') || staff || (category !== 'forum_reply' && topic === departmentTopic(actor)));
     const targetId = String(data.target || '').replace(/[^\w-]/g, '').slice(0, 80);
     const target = targetId || String(Date.now());
-    const result = await fanout(await recipients(permitted), category, target, targetId);
-    return json(result, result.failed && !result.sent ? 502 : 200);
+    const meta: PushMeta = {
+      title: typeof data.title === 'string' ? data.title : undefined,
+      body: typeof data.body === 'string' ? data.body : undefined,
+      tab: typeof data.tab === 'string' ? data.tab : undefined,
+    };
+    const [webResult, fcmResult] = await Promise.all([
+      hasWebPush ? fanout(await recipients(permitted), category, target, targetId) : Promise.resolve({ sent: 0, failed: 0 }),
+      hasFcm ? fanoutFcm(permitted, category, target, targetId, meta) : Promise.resolve({ sent: 0, failed: 0 }),
+    ]);
+    const combined = {
+      sent: webResult.sent,
+      failed: webResult.failed,
+      fcmSent: fcmResult.sent,
+      fcmFailed: fcmResult.failed,
+    };
+    const totalSent = webResult.sent + fcmResult.sent;
+    const totalFailed = webResult.failed + fcmResult.failed;
+    return json(combined, totalFailed && !totalSent ? 502 : 200);
   } catch {
     return json({ error: 'Web Push could not complete the request' }, 500);
   }

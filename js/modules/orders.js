@@ -77,6 +77,7 @@ var UNIFORM_ORDER_TRANSITIONS = {
   cancelled: []
 };
 var _tngScreenshotFile = null;
+var _stagedProductImgFile = null;
 var _isSavingProduct = false;
 
 /**
@@ -3738,12 +3739,22 @@ function closeUniformScheduleModal() {
 }
 
 /**
- * Previews uploaded product photo in Admin console
+ * Previews uploaded product photo in Admin console and stages the file
+ * for Supabase Storage CDN upload on saveProduct().
  * @param {HTMLInputElement} input
  */
 function previewProductImg(input) {
   if (!input || !input.files || !input.files[0]) return;
   var file = input.files[0];
+  var ext = (file.name || '').split('.').pop().toLowerCase();
+  if (ext === 'svg' || ext === 'html' || ext === 'htm' || file.type === 'image/svg+xml') {
+    if (typeof showToast === 'function') {
+      showToast('Please upload a JPG, PNG, or WebP product image.', 'warning');
+    }
+    input.value = '';
+    return;
+  }
+  _stagedProductImgFile = file;
   var reader = new FileReader();
   reader.onload = function (e) {
     var dataEl = document.getElementById('prod-img-data');
@@ -3762,6 +3773,7 @@ function previewProductImg(input) {
  * Resets Admin product form to default state
  */
 function clearProductForm() {
+  _stagedProductImgFile = null;
   if (typeof document === 'undefined') return;
   ['prod-name', 'prod-price', 'prod-sizes', 'prod-img-data', 'prod-edit-key'].forEach(
     function (id) {
@@ -3846,6 +3858,48 @@ async function saveProduct() {
     var price = priceInSen / 100;
 
     var key = editKey || name.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
+
+    // Offload newly selected or inline base64 product photos to CDN-cached Supabase Storage
+    var client = getSupa();
+    if (
+      client &&
+      typeof client.uploadFile === 'function' &&
+      typeof client.fileUrl === 'function' &&
+      (_stagedProductImgFile || (typeof image === 'string' && image.indexOf('data:image/') === 0))
+    ) {
+      try {
+        var uploadBlob = null;
+        var uploadExt = 'jpg';
+        if (_stagedProductImgFile) {
+          var stagedExt = (_stagedProductImgFile.name || '').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+          var isPng = _stagedProductImgFile.type === 'image/png' || stagedExt === 'png';
+          if (isPng) {
+            uploadBlob = _stagedProductImgFile;
+            uploadExt = 'png';
+          } else {
+            var compressedProd = await compressReceiptImage(_stagedProductImgFile, 800, 0.82);
+            uploadBlob = (compressedProd && compressedProd.blob) || _stagedProductImgFile;
+            uploadExt = uploadBlob && uploadBlob.type === 'image/webp' ? 'webp' : 'jpg';
+          }
+        } else if (typeof image === 'string' && image.indexOf('data:image/') === 0) {
+          var compressedData = await compressReceiptImage(image, 800, 0.82);
+          if (compressedData && compressedData.blob) {
+            uploadBlob = compressedData.blob;
+            uploadExt = 'jpg';
+          }
+        }
+        if (uploadBlob) {
+          var safeProdKey = String(key).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48);
+          var prodPath = 'catalog/uniforms/item_' + safeProdKey + '_' + Date.now() + '.' + uploadExt;
+          await client.uploadFile('gallery', prodPath, uploadBlob);
+          image = client.fileUrl('gallery', prodPath, { private: false });
+          _stagedProductImgFile = null;
+        }
+      } catch (prodUploadErr) {
+        console.warn('Uniform product image storage upload fallback:', prodUploadErr);
+      }
+    }
+
     var item = {
       key: key,
       name: name,

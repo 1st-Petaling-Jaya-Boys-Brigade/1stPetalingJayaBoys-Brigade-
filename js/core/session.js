@@ -416,6 +416,7 @@ function sessionClear(options) {
   var localOnly = options.localOnly === true || options.silent === true;
 
   if (typeof window !== 'undefined') window.PortalWebPush?.signOut().catch(function () {});
+  if (typeof window !== 'undefined') window.PortalRealtime?.untrackPresence?.();
   if (typeof window !== 'undefined' && typeof window.revokeAdminSession === 'function') {
     window.revokeAdminSession();
   }
@@ -439,6 +440,7 @@ function sessionClear(options) {
       sessionStorage.removeItem('bb_last_session_verify_ts');
       sessionStorage.removeItem('bb_admin_session_data');
       sessionStorage.removeItem('bb_staged_reg');
+      sessionStorage.removeItem('bb_last_seen_persisted_for');
     }
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('bb_session');
@@ -878,10 +880,9 @@ function forceKickDeletedAccount() {
 
 // ── Member Online, Idle & Offline Presence Tracking ────────────────
 var PRESENCE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;      // 5 minutes of inactivity = Idle
-var PRESENCE_HEARTBEAT_INTERVAL_MS = 60 * 1000;    // 60-second periodic heartbeat
+var PRESENCE_HEARTBEAT_INTERVAL_MS = 60 * 1000;    // 60-second local idle check (0 DB writes)
 var _lastUserActivityTs = Date.now();
 var _localPresenceStatus = 'online';
-var _presenceHeartbeatTimer = null;
 var _presenceCheckTimer = null;
 var _presenceListeners = [];
 var _lastActivityRecordTs = 0;
@@ -1080,12 +1081,40 @@ function refreshLivePresenceDots() {
 }
 
 var _lastSessionVerifyTs = 0;
+var LOGIN_LAST_SEEN_TTL_MS = 30 * 60 * 1000; // Persist login last_seen at most once per 30 min per session
+
+function shouldPersistLoginLastSeen(key) {
+  if (!key) return false;
+  try {
+    if (typeof sessionStorage === 'undefined') return true;
+    var raw = sessionStorage.getItem('bb_last_seen_persisted_for');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.key === key && (Date.now() - Number(parsed.ts || 0)) < LOGIN_LAST_SEEN_TTL_MS) {
+        return false;
+      }
+    }
+  } catch (_) {}
+  return true;
+}
+
+function markLoginLastSeenPersisted(key) {
+  try {
+    if (typeof sessionStorage !== 'undefined' && key) {
+      sessionStorage.setItem('bb_last_seen_persisted_for', JSON.stringify({ key: key, ts: Date.now() }));
+    }
+  } catch (_) {}
+}
 
 /**
- * Sends presence heartbeat to local cache and Supabase bb_config (leader tab only)
+ * Publishes live presence via Native Supabase Realtime Presence (0 DB writes)
+ * and persists historical `last_seen` to Supabase `bb_config` ONLY on login
+ * (`options.persistLastSeen === true`) so 60+ concurrent users generate 0 periodic DB writes.
  * @param {string} [forcedStatus]
+ * @param {{ persistLastSeen?: boolean }} [options]
  */
-async function sendPresenceHeartbeat(forcedStatus) {
+async function sendPresenceHeartbeat(forcedStatus, options) {
+  options = options || {};
   try {
     if (typeof isUserAuthenticated === 'function' && !isUserAuthenticated()) {
       return;
@@ -1124,32 +1153,50 @@ async function sendPresenceHeartbeat(forcedStatus) {
       }
     } catch (_) {}
 
-    // 2. Broadcast presence change across tabs (0ms) and devices in real time
+    // 2. Track live state over Native Supabase Realtime Presence (0 DB writes) + cross-tab broadcast
     var pr = (typeof window !== 'undefined' && window.PortalRealtime)
       ? window.PortalRealtime
       : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
-    if (pr && typeof pr.broadcast === 'function') {
-      try {
-        pr.broadcast('presence', 'update', { key: key, member: payload });
-      } catch (_) {}
+    if (pr) {
+      if (status === 'offline') {
+        if (typeof pr.untrackPresence === 'function') {
+          try { pr.untrackPresence(); } catch (_) {}
+        }
+      } else if (typeof pr.trackPresence === 'function') {
+        try { pr.trackPresence(key, payload); } catch (_) {}
+      }
+      if (typeof pr.broadcast === 'function') {
+        try {
+          pr.broadcast('presence', 'update', { key: key, member: payload });
+        } catch (_) {}
+      }
     }
 
-    // 3. Persist to Supabase bb_config if leader tab
-    if (typeof isLeaderTab === 'function' && isLeaderTab()) {
+    // 3. Login-only historical `last_seen` persistence in bb_config (leader tab only)
+    // Eliminates periodic DB writes across 60+ active users while keeping offline "Last seen X ago" in Admin CRM
+    if (options.persistLastSeen === true && typeof isLeaderTab === 'function' && isLeaderTab()) {
       var client = (typeof getSupabaseClient === 'function')
         ? getSupabaseClient()
         : (typeof window !== 'undefined' && window.supa ? window.supa : (typeof supa !== 'undefined' ? supa : null));
 
       if (client && typeof client.safeConfigUpdate === 'function') {
+        markLoginLastSeenPersisted(key);
         await client.safeConfigUpdate('bb_member_presence', function(currentRemote) {
           var remoteMap = (currentRemote && typeof currentRemote === 'object') ? currentRemote : {};
-          var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+          var cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
           Object.keys(remoteMap).forEach(function(k) {
             if (remoteMap[k] && remoteMap[k].last_seen && remoteMap[k].last_seen < cutoff) {
               delete remoteMap[k];
             }
           });
-          remoteMap[key] = payload;
+          remoteMap[key] = {
+            status: 'offline',
+            last_seen: payload.last_seen,
+            name: payload.name,
+            email: payload.email,
+            ic: payload.ic,
+            rank: payload.rank
+          };
           return remoteMap;
         }, { enableMerge: false, maxRetries: 2 }).catch(function() {});
       }
@@ -1158,7 +1205,7 @@ async function sendPresenceHeartbeat(forcedStatus) {
 }
 
 /**
- * Initializes activity listeners and presence intervals
+ * Initializes activity listeners and Realtime Presence tracking (0 periodic DB reads/writes)
  */
 function initPresenceTracking() {
   if (typeof window === 'undefined') return;
@@ -1191,15 +1238,10 @@ function initPresenceTracking() {
     });
   }
 
-  // Periodic activity checker & remote presence sync (every 3 minutes)
+  // Local idle-status watcher (every 60s, 0 DB calls — updates Realtime Presence only on status transition)
   if (_presenceCheckTimer) clearInterval(_presenceCheckTimer);
   _presenceCheckTimer = setInterval(function() {
     var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
-    if (!isTabHidden && typeof isLeaderTab === 'function' && isLeaderTab()) {
-      if (typeof fetchRemoteMemberPresence === 'function') {
-        fetchRemoteMemberPresence().catch(function() {});
-      }
-    }
     if (typeof isUserAuthenticated !== 'function' || !isUserAuthenticated()) {
       if (_localPresenceStatus !== 'offline') setLocalPresenceStatus('offline');
       return;
@@ -1219,23 +1261,15 @@ function initPresenceTracking() {
         sendPresenceHeartbeat('online');
       }
     }
-  }, 180000);
+  }, PRESENCE_HEARTBEAT_INTERVAL_MS);
 
-  // Periodic heartbeat timer (every 3 minutes)
-  if (_presenceHeartbeatTimer) clearInterval(_presenceHeartbeatTimer);
-  _presenceHeartbeatTimer = setInterval(function() {
-    var isTabHidden = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
-    if (!isTabHidden && typeof isLeaderTab === 'function' && isLeaderTab()) {
-      sendPresenceHeartbeat();
-    }
-  }, 180000);
-
-  // Initial heartbeat and remote presence sync
+  // Load historical `last_seen` once at startup for offline members in Admin CRM
   if (typeof fetchRemoteMemberPresence === 'function') {
     fetchRemoteMemberPresence(true).catch(function() {});
   }
   if (typeof isUserAuthenticated === 'function' && isUserAuthenticated()) {
-    sendPresenceHeartbeat('online');
+    var bootKey = (typeof sessionGet === 'function') ? String(sessionGet('email') || sessionGet('ic') || '').toLowerCase().trim() : '';
+    sendPresenceHeartbeat('online', { persistLastSeen: shouldPersistLoginLastSeen(bootKey) });
   }
 }
 
@@ -1268,6 +1302,43 @@ function getMemberPresenceStatus(member, presenceMap) {
       color: selfStatus === 'idle' ? '#f59e0b' : (selfStatus === 'online' ? '#10b981' : '#6b7280'),
       lastSeen: now
     };
+  }
+
+  // Check Native Supabase Realtime Presence first (always fresh while WebSocket is connected)
+  if (!(presenceMap && typeof presenceMap === 'object' && Object.keys(presenceMap).length > 0)) {
+    var liveMap = (typeof window !== 'undefined' && window._livePresenceMap)
+      ? window._livePresenceMap
+      : ((typeof global !== 'undefined' && global._livePresenceMap) ? global._livePresenceMap : null);
+    if (liveMap && typeof liveMap === 'object') {
+      var liveRec = (mEmail && liveMap[mEmail])
+        || (mIc && liveMap[mIc])
+        || (mIc && liveMap[mIc.toLowerCase()])
+        || (mName && liveMap[mName])
+        || null;
+      if (!liveRec) {
+        var liveKeys = Object.keys(liveMap);
+        for (var li = 0; li < liveKeys.length; li++) {
+          var lItem = liveMap[liveKeys[li]];
+          if (lItem) {
+            var lEmail = (lItem.email || '').toLowerCase().trim();
+            var lIc = String(lItem.ic || '').trim();
+            var lName = (lItem.name || '').toLowerCase().trim();
+            if ((mEmail && lEmail === mEmail) || (mIc && lIc === mIc) || (mName && lName === mName)) {
+              liveRec = lItem;
+              break;
+            }
+          }
+        }
+      }
+      if (liveRec && (liveRec.status === 'online' || liveRec.status === 'idle')) {
+        return {
+          status: liveRec.status,
+          label: liveRec.status === 'idle' ? 'Away / Idle' : 'Online',
+          color: liveRec.status === 'idle' ? '#f59e0b' : '#10b981',
+          lastSeen: now
+        };
+      }
+    }
   }
 
   var map = (presenceMap && typeof presenceMap === 'object' && Object.keys(presenceMap).length > 0) ? presenceMap : _cachedPresenceMap;
@@ -1320,7 +1391,7 @@ function getMemberPresenceStatus(member, presenceMap) {
     }
   }
 
-  if (!rec || !rec.last_seen || rec.status === 'offline') {
+  if (!rec || !rec.last_seen) {
     return {
       status: 'offline',
       label: 'Offline',
@@ -1330,6 +1401,29 @@ function getMemberPresenceStatus(member, presenceMap) {
   }
 
   var elapsed = now - rec.last_seen;
+  if (rec.status === 'offline') {
+    var offlineAgo = '';
+    if (elapsed < 60 * 1000) {
+      offlineAgo = 'just now';
+    } else if (elapsed < 60 * 60 * 1000) {
+      offlineAgo = Math.max(1, Math.round(elapsed / 60000)) + 'm ago';
+    } else {
+      var offHrs = Math.round(elapsed / 3600000);
+      if (offHrs < 24) {
+        offlineAgo = offHrs <= 1 ? '1h ago' : (offHrs + 'h ago');
+      } else {
+        var offDays = Math.round(offHrs / 24);
+        offlineAgo = offDays <= 1 ? 'yesterday' : (offDays + 'd ago');
+      }
+    }
+    return {
+      status: 'offline',
+      label: 'Offline (Last seen ' + offlineAgo + ')',
+      color: '#6b7280',
+      lastSeen: rec.last_seen
+    };
+  }
+
   if (elapsed < 4 * 60 * 1000 && rec.status === 'online') {
     return {
       status: 'online',

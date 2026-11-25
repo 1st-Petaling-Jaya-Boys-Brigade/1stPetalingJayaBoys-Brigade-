@@ -6,7 +6,7 @@
  * and Officer Admin badge definition management.
  */
 
-/* global supa, escapeHtml, safeUrl, sessionGet, showToast, showConfirmModal, migrateEntry */
+/* global supa, escapeHtml, safeUrl, sessionGet, showToast, showConfirmModal, migrateEntry, validateFileSecurity, compressGalleryPhoto */
 
 // ── Default Badge Catalog (41 Official Badges in 4 Categories) ───────────────
 var DEFAULT_BB_BADGES = [
@@ -1780,21 +1780,60 @@ async function renderAdminBadges() {
   container.innerHTML = html;
 
   container.querySelectorAll('[data-img-badge]').forEach(function(input) {
-    input.addEventListener('change', function() {
+    input.addEventListener('change', async function() {
       var id = input.getAttribute('data-img-badge');
       var file = input.files[0];
       if (!file) return;
-      var reader = new FileReader();
-      reader.onload = async function(e) {
+      var ext = (file.name ? file.name.split('.').pop() || 'png' : 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (ext === 'svg' || ext === 'html' || ext === 'htm' || file.type === 'image/svg+xml') {
+        if (typeof showToast === 'function') showToast('Please upload a JPG, PNG, or WebP badge image.', 'warning');
+        input.value = '';
+        return;
+      }
+
+      var imageUrl = '';
+      try {
+        if (typeof validateFileSecurity === 'function') {
+          await validateFileSecurity(file, { allowedTypes: ['image/jpeg', 'image/png', 'image/webp'], bucket: 'gallery' });
+        }
+        var uploadBlob = file;
+        var isPng = file.type === 'image/png' || ext === 'png';
+        if (!isPng && typeof compressGalleryPhoto === 'function') {
+          uploadBlob = await compressGalleryPhoto(file, 512, 0.85);
+          ext = 'jpg';
+        } else if (!['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+          ext = 'png';
+        }
+        if (typeof supa !== 'undefined' && typeof supa.uploadFile === 'function' && typeof supa.fileUrl === 'function') {
+          var safeBadgeId = String(id || 'badge').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 48);
+          var storagePath = 'catalog/badges/badge_' + safeBadgeId + '_' + Date.now() + '.' + ext;
+          await supa.uploadFile('gallery', storagePath, uploadBlob);
+          imageUrl = supa.fileUrl('gallery', storagePath, { private: false });
+        }
+      } catch (uploadErr) {
+        console.warn('Badge image storage upload fallback:', uploadErr);
+      }
+
+      var persistBadgeImage = async function(finalUrl) {
+        if (!finalUrl) return;
         var currentDefs = await getBadgeDefs();
         var badge = currentDefs.find(function(b) { return b.id === id; });
         if (badge) {
-          badge.image = e.target.result;
+          badge.image = finalUrl;
           await saveBadgeDefs(currentDefs);
           renderAdminBadges();
         }
       };
-      reader.readAsDataURL(file);
+
+      if (imageUrl) {
+        await persistBadgeImage(imageUrl);
+      } else if (typeof FileReader !== 'undefined') {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          persistBadgeImage(e.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
     });
   });
 
@@ -1804,8 +1843,15 @@ async function renderAdminBadges() {
       var currentDefs = await getBadgeDefs();
       var badge = currentDefs.find(function(b) { return b.id === id; });
       if (badge) {
+        var oldImg = badge.image;
         badge.image = null;
         await saveBadgeDefs(currentDefs);
+        if (typeof oldImg === 'string' && typeof supa !== 'undefined' && typeof supa.deleteFile === 'function') {
+          var m = oldImg.match(/\/storage\/v1\/object\/(?:public|authenticated|sign)\/gallery\/(catalog\/badges\/[^?]+)/);
+          if (m) {
+            try { await supa.deleteFile('gallery', decodeURIComponent(m[1])); } catch (_) {}
+          }
+        }
         renderAdminBadges();
       }
     });

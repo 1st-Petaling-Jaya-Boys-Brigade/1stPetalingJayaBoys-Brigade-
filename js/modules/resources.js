@@ -27,15 +27,6 @@ var RESOURCE_CATEGORIES = [
   'Band & Music'
 ];
 
-var STANDARD_NCO_RANKS = [
-  'Lance Corporal', 'Corporal', 'Sergeant', 'Staff Sergeant',
-  'Warrant Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Officer', 'Instructor'
-];
-
-var STANDARD_OFFICER_RANKS = [
-  'Warrant Officer', 'Lieutenant', 'Captain', 'Honarary Captain', 'Honorary Captain', 'Chaplain', 'Officer', 'Instructor', 'Staff Sergeant'
-];
-
 // ── Data Ingestion & Persistence ───────────────────────────────────────────
 /**
  * Loads resources from Supabase bb_config, filtering out any legacy placeholder docs
@@ -171,42 +162,12 @@ async function saveResources(list) {
 
 // ── Role & Permission Checking ─────────────────────────────────────────────
 /**
- * Checks whether current logged-in user can access a given resource visibility level
- * @param {string} visibility - 'all' | 'nco' | 'officer'
+ * All company resources are shared openly with every signed-in portal member
+ * (no role-based visibility tiers; portal login gate protects member access).
  * @returns {boolean}
  */
-function isPublicResource(visibility) {
-  return ['', 'all', 'public'].includes(String(visibility || '').trim().toLowerCase());
-}
-
-function hasResourceAccess(visibility) {
-  if (isPublicResource(visibility)) return true;
-  visibility = String(visibility).trim().toLowerCase();
-  if (visibility !== 'nco' && visibility !== 'officer') return false;
-
-  var currentRank = '';
-  var isAdmin = false;
-
-  if (typeof sessionGet === 'function') {
-    if (!(sessionGet('ic') || sessionGet('email'))) return false;
-    currentRank = sessionGet('rank') || '';
-    isAdmin = typeof window !== 'undefined' && typeof window.hasAdminModuleAccess === 'function' &&
-      window.hasAdminModuleAccess('resources');
-  }
-
-  if (isAdmin) return true;
-
-  var isOfficer = STANDARD_OFFICER_RANKS.indexOf(currentRank) !== -1;
-  var isNco = isOfficer ||
-              STANDARD_NCO_RANKS.indexOf(currentRank) !== -1;
-
-  if (visibility === 'officer') {
-    return isOfficer;
-  }
-  if (visibility === 'nco') {
-    return isNco;
-  }
-  return false;
+function hasResourceAccess() {
+  return true;
 }
 
 function parseResourceUrl(raw) {
@@ -348,20 +309,14 @@ function renderResourcesPage() {
     var safeSize   = (typeof escapeHtml === 'function') ? escapeHtml(r.fileSize || '') : r.fileSize;
     var safeId = escapeHtml(String(r.id || ''));
 
-    // Visibility Badge
-    var visBadge = '';
-    if (r.visibility === 'nco') {
-      visBadge = '<span class="resource-vis-badge badge-nco">🔒 NCO</span>';
-    } else if (r.visibility === 'officer') {
-      visBadge = '<span class="resource-vis-badge badge-officer">🛡️ Officer</span>';
-    } else {
-      visBadge = '<span class="resource-vis-badge badge-public">Public</span>';
-    }
+    // Public Badge (all resources are visible to every member)
+    var visBadge = '<span class="resource-vis-badge badge-public">Public</span>';
 
-    var thumbUrl = accessible && isPublicResource(r.visibility) ? getResourceThumbnailUrl(r) : null;
+    var thumbUrl = getResourceThumbnailUrl(r);
     var previewAddress = parseResourceUrl(r.url);
     var storageObject = getResourceStorageObject(previewAddress);
-    var canCopy = isPublicResource(r.visibility) && (!storageObject || storageObject.mode === 'public');
+    var isPublicCdnStorage = storageObject && (storageObject.mode === 'public' || (storageObject.bucket === 'gallery' && String(storageObject.path).indexOf('resources/') === 0));
+    var canCopy = !storageObject || Boolean(isPublicCdnStorage);
     var tType = (r.fileType || 'PDF').toUpperCase();
     var docIconCls = tType.indexOf('DOC') !== -1 ? 'doc' : (tType.indexOf('SHEET') !== -1 ? 'sheet' : (tType.indexOf('DRIVE') !== -1 || tType.indexOf('LINK') !== -1 ? 'link' : 'pdf'));
     var docIconColor = docIconCls === 'doc' ? '#3b82f6' : (docIconCls === 'sheet' ? '#10b981' : (docIconCls === 'link' ? '#a855f7' : '#ef4444'));
@@ -463,12 +418,15 @@ async function openResourceDocument(resourceId) {
     return;
   }
 
-  if (isPublicResource(r.visibility) && storage.mode === 'public') {
+  if (storage.mode === 'public') {
     window.open(url.href, '_blank', 'noopener,noreferrer');
     return;
   }
-  if (storage.mode === 'public') {
-    if (typeof showToast === 'function') showToast('This restricted document needs a private storage link.', 'warning');
+
+  // Upgrade legacy signed/authenticated gallery/resources/* URLs directly to Cloudflare-cached public CDN URL
+  if (storage.bucket === 'gallery' && String(storage.path).indexOf('resources/') === 0) {
+    var publicCdnUrl = url.origin + '/storage/v1/object/public/gallery/' + storage.path;
+    window.open(publicCdnUrl, '_blank', 'noopener,noreferrer');
     return;
   }
 
@@ -480,8 +438,7 @@ async function openResourceDocument(resourceId) {
     var preview = signed && !signed.error && parseResourceUrl(signed.signedUrl);
     if (!preview || preview.origin !== url.origin || !preview.searchParams.get('token') ||
         preview.searchParams.get('token').startsWith('auth_') ||
-        resources.find(function(item) { return item.id === resourceId; }) !== r ||
-        !hasResourceAccess(r.visibility)) throw new Error('Preview unavailable');
+        resources.find(function(item) { return item.id === resourceId; }) !== r) throw new Error('Preview unavailable');
     if (tab && !tab.closed) tab.location.href = preview.href;
     else window.open(preview.href, '_blank', 'noopener,noreferrer');
   } catch (_) {
@@ -516,20 +473,27 @@ function getFileTypeBadgeHtml(type) {
  */
 async function copyResourceLink(url, title) {
   var resource = resources.find(function(item) { return item.id === url || item.url === url; });
-  if (!resource || !hasResourceAccess(resource.visibility) || !isPublicResource(resource.visibility)) return false;
+  if (!resource) return false;
   var target = parseResourceUrl(resource.url);
   if (!target) return false;
   var storage = getResourceStorageObject(target);
-  if (storage && storage.mode !== 'public') return false;
+  var copyHref = target.href;
+  if (storage && storage.mode !== 'public') {
+    if (storage.bucket === 'gallery' && String(storage.path).indexOf('resources/') === 0) {
+      copyHref = target.origin + '/storage/v1/object/public/gallery/' + storage.path;
+    } else {
+      return false;
+    }
+  }
 
   if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
     try {
-      await navigator.clipboard.writeText(target.href);
+      await navigator.clipboard.writeText(copyHref);
       if (typeof showToast === 'function') showToast('Link copied: ' + (title || resource.title || 'Resource'), 'success');
       return true;
     } catch (_) {}
   }
-  return fallbackCopyText(target.href);
+  return fallbackCopyText(copyHref);
 }
 
 async function fallbackCopyText(text) {
@@ -610,7 +574,6 @@ function renderAdminResourcesList() {
     var safeTitle = (typeof escapeHtml === 'function') ? escapeHtml(r.title || '') : r.title;
     var safeCat   = (typeof escapeHtml === 'function') ? escapeHtml(r.category || '') : r.category;
     var safeType  = (typeof escapeHtml === 'function') ? escapeHtml(r.fileType || '') : r.fileType;
-    var safeVis   = (typeof escapeHtml === 'function') ? escapeHtml(r.visibility || 'all') : r.visibility;
     var safeId = escapeHtml(String(r.id || ''));
 
     var iconSvg = getResourceIconSvg(safeType);
@@ -623,7 +586,6 @@ function renderAdminResourcesList() {
         + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">'
           + '<span style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeTitle + '</span>'
           + '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);">' + safeType + '</span>'
-          + '<span style="font-size:10px;padding:2px 8px;border-radius:12px;background:rgba(200,150,30,0.15);color:var(--accent);border:1px solid rgba(200,150,30,0.3);">' + safeVis.toUpperCase() + '</span>'
         + '</div>'
         + '<div style="font-size:12px;color:var(--text-secondary);">' + safeCat + ' &bull; <button type="button" class="portal-btn" data-admin-resource-preview="' + safeId + '">Open document &rarr;</button></div>'
       + '</div>'
@@ -706,7 +668,6 @@ function openEditResource(id) {
   var catInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-cat') : null;
   var urlInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
   var typeInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
-  var visInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-vis') : null;
   var statusEl  = (typeof document !== 'undefined') ? document.getElementById('adm-res-upload-status') : null;
   var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
   var delBtn    = (typeof document !== 'undefined') ? document.querySelector('.adm-res-delete-btn') : null;
@@ -719,7 +680,6 @@ function openEditResource(id) {
   if (catInp)   catInp.value   = item.category || 'Handbooks & Manuals';
   if (urlInp)   urlInp.value   = item.url || '';
   if (typeInp)  typeInp.value  = item.fileType || 'PDF';
-  if (visInp)   visInp.value   = item.visibility || 'all';
 
   _lastUploadedFileSize = item.fileSize || '';
   if (statusEl) {
@@ -836,7 +796,6 @@ async function addOrUpdateResource() {
   var catInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-cat') : null;
   var urlInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-url') : null;
   var typeInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-type') : null;
-  var visInp    = (typeof document !== 'undefined') ? document.getElementById('adm-res-vis') : null;
   var fileInp   = (typeof document !== 'undefined') ? document.getElementById('adm-res-file') : null;
   var submitBtn = (typeof document !== 'undefined') ? document.getElementById('adm-res-submit-btn') : null;
 
@@ -854,8 +813,7 @@ async function addOrUpdateResource() {
   var cat      = (typeof sanitizeText === 'function') ? sanitizeText(rawCat, 60) : rawCat;
   var url      = parseResourceUrl(urlInp && urlInp.value)?.href || '';
   var type  = (typeInp ? typeInp.value : 'PDF').trim().toUpperCase();
-  var vis   = (visInp ? visInp.value : 'all').trim().toLowerCase();
-  if (!isPublicResource(vis) && !['nco', 'officer'].includes(vis)) return;
+  var vis   = 'all';
 
   // If title is empty, check if a file was selected to derive title
   if (!title && fileInp && fileInp.files && fileInp.files.length > 0) {
@@ -887,13 +845,13 @@ async function addOrUpdateResource() {
     return;
   }
   var storage = getResourceStorageObject(parseResourceUrl(url));
-  if (!isPublicResource(vis) && storage && storage.mode === 'public') {
-    if (typeof showToast === 'function') showToast('Use a private link for restricted documents.', 'warning');
-    return;
-  }
   if (storage && storage.mode === 'sign') {
     var stableUrl = parseResourceUrl(url);
-    stableUrl.pathname = stableUrl.pathname.replace('/object/sign/', '/object/authenticated/');
+    if (storage.bucket === 'gallery' && String(storage.path).indexOf('resources/') === 0) {
+      stableUrl.pathname = stableUrl.pathname.replace('/object/sign/', '/object/public/');
+    } else {
+      stableUrl.pathname = stableUrl.pathname.replace('/object/sign/', '/object/authenticated/');
+    }
     stableUrl.search = '';
     url = stableUrl.href;
   }
@@ -960,12 +918,11 @@ async function addOrUpdateResource() {
         ? sendPortalPushNotification
         : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
       if (resDispatcher) {
-        var resTopic = vis === 'nco' ? 'dept_nco' : (vis === 'officers' ? 'dept_officers' : 'announcements');
         resDispatcher({
           type: 'resource',
           title: 'New Resource: ' + title,
           body: desc || ('New official ' + cat + ' document published: ' + title),
-          targetTopic: resTopic,
+          targetTopic: 'announcements',
           tab: 'resources',
           targetId: newRes.id
         }).catch(function(err) {
@@ -1072,7 +1029,7 @@ async function handleResourceFileUpload(input) {
 
     // Strict file security validation
     if (typeof validateFileSecurity === 'function') {
-      await validateFileSecurity(file, { allowPdf: true, allowImages: true, bucket: 'resources' });
+      await validateFileSecurity(file, { allowPdf: true, allowDocs: true, allowImages: true, bucket: 'resources' });
     }
 
     var blob = (typeof Blob !== 'undefined' && file instanceof Blob)
@@ -1082,8 +1039,9 @@ async function handleResourceFileUpload(input) {
     if (typeof supa === 'undefined' || !supa.uploadFile || !supa.fileUrl) {
       throw new Error('Supabase Storage is unavailable.');
     }
-    await supa.uploadFile('resources', fname, blob);
-    var uploadedUrl = supa.fileUrl('resources', fname, { private: true });
+    var storagePath = 'resources/' + fname;
+    await supa.uploadFile('gallery', storagePath, blob);
+    var uploadedUrl = supa.fileUrl('gallery', storagePath, { private: false });
 
     if (urlInp) urlInp.value = uploadedUrl;
     return uploadedUrl;

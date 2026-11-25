@@ -7,13 +7,11 @@
  * Zero external dependencies. Zero npm runtime libraries.
  */
 
-/* global supa, sessionGet, isNCO, _cachedDepartmentMembers, getMentionDirectoryMembers, createMentionMatcher, normalizeMentionName */
+/* global sessionGet, isNCO, _cachedDepartmentMembers, getMentionDirectoryMembers, createMentionMatcher, normalizeMentionName */
 
 (function (global) {
   'use strict';
 
-  var _fcmCredsCache = null;
-  var _fcmCredsExpiry = 0;
   var _fcmTokenCache = null;
   var _fcmTokenExpiry = 0;
 
@@ -185,34 +183,14 @@
   }
 
   /**
-   * Fetches the Firebase Service Account credentials from Supabase configuration.
-   * In-memory cache valid for 10 minutes.
-   * @returns {Promise<Object|null>}
+   * Security Hardening (Phase 2):
+   * Firebase Admin SDK service account credentials are NEVER fetched or held
+   * in client browsers. All FCM HTTP v1 signing and dispatch runs exclusively
+   * inside the authenticated `portal-web-push` Supabase Edge Function using the
+   * server-only `FCM_SERVICE_ACCOUNT_JSON` secret.
+   * @returns {Promise<null>}
    */
   async function getFcmCredentials() {
-    var now = Date.now();
-    if (_fcmCredsCache && now < _fcmCredsExpiry) {
-      return _fcmCredsCache;
-    }
-
-    var client = (typeof supa !== 'undefined' ? supa : (global.supa || null));
-    if (!client || typeof client.get !== 'function') {
-      return null;
-    }
-
-    try {
-      var rows = await client.get('bb_config?key=eq.bb_fcm_service_account&select=value');
-      if (Array.isArray(rows) && rows.length > 0 && rows[0].value) {
-        var parsed = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
-        if (parsed && parsed.project_id && parsed.client_email && parsed.private_key) {
-          _fcmCredsCache = parsed;
-          _fcmCredsExpiry = now + (10 * 60 * 1000);
-          return _fcmCredsCache;
-        }
-      }
-    } catch (err) {
-      console.warn('getFcmCredentials fetch error:', err);
-    }
     return null;
   }
 
@@ -298,8 +276,9 @@
   }
 
   /**
-   * Dispatches a push notification to a specific Firebase Cloud Messaging topic via FCM HTTP v1.
-   * @param {string} topic - Target FCM topic (e.g. "announcements", "user_...")
+   * Dispatches a push notification to a specific topic via the authenticated
+   * `portal-web-push` Supabase Edge Function (handles both FCM and Web Push server-side).
+   * @param {string} topic - Target topic (e.g. "announcements", "user_...")
    * @param {string} title - Notification title
    * @param {string} body - Notification body text
    * @param {Object} [options] - Additional metadata (category, tab, targetId)
@@ -314,84 +293,39 @@
     if (!cleanTitle) cleanTitle = "1st Petaling Jaya Boys' Brigade";
 
     var cleanBody = cleanSnippet(body, 160);
+    var category = options.category || 'announcement';
+    if (category === 'announcements') category = 'announcement';
     if (!cleanBody) {
-      var cat = options.category || 'announcements';
-      if (cat === 'task_assigned') {
+      if (category === 'task_assigned') {
         cleanBody = 'You have been assigned to a new task. Tap to view requirements.';
-      } else if (cat === 'mention' || cat === 'task_comment') {
+      } else if (category === 'mention' || category === 'task_comment') {
         cleanBody = 'You were mentioned in a task discussion. Tap to view.';
-      } else if (cat === 'resource') {
+      } else if (category === 'resource') {
         cleanBody = 'A new resource document has been published. Tap to view.';
-      } else if (cat === 'order_status') {
+      } else if (category === 'order_status') {
         cleanBody = 'Your uniform store order status has been updated.';
-      } else if (cat === 'forum_reply') {
+      } else if (category === 'forum_reply') {
         cleanBody = 'You received a reply on the community forum.';
       } else {
         cleanBody = 'New company announcement posted. Tap to view full details.';
       }
     }
 
-    var creds = await getFcmCredentials();
-    if (!creds || !creds.project_id) {
+    var pushClient = (typeof window !== 'undefined' && window.PortalWebPush)
+      ? window.PortalWebPush
+      : (global && global.PortalWebPush ? global.PortalWebPush : null);
+    if (!pushClient || typeof pushClient.notify !== 'function') {
       return false;
     }
-
-    var token = await getGoogleOAuthToken(creds);
-    if (!token) {
-      return false;
-    }
-
-    var notifTag = 'portal_' + String(options.targetId || options.category || 'general');
-    var fcmUrl = 'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(creds.project_id) + '/messages:send';
-    var payload = {
-      message: {
-        topic: sanitizedTopic,
-        notification: {
-          title: cleanTitle,
-          body: cleanBody
-        },
-        data: {
-          title: cleanTitle,
-          body: cleanBody,
-          snippet: cleanBody,
-          category: String(options.category || 'announcements'),
-          tab: String(options.tab || 'home'),
-          targetId: String(options.targetId || '')
-        },
-        android: {
-          priority: 'HIGH',
-          notification: {
-            channel_id: 'portal-alerts-v2',
-            notification_priority: 'PRIORITY_MAX',
-            visibility: 'PUBLIC',
-            default_sound: true,
-            default_vibrate_timings: true,
-            sound: 'portal_chime',
-            icon: 'ic_launcher',
-            tag: notifTag
-          }
-        }
-      }
-    };
 
     try {
-      var res = await fetch(fcmUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+      return await pushClient.notify(category, [sanitizedTopic], String(options.targetId || ''), {
+        title: cleanTitle,
+        body: cleanBody,
+        tab: String(options.tab || 'home')
       });
-
-      if (!res.ok) {
-        var errText = await res.text();
-        console.warn('FCM dispatch failed [' + res.status + ']:', errText);
-        return false;
-      }
-      return true;
     } catch (err) {
-      console.warn('sendFcmTopicPush error:', err);
+      console.warn('sendFcmTopicPush edge dispatch error:', err);
       return false;
     }
   }
@@ -428,17 +362,10 @@
     var tab = params.tab || 'home';
     var targetId = params.targetId || '';
 
-    var options = {
-      category: type,
-      tab: tab,
-      targetId: targetId
-    };
-
-    var promises = [];
     var topics = new Set();
     function sendTopic(topic) {
-      topics.add(topic);
-      promises.push(sendFcmTopicPush(topic, title, body, options));
+      var clean = sanitizeTopicName(topic);
+      if (clean) topics.add(clean);
     }
 
     // 1. Explicit topic provided
@@ -509,14 +436,24 @@
       uniqueTopics.forEach(sendTopic);
     }
 
-    if (promises.length === 0) {
+    var topicList = Array.from(topics);
+    if (topicList.length === 0) {
       return false;
     }
-    if (typeof window !== 'undefined') window.PortalWebPush?.notify(type, [...topics], targetId).catch(function () {});
+
+    var pushClient = (typeof window !== 'undefined' && window.PortalWebPush)
+      ? window.PortalWebPush
+      : (global && global.PortalWebPush ? global.PortalWebPush : null);
+    if (!pushClient || typeof pushClient.notify !== 'function') {
+      return false;
+    }
 
     try {
-      var results = await Promise.allSettled(promises);
-      return results.some(function (r) { return r.status === 'fulfilled' && r.value === true; });
+      return await pushClient.notify(type, topicList, String(targetId || ''), {
+        title: title,
+        body: cleanSnippet(body, 160),
+        tab: tab
+      });
     } catch (_) {
       return false;
     }
