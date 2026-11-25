@@ -4482,11 +4482,12 @@ async function getJson(url) {
             const d = new Date(Date.parse(iso) + delta * 86400000);
             return d.toISOString().slice(0, 10);
           };
-          const tOverdue = { id: 'CAL-OV-1', title: 'Overdue Parade Task', project_name: 'Portal Development', department: 'hq', status: 'todo', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: shiftDay(todayIso, -2) };
-          const tNear    = { id: 'CAL-NR-2', title: 'Due Soon Task', project_name: 'Portal Development', department: 'hq', status: 'inprogress', assignee_name: 'Tester Account', assignee_ic: '', due_date: shiftDay(todayIso, 1) };
-          const tDone    = { id: 'CAL-DN-3', title: 'Completed On Time Task', project_name: 'Logistics', department: 'logistics', status: 'completed', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: todayIso, completed_at: new Date().toISOString() };
-          const tFuture  = { id: 'CAL-FT-4', title: 'Scheduled Future Task', project_name: 'Media', department: 'media', status: 'planning', assignee_name: 'Officer Tan', assignee_ic: '', due_date: shiftDay(todayIso, 6) };
-          const demoTasks = [tOverdue, tNear, tDone, tFuture];
+          const tOverdue  = { id: 'CAL-OV-1', title: 'Overdue Parade Task', project_name: 'Portal Development', department: 'hq', status: 'todo', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: shiftDay(todayIso, -2) };
+          const tCompLate = { id: 'CAL-LT-5', title: 'Completed Late Task', project_name: 'Portal Development', department: 'hq', status: 'completed', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: shiftDay(todayIso, -1), completed_at: new Date().toISOString() };
+          const tNear     = { id: 'CAL-NR-2', title: 'Due Soon Task', project_name: 'Portal Development', department: 'hq', status: 'inprogress', assignee_name: 'Tester Account', assignee_ic: '', due_date: shiftDay(todayIso, 1) };
+          const tDone     = { id: 'CAL-DN-3', title: 'Completed On Time Task', project_name: 'Logistics', department: 'logistics', status: 'completed', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: todayIso, completed_at: new Date().toISOString() };
+          const tFuture   = { id: 'CAL-FT-4', title: 'Scheduled Future Task', project_name: 'Media', department: 'media', status: 'planning', assignee_name: 'Officer Tan', assignee_ic: '', due_date: shiftDay(todayIso, 6) };
+          const demoTasks = [tOverdue, tCompLate, tNear, tDone, tFuture];
           window._taskMap = window._taskMap || {};
           demoTasks.forEach(t => { window._taskMap[t.id] = t; });
           if (typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) {
@@ -4495,6 +4496,21 @@ async function getJson(url) {
 
           switchTabNav('tasks');
           openProjectBoard('Portal Development', { skipRemoteFetch: true });
+
+          // Check Board View: Overdue (red) vs Completed Late (orange-red) have distinct computed colors
+          setProjectDisplayMode('board');
+          const projBoardOverdueEl = document.querySelector('#tasks-columns .task-due-pill.due-overdue');
+          const projBoardLateEl = document.querySelector('#tasks-columns .task-due-pill.due-late');
+          const projBoardColorsDistinct = Boolean(projBoardOverdueEl && projBoardLateEl)
+            && getComputedStyle(projBoardOverdueEl).color !== getComputedStyle(projBoardLateEl).color;
+
+          // Check List View: Overdue (red) vs Completed Late (orange-red) have distinct computed colors
+          setProjectDisplayMode('list');
+          const projListOverdueEl = document.querySelector('.tasks-board-list-view .task-due-pill.due-overdue');
+          const projListLateEl = document.querySelector('.tasks-board-list-view .task-due-pill.due-late');
+          const projListColorsDistinct = Boolean(projListOverdueEl && projListLateEl)
+            && getComputedStyle(projListOverdueEl).color !== getComputedStyle(projListLateEl).color;
+
           setProjectDisplayMode('calendar');
           jumpTaskCalendarToday();
 
@@ -4503,7 +4519,12 @@ async function getJson(url) {
           const projListHidden = getComputedStyle(document.querySelector('.tasks-board-list-view')).display === 'none';
           const calModes = Array.from(document.querySelectorAll('.tasks-board-calendar-view .task-cal-mode-btn')).map(b => b.textContent.trim());
           const hasTodayHighlight = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-cell.is-today'));
-          const hasRedPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill-red'));
+          const projCalRedEl = document.querySelector('.tasks-board-calendar-view .task-cal-pill-red');
+          const projCalLateEl = document.querySelector('.tasks-board-calendar-view .task-cal-pill-late');
+          const hasRedPill = Boolean(projCalRedEl);
+          const hasLatePill = Boolean(projCalLateEl);
+          const projCalColorsDistinct = Boolean(projCalRedEl && projCalLateEl)
+            && getComputedStyle(projCalRedEl).color !== getComputedStyle(projCalLateEl).color;
           const hasYellowPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill-yellow'));
           const hasAvatarInPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill .task-cal-pill-avatar'));
 
@@ -4522,31 +4543,71 @@ async function getJson(url) {
           const yearMonthCardsCount = document.querySelectorAll('.tasks-board-calendar-view .task-cal-year-card').length;
           setTaskCalendarSubMode('month');
 
-          // Global Tasks section: Board, List, and Calendar views across all projects
+          // Global Tasks section: verify default filters auto-set to Assigned to me + Open
+          const isDefaultAssignedOpenActive = () => {
+            const activeChips = Array.from(document.querySelectorAll('.my-tasks-container .filter-chip-option.active')).map(el => el.textContent.trim());
+            return activeChips.includes('Assigned to me') && activeChips.includes('Open');
+          };
           setTasksViewMode('mytasks');
+          setMyTasksDisplayMode('list');
+          const defaultAssignedOpenInitial = isDefaultAssignedOpenActive();
+          const defaultText = document.querySelector('.my-tasks-container')?.textContent || '';
+          const defaultShowsOwnOpenOnly = defaultText.includes('Overdue Parade Task')
+            && !defaultText.includes('Completed Late Task')
+            && !defaultText.includes('Scheduled Future Task');
+
+          // Customize filters to All Tasks + All to verify multi-project 3-view overview & 5 colors
+          setMyTasksScopeFilter('all');
+          setMyTasksStatusFilter('all');
+
           setMyTasksDisplayMode('board');
           const allBoardCols = document.querySelectorAll('.my-tasks-container .my-tasks-board-col').length;
           const allBoardHasMultiProjects = (document.querySelector('.my-tasks-container')?.textContent || '').includes('Logistics')
             && (document.querySelector('.my-tasks-container')?.textContent || '').includes('Media');
+          const allBoardHasOverdueAndLate = Boolean(
+            document.querySelector('.my-tasks-container .task-due-pill.due-overdue')
+            && document.querySelector('.my-tasks-container .task-due-pill.due-late')
+          );
           const desktopBoardOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
 
           setMyTasksDisplayMode('list');
           const allListRows = document.querySelectorAll('.my-tasks-container .my-tasks-table-row').length;
+          const allListHasOverdueAndLate = Boolean(
+            document.querySelector('.my-tasks-container .task-due-pill.due-overdue')
+            && document.querySelector('.my-tasks-container .task-due-pill.due-late')
+          );
 
           setMyTasksDisplayMode('calendar');
           const allCalHasAllColors = Boolean(
             document.querySelector('.my-tasks-container .task-cal-pill-red')
+            && document.querySelector('.my-tasks-container .task-cal-pill-late')
             && document.querySelector('.my-tasks-container .task-cal-pill-yellow')
             && document.querySelector('.my-tasks-container .task-cal-pill-green')
             && document.querySelector('.my-tasks-container .task-cal-pill-gray')
           );
           const desktopCalOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
 
+          // Leave Tasks section -> Projects -> return to Tasks: must auto-reset back to Assigned to me + Open
+          setTasksViewMode('projects');
+          setTasksViewMode('mytasks');
+          const autoResetAfterLeavingSection = isDefaultAssignedOpenActive();
+
+          // Change filters again, switch to Home tab, then return to Tasks tab: must auto-reset back to Assigned to me + Open
+          setMyTasksScopeFilter('all');
+          setMyTasksStatusFilter('all');
+          switchTabNav('home');
+          switchTabNav('tasks');
+          const autoResetAfterTabSwitch = isDefaultAssignedOpenActive();
+
           return {
             projCalVisible, projBoardHidden, projListHidden, calModes, hasTodayHighlight,
-            hasRedPill, hasYellowPill, hasAvatarInPill, popoverOpen, createModalOpen, prefilledDue,
-            todayIso, yearMonthCardsCount, allBoardCols, allBoardHasMultiProjects, allListRows,
-            allCalHasAllColors, desktopBoardOverflow, desktopCalOverflow
+            hasRedPill, hasLatePill, projBoardColorsDistinct, projListColorsDistinct, projCalColorsDistinct,
+            hasYellowPill, hasAvatarInPill, popoverOpen, createModalOpen, prefilledDue,
+            todayIso, yearMonthCardsCount, defaultAssignedOpenInitial, defaultShowsOwnOpenOnly,
+            allBoardCols, allBoardHasMultiProjects, allBoardHasOverdueAndLate,
+            allListRows, allListHasOverdueAndLate, allCalHasAllColors,
+            autoResetAfterLeavingSection, autoResetAfterTabSwitch,
+            desktopBoardOverflow, desktopCalOverflow
           };
         } finally {
           if (origClientCal) getSupaClient = origClientCal;
@@ -4556,22 +4617,32 @@ async function getJson(url) {
       returnByValue: true
     });
     const taskCalRes = (calAndOverviewDiag.result && calAndOverviewDiag.result.value) || {};
+    assert.strictEqual(taskCalRes.projBoardColorsDistinct, true, 'Project Board View must style Overdue (red) and Completed Late (orange-red) with distinct colors');
+    assert.strictEqual(taskCalRes.projListColorsDistinct, true, 'Project List View must style Overdue (red) and Completed Late (orange-red) with distinct colors');
+    assert.strictEqual(taskCalRes.projCalColorsDistinct, true, 'Project Calendar View must style Overdue (red) and Completed Late (orange-red) with distinct colors');
     assert.strictEqual(taskCalRes.projCalVisible, true, 'Project Calendar View must be visible when calendar mode is active');
     assert.strictEqual(taskCalRes.projBoardHidden, true, 'Project Board must stay hidden in Calendar View');
     assert.strictEqual(taskCalRes.projListHidden, true, 'Project List must stay hidden in Calendar View');
     assert.deepStrictEqual(taskCalRes.calModes, ['Month', 'Year'], 'Calendar view must offer ONLY Month and Year options');
     assert.strictEqual(taskCalRes.hasTodayHighlight, true, 'Calendar view must highlight today cell');
     assert.strictEqual(taskCalRes.hasRedPill, true, 'Calendar view must display red pill for overdue tasks');
+    assert.strictEqual(taskCalRes.hasLatePill, true, 'Calendar view must display orange-red pill for completed-late tasks');
     assert.strictEqual(taskCalRes.hasYellowPill, true, 'Calendar view must display yellow pill for tasks due within 2 days');
     assert.strictEqual(taskCalRes.hasAvatarInPill, true, 'Calendar task pills must include assignee profile avatar');
     assert.strictEqual(taskCalRes.popoverOpen, true, 'Clicking a calendar day cell must open the Day Popover');
     assert.strictEqual(taskCalRes.createModalOpen, true, 'Clicking + New task in Day Popover must open Create Task modal');
     assert.strictEqual(taskCalRes.prefilledDue, taskCalRes.todayIso, 'Create Task modal must prefill clicked calendar date');
     assert.strictEqual(taskCalRes.yearMonthCardsCount, 12, 'Year view must render 12 mini-month cards');
+    assert.strictEqual(taskCalRes.defaultAssignedOpenInitial, true, 'Tasks view must default to Assigned to me + Open');
+    assert.strictEqual(taskCalRes.defaultShowsOwnOpenOnly, true, 'Default Tasks filter must show only current user open tasks');
+    assert.strictEqual(taskCalRes.autoResetAfterLeavingSection, true, 'Leaving Tasks section and returning must auto-reset filters to Assigned to me + Open');
+    assert.strictEqual(taskCalRes.autoResetAfterTabSwitch, true, 'Switching portal tab and returning to Tasks must auto-reset filters to Assigned to me + Open');
     assert.ok(taskCalRes.allBoardCols >= 5, 'Tasks Board View must render workflow columns across all projects');
     assert.strictEqual(taskCalRes.allBoardHasMultiProjects, true, 'Tasks Board View must display tasks across multiple projects');
-    assert.ok(taskCalRes.allListRows >= 4, 'Tasks List View must list tasks across all projects');
-    assert.strictEqual(taskCalRes.allCalHasAllColors, true, 'Tasks Calendar View must display red, yellow, green, and gray task pills');
+    assert.strictEqual(taskCalRes.allBoardHasOverdueAndLate, true, 'Tasks Board View must render distinct overdue and completed-late badges');
+    assert.ok(taskCalRes.allListRows >= 5, 'Tasks List View must list tasks across all projects');
+    assert.strictEqual(taskCalRes.allListHasOverdueAndLate, true, 'Tasks List View must render distinct overdue and completed-late badges');
+    assert.strictEqual(taskCalRes.allCalHasAllColors, true, 'Tasks Calendar View must display red, orange-red late, yellow, green, and gray task pills');
     assert.strictEqual(taskCalRes.desktopBoardOverflow, 0, 'Tasks Board View must have 0px horizontal overflow on desktop');
     assert.strictEqual(taskCalRes.desktopCalOverflow, 0, 'Tasks Calendar View must have 0px horizontal overflow on desktop');
 

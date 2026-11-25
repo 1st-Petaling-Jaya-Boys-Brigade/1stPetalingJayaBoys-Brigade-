@@ -17837,17 +17837,27 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(idxHtml95.includes('class="task-cal-day-popover"'), 'index.html must include .task-cal-day-popover container');
     assert.ok(css95.includes('.tasks-board-calendar-view.hidden'), 'components.css must isolate hidden .tasks-board-calendar-view');
 
-    // 2. Exact 4-color task calendar classification (Malaysia timezone reference: 2026-11-25 12:00 MYT)
+    // 2. Exact 5-color task classification (Malaysia timezone reference: 2026-11-25 12:00 MYT)
     const refNow95 = Date.parse('2026-11-25T04:00:00Z'); // 2026-11-25 12:00 MYT
     const stOverdue = tasksMod95.getTaskCalendarColorState({ id: 'c1', status: 'todo', due_date: '2026-11-23' }, 'HQ', refNow95);
-    assert.strictEqual(stOverdue.color, 'red', 'Uncompleted past-due task must be red');
+    assert.strictEqual(stOverdue.color, 'red', 'Uncompleted past-due task must stay red');
     assert.strictEqual(stOverdue.cls, 'task-cal-pill-red');
+    assert.strictEqual(stOverdue.dueBadgeClass, 'due-overdue');
 
     const stCompLate = tasksMod95.getTaskCalendarColorState({
       id: 'c2', status: 'completed', due_date: '2026-11-24', completed_at: '2026-11-24T16:05:00Z' // 2026-11-25 00:05 MYT -> late
     }, 'HQ', refNow95);
-    assert.strictEqual(stCompLate.color, 'red', 'Completed late task must be red');
+    assert.strictEqual(stCompLate.key, 'late', 'Completed late task must have distinct late key');
+    assert.strictEqual(stCompLate.color, 'orange-red', 'Completed late task must be orange-red (differentiated from red overdue)');
+    assert.strictEqual(stCompLate.cls, 'task-cal-pill-late');
+    assert.strictEqual(stCompLate.dotCls, 'dot-late');
+    assert.strictEqual(stCompLate.dueBadgeClass, 'due-late');
     assert.strictEqual(stCompLate.label, 'Completed late');
+
+    const dispCompLate = tasksMod95.getTaskDueDisplay({
+      id: 'c2', status: 'completed', due_date: '2026-11-24', completed_at: '2026-11-24T16:05:00Z'
+    }, 'HQ');
+    assert.strictEqual(dispCompLate.badgeClass, 'due-late', 'getTaskDueDisplay must return due-late for completed-late tasks (Board/List views)');
 
     const stNearToday = tasksMod95.getTaskCalendarColorState({ id: 'c3', status: 'inprogress', due_date: '2026-11-25' }, 'HQ', refNow95);
     assert.strictEqual(stNearToday.color, 'yellow', 'Task due today must be yellow');
@@ -17867,7 +17877,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const stUpcoming = tasksMod95.getTaskCalendarColorState({ id: 'c7', status: 'planning', due_date: '2026-12-05' }, 'HQ', refNow95);
     assert.strictEqual(stUpcoming.color, 'gray', 'Uncompleted task > 2 days away must be light gray');
     assert.strictEqual(stUpcoming.cls, 'task-cal-pill-gray');
-    console.log('  ✔ Task calendar 4-color classification (red/yellow/green/gray) verified across all edge cases');
+
+    assert.ok(css95.includes('.task-due-pill.due-late'), 'components.css must style .task-due-pill.due-late for Board & List views');
+    assert.ok(css95.includes('.task-cal-pill-late'), 'components.css must style .task-cal-pill-late for Calendar view');
+    assert.ok(css95.includes('.swatch-late') && css95.includes('.dot-late'), 'components.css must style completed-late swatch and dot');
+    assert.ok(css95.includes('.my-tasks-stat-chip.stat-late'), 'components.css must style completed-late summary chip');
+    assert.ok(css95.includes('@media (forced-colors: active)'), 'components.css must define forced-colors fallback for task pills');
+    console.log('  ✔ Task 5-color classification (red overdue vs orange-red completed late, yellow, green, gray) verified');
 
     // 3. Calendar grid generation, Today highlight, Month/Year navigation, and avatar rendering
     const novGrid = tasksMod95.getTaskCalendarMonthGrid(2026, 10, refNow95); // Nov 2026
@@ -17881,6 +17897,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     tasksMod95._taskCalSubMode = 'month';
     const calSampleTasks = [
       { id: 'cal-red', title: 'Overdue Flag Check', status: 'todo', project_name: 'Logistics', assignee_name: 'Cal Tester', assignee_ic: 'caluser@example.test', due_date: '2026-11-20' },
+      { id: 'cal-late', title: 'Late Uniform Report', status: 'completed', project_name: 'Logistics', assignee_name: 'Cal Tester', assignee_ic: 'caluser@example.test', due_date: '2026-11-22', completed_at: '2026-11-23T06:00:00Z' },
       { id: 'cal-yel', title: 'Near Parade Prep', status: 'inprogress', project_name: 'HQ', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: '2026-11-26' },
       { id: 'cal-grn', title: 'Done Drill Plan', status: 'completed', project_name: 'Media', assignee_name: 'Cal Tester', assignee_ic: 'caluser@example.test', due_date: '2026-11-25', completed_at: '2026-11-24T08:00:00Z' },
       { id: 'cal-gry', title: 'Future Camp Plan', status: 'planning', project_name: 'Secretariat', assignee_name: 'Officer Tan', assignee_ic: '', due_date: '2026-11-30' }
@@ -17890,7 +17907,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(monthHtml.includes('data-cal-submode="month"') && monthHtml.includes('data-cal-submode="year"'), 'Calendar must offer Month and Year options');
     assert.ok(!monthHtml.includes('Work week') && !monthHtml.includes('data-cal-submode="week"'), 'Calendar must ONLY expose Month and Year options');
     assert.ok(monthHtml.includes('task-cal-cell is-today') || monthHtml.includes('is-today'), 'Month view must highlight today cell');
-    assert.ok(monthHtml.includes('task-cal-pill-red') && monthHtml.includes('task-cal-pill-yellow') && monthHtml.includes('task-cal-pill-green') && monthHtml.includes('task-cal-pill-gray'), 'Month view must render all 4 status color pills');
+    assert.ok(
+      monthHtml.includes('task-cal-pill-red')
+      && monthHtml.includes('task-cal-pill-late')
+      && monthHtml.includes('task-cal-pill-yellow')
+      && monthHtml.includes('task-cal-pill-green')
+      && monthHtml.includes('task-cal-pill-gray'),
+      'Month view must render all 5 distinct status color pills (red, orange-red late, yellow, green, gray)'
+    );
+    assert.ok(monthHtml.includes('swatch-late') && monthHtml.includes('Completed Late'), 'Calendar legend must show separate Completed Late entry');
     assert.ok(monthHtml.includes('cal-avatar.jpg'), 'Calendar task pills must render assignee uploaded profile image');
     assert.ok(monthHtml.includes('Logistics') && monthHtml.includes('HQ') && monthHtml.includes('Media'), 'All-tasks calendar view must show project labels across projects');
 
@@ -17898,7 +17923,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     tasksMod95._taskCalSubMode = 'year';
     const yearHtml = tasksMod95.buildTaskCalendarHtml(calSampleTasks, { context: 'project', projectName: 'Logistics', now: refNow95 });
     assert.ok(yearHtml.includes('task-cal-year-grid') && yearHtml.includes('January') && yearHtml.includes('December'), 'Year view must render all 12 months');
-    assert.ok(yearHtml.includes('dot-red') && yearHtml.includes('dot-yellow') && yearHtml.includes('dot-green') && yearHtml.includes('dot-gray'), 'Year view must render task status dots');
+    assert.ok(yearHtml.includes('dot-red') && yearHtml.includes('dot-late') && yearHtml.includes('dot-yellow') && yearHtml.includes('dot-green') && yearHtml.includes('dot-gray'), 'Year view must render all 5 task status dots');
 
     tasksMod95._taskCalSubMode = 'month';
     tasksMod95._taskCalYear = 2026;
@@ -17970,24 +17995,62 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(mCreateModal95.style.display, 'flex', 'Create Task modal must open from calendar');
     assert.strictEqual(mDueInput95.value, '2026-11-26', 'Create Task modal must prefill clicked calendar date');
 
-    // All-Tasks section 3 views: List, Board, Calendar across all projects
+    // Default Tasks filters: always auto-reset to Assigned to me ('me') + Open ('open')
+    const prevSessionIc95 = sessionStorage.getItem('bb_ic');
+    const prevSessionName95 = sessionStorage.getItem('bb_name');
+    sessionStorage.setItem('bb_ic', 'jeshuakoh2008@gmail.com');
+    sessionStorage.setItem('bb_name', 'Jeshua Koh');
     tasksMod95.resetTasksFiltersToDefault();
     tasksMod95.setTasksViewMode('mytasks');
     tasksMod95.setMyTasksDisplayMode('list');
-    assert.ok(mMyTasks95.innerHTML.includes('my-tasks-table') && mMyTasks95.innerHTML.includes('Logistics') && mMyTasks95.innerHTML.includes('Secretariat'), 'Tasks List View must show overview across all projects');
+    assert.ok(
+      mMyTasks95.innerHTML.includes('filter-chip-option active" onclick="setMyTasksScopeFilter(\'me\')">Assigned to me')
+      && mMyTasks95.innerHTML.includes('filter-chip-option active" onclick="setMyTasksStatusFilter(\'open\')">Open'),
+      'Tasks section must default to Assigned to me + Open'
+    );
+    assert.ok(mMyTasks95.innerHTML.includes('Near Parade Prep') && !mMyTasks95.innerHTML.includes('Overdue Flag Check') && !mMyTasks95.innerHTML.includes('Done Drill Plan'), 'Default Assigned to me + Open filter must show only current user open tasks');
+
+    // Changing filters to All Tasks + All shows overview across all projects & differentiates overdue (due-overdue) vs completed late (due-late) across List, Board, Calendar
+    tasksMod95.setMyTasksScopeFilter('all');
+    tasksMod95.setMyTasksStatusFilter('all');
+    assert.ok(mMyTasks95.innerHTML.includes('my-tasks-table') && mMyTasks95.innerHTML.includes('Logistics') && mMyTasks95.innerHTML.includes('Secretariat'), 'Tasks List View (All) must show overview across all projects');
+    assert.ok(mMyTasks95.innerHTML.includes('task-due-pill due-overdue') && mMyTasks95.innerHTML.includes('task-due-pill due-late'), 'Tasks List View must differentiate overdue (due-overdue) and completed late (due-late)');
+    assert.ok(mMyTasks95.innerHTML.includes('my-tasks-stat-chip stat-red') && mMyTasks95.innerHTML.includes('my-tasks-stat-chip stat-late'), 'Tasks summary strip must split Overdue (red) and Completed Late (orange-red)');
+
     tasksMod95.setMyTasksDisplayMode('board');
     assert.ok(mMyTasks95.innerHTML.includes('my-tasks-board-columns') && mMyTasks95.innerHTML.includes('Overdue Flag Check') && mMyTasks95.innerHTML.includes('Done Drill Plan'), 'Tasks Board View must render Kanban columns across all projects');
+    assert.ok(mMyTasks95.innerHTML.includes('task-due-pill due-overdue') && mMyTasks95.innerHTML.includes('task-due-pill due-late'), 'Tasks Board View must differentiate overdue (due-overdue) and completed late (due-late)');
+
     tasksMod95.setMyTasksDisplayMode('calendar');
+    tasksMod95._taskCalYear = 2026;
+    tasksMod95._taskCalMonth = 10;
+    tasksMod95._taskCalSubMode = 'month';
+    tasksMod95.renderMyTasksView();
     assert.ok(mMyTasks95.innerHTML.includes('task-cal-shell') && mMyTasks95.innerHTML.includes('my-tasks-calendar-card'), 'Tasks Calendar View must render Month/Year calendar across all projects');
+    assert.ok(mMyTasks95.innerHTML.includes('task-cal-pill-red') && mMyTasks95.innerHTML.includes('task-cal-pill-late'), 'Tasks Calendar View must differentiate overdue (red) and completed late (orange-red)');
+
+    // Leaving Tasks section -> Projects -> returning to Tasks must auto-reset back to Assigned to me + Open
+    tasksMod95.setTasksViewMode('projects');
+    tasksMod95.setTasksViewMode('mytasks');
+    assert.ok(
+      mMyTasks95.innerHTML.includes('filter-chip-option active" onclick="setMyTasksScopeFilter(\'me\')">Assigned to me')
+      && mMyTasks95.innerHTML.includes('filter-chip-option active" onclick="setMyTasksStatusFilter(\'open\')">Open'),
+      'Leaving Tasks to Projects and returning must auto-reset filters to Assigned to me + Open'
+    );
+    assert.ok(idxHtml95.includes("window.addEventListener('pageshow'") && idxHtml95.includes('resetTasksFiltersToDefault()'), 'index.html must auto-reset Tasks filters on tab switch, load, and pageshow');
+    const adminJs95 = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
+    assert.ok(adminJs95.includes('resetTasksFiltersToDefault'), 'admin.js must auto-reset Tasks filters when closing Admin Console');
 
     // Restore state & globals
+    if (prevSessionIc95 === null) sessionStorage.removeItem('bb_ic'); else sessionStorage.setItem('bb_ic', prevSessionIc95);
+    if (prevSessionName95 === null) sessionStorage.removeItem('bb_name'); else sessionStorage.setItem('bb_name', prevSessionName95);
     tasksMod95._allLoadedTasks = prevTasks95;
     tasksMod95.setMyTasksDisplayMode('list');
     tasksMod95.setProjectDisplayMode('board');
     global.document.getElementById = origGetEl95;
     global.document.querySelector = origQS95;
     global.document.querySelectorAll = origQSA95;
-    console.log('  ✔ Project Calendar mutual exclusivity, Day Popover + date prefill, and Tasks 3-view overview verified');
+    console.log('  ✔ Project Calendar mutual exclusivity, default Assigned+Open auto-reset, and 3-view Overdue vs Completed Late split verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

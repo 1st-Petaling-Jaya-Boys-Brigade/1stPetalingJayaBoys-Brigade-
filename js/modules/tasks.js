@@ -232,8 +232,8 @@ var _cachedDepartmentMembers = [];
 if (typeof window !== 'undefined') window._cachedDepartmentMembers = _cachedDepartmentMembers;
 var _currentDeptFilter  = 'all';
 var _taskSearchQuery    = '';
-var _myTasksScopeFilter = 'all';     // 'all' | 'me'
-var _myTasksStatusFilter = 'all';    // 'all' | 'open' | 'completed' | 'overdue' | 'near'
+var _myTasksScopeFilter = 'me';      // 'me' | 'all'
+var _myTasksStatusFilter = 'open';   // 'open' | 'completed' | 'overdue' | 'late' | 'near' | 'all'
 var _myTasksProjectFilter = 'all';   // 'all' | <projectName>
 var _myTasksAssigneeFilter = 'all';  // 'all' | <assigneeName>
 var _projectProgressFilter = 'all';  // 'all' | '25' | '50' | '75' | '100'
@@ -250,14 +250,22 @@ var _taskCalPopoverContext = 'project'; // 'project' | 'mytasks'
 var _taskCalLastTrigger = null;
 
 function resetTasksFiltersToDefault() {
-  _myTasksScopeFilter    = 'all';
-  _myTasksStatusFilter   = 'all';
+  _myTasksScopeFilter    = 'me';
+  _myTasksStatusFilter   = 'open';
   _myTasksProjectFilter  = 'all';
   _myTasksAssigneeFilter = 'all';
   _taskSearchQuery       = '';
   _projectProgressFilter = 'all';
   _projectMemberFilter   = 'all';
   _projectSearchQuery    = '';
+  if (typeof document !== 'undefined') {
+    var searchEl = document.getElementById('task-search-input');
+    if (searchEl) searchEl.value = '';
+    var myMenu = document.querySelector('.my-tasks-filter-dropdown');
+    if (myMenu) myMenu.style.display = 'none';
+    var projMenu = document.querySelector('.project-filter-dropdown');
+    if (projMenu) projMenu.style.display = 'none';
+  }
 }
 if (typeof window !== 'undefined') window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
 var _allLoadedTasks     = [];
@@ -2103,7 +2111,7 @@ function getTaskDueDisplay(task, projectName) {
   var late = remaining <= 0;
   return {
     label: label,
-    badgeClass: late ? 'due-overdue' : 'due-completed',
+    badgeClass: late ? 'due-late' : 'due-completed',
     timing: formatTaskTiming(remaining, late)
   };
 }
@@ -2716,7 +2724,7 @@ function renderTasksListView(projectName) {
             '</div>' +
           '</td>' +
           '<td class="col-due">' +
-            (dueDisplay ? ('<span class="proj-list-due-pill task-due-pill ' + dueDisplay.badgeClass + '">' + escapeHtml(dueDisplay.label) + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
+            (dueDisplay ? ('<span class="proj-list-due-pill task-due-pill ' + dueDisplay.badgeClass + '" title="' + escapeHtml(dueDisplay.timing ? (dueDisplay.label + ' • ' + dueDisplay.timing) : dueDisplay.label) + '">' + escapeHtml(dueDisplay.label) + (dueDisplay.timing ? (' · ' + escapeHtml(dueDisplay.timing)) : '') + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
           '</td>' +
           '<td class="col-estimate">' +
             (est ? ('<span class="proj-list-estimate-pill">' + escapeHtml(est) + '</span>') : '<span style="color:var(--text-muted);">-</span>') +
@@ -2782,14 +2790,15 @@ function formatTaskCalIso(year, month1Based, day) {
 
 /**
  * Computes the calendar visual status & color classification for a task:
- * - red: overdue (uncompleted past due date) OR completed late (completed_at after due date midnight MYT)
+ * - red: overdue (uncompleted past due date)
+ * - orange-red: completed late (completed_at after due date midnight MYT)
  * - yellow: uncompleted and nearing due date (0..2 days remaining)
  * - green: completed on time / early (or completed without late timestamp)
  * - gray: uncompleted and not near due date (> 2 days left or undated)
  * @param {Object} task
  * @param {string} [projectName]
  * @param {number} [now]
- * @returns {{ key: string, color: string, cls: string, dotCls: string, label: string, priority: number }}
+ * @returns {{ key: string, color: string, cls: string, dotCls: string, dueBadgeClass: string, label: string, priority: number }}
  */
 function getTaskCalendarColorState(task, projectName, now) {
   var refNow = typeof now === 'number' ? now : Date.now();
@@ -2803,10 +2812,11 @@ function getTaskCalendarColorState(task, projectName, now) {
       var remaining = Date.parse(day) + TASK_DAY_MS - TASK_MY_OFFSET_MS - completedTs;
       if (remaining <= 0) {
         return {
-          key: 'overdue',
-          color: 'red',
-          cls: 'task-cal-pill-red',
-          dotCls: 'dot-red',
+          key: 'late',
+          color: 'orange-red',
+          cls: 'task-cal-pill-late',
+          dotCls: 'dot-late',
+          dueBadgeClass: 'due-late',
           label: 'Completed late',
           priority: 1
         };
@@ -2816,6 +2826,7 @@ function getTaskCalendarColorState(task, projectName, now) {
         color: 'green',
         cls: 'task-cal-pill-green',
         dotCls: 'dot-green',
+        dueBadgeClass: 'due-completed',
         label: 'Completed on time',
         priority: 4
       };
@@ -2825,6 +2836,7 @@ function getTaskCalendarColorState(task, projectName, now) {
       color: 'green',
       cls: 'task-cal-pill-green',
       dotCls: 'dot-green',
+      dueBadgeClass: 'due-completed',
       label: 'Completed',
       priority: 4
     };
@@ -2837,6 +2849,7 @@ function getTaskCalendarColorState(task, projectName, now) {
       color: 'red',
       cls: 'task-cal-pill-red',
       dotCls: 'dot-red',
+      dueBadgeClass: 'due-overdue',
       label: 'Overdue',
       priority: 0
     };
@@ -2848,6 +2861,7 @@ function getTaskCalendarColorState(task, projectName, now) {
       color: 'yellow',
       cls: 'task-cal-pill-yellow',
       dotCls: 'dot-yellow',
+      dueBadgeClass: 'due-near',
       label: nearLabel,
       priority: 2
     };
@@ -2857,6 +2871,7 @@ function getTaskCalendarColorState(task, projectName, now) {
     color: 'gray',
     cls: 'task-cal-pill-gray',
     dotCls: 'dot-gray',
+    dueBadgeClass: 'due-normal',
     label: 'Scheduled',
     priority: 3
   };
@@ -3013,7 +3028,8 @@ function buildTaskCalendarHtml(tasksList, options) {
     +   '<div class="task-cal-title-block">'
     +     '<h3 class="task-cal-period-title">' + esc(periodTitle) + '</h3>'
     +     '<div class="task-cal-legend" aria-label="Task due status color legend">'
-    +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-red" aria-hidden="true"></span><span>Overdue / Late</span></span>'
+    +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-red" aria-hidden="true"></span><span>Overdue</span></span>'
+    +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-late" aria-hidden="true"></span><span>Completed Late</span></span>'
     +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-yellow" aria-hidden="true"></span><span>Due Soon (≤2d)</span></span>'
     +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-green" aria-hidden="true"></span><span>Completed</span></span>'
     +       '<span class="task-cal-legend-item"><span class="task-cal-legend-swatch swatch-gray" aria-hidden="true"></span><span>Upcoming</span></span>'
@@ -3107,6 +3123,7 @@ function buildTaskCalendarHtml(tasksList, options) {
       var monthPrefix = formatTaskCalIso(_taskCalYear, mIdx + 1, 1).slice(0, 7);
       var monthCount = 0;
       var hasRed = false;
+      var hasLate = false;
       var hasYellow = false;
       var hasGreen = false;
       Object.keys(tasksByDate).forEach(function(iso) {
@@ -3114,9 +3131,10 @@ function buildTaskCalendarHtml(tasksList, options) {
           var arr = tasksByDate[iso];
           monthCount += arr.length;
           arr.forEach(function(e) {
-            if (e.state.color === 'red') hasRed = true;
-            else if (e.state.color === 'yellow') hasYellow = true;
-            else if (e.state.color === 'green') hasGreen = true;
+            if (e.state.key === 'overdue') hasRed = true;
+            else if (e.state.key === 'late') hasLate = true;
+            else if (e.state.key === 'near') hasYellow = true;
+            else if (e.state.key === 'completed') hasGreen = true;
           });
         }
       });
@@ -3129,6 +3147,7 @@ function buildTaskCalendarHtml(tasksList, options) {
         +   (monthCount > 0
           ? ('<span class="task-cal-year-count">'
               + (hasRed ? '<span class="task-cal-dot dot-red" aria-hidden="true"></span>' : '')
+              + (hasLate ? '<span class="task-cal-dot dot-late" aria-hidden="true"></span>' : '')
               + (hasYellow ? '<span class="task-cal-dot dot-yellow" aria-hidden="true"></span>' : '')
               + (hasGreen ? '<span class="task-cal-dot dot-green" aria-hidden="true"></span>' : '')
               + '<span>' + monthCount + '</span></span>')
@@ -3941,17 +3960,21 @@ function getFilteredMyTasks() {
       }
     }
 
-    // 3. Status filter ('all' | 'open' | 'completed' | 'overdue' | 'near')
+    // 3. Status filter ('open' | 'completed' | 'overdue' | 'late' | 'near' | 'all')
     var isDone = isTaskCompleted(t, proj);
     if (_myTasksStatusFilter === 'open' && isDone) return false;
     if (_myTasksStatusFilter === 'completed' && !isDone) return false;
     if (_myTasksStatusFilter === 'overdue') {
       var calOver = getTaskCalendarColorState(t, proj);
-      if (calOver.color !== 'red') return false;
+      if (calOver.key !== 'overdue') return false;
+    }
+    if (_myTasksStatusFilter === 'late') {
+      var calLate = getTaskCalendarColorState(t, proj);
+      if (calLate.key !== 'late') return false;
     }
     if (_myTasksStatusFilter === 'near') {
       var calNear = getTaskCalendarColorState(t, proj);
-      if (calNear.color !== 'yellow') return false;
+      if (calNear.key !== 'near') return false;
     }
 
     // 4. Project filter
@@ -3973,13 +3996,14 @@ function getFilteredMyTasks() {
     return true;
   });
 
-  var stats = { total: filtered.length, overdue: 0, near: 0, completed: 0 };
+  var stats = { total: filtered.length, overdue: 0, late: 0, near: 0, completed: 0 };
   filtered.forEach(function(t) {
     var proj = getTaskProjectName(t) || 'General Project';
     var cs = getTaskCalendarColorState(t, proj);
-    if (cs.color === 'red') stats.overdue++;
-    else if (cs.color === 'yellow') stats.near++;
-    else if (cs.color === 'green') stats.completed++;
+    if (cs.key === 'overdue') stats.overdue++;
+    else if (cs.key === 'late') stats.late++;
+    else if (cs.key === 'near') stats.near++;
+    else if (cs.key === 'completed') stats.completed++;
   });
 
   return {
@@ -4127,10 +4151,11 @@ function buildMyTasksListHtml(filtered) {
       var dueCellHtml = '<span style="color:var(--text-muted);">—</span>';
       if (dueDisplay) {
         var calSt = getTaskCalendarColorState(t, project);
-        var duePillCls = calSt.color === 'red' ? 'due-overdue' : (calSt.color === 'yellow' ? 'due-near' : (calSt.color === 'green' ? 'due-completed' : 'due-normal'));
-        dueCellHtml = '<span class="task-due-pill ' + duePillCls + '">'
+        var duePillCls = calSt.dueBadgeClass || dueDisplay.badgeClass || 'due-normal';
+        var dueTitle = dueDisplay.timing ? (dueDisplay.label + ' • ' + dueDisplay.timing) : dueDisplay.label;
+        dueCellHtml = '<span class="task-due-pill ' + duePillCls + '" title="' + esc(dueTitle) + '">'
           + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
-          + '<span>' + esc(dueDisplay.label) + '</span>'
+          + '<span>' + esc(dueDisplay.label) + (dueDisplay.timing ? (' · ' + esc(dueDisplay.timing)) : '') + '</span>'
           + '</span>';
       }
 
@@ -4256,7 +4281,7 @@ function buildMyTasksBoardHtml(filtered) {
         var dueBadge = '';
         if (dueDisplay) {
           var calSt = getTaskCalendarColorState(t, taskPName);
-          var badgeCls = calSt.color === 'red' ? 'due-overdue' : (calSt.color === 'yellow' ? 'due-near' : (calSt.color === 'green' ? 'due-completed' : 'due-normal'));
+          var badgeCls = calSt.dueBadgeClass || dueDisplay.badgeClass || 'due-normal';
           dueBadge = '<span class="task-due-pill ' + badgeCls + '">'
             + '<svg class="ui-icon-xs" width="12" height="12" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
             + esc(dueDisplay.label)
@@ -4334,12 +4359,12 @@ function renderMyTasksView(bodyOnly) {
     }
   }
 
-  var hasNonDefaultTaskFilters = (_myTasksScopeFilter !== 'all' || _myTasksStatusFilter !== 'all' || _myTasksProjectFilter !== 'all' || _myTasksAssigneeFilter !== 'all');
+  var hasNonDefaultTaskFilters = (_myTasksScopeFilter !== 'me' || _myTasksStatusFilter !== 'open' || _myTasksProjectFilter !== 'all' || _myTasksAssigneeFilter !== 'all');
 
   var html = '<div class="projects-overview-header">'
     + '<div>'
     +   '<h2 class="projects-overview-title">Tasks <span class="sr-only" style="display:none;">My Tasks</span></h2>'
-    +   '<p class="projects-overview-sub">Overview of all tasks across all projects, assignees, and due dates.</p>'
+    +   '<p class="projects-overview-sub">View and track tasks across all projects, assignees, and due dates.</p>'
     + '</div>'
     + '<button type="button" class="task-primary-btn" onclick="openCreateTaskModal(\'todo\', true)">'
     +   '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
@@ -4366,18 +4391,19 @@ function renderMyTasksView(bodyOnly) {
     +         '<div class="filter-section">'
     +           '<span class="filter-section-label">Assignment</span>'
     +           '<div class="filter-chip-group">'
-    +             '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'all\')">All Tasks</button>'
     +             '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'me' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'me\')">Assigned to me</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksScopeFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksScopeFilter(\'all\')">All Tasks</button>'
     +           '</div>'
     +         '</div>'
     +         '<div class="filter-section" style="margin-top:10px;">'
     +           '<span class="filter-section-label">Status &amp; Schedule</span>'
     +           '<div class="filter-chip-group">'
-    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'all\')">All</button>'
     +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'open' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'open\')">Open</button>'
     +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'completed' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'completed\')">Completed</button>'
-    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'overdue' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'overdue\')">Overdue / Late</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'overdue' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'overdue\')">Overdue</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'late' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'late\')">Completed Late</button>'
     +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'near' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'near\')">Due Soon</button>'
+    +             '<button type="button" class="filter-chip-option' + (_myTasksStatusFilter === 'all' ? ' active' : '') + '" onclick="setMyTasksStatusFilter(\'all\')">All</button>'
     +           '</div>'
     +         '</div>'
     +         '<div class="filter-section" style="margin-top:10px;">'
@@ -4425,11 +4451,12 @@ function renderMyTasksView(bodyOnly) {
 }
 
 function buildMyTasksSummaryHtml(stats) {
-  var s = stats || { total: 0, overdue: 0, near: 0, completed: 0 };
+  var s = stats || { total: 0, overdue: 0, late: 0, near: 0, completed: 0 };
   return '<span class="my-tasks-stat-chip"><strong>' + s.total + '</strong> Total</span>'
-    + (s.overdue > 0 ? '<span class="my-tasks-stat-chip stat-red"><strong>' + s.overdue + '</strong> Overdue / Late</span>' : '')
+    + (s.overdue > 0 ? '<span class="my-tasks-stat-chip stat-red"><strong>' + s.overdue + '</strong> Overdue</span>' : '')
+    + (s.late > 0 ? '<span class="my-tasks-stat-chip stat-late"><strong>' + s.late + '</strong> Completed Late</span>' : '')
     + (s.near > 0 ? '<span class="my-tasks-stat-chip stat-yellow"><strong>' + s.near + '</strong> Due Soon</span>' : '')
-    + '<span class="my-tasks-stat-chip stat-green"><strong>' + s.completed + '</strong> Completed</span>';
+    + (s.completed > 0 ? '<span class="my-tasks-stat-chip stat-green"><strong>' + s.completed + '</strong> Completed</span>' : '');
 }
 
 function toggleMyTasksFilterMenu(e) {
@@ -4443,12 +4470,12 @@ function toggleMyTasksFilterMenu(e) {
 }
 
 function setMyTasksScopeFilter(val) {
-  _myTasksScopeFilter = val || 'all';
+  _myTasksScopeFilter = val || 'me';
   renderMyTasksView();
 }
 
 function setMyTasksStatusFilter(val) {
-  _myTasksStatusFilter = val || 'all';
+  _myTasksStatusFilter = val || 'open';
   renderMyTasksView();
 }
 
@@ -4463,11 +4490,7 @@ function setMyTasksAssigneeFilter(assigneeKey) {
 }
 
 function resetMyTasksFilters() {
-  _myTasksScopeFilter = 'all';
-  _myTasksStatusFilter = 'all';
-  _myTasksProjectFilter = 'all';
-  _myTasksAssigneeFilter = 'all';
-  _taskSearchQuery = '';
+  resetTasksFiltersToDefault();
   renderMyTasksView();
 }
 

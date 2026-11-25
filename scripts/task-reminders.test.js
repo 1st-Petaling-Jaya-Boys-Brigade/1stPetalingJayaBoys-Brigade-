@@ -24,12 +24,12 @@ test('completion badges and reminders use the next midnight in Malaysia', () => 
   const early = tasks.getTaskDueDisplay({ ...completed, completed_at: '2026-11-24T16:00:00Z' });
   assert.equal(early.timing, '1 day early');
   const late = tasks.getTaskDueDisplay({ ...completed, completed_at: new Date(midnight).toISOString() });
-  assert.equal(late.badgeClass, 'due-overdue');
+  assert.equal(late.badgeClass, 'due-late');
   assert.equal(late.timing, 'Under 1 min late');
   const reloaded = JSON.parse(JSON.stringify({ ...completed, completed_at: new Date(midnight + 86400000).toISOString() }));
   assert.deepEqual(tasks.getTaskDueDisplay(reloaded), {
     label: 'Completed: 25 Nov',
-    badgeClass: 'due-overdue',
+    badgeClass: 'due-late',
     timing: '1 day late'
   });
   assert.equal(tasks.getOverdueTaskReminder(completed, midnight), null);
