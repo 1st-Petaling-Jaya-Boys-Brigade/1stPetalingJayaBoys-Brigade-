@@ -17,7 +17,7 @@ const MESSAGES: Record<string, [string, string, string]> = {
   task_comment: ['Task activity', 'There is a new update on a task you follow.', 'tasks'],
   mention: ['New mention', 'You were mentioned in the portal.', 'tasks'],
   resource: ['New resource', 'A resource is available in the portal.', 'resources'],
-  order_status: ['Order update', 'Open the portal to view your order status.', 'orders'],
+  order_status: ['Order update', 'Open the portal to view your order status.', 'member'],
   forum_reply: ['Forum activity', 'There is a new reply or mention in the portal.', 'forum'],
   task_overdue: ['Overdue task reminder', 'Open Projects & Tasks to review your overdue tasks.', 'tasks'],
   test: ['1st PJ BB test notification', 'Background notifications are working on this device.', 'home'],
@@ -163,12 +163,15 @@ async function recipients(topics: string[]) {
   return devices.filter(device => eligible.has(device.member_ic));
 }
 
-async function deliver(device: Device, type: string, target: string) {
+async function deliver(device: Device, type: string, target: string, targetId = '') {
   const endpoint = appleEndpoint(device.endpoint);
   if (!endpoint) return false;
   const [title, body, tab] = MESSAGES[type];
+  const params = new URLSearchParams({ notif_tab: tab, notif_cat: type });
+  if (targetId) params.set('notif_target', targetId);
+  const url = './index.html?' + params.toString() + '#' + tab;
   const details = webPush.generateRequestDetails({ endpoint, keys: { p256dh: device.p256dh, auth: device.auth_key } }, JSON.stringify({
-    title, body, tab, tag: 'portal-web-' + type + '-' + target, url: './index.html#' + tab,
+    title, body, tab, category: type, targetId, tag: 'portal-web-' + type + '-' + target, url,
   }), { TTL: type === 'task_overdue' ? 43_200 : 3_600, urgency: 'high', vapidDetails: { subject: SITE, publicKey: PUBLIC_KEY, privateKey: PRIVATE_KEY } });
   const response = await fetch(endpoint, {
     method: 'POST', headers: details.headers as HeadersInit, body: new Uint8Array(details.body!),
@@ -183,18 +186,18 @@ async function deliver(device: Device, type: string, target: string) {
   return true;
 }
 
-async function fanout(devices: Device[], type: string, target: string) {
+async function fanout(devices: Device[], type: string, target: string, targetId = '') {
   let sent = 0;
   let failed = 0;
   for (let index = 0; index < devices.length; index += 10) {
     const results = await Promise.allSettled(devices.slice(index, index + 10).map(async device => {
-      if (type !== 'task_overdue') return deliver(device, type, target);
+      if (type !== 'task_overdue') return deliver(device, type, target, targetId);
       const key = await hash('web/' + device.endpoint);
       const claim = await db<unknown[]>('bb_task_reminder_deliveries?on_conflict=reminder_day,recipient_key', 'POST',
         { reminder_day: target, recipient_key: key }, 'resolution=ignore-duplicates,return=representation');
       if (!claim.length) return false;
       try {
-        return await deliver(device, type, target);
+        return await deliver(device, type, target, '');
       } catch (error) {
         // Retry explicit provider rejections on the next run. Keep the claim if the outcome is unknown.
         if (error instanceof ProviderRejected) {
@@ -301,8 +304,9 @@ Deno.serve(async request => {
       return json({ error: 'Task access required' }, 403);
     }
     const permitted = topics.filter(topic => topic.startsWith('user_') || staff || (category !== 'forum_reply' && topic === departmentTopic(actor)));
-    const target = String(data.target || '').replace(/[^\w-]/g, '').slice(0, 80) || String(Date.now());
-    const result = await fanout(await recipients(permitted), category, target);
+    const targetId = String(data.target || '').replace(/[^\w-]/g, '').slice(0, 80);
+    const target = targetId || String(Date.now());
+    const result = await fanout(await recipients(permitted), category, target, targetId);
     return json(result, result.failed && !result.sent ? 502 : 200);
   } catch {
     return json({ error: 'Web Push could not complete the request' }, 500);

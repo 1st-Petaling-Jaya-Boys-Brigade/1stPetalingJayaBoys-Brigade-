@@ -6,15 +6,18 @@ const notifications = [];
 const channels = [];
 let permission = 'denied';
 
-test('native alerts honor opt-in and sound preferences with portal content', async ({ mock }) => {
+test('native alerts honor opt-in, sound preferences, and deep-link click routing', async ({ mock }) => {
   let now = Date.now();
   let platform = 'android';
+  const listeners = {};
+  const deepLinksReceived = [];
   mock.method(Date, 'now', () => now);
   global.localStorage = {
     getItem: key => preferences.get(key) ?? null,
     setItem: (key, value) => preferences.set(key, value)
   };
   global.window = {
+    handlePortalNotificationDeepLink: route => deepLinksReceived.push(route),
     Capacitor: {
       isNativePlatform: () => true,
       getPlatform: () => platform,
@@ -23,7 +26,8 @@ test('native alerts honor opt-in and sound preferences with portal content', asy
           requestPermissions: async () => ({ display: permission }),
           checkPermissions: async () => ({ display: permission }),
           createChannel: async channel => channels.push(channel),
-          schedule: async batch => notifications.push(...batch.notifications)
+          schedule: async batch => notifications.push(...batch.notifications),
+          addListener: (eventName, fn) => { listeners[eventName] = fn; }
         }
       }
     }
@@ -78,6 +82,25 @@ test('native alerts honor opt-in and sound preferences with portal content', asy
     now += 2000;
     assert.equal(sendTagged(), null);
     assert.equal(notifications.length, 3);
+
+    // Deep-link metadata attached to scheduled native alerts and routed on click
+    now += 2000;
+    assert.equal(await ui.triggerPortalSystemNotification('Task Mention', 'Check this task', {
+      tag: 'mention-77',
+      tab: 'tasks',
+      targetId: 'TASK-77',
+      category: 'mention'
+    }), true);
+    const deepNotif = notifications[notifications.length - 1];
+    assert.deepEqual(deepNotif.extra, {
+      tab: 'tasks',
+      targetId: 'TASK-77',
+      category: 'mention',
+      notifId: 'mention-77'
+    });
+    assert.equal(typeof listeners.localNotificationActionPerformed, 'function');
+    listeners.localNotificationActionPerformed({ notification: deepNotif });
+    assert.deepEqual(deepLinksReceived, [deepNotif.extra]);
   } finally {
     delete global.window;
     delete global.localStorage;
@@ -85,6 +108,10 @@ test('native alerts honor opt-in and sound preferences with portal content', asy
 });
 
 test('Firebase Cloud Messaging (FCM) universal push notification engine', async () => {
+  const utils = require('../js/core/utils.js');
+  global.getMentionDirectoryMembers = utils.getMentionDirectoryMembers;
+  global.createMentionMatcher = utils.createMentionMatcher;
+  global.normalizeMentionName = utils.normalizeMentionName;
   const fcm = require('../js/api/fcm.js');
 
   // 1. Topic name sanitization conforming to FCM rules [a-zA-Z0-9-_.~%]+

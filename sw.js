@@ -189,6 +189,34 @@ function isPortalCache(key) {
   return key.startsWith('bb-portal-static-') || key.startsWith('bb-portal-data-');
 }
 
+function normalizeSwNotificationTab(tab, category) {
+  var rawTab = String(tab || '').trim().toLowerCase().replace(/^#/, '').replace(/^page-/, '');
+  var rawCat = String(category || '').trim().toLowerCase();
+  if (rawTab === 'calendar') rawTab = 'parade';
+  if (rawTab === 'orders' || rawCat === 'order_status') rawTab = 'member';
+  if (rawTab === 'forms' || rawCat === 'form') rawTab = 'order';
+  if (!rawTab) {
+    if (['task_assigned', 'task_comment', 'task_due', 'task_due_soon', 'task_overdue', 'mention'].includes(rawCat)) rawTab = 'tasks';
+    else if (['forum_reply', 'forum_mention', 'forum'].includes(rawCat)) rawTab = 'forum';
+    else if (['resource', 'resources'].includes(rawCat)) rawTab = 'resources';
+    else if (['highlight', 'gallery'].includes(rawCat)) rawTab = 'gallery';
+    else if (['calendar', 'parade', 'event'].includes(rawCat)) rawTab = 'parade';
+    else rawTab = 'home';
+  }
+  var allowed = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade', 'admin'];
+  return allowed.includes(rawTab) ? rawTab : 'home';
+}
+
+function buildNotificationDeepLinkUrl(tab, category, targetId, notifId) {
+  var cleanTab = normalizeSwNotificationTab(tab, category);
+  var params = new URLSearchParams();
+  params.set('notif_tab', cleanTab);
+  if (category) params.set('notif_cat', String(category).trim());
+  if (targetId) params.set('notif_target', String(targetId).trim());
+  if (notifId) params.set('notif_id', String(notifId).trim());
+  return './index.html?' + params.toString() + '#' + cleanTab;
+}
+
 // ── Service Worker Lifecycle Events ────────────────────────────────────────
 
 if (typeof self !== 'undefined' && 'addEventListener' in self) {
@@ -270,6 +298,15 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
     var iconUrl = payload.icon || './assets/portal-icon-192.png';
     var badgeUrl = payload.badge || './assets/logo.png';
     var soundUrl = './assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav';
+    var rawCategory = (payload.data && payload.data.category) || payload.category || '';
+    var rawTargetId = (payload.data && payload.data.targetId) || payload.targetId || '';
+    var rawTab = (payload.data && payload.data.tab) || payload.tab || '';
+    var targetTab = normalizeSwNotificationTab(rawTab, rawCategory);
+    var notifId = (payload.data && payload.data.notifId) || payload.notifId || tag;
+    var targetUrl = (payload.data && payload.data.url) || payload.url || buildNotificationDeepLinkUrl(targetTab, rawCategory, rawTargetId, notifId);
+    if (targetUrl.indexOf('notif_tab=') === -1) {
+      targetUrl = buildNotificationDeepLinkUrl(targetTab, rawCategory, rawTargetId, notifId);
+    }
 
     var notifOptions = {
       body: body,
@@ -281,8 +318,11 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
       vibrate: [200, 100, 200, 100, 200],
       sound: soundUrl,
       data: {
-        url: (payload.data && payload.data.url) || payload.url || './#page-home',
-        tab: (payload.data && payload.data.tab) || payload.tab || 'home'
+        url: targetUrl,
+        tab: targetTab,
+        category: String(rawCategory || ''),
+        targetId: String(rawTargetId || ''),
+        notifId: String(notifId || '')
       },
       actions: [
         { action: 'open', title: 'Open' },
@@ -323,17 +363,24 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
         // If there was a previous seen ID and this is a new one, show notification
         if (lastSeenId) {
           var cleanSnippet = (latest.body || '').replace(/<[^>]+>/g, '').trim().slice(0, 70);
+          var annId = String(latest.id);
           await self.registration.showNotification(
             '📢 ' + (latest.title || "New Company Announcement"),
             {
               body: cleanSnippet || 'Tap to view announcement.',
               icon: './assets/portal-icon-192.png',
               badge: './assets/logo.png',
-              tag: 'bb-announcement-' + latest.id,
+              tag: 'bb-announcement-' + annId,
               renotify: true,
               vibrate: [200, 100, 200, 100, 200],
               sound: './assets/Sound%20Effects/Notification%20Sound_PopSound%20(1).wav',
-              data: { url: './#page-home', tab: 'home' }
+              data: {
+                url: buildNotificationDeepLinkUrl('home', 'announcement', annId, 'notif-announcement-' + annId),
+                tab: 'home',
+                category: 'announcement',
+                targetId: annId,
+                notifId: 'notif-announcement-' + annId
+              }
             }
           );
         }
@@ -361,8 +408,14 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
     if (event.action === 'dismiss') {
       return;
     }
-    var targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : './#page-home';
-    var targetTab = (event.notification.data && event.notification.data.tab) ? event.notification.data.tab : 'home';
+    var nData = (event.notification && event.notification.data) ? event.notification.data : {};
+    var targetCategory = nData.category || '';
+    var targetId = nData.targetId || '';
+    var notifId = nData.notifId || (event.notification && event.notification.tag) || '';
+    var targetTab = normalizeSwNotificationTab(nData.tab, targetCategory);
+    var targetUrl = (nData.url && String(nData.url).indexOf('notif_tab=') !== -1)
+      ? nData.url
+      : buildNotificationDeepLinkUrl(targetTab, targetCategory, targetId, notifId);
 
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (clientList) {
@@ -370,7 +423,13 @@ if (typeof self !== 'undefined' && 'addEventListener' in self) {
           var client = clientList[i];
           if (client.url && 'focus' in client) {
             try {
-              client.postMessage({ type: 'PORTAL_NAVIGATE_TAB', tab: targetTab });
+              client.postMessage({
+                type: 'PORTAL_NAVIGATE_TAB',
+                tab: targetTab,
+                targetId: targetId,
+                category: targetCategory,
+                notifId: notifId
+              });
             } catch (_) {}
             return client.focus();
           }
@@ -391,6 +450,8 @@ if (typeof module !== 'undefined' && module.exports) {
     DATA_CACHE_NAME: DATA_CACHE_NAME,
     PRECACHE_ASSETS: PRECACHE_ASSETS,
     OFFLINE_DATA_KEYS: OFFLINE_DATA_KEYS,
-    handleFetchRequest: handleFetchRequest
+    handleFetchRequest: handleFetchRequest,
+    normalizeSwNotificationTab: normalizeSwNotificationTab,
+    buildNotificationDeepLinkUrl: buildNotificationDeepLinkUrl
   };
 }

@@ -17733,6 +17733,153 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     }
   }
 
+  // --- Suite 94: Mobile Notification Deep-Linking & Sub-2s Stedfast Helper Optimization ---
+  console.log('\n--- Suite 94: Mobile Notification Deep-Linking & Sub-2s Stedfast Helper Optimization ---');
+  {
+    // 1. Service Worker deep-link URL & tab normalization
+    const swMod = require('../sw.js');
+    assert.strictEqual(typeof swMod.normalizeSwNotificationTab, 'function', 'sw.js must export normalizeSwNotificationTab');
+    assert.strictEqual(typeof swMod.buildNotificationDeepLinkUrl, 'function', 'sw.js must export buildNotificationDeepLinkUrl');
+    assert.strictEqual(swMod.normalizeSwNotificationTab('page-home', 'announcement'), 'home');
+    assert.strictEqual(swMod.normalizeSwNotificationTab('', 'task_comment'), 'tasks');
+    assert.strictEqual(swMod.normalizeSwNotificationTab('', 'task_overdue'), 'tasks');
+    assert.strictEqual(swMod.normalizeSwNotificationTab('orders', 'order_status'), 'member');
+    assert.strictEqual(swMod.normalizeSwNotificationTab('calendar', 'event'), 'parade');
+    assert.strictEqual(swMod.normalizeSwNotificationTab('', 'forum_reply'), 'forum');
+    assert.strictEqual(swMod.normalizeSwNotificationTab('', 'resource'), 'resources');
+
+    const taskDeepUrl = swMod.buildNotificationDeepLinkUrl('tasks', 'task_due', 'TASK-42', 'notif-task-due-TASK-42');
+    assert.ok(taskDeepUrl.includes('notif_tab=tasks'), 'Task deep-link URL must include notif_tab=tasks');
+    assert.ok(taskDeepUrl.includes('notif_cat=task_due'), 'Task deep-link URL must include notif_cat=task_due');
+    assert.ok(taskDeepUrl.includes('notif_target=TASK-42'), 'Task deep-link URL must include notif_target=TASK-42');
+    assert.ok(taskDeepUrl.endsWith('#tasks'), 'Task deep-link URL must end with #tasks');
+
+    const swSource = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+    assert.ok(swSource.includes('targetId: targetId') && swSource.includes('category: targetCategory'), 'sw.js notificationclick must forward targetId and category to active clients');
+    console.log('  ✔ Service Worker deep-link URL builder, tab aliases, and notificationclick forwarding verified');
+
+    // 2. Android Native Bridge & Web Push Edge Function deep-link wiring
+    const mainActivityJava = fs.readFileSync(path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'java', 'org', 'firstpjbb', 'portal', 'MainActivity.java'), 'utf8');
+    assert.ok(mainActivityJava.includes('onNewIntent(Intent intent)'), 'MainActivity.java must override onNewIntent for warm notification taps');
+    assert.ok(mainActivityJava.includes('consumePendingNotificationRoute()'), 'MainActivity.java must expose consumePendingNotificationRoute on AndroidFCM bridge');
+    assert.ok(mainActivityJava.includes('handlePortalNotificationDeepLink'), 'MainActivity.java must dispatch notification routes to window.handlePortalNotificationDeepLink');
+
+    const fcmServiceJava = fs.readFileSync(path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'java', 'org', 'firstpjbb', 'portal', 'PortalFirebaseMessagingService.java'), 'utf8');
+    assert.ok(fcmServiceJava.includes('openIntent.putExtra("tab", tab)') && fcmServiceJava.includes('openIntent.putExtra("targetId", targetId)') && fcmServiceJava.includes('openIntent.putExtra("category", category)'), 'PortalFirebaseMessagingService must attach tab, targetId, and category extras');
+
+    const webPushEdgeSrc = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'portal-web-push', 'index.ts'), 'utf8');
+    assert.ok(webPushEdgeSrc.includes('notif_tab: tab') && webPushEdgeSrc.includes("params.set('notif_target', targetId)"), 'portal-web-push edge function must emit deep-link query params');
+    assert.ok(webPushEdgeSrc.includes("order_status: ['Order update', 'Open the portal to view your order status.', 'member']"), 'portal-web-push must route order_status notifications to member hub');
+    console.log('  ✔ Android native MainActivity/FCM bridge and Web Push edge function deep-link metadata verified');
+
+    // 3. index.html unified notification router & preconnect verified with strict 388 DOM IDs
+    const idxSrc = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    assert.ok(idxSrc.includes('function handlePortalNotificationDeepLink('), 'index.html must define handlePortalNotificationDeepLink');
+    assert.ok(idxSrc.includes('function normalizeNotificationRoute('), 'index.html must define normalizeNotificationRoute');
+    assert.ok(idxSrc.includes('AndroidFCM.consumePendingNotificationRoute()'), 'index.html must consume cold-start Android notification routes on load');
+    assert.ok(idxSrc.includes('<link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>'), 'index.html must preconnect to generativelanguage.googleapis.com');
+    const idMatches94 = idxSrc.match(/\sid=["']([^"']+)["']/g) || [];
+    const uniqueIds94 = new Set(idMatches94.map(m => {
+      const mm = m.match(/\sid=["']([^"']+)["']/);
+      return mm ? mm[1] : '';
+    }).filter(Boolean));
+    assert.strictEqual(uniqueIds94.size, 388, 'index.html must preserve strict 388 unique DOM IDs invariant');
+    console.log('  ✔ Unified deep-link router, Gemini preconnect, and strict 388 DOM IDs invariant verified');
+
+    // 4. Stedfast Helper sub-2s latency optimizations (thinkingConfig, fast model pruning, SSE streaming, local-first key sync, cache, SLA fallback)
+    const forumMod94 = require('../js/modules/forum.js');
+    assert.deepStrictEqual(forumMod94.buildGeminiThinkingConfig('gemini-3.8-flash', 'generateContent'), { thinkingLevel: 'low' }, 'gemini-3.8-flash must use lowest supported thinkingLevel "low"');
+    assert.deepStrictEqual(forumMod94.buildGeminiThinkingConfig('gemini-3.5-flash-lite', 'generateContent'), { thinkingLevel: 'minimal' }, 'gemini-3.5-flash-lite must use thinkingLevel "minimal"');
+    assert.deepStrictEqual(forumMod94.buildGeminiThinkingConfig('gemini-2.5-flash-lite', 'generateContent'), { thinkingBudget: 0 }, 'gemini-2.5-flash-lite must disable thinking with thinkingBudget 0');
+    assert.deepStrictEqual(forumMod94.buildGeminiThinkingConfig('gemini-3.8-flash', 'interactions'), { thinking_level: 'low' }, 'interactions mode must use snake_case thinking_level');
+    assert.strictEqual(forumMod94.isSlowGeminiModel('gemini-3.1-pro-preview'), true, 'Pro models must be classified as slow for fast chat cache');
+    assert.strictEqual(forumMod94.isSlowGeminiModel('gemini-3.8-flash'), false, 'Flash models must not be classified as slow');
+
+    // Local-first syncRemoteGeminiApiKey must NOT hit Supabase when key is already cached locally
+    const origSupa94 = global.supa;
+    let supaConfigCalls = 0;
+    global.supa = { getConfig: async () => { supaConfigCalls++; return null; } };
+    forumMod94.setGeminiApiKey('AIzaSyLocalFastKeyTest');
+    const syncedKey = await forumMod94.syncRemoteGeminiApiKey();
+    assert.strictEqual(syncedKey, 'AIzaSyLocalFastKeyTest');
+    assert.strictEqual(supaConfigCalls, 0, 'syncRemoteGeminiApiKey must return local key in 0ms without hitting Supabase');
+
+    // SSE Streaming + thought part filtering + cached Pro model purge
+    const origFetch94 = global.fetch;
+    forumMod94.setActiveGeminiModel('gemini-3.1-pro-preview', 'v1beta', 'generateContent');
+    let streamUrlHit = '';
+    let streamBodySent = null;
+    const streamedChunks = [];
+    global.fetch = async (url, opts) => {
+      streamUrlHit = url;
+      streamBodySent = JSON.parse(opts.body);
+      const encoder = new TextEncoder();
+      const sseFrames = [
+        'data: {"candidates":[{"content":{"parts":[{"text":"hidden reasoning","thought":true}]}}]}\n\n',
+        'data: {"candidates":[{"content":{"parts":[{"text":"Saturday parade runs "}]}}]}\n\n',
+        'data: {"candidates":[{"content":{"parts":[{"text":"2:15 PM to 6:00 PM at TMC PJ."}]}}]}\n\n'
+      ];
+      let idx = 0;
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            read: async () => idx < sseFrames.length
+              ? { done: false, value: encoder.encode(sseFrames[idx++]) }
+              : { done: true, value: undefined },
+            releaseLock: () => {}
+          })
+        }
+      };
+    };
+
+    const streamReply = await forumMod94.callGeminiApi('Parade time?', 'AIzaSyLocalFastKeyTest', {
+      onChunk: (txt) => streamedChunks.push(txt)
+    });
+    assert.ok(streamUrlHit.includes('gemini-3.8-flash:streamGenerateContent?alt=sse'), 'Streaming must ignore cached slow Pro model and call gemini-3.8-flash SSE endpoint');
+    assert.deepStrictEqual(streamBodySent.generationConfig.thinkingConfig, { thinkingLevel: 'low' }, 'Request must send thinkingConfig { thinkingLevel: "low" }');
+    assert.strictEqual(streamReply, 'Saturday parade runs 2:15 PM to 6:00 PM at TMC PJ.', 'SSE parser must exclude hidden thought parts and join answer chunks');
+    assert.strictEqual(streamedChunks.length, 2, 'onChunk must fire incrementally for each visible text chunk');
+
+    // Response Cache hit (<5ms, zero extra fetch calls)
+    let fetchCount94 = 0;
+    global.fetch = async () => {
+      fetchCount94++;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ candidates: [{ content: { parts: [{ text: 'Cached Stedfast answer about uniform kits.' }] } }] })
+      };
+    };
+    const firstResp = await forumMod94.getHelperAgentResponse('Tell me about uniform kits please');
+    const secondResp = await forumMod94.getHelperAgentResponse('Tell me about uniform kits please');
+    assert.strictEqual(fetchCount94, 1, 'Second identical Stedfast query must hit in-memory response cache with 0 network calls');
+    assert.strictEqual(secondResp.text, firstResp.text);
+
+    // Sub-2s Fast Fallback SLA when Gemini stalls on a handbook/FAQ query
+    global.fetch = (_url, opts) => new Promise((_resolve, reject) => {
+      if (opts && opts.signal) {
+        opts.signal.addEventListener('abort', () => {
+          const abortErr = new Error('The user aborted a request.');
+          abortErr.name = 'AbortError';
+          reject(abortErr);
+        });
+      }
+    });
+    const tStart = Date.now();
+    const slaResp = await forumMod94.getHelperAgentResponse('What time does Saturday parade start and end?', { firstTokenTimeoutMs: 60 });
+    const elapsedMs = Date.now() - tStart;
+    assert.ok(elapsedMs < 1000, 'Stalled Gemini request must fast-fallback well under 2s (took ' + elapsedMs + 'ms)');
+    assert.ok(slaResp && slaResp.text.includes('2:15 PM') && slaResp.text.includes('9:30 AM'), 'Fast SLA fallback must return verified local Company Handbook answer');
+
+    global.fetch = origFetch94;
+    global.supa = origSupa94;
+    forumMod94.setGeminiApiKey('');
+    forumMod94.setActiveGeminiModel('', 'v1beta', 'generateContent');
+    console.log('  ✔ Stedfast thinkingConfig, Pro-model purge, SSE streaming, response cache, and <2s SLA fallback verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);

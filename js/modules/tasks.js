@@ -959,7 +959,10 @@ async function checkTasksAccess() {
 
     if (gate) gate.style.display = 'none';
     if (board) board.style.display = 'block';
-    setTasksViewMode('projects');
+    var hasActiveDeepLink = typeof window !== 'undefined' && window._deepLinkTaskGuard && Date.now() < window._deepLinkTaskGuard.expiresAt;
+    if (!hasActiveDeepLink && !_activeDetailTaskId && _tasksViewMode !== 'board' && _tasksViewMode !== 'mytasks') {
+      setTasksViewMode('projects');
+    }
   } catch (e) {
     console.error('checkTasksAccess error:', e);
   }
@@ -981,7 +984,7 @@ function previewTasksBoardDemo() {
  * Toggles view mode between Kanban Board ('board') and My Tasks Table ('mytasks')
  * @param {string} mode ('board' | 'mytasks')
  */
-function setTasksViewMode(mode) {
+function setTasksViewMode(mode, options) {
   var prevMode = _tasksViewMode;
   _tasksViewMode = mode || 'projects';
   if (prevMode !== _tasksViewMode && typeof resetTasksFiltersToDefault === 'function') {
@@ -1063,7 +1066,7 @@ function setTasksViewMode(mode) {
         cur.style.display = 'inline';
         cur.textContent = _activeProject;
       }
-      renderTasksBoard(_activeProject);
+      renderTasksBoard(_activeProject, options);
     } else {
       // No project selected
       if (boardCol) {
@@ -1105,9 +1108,9 @@ function setTasksViewMode(mode) {
 /**
  * Opens a specific project's Kanban board directly
  */
-function openProjectBoard(projectName) {
+function openProjectBoard(projectName, options) {
   _activeProject = projectName || 'General Project';
-  setTasksViewMode('board');
+  setTasksViewMode('board', options);
 }
 
 /**
@@ -2670,7 +2673,7 @@ function renderTasksListView(projectName) {
   listView.innerHTML = html;
 }
 
-async function renderTasksBoard(deptOrProject) {
+async function renderTasksBoard(deptOrProject, options) {
   if (typeof document === 'undefined') return;
 
   if (deptOrProject && deptOrProject !== 'all' && deptOrProject !== 'all tasks') {
@@ -2741,7 +2744,9 @@ async function renderTasksBoard(deptOrProject) {
   }
 
   // 2. Background fetch and refresh
-  await fetchAllRemoteTasks(true);
+  if (!(options && options.skipRemoteFetch)) {
+    await fetchAllRemoteTasks(true);
+  }
 }
 
 /**
@@ -2914,13 +2919,23 @@ function refreshVisibleTaskBrief() {
  * Fetches all tasks from Supabase and synchronizes in-memory collection
  * @param {boolean} [andRerender]
  */
-async function fetchAllRemoteTasks(andRerender) {
+async function fetchAllRemoteTasks(andRerender, options) {
   var client = getSupaClient();
   if (!client) return _allLoadedTasks;
   try {
-    var tasks = await client.get('bb_tasks?order=created_at.asc');
+    var reqOpts = (options && options.cache === false) ? { cache: false } : undefined;
+    var tasks = await client.get('bb_tasks?order=created_at.asc', reqOpts);
     if (Array.isArray(tasks)) {
       tasks = tasks.filter(function(t) { return t && !_deletedTaskIds[String(t.id)]; });
+      var protectedId = (typeof window !== 'undefined' && window._deepLinkTaskGuard && window._deepLinkTaskGuard.expiresAt > Date.now())
+        ? String(window._deepLinkTaskGuard.id || '')
+        : '';
+      if (protectedId && !_deletedTaskIds[protectedId] && !tasks.some(function(r) { return r && String(r.id) === protectedId; })) {
+        var preserved = (typeof window !== 'undefined' && window._taskMap && window._taskMap[protectedId])
+          || _taskMap[protectedId]
+          || _allLoadedTasks.find(function(t) { return t && String(t.id) === protectedId; });
+        if (preserved) tasks.push(preserved);
+      }
       var pendingTemp = _allLoadedTasks.filter(function(t) {
         if (!t || !String(t.id).startsWith('temp_') || _deletedTaskIds[String(t.id)]) return false;
         var tKey = String(t.title || '').trim().toLowerCase();
@@ -3793,6 +3808,49 @@ async function flushTaskBriefDraft(draft) {
       if (draft.value === value) clearTaskBriefDraft(draft);
       else storeTaskBriefDraft(draft);
       broadcastTaskBriefSaved(id);
+
+      // Dispatch push notification for newly added @mentions in task brief description
+      if (field === 'description' && typeof resolveMentionTargets === 'function') {
+        var briefDispatcher = (typeof sendPortalPushNotification === 'function')
+          ? sendPortalPushNotification
+          : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+        if (briefDispatcher) {
+          var prevMentions = resolveMentionTargets(getTaskBriefBody(base) || '');
+          var nextMentions = resolveMentionTargets(value || '');
+          var myNameLower = (typeof sessionGet === 'function' ? (sessionGet('name') || '') : '').toLowerCase().trim();
+          var myEmailLower = (typeof sessionGet === 'function' ? (sessionGet('email') || '') : '').toLowerCase().trim();
+          var prevUserSet = new Set((prevMentions.targetUsers || []).map(function(u) { return String(u).toLowerCase().trim(); }));
+          var newUsers = (nextMentions.targetUsers || []).filter(function(u) {
+            var lu = String(u || '').toLowerCase().trim();
+            return lu && !prevUserSet.has(lu) && lu !== myNameLower && lu !== myEmailLower;
+          });
+          var prevTopicSet = new Set(prevMentions.topics || []);
+          var newTopics = (nextMentions.topics || []).filter(function(tp) { return tp && !prevTopicSet.has(tp); });
+          var authorLabel = (typeof sessionGet === 'function' ? sessionGet('name') : '') || 'A teammate';
+          var taskLabel = (result.task && result.task.title) || (task && task.title) || 'Task Brief';
+          var cleanBriefSnippet = (typeof cleanSnippet === 'function') ? cleanSnippet(value, 140) : String(value || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+          if (newUsers.length > 0) {
+            briefDispatcher({
+              type: 'mention',
+              title: authorLabel + ' mentioned you in a task brief',
+              body: taskLabel + ': ' + cleanBriefSnippet,
+              targetUsers: newUsers,
+              tab: 'tasks',
+              targetId: id
+            }).catch(function() {});
+          }
+          newTopics.forEach(function(deptTopic) {
+            briefDispatcher({
+              type: 'mention',
+              title: authorLabel + ' mentioned you in a task brief',
+              body: taskLabel + ': ' + cleanBriefSnippet,
+              targetTopic: deptTopic,
+              tab: 'tasks',
+              targetId: id
+            }).catch(function() {});
+          });
+        }
+      }
     } else {
       draft.problem = 'conflict';
       draft.remote = result.task[field];
@@ -7598,7 +7656,8 @@ async function handleCreateTaskSubmit(e) {
                   body: (localTask.creator_name || 'An officer') + ' assigned a task: ' + title,
                   targetUsers: targetList,
                   targetDept: null,
-                  tab: 'tasks'
+                  tab: 'tasks',
+                  targetId: saved.id
                 }).catch(function() {});
               }
             }
@@ -7862,13 +7921,15 @@ async function saveTask() {
           }
         });
       }
+      var savedAdminTaskId = (typeof taskRes !== 'undefined' && taskRes && taskRes[0] && taskRes[0].id) || editId || '';
       taskDispatcher({
         type: 'task_assigned',
         title: 'Task Assigned: ' + title,
         body: (payload.creator_name || 'An officer') + ' assigned a task: ' + title,
         targetUsers: targetUsers,
         targetDept: null,
-        tab: 'tasks'
+        tab: 'tasks',
+        targetId: savedAdminTaskId
       }).catch(function(pushErr) {
         console.warn('Task assignment FCM push error:', pushErr);
       });

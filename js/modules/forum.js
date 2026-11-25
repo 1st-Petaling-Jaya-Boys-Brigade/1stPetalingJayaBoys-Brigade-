@@ -2643,8 +2643,14 @@ function sanitizeStedfastOutput(text) {
 // ── Knowledge Base FAQ Engine (100 Official Portal FAQs) ─────────────────────
 var FAQ_KNOWLEDGE_BASE = PORTAL_100_FAQS;
 
-// Cached Google Gemini API Key
+// Cached Google Gemini API Key & Fast-Response Caches
 var _cachedGeminiApiKey = '';
+var _geminiKeySyncPromise = null;
+var _geminiKeyEmptyCheckedAt = 0;
+var _failedGeminiModels = new Set();
+var _helperResponseCache = new Map();
+var HELPER_RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
+var HELPER_RESPONSE_CACHE_MAX = 30;
 
 /**
  * Safely resolves active Gemini API key from session, localStorage, window, or cache
@@ -2677,6 +2683,9 @@ function getGeminiApiKey() {
 function setGeminiApiKey(key) {
   var cleanKey = (key || '').trim();
   _cachedGeminiApiKey = cleanKey;
+  _geminiKeyEmptyCheckedAt = 0;
+  _failedGeminiModels.clear();
+  _helperResponseCache.clear();
   if (typeof localStorage !== 'undefined') {
     if (cleanKey) {
       localStorage.setItem('bb_gemini_api_key', cleanKey);
@@ -2694,29 +2703,46 @@ function setGeminiApiKey(key) {
 }
 
 /**
- * Synchronizes active Gemini API key from Supabase bb_config so all members automatically get helper access
+ * Synchronizes active Gemini API key from local storage first (0ms),
+ * falling back to Supabase bb_config with in-flight deduplication and short negative cache.
  * @returns {Promise<string>}
  */
 async function syncRemoteGeminiApiKey() {
-  if (_cachedGeminiApiKey) return _cachedGeminiApiKey;
-  if (typeof supa !== 'undefined' && typeof supa.getConfig === 'function') {
-    try {
-      var val = await supa.getConfig('bb_gemini_api_key');
-      if (val) {
-        var k = (typeof val === 'string') ? val : (val.key || val.apiKey || '');
-        if (k && k.trim()) {
-          _cachedGeminiApiKey = k.trim();
-          if (typeof sessionStorage !== 'undefined') {
-            sessionStorage.setItem('bb_gemini_api_key', _cachedGeminiApiKey);
-          }
-          return _cachedGeminiApiKey;
-        }
-      }
-    } catch (e) {
-      console.warn('syncRemoteGeminiApiKey warning:', e);
-    }
+  var localKey = getGeminiApiKey();
+  if (localKey) {
+    _cachedGeminiApiKey = localKey;
+    return localKey;
   }
-  return getGeminiApiKey();
+  if (_geminiKeyEmptyCheckedAt && (Date.now() - _geminiKeyEmptyCheckedAt) < 60000) {
+    return '';
+  }
+  if (_geminiKeySyncPromise) return _geminiKeySyncPromise;
+  if (typeof supa !== 'undefined' && typeof supa.getConfig === 'function') {
+    _geminiKeySyncPromise = (async function() {
+      try {
+        var val = await supa.getConfig('bb_gemini_api_key');
+        if (val) {
+          var k = (typeof val === 'string') ? val : (val.key || val.apiKey || '');
+          if (k && k.trim()) {
+            _cachedGeminiApiKey = k.trim();
+            _geminiKeyEmptyCheckedAt = 0;
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem('bb_gemini_api_key', _cachedGeminiApiKey);
+            }
+            return _cachedGeminiApiKey;
+          }
+        }
+        _geminiKeyEmptyCheckedAt = Date.now();
+      } catch (e) {
+        console.warn('syncRemoteGeminiApiKey warning:', e);
+      } finally {
+        _geminiKeySyncPromise = null;
+      }
+      return getGeminiApiKey();
+    })();
+    return _geminiKeySyncPromise;
+  }
+  return '';
 }
 
 /**
@@ -2845,12 +2871,15 @@ function setActiveGeminiModel(model, apiVersion, apiMode) {
 function parseGeminiResponse(data) {
   if (!data) return null;
 
-  // 1. Classic generateContent response: candidates[0].content.parts[...].text
+  // 1. Classic generateContent response: candidates[0].content.parts[...].text (excluding hidden thought parts)
   if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0) {
     var cand = data.candidates[0];
     if (cand && cand.content && Array.isArray(cand.content.parts) && cand.content.parts.length > 0) {
-      var partsText = cand.content.parts.map(function(p) { return p.text || ''; }).join('').trim();
-      if (partsText) return partsText;
+      var partsText = cand.content.parts
+        .filter(function(p) { return p && !p.thought && typeof p.text === 'string'; })
+        .map(function(p) { return p.text; })
+        .join('');
+      if (partsText && partsText.trim()) return partsText;
     }
   }
 
@@ -2986,18 +3015,18 @@ async function listAvailableGeminiModels(apiKey) {
   if (discovered.length > 0) {
     var priorityOrder = [
       'gemini-3.8-flash',
-      'gemini-3.1-pro-preview',
-      'gemini-flash-latest',
-      'gemini-pro-latest',
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
       'gemini-3.5-flash-lite',
+      'gemini-3.6-flash',
       'gemini-3.1-flash-lite',
-      'gemini-2.5-flash',
+      'gemini-flash-latest',
       'gemini-2.5-flash-lite',
-      'gemini-3.8-pro',
+      'gemini-2.5-flash',
+      'gemini-3.7-flash',
+      'gemini-3.5-flash',
       'gemini-3.0-flash',
+      'gemini-3.1-pro-preview',
+      'gemini-pro-latest',
+      'gemini-3.8-pro',
       'gemini-2.5-pro',
       'gemini-2.0-flash',
       'gemini-1.5-flash',
@@ -3021,10 +3050,107 @@ async function listAvailableGeminiModels(apiKey) {
 }
 
 /**
- * Calls Google Gemini REST API using Generative Language endpoint
+ * Identifies high-latency Pro models that should not be cached for interactive chat
+ * @param {string} modelName
+ * @returns {boolean}
+ */
+function isSlowGeminiModel(modelName) {
+  if (!modelName) return false;
+  var clean = String(modelName).replace(/^models\//, '').trim().toLowerCase();
+  return /\bpro\b|-pro\b/.test(clean);
+}
+
+/**
+ * Returns the fastest valid thinking configuration supported by a given Gemini model
+ * @param {string} modelName
+ * @param {string} apiMode - 'generateContent' or 'interactions'
+ * @returns {Object|null}
+ */
+function buildGeminiThinkingConfig(modelName, apiMode) {
+  var clean = String(modelName || '').replace(/^models\//, '').trim().toLowerCase();
+  if (!clean) return null;
+  if (/^gemini-(?:3\.5-flash|3\.6-flash|3\.1-flash-lite|3-flash)/.test(clean)) {
+    return apiMode === 'interactions' ? { thinking_level: 'minimal' } : { thinkingLevel: 'minimal' };
+  }
+  if (/^gemini-(?:3\.8|4)/.test(clean)) {
+    return apiMode === 'interactions' ? { thinking_level: 'low' } : { thinkingLevel: 'low' };
+  }
+  if (/^gemini-2\.5-flash/.test(clean)) {
+    return apiMode === 'interactions' ? { thinking_level: 'low' } : { thinkingBudget: 0 };
+  }
+  return null;
+}
+
+/**
+ * Reads an SSE response stream from Gemini :streamGenerateContent?alt=sse and emits incremental text chunks
+ * @param {Response} resp
+ * @param {Function} onChunk
+ * @param {Function} [onFirstToken]
+ * @returns {Promise<string|null>}
+ */
+async function readGeminiSseStream(resp, onChunk, onFirstToken) {
+  if (!resp || !resp.body || typeof resp.body.getReader !== 'function') {
+    var fallbackData = await resp.json();
+    var fallbackText = parseGeminiResponse(fallbackData);
+    if (fallbackText && fallbackText.trim()) {
+      if (typeof onFirstToken === 'function') onFirstToken();
+      if (typeof onChunk === 'function') onChunk(fallbackText.trim());
+      return fallbackText.trim();
+    }
+    return null;
+  }
+
+  var reader = resp.body.getReader();
+  var decoder = (typeof TextDecoder !== 'undefined') ? new TextDecoder('utf-8') : null;
+  var buffer = '';
+  var accumulated = '';
+  var emittedFirst = false;
+
+  function processEventLine(line) {
+    var trimmed = line.trim();
+    if (!trimmed || trimmed.indexOf('data:') !== 0) return;
+    var jsonStr = trimmed.slice(5).trim();
+    if (!jsonStr || jsonStr === '[DONE]') return;
+    try {
+      var parsed = JSON.parse(jsonStr);
+      var chunkText = parseGeminiResponse(parsed);
+      if (chunkText) {
+        accumulated += chunkText;
+        if (!emittedFirst) {
+          emittedFirst = true;
+          if (typeof onFirstToken === 'function') onFirstToken();
+        }
+        if (typeof onChunk === 'function') onChunk(accumulated);
+      }
+    } catch (_) {}
+  }
+
+  try {
+    while (true) {
+      var step = await reader.read();
+      if (step.done) break;
+      buffer += decoder ? decoder.decode(step.value, { stream: true }) : String(step.value || '');
+      var lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || '';
+      for (var i = 0; i < lines.length; i++) {
+        processEventLine(lines[i]);
+      }
+    }
+    if (buffer.trim()) {
+      processEventLine(buffer);
+    }
+  } finally {
+    try { reader.releaseLock(); } catch (_) {}
+  }
+
+  return accumulated.trim() || null;
+}
+
+/**
+ * Calls Google Gemini REST API using Generative Language endpoint with low-latency thinking config & optional SSE streaming
  * @param {string} prompt
  * @param {string} [apiKey]
- * @param {Object} [options] - Optional execution configuration { model, apiVersion, skipSystemPrompt }
+ * @param {Object} [options] - Optional execution configuration { model, apiVersion, apiMode, skipSystemPrompt, skipThinking, maxTokens, timeoutMs, firstTokenTimeoutMs, maxCandidates, onChunk }
  * @returns {Promise<string|null>}
  */
 async function callGeminiApi(prompt, apiKey, options) {
@@ -3034,51 +3160,20 @@ async function callGeminiApi(prompt, apiKey, options) {
   _lastGeminiError = '';
   options = options || {};
 
-  var systemPrompt = "Keep your customer-facing responses in the Stedfast Helper / Company Handbook voice. You are Stedfast, the official company handbook helper for the 1st Petaling Jaya Boys' Brigade Web Portal in Malaysia.\n"
-    + "Company Knowledge Ground Truth:\n"
-    + "• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ), founded 1954 in Petaling Jaya, Malaysia.\n"
-    + "• Company Motto: Sure & Stedfast (Hebrews 6:19 - 'Which hope we have as an anchor of the soul, both sure and stedfast').\n"
-    + "• Full Company Parade: Every Saturday from 2:15 PM – 6:00 PM at TMC PJ.\n"
-    + "• Band Rehearsals: Saturdays from 9:30 AM – 11:30 AM prior to parade (woodwind, brass, percussion).\n"
-    + "• Uniform Kits: Kit A (Ceremonial/Anchor Blue Tunic), Kit B (Day Polo/Anchor Gold), Kit C (PT/Sports). Refer to company calendar for attire.\n"
-    + "• Attendance Rule: A minimum 80% attendance threshold strictly qualifies members for the BB One Year Service award.\n"
-    + "• Sections: Pre-Junior (Ages 6–8), Junior (Ages 9–11), Senior (Ages 12–19), Officers (Adult leaders).\n"
-    + "• Platoons: Alpha, Papa, Zulu, Hotel.\n"
-    + "• Ranks: Non-Commissioned Officers (Lance Corporal, Corporal, Sergeant, Staff Sergeant), Warrant Officers & Officers (Warrant Officer, Lieutenant, Captain, Chaplain), Enlisted (Recruit, Private).\n"
-    + "• President's Award Requirements (Senior Section):\n"
-    + "   1. First Aid (Advanced level)\n"
-    + "   2. Leadership / NCO Star (Advanced level)\n"
-    + "   3. Camping (Advanced level)\n"
-    + "   4. Swimming (Any level)\n"
-    + "   5. Drill (Any level)\n"
-    + "   6. Community Service (Any level)\n"
-    + "   7. Fire Safety / Rescue (Any level)\n"
-    + "• Founder's Award Requirements (Highest Senior Section Honor):\n"
-    + "   1. Minimum 3 Years of Service\n"
-    + "   2. At least 6 awards total across all groups\n"
-    + "   3. At least 1 award from each group (Groups A, B, C, D)\n"
-    + "   4. At least 2 awards at Basic level\n"
-    + "   5. At least 4 awards at Advanced level\n"
-    + "   6. All 4 Compulsory Badges: NCO Star (Leadership), Christian Education, Drill, Recruitment\n"
-    + "• Badge Groups:\n"
-    + "   - Group A (Education & Citizenship): Christian Education, Citizenship, NCO Star, International Relations\n"
-    + "   - Group B (Skills & Safety): Drill, Fire Safety, First Aid, Safety\n"
-    + "   - Group C (Adventure & Outdoors): Camping, Expedition, Hobbies, Swimming, Sportsman\n"
-    + "   - Group D (Service & Arts): Community Service, Environmental, Arts & Crafts, Music & Band\n"
-    + "   - Special Awards: President's Award, BB Founder's Award, Gold Award, Scholastic Awards (Silver, Gold), Duke of Edinburgh (Bronze, Silver, Gold)\n"
-    + "   - Service Awards: One Year Service (80% attendance required), Three Year Service, Long Year Service, Junior Section Service, Link Badge\n"
-    + "• Handbooks & Manuals (Company Resources): BB Handbook, Senior Section Handbook, BB Drill Manual, BB Songs & Hymns, Uniform Regulations (accessible in Resources tab).\n"
-    + "• Portal Navigation Tabs: Member Hub, Calendar, Forms & Store, My Badges, Leaderboard, Resources, Support Forum, 1stPJ Arcade.\n"
-    + "• 1stPJ Arcade: Daily Wordle (+15 credits on solve), Timed BB Trivia (+5 credits/question), Streaks & Credits, Cosmetic Shop, Arcade Leaderboard.\n"
-    + "Core Rules for Responses:\n"
-    + "1. Respond warmly, intelligently, and helpfully in fluent English.\n"
-    + "2. Format your reply with clean Markdown (bolding, bullet points, paragraphs). Do NOT use any emojis.\n"
-    + "3. Think, analyze, and synthesize thorough, specific, and accurate answers directly answering the user's question without relying on canned or generic responses.\n"
-    + "4. When asked about awards or requirements (such as President's Award or Founder's Award), list every specific prerequisite, stage, and badge clearly.\n"
-    + "5. STRICT PROHIBITION: NEVER mention internal task codes, bug codes, or ticket numbers (never say TSK, BUG, or similar codes).\n"
-    + "6. PRIVACY: Never reveal other members' individual attendance percentages, points, or demerits. Only decline on privacy grounds when a query explicitly seeks private personal records of another specific individual. Public badge requirements and curriculum are NEVER private.\n"
-    + "7. Navigation: If user asks where something is, specify the exact portal tab and give concise instructions.";
-
+  var systemPrompt = "You are Stedfast, the official company handbook helper for the 1st Petaling Jaya Boys' Brigade Web Portal (Malaysia).\n"
+    + "Company Ground Truth:\n"
+    + "• Sponsoring Body: Trinity Methodist Church Petaling Jaya (TMC PJ), founded 1954. Motto: Sure & Stedfast (Hebrews 6:19).\n"
+    + "• Parade: Saturdays 2:15 PM – 6:00 PM at TMC PJ. Band Rehearsals: Saturdays 9:30 AM – 11:30 AM.\n"
+    + "• Uniform Kits: Kit A (Ceremonial/Anchor Blue Tunic), Kit B (Day Polo/Anchor Gold), Kit C (PT/Sports). Check Calendar for attire.\n"
+    + "• Attendance: >=80% strictly required for One Year Service award.\n"
+    + "• Sections: Pre-Junior (6–8), Junior (9–11), Senior (12–19), Officers. Platoons: Alpha, Papa, Zulu, Hotel.\n"
+    + "• Ranks: Enlisted (Recruit, Private); NCOs (Lance Corporal, Corporal, Sergeant, Staff Sergeant); Officers (Warrant Officer, Lieutenant, Captain, Chaplain).\n"
+    + "• President's Award (Senior): 1. First Aid (Adv) 2. Leadership/NCO Star (Adv) 3. Camping (Adv) 4. Swimming 5. Drill 6. Community Service 7. Fire Safety/Rescue.\n"
+    + "• Founder's Award (Senior): >=3 Years Service, >=6 awards total, >=1 per group (A–D), >=2 Basic, >=4 Advanced, and 4 Compulsory Badges (NCO Star, Christian Education, Drill, Recruitment).\n"
+    + "• Badge Groups: A (Christian Education, Citizenship, NCO Star, International Relations), B (Drill, Fire Safety, First Aid, Safety), C (Camping, Expedition, Hobbies, Swimming, Sportsman), D (Community Service, Environmental, Arts & Crafts, Music & Band).\n"
+    + "• Resources tab: BB Handbook, Senior Section Handbook, Drill Manual, Songs & Hymns, Uniform Regulations.\n"
+    + "• Portal Tabs: Member Hub, Calendar, Forms & Store, My Badges, Leaderboard, Resources, Gallery, Support Forum, 1stPJ Arcade (Wordle +15 credits, Trivia +5/q, Cosmetic Shop).\n"
+    + "Rules: Reply warmly in concise, scannable Markdown (under 140 words unless listing full award requirements). No emojis. NEVER mention ticket/task/bug codes (TSK/BUG). Privacy: never disclose another member's personal attendance/points/records; public badge rules are never private. Name exact portal tabs for navigation.";
 
   var candidates = [];
   if (options.model) {
@@ -3091,47 +3186,50 @@ async function callGeminiApi(prompt, apiKey, options) {
     var storedModel = getActiveGeminiModel();
     var storedVer = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_gemini_api_version')) || _activeGeminiApiVersion || 'v1beta';
     var storedMode = (typeof localStorage !== 'undefined' && localStorage.getItem('bb_gemini_api_mode')) || getActiveGeminiApiMode() || 'generateContent';
-    
-    // Purge deprecated stored models so they never block verification
-    if (storedModel && !isObsoleteGeminiModel(storedModel)) {
+
+    // Purge deprecated or slow Pro models from fast interactive chat cache
+    if (storedModel && !isObsoleteGeminiModel(storedModel) && !isSlowGeminiModel(storedModel)) {
       candidates.push({ model: storedModel, apiVersion: storedVer, apiMode: storedMode });
     }
 
     var defaultCandidates = [
       { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'generateContent' },
-      { apiVersion: 'v1beta', model: 'gemini-3.1-pro-preview', apiMode: 'generateContent' },
-      { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'generateContent' },
-      { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'interactions' },
-      { apiVersion: 'v1beta', model: 'gemini-3.1-pro-preview', apiMode: 'interactions' },
-      { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'interactions' },
-      { apiVersion: 'v1beta', model: 'gemini-pro-latest', apiMode: 'interactions' },
-      { apiVersion: 'v1beta', model: 'gemini-pro-latest', apiMode: 'generateContent' },
-      { apiVersion: 'v1beta', model: 'gemini-3.5-flash', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-3.5-flash-lite', apiMode: 'generateContent' },
       { apiVersion: 'v1beta', model: 'gemini-3.6-flash', apiMode: 'generateContent' },
-      { apiVersion: 'v1beta', model: 'gemini-2.5-flash', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-3.1-flash-lite', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-flash-latest', apiMode: 'generateContent' },
       { apiVersion: 'v1beta', model: 'gemini-2.5-flash-lite', apiMode: 'generateContent' },
-      { apiVersion: 'v1',     model: 'gemini-3.8-flash', apiMode: 'generateContent' },
-      { apiVersion: 'v1',     model: 'gemini-2.5-flash', apiMode: 'generateContent' }
+      { apiVersion: 'v1beta', model: 'gemini-2.5-flash', apiMode: 'generateContent' },
+      { apiVersion: 'v1beta', model: 'gemini-3.8-flash', apiMode: 'interactions' }
     ];
 
     for (var d = 0; d < defaultCandidates.length; d++) {
       var item = defaultCandidates[d];
+      var cacheKey = item.apiMode + ':' + item.apiVersion + ':' + item.model;
+      if (_failedGeminiModels.has(cacheKey)) continue;
       if (!candidates.some(function(c) { return c.model === item.model && c.apiVersion === item.apiVersion && c.apiMode === item.apiMode; })) {
         candidates.push(item);
       }
     }
   }
 
+  var maxTries = (typeof options.maxCandidates === 'number' && options.maxCandidates > 0)
+    ? Math.min(candidates.length, options.maxCandidates)
+    : candidates.length;
+
   var capturedErrors = [];
 
-  for (var c = 0; c < candidates.length; c++) {
+  for (var c = 0; c < maxTries; c++) {
     var target = candidates[c];
+    var candKey = target.apiMode + ':' + target.apiVersion + ':' + target.model;
+    var useStreaming = (typeof options.onChunk === 'function' && target.apiMode === 'generateContent');
     var endpoint = '';
     var requestBody = {};
     var headers = {
       'Content-Type': 'application/json',
       'x-goog-api-key': key
     };
+    var thinkCfg = buildGeminiThinkingConfig(target.model, target.apiMode);
 
     if (target.apiMode === 'interactions') {
       endpoint = 'https://generativelanguage.googleapis.com/' + target.apiVersion + '/interactions?key=' + encodeURIComponent(key);
@@ -3139,14 +3237,18 @@ async function callGeminiApi(prompt, apiKey, options) {
         model: target.model,
         input: prompt,
         generation_config: {
-          max_output_tokens: options.skipThinking ? (options.maxTokens || 50) : (options.maxTokens || 800)
+          max_output_tokens: options.skipThinking ? (options.maxTokens || 24) : (options.maxTokens || 550)
         }
       };
+      if (thinkCfg && thinkCfg.thinking_level) {
+        requestBody.generation_config.thinking_level = thinkCfg.thinking_level;
+      }
       if (!options.skipSystemPrompt) {
         requestBody.system_instruction = systemPrompt;
       }
     } else {
-      endpoint = 'https://generativelanguage.googleapis.com/' + target.apiVersion + '/models/' + target.model + ':generateContent?key=' + encodeURIComponent(key);
+      var methodSuffix = useStreaming ? ':streamGenerateContent?alt=sse&key=' : ':generateContent?key=';
+      endpoint = 'https://generativelanguage.googleapis.com/' + target.apiVersion + '/models/' + target.model + methodSuffix + encodeURIComponent(key);
       requestBody = {
         contents: [
           {
@@ -3155,9 +3257,12 @@ async function callGeminiApi(prompt, apiKey, options) {
           }
         ],
         generationConfig: {
-          maxOutputTokens: options.skipThinking ? (options.maxTokens || 50) : (options.maxTokens || 800)
+          maxOutputTokens: options.skipThinking ? (options.maxTokens || 24) : (options.maxTokens || 550)
         }
       };
+      if (target.apiVersion === 'v1beta' && thinkCfg) {
+        requestBody.generationConfig.thinkingConfig = thinkCfg;
+      }
       if (target.apiVersion === 'v1beta' && !options.skipSystemPrompt) {
         requestBody.systemInstruction = {
           parts: [{ text: systemPrompt }]
@@ -3165,11 +3270,17 @@ async function callGeminiApi(prompt, apiKey, options) {
       }
     }
 
-    try {
-      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var timeoutMs = (options && typeof options.timeoutMs === 'number') ? options.timeoutMs : (options.skipThinking ? 8000 : 20000);
-      var timer = controller ? setTimeout(function() { controller.abort(); }, timeoutMs) : null;
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var totalTimeoutMs = (options && typeof options.timeoutMs === 'number') ? options.timeoutMs : (options.skipThinking ? 4000 : 8000);
+    var firstTokenTimeoutMs = (options && typeof options.firstTokenTimeoutMs === 'number') ? options.firstTokenTimeoutMs : totalTimeoutMs;
+    var activeTimer = null;
+    var receivedFirstToken = false;
 
+    if (controller) {
+      activeTimer = setTimeout(function() { controller.abort(); }, firstTokenTimeoutMs);
+    }
+
+    try {
       var resp = await fetch(endpoint, {
         method: 'POST',
         headers: headers,
@@ -3177,17 +3288,41 @@ async function callGeminiApi(prompt, apiKey, options) {
         signal: controller ? controller.signal : undefined
       });
 
-      if (timer) clearTimeout(timer);
-
       if (resp.ok) {
-        var data = await resp.json();
-        var replyText = parseGeminiResponse(data);
-        if (replyText) {
+        var replyText = null;
+        if (useStreaming) {
+          replyText = await readGeminiSseStream(resp, options.onChunk, function() {
+            receivedFirstToken = true;
+            if (activeTimer) {
+              clearTimeout(activeTimer);
+              activeTimer = null;
+            }
+            if (controller && totalTimeoutMs > firstTokenTimeoutMs) {
+              activeTimer = setTimeout(function() { controller.abort(); }, totalTimeoutMs);
+            }
+          });
+        } else {
+          if (activeTimer) {
+            clearTimeout(activeTimer);
+            activeTimer = null;
+          }
+          var data = await resp.json();
+          replyText = parseGeminiResponse(data);
+        }
+        if (activeTimer) {
+          clearTimeout(activeTimer);
+          activeTimer = null;
+        }
+        if (replyText && replyText.trim()) {
           _lastGeminiError = '';
           setActiveGeminiModel(target.model, target.apiVersion, target.apiMode);
-          return replyText;
+          return replyText.trim();
         }
       } else {
+        if (activeTimer) {
+          clearTimeout(activeTimer);
+          activeTimer = null;
+        }
         var errBody = null;
         try {
           errBody = await resp.json();
@@ -3197,6 +3332,9 @@ async function callGeminiApi(prompt, apiKey, options) {
         capturedErrors.push(errMsg);
         console.warn('Gemini API [' + target.apiMode + '/' + target.apiVersion + '/' + target.model + '] HTTP ' + resp.status + ': ' + errMsg);
 
+        if (resp.status === 404 || /NOT_FOUND|is not found|not supported/i.test(errMsg)) {
+          _failedGeminiModels.add(candKey);
+        }
         var isFatalKey = /API_KEY_INVALID|API key not valid|key not found|API_KEY_EXPIRED/i.test(errMsg);
         if (isFatalKey) {
           _lastGeminiError = errMsg;
@@ -3204,8 +3342,13 @@ async function callGeminiApi(prompt, apiKey, options) {
         }
       }
     } catch (err) {
+      if (activeTimer) {
+        clearTimeout(activeTimer);
+        activeTimer = null;
+      }
       var isAbort = err && (err.name === 'AbortError' || err.message === 'The user aborted a request.');
-      var fetchErrMsg = isAbort ? ('Request timed out after ' + Math.round(timeoutMs / 1000) + ' seconds.') : ((err && err.message) ? err.message : String(err));
+      var activeLimit = receivedFirstToken ? totalTimeoutMs : firstTokenTimeoutMs;
+      var fetchErrMsg = isAbort ? ('Request timed out after ' + Math.round(activeLimit / 1000) + ' seconds.') : ((err && err.message) ? err.message : String(err));
       capturedErrors.push(fetchErrMsg);
       console.warn('Gemini API fetch error with ' + target.model + ':', err);
     }
@@ -3266,6 +3409,9 @@ function syncForumNotifications(posts) {
         notifArray.unshift({
           id: pNotifId,
           category: 'announcements',
+          tab: 'forum',
+          targetId: String(p.id),
+          routeCategory: 'forum_mention',
           group: 'Today',
           avatarInitials: pInitials,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -3274,6 +3420,10 @@ function syncForumNotifications(posts) {
           time: p.date || 'Today',
           unread: true,
           action: function() {
+            if (typeof window !== 'undefined' && typeof window.handlePortalNotificationDeepLink === 'function') {
+              window.handlePortalNotificationDeepLink({ tab: 'forum', targetId: String(p.id), category: 'forum_mention', notifId: pNotifId });
+              return;
+            }
             if (typeof switchTabNav === 'function') switchTabNav('forum');
             if (typeof openForumPostDetail === 'function') openForumPostDetail(p.id);
           }
@@ -3315,6 +3465,9 @@ function syncForumNotifications(posts) {
         notifArray.unshift({
           id: notifId,
           category: 'announcements',
+          tab: 'forum',
+          targetId: String(p.id),
+          routeCategory: 'forum_reply',
           group: 'Today',
           avatarInitials: initials,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -3323,6 +3476,10 @@ function syncForumNotifications(posts) {
           time: r.date || 'Today',
           unread: true,
           action: function() {
+            if (typeof window !== 'undefined' && typeof window.handlePortalNotificationDeepLink === 'function') {
+              window.handlePortalNotificationDeepLink({ tab: 'forum', targetId: String(p.id), category: 'forum_reply', notifId: notifId });
+              return;
+            }
             if (typeof switchTabNav === 'function') switchTabNav('forum');
             if (typeof openForumPostDetail === 'function') openForumPostDetail(p.id);
           }
@@ -4601,6 +4758,7 @@ function queryHelperAgent(userText) {
 
   // 8. INTELLIGENT CONVERSATIONAL FALLBACK
   return {
+    isGenericFallback: true,
     text: 'I\'m here to help! While I don\'t have a specific pre-set answer for that exact phrase, here is what I can assist you with:\n\n'
       + '• **Saturday Parade & Band Schedules** (2:15 PM – 6:00 PM at TMC PJ)\n'
       + '• **80% Attendance Rule & One Year Service milestones**\n'
@@ -4890,6 +5048,7 @@ function toggleHelperAgent() {
 }
 
 function clearHelperChat() {
+  _helperResponseCache.clear();
   _helperMessages = [
     {
       sender: 'agent',
@@ -5015,11 +5174,13 @@ function handleHelperSubmit(e) {
 
 /**
  * Asynchronously generates response using Google Gemini API when configured,
- * with instantaneous local knowledge fallback
+ * with sub-2s streaming & fast-fallback SLA plus response caching.
  * @param {string} userPrompt
+ * @param {Object} [options] - Optional { onChunk, firstTokenTimeoutMs }
  * @returns {Promise<Object>}
  */
-async function getHelperAgentResponse(userPrompt) {
+async function getHelperAgentResponse(userPrompt, options) {
+  options = options || {};
   var q = (userPrompt || '').toLowerCase().trim();
 
   // 1. PRIVACY SHIELD ALWAYS GATES FIRST (Protects members' confidential data)
@@ -5043,12 +5204,20 @@ async function getHelperAgentResponse(userPrompt) {
     };
   }
 
-  // 2. CHECK FOR GOOGLE GEMINI INTELLIGENCE (Cloud-First when configured)
+  // Pre-compute fast local handbook resolution (<1ms) so fallback SLA is instantaneous
+  var localRes = queryHelperAgent(userPrompt);
+  if (localRes && localRes.text) {
+    localRes.text = sanitizeStedfastOutput(localRes.text);
+  }
+  var hasStrongLocal = Boolean(localRes && localRes.text && !localRes.isGenericFallback);
+
+  // 2. CHECK FOR GOOGLE GEMINI INTELLIGENCE (Cloud-First when configured, with <2s SLA)
   var geminiKey = await syncRemoteGeminiApiKey();
   if (geminiKey) {
     try {
-      // Build rich user context for Gemini
+      // Build concise authenticated member context for Gemini
       var contextPrefix = '';
+      var cacheContextSig = '';
       if (typeof sessionGet === 'function' && sessionGet('name')) {
         var uName = sessionGet('name');
         var uRank = sessionGet('rank') || 'Member';
@@ -5058,10 +5227,27 @@ async function getHelperAgentResponse(userPrompt) {
         var attStr = myAtt ? (myAtt.attendanceRate + '%') : 'N/A';
         var credStr = myArcade ? myArcade.credits : 0;
         contextPrefix = '[Authenticated Member: ' + uName + ', Rank: ' + uRank + (uPlatoon ? (', Platoon: ' + uPlatoon) : '') + ', Attendance: ' + attStr + ', Credits: ' + credStr + ']\n';
+        cacheContextSig = uName + '|' + uRank + '|' + attStr + '|' + credStr;
+      }
+
+      var cacheKey = cacheContextSig + '::' + q;
+      var cachedEntry = _helperResponseCache.get(cacheKey);
+      if (cachedEntry && (Date.now() - cachedEntry.ts) < HELPER_RESPONSE_CACHE_TTL_MS) {
+        return cachedEntry.response;
       }
 
       var fullUserPrompt = contextPrefix + userPrompt;
-      var aiText = await callGeminiApi(fullUserPrompt, geminiKey);
+      var firstTokenLimit = (typeof options.firstTokenTimeoutMs === 'number')
+        ? options.firstTokenTimeoutMs
+        : (hasStrongLocal ? 1700 : 3500);
+      var totalLimit = hasStrongLocal ? 4500 : 6500;
+      var aiText = await callGeminiApi(fullUserPrompt, geminiKey, {
+        onChunk: options.onChunk,
+        firstTokenTimeoutMs: firstTokenLimit,
+        timeoutMs: totalLimit,
+        maxCandidates: hasStrongLocal ? 1 : 2
+      });
+
       if (aiText && aiText.trim()) {
         aiText = sanitizeStedfastOutput(aiText.trim());
 
@@ -5090,7 +5276,7 @@ async function getHelperAgentResponse(userPrompt) {
           derivedActions.push({ label: 'Go to Support Forum', action: 'navigate', target: 'forum', icon: 'forum' });
         }
 
-        return {
+        var finalReply = {
           text: aiText,
           triage: null,
           actions: derivedActions.slice(0, 2),
@@ -5100,17 +5286,20 @@ async function getHelperAgentResponse(userPrompt) {
             { label: '1stPJ Arcade', query: 'Where is the 1stPJ Arcade and how do credits work?', icon: 'arcade' }
           ]
         };
+
+        _helperResponseCache.set(cacheKey, { ts: Date.now(), response: finalReply });
+        if (_helperResponseCache.size > HELPER_RESPONSE_CACHE_MAX) {
+          var oldestKey = _helperResponseCache.keys().next().value;
+          _helperResponseCache.delete(oldestKey);
+        }
+        return finalReply;
       }
     } catch (e) {
       console.warn('Gemini call error in getHelperAgentResponse:', e);
     }
   }
 
-  // 3. Fall back to local queryHelperAgent
-  var localRes = queryHelperAgent(userPrompt);
-  if (localRes && localRes.text) {
-    localRes.text = sanitizeStedfastOutput(localRes.text);
-  }
+  // 3. Instant local handbook fallback
   return localRes;
 }
 
@@ -5123,8 +5312,12 @@ async function sendHelperPrompt(userPrompt) {
   });
   renderHelperMessages();
 
-  // Show temporary typing indicator in chat
+  // Show temporary typing indicator that seamlessly transitions into a live streaming bubble
   var body = (typeof document !== 'undefined') ? document.getElementById('helper-chat-body') : null;
+  var streamTextEl = null;
+  var streamRenderPending = false;
+  var latestStreamText = '';
+
   if (body) {
     var typingDiv = document.createElement('div');
     typingDiv.id = 'helper-typing-indicator';
@@ -5137,7 +5330,32 @@ async function sendHelperPrompt(userPrompt) {
     body.scrollTop = body.scrollHeight;
   }
 
-  var reply = await getHelperAgentResponse(userPrompt);
+  function handleStreamChunk(partialText) {
+    if (!body || !partialText) return;
+    latestStreamText = partialText;
+    if (streamRenderPending) return;
+    streamRenderPending = true;
+    var flush = function() {
+      streamRenderPending = false;
+      var indEl = document.getElementById('helper-typing-indicator');
+      if (!indEl) return;
+      if (!streamTextEl) {
+        indEl.innerHTML = '<div class="helper-bubble agent-bubble"><div class="helper-bubble-text"></div></div>';
+        streamTextEl = indEl.querySelector('.helper-bubble-text');
+      }
+      if (streamTextEl) {
+        streamTextEl.innerHTML = formatHelperMarkdown(latestStreamText);
+        body.scrollTop = body.scrollHeight;
+      }
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(flush);
+    } else {
+      flush();
+    }
+  }
+
+  var reply = await getHelperAgentResponse(userPrompt, { onChunk: handleStreamChunk });
 
   if (body) {
     var ind = document.getElementById('helper-typing-indicator');
@@ -5713,6 +5931,47 @@ async function submitNewForumPost(e, customPost) {
 
     forumPosts.unshift(newPost);
     var saved = await saveForumPosts(forumPosts);
+
+    // Real-time push notification for @mentions in newly created forum posts
+    var postDispatcher = (typeof sendPortalPushNotification === 'function')
+      ? sendPortalPushNotification
+      : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+    if (postDispatcher) {
+      var postMentionText = title + ' ' + content;
+      var postMentions = (typeof resolveMentionTargets === 'function')
+        ? resolveMentionTargets(postMentionText)
+        : ((typeof window !== 'undefined' && typeof window.resolveMentionTargets === 'function')
+          ? window.resolveMentionTargets(postMentionText)
+          : { targetUsers: [], topics: [] });
+      var postTargetUsers = Array.isArray(postMentions.targetUsers) ? postMentions.targetUsers.filter(Boolean) : [];
+      var postAllMention = (typeof hasPortalMention === 'function') ? hasPortalMention(postMentionText, ['all', 'everyone', 'everybody']) : false;
+      var cleanPostBody = (typeof cleanSnippet === 'function') ? cleanSnippet(content, 140) : content.slice(0, 140);
+      if (postTargetUsers.length > 0 || postAllMention) {
+        postDispatcher({
+          type: 'forum_reply',
+          title: author + ' mentioned you in Support Forum',
+          body: title + ': ' + cleanPostBody,
+          targetTopic: postAllMention ? 'announcements' : null,
+          targetUsers: postTargetUsers,
+          tab: 'forum',
+          targetId: newPost.id
+        }).catch(function() {});
+      }
+      if (Array.isArray(postMentions.topics)) {
+        postMentions.topics.forEach(function(deptTopic) {
+          if (deptTopic && deptTopic !== 'announcements') {
+            postDispatcher({
+              type: 'forum_reply',
+              title: author + ' mentioned department in Support Forum',
+              body: title + ': ' + cleanPostBody,
+              targetTopic: deptTopic,
+              tab: 'forum',
+              targetId: newPost.id
+            }).catch(function() {});
+          }
+        });
+      }
+    }
 
     if (typeof document !== 'undefined') {
       var modal = document.getElementById('forum-create-modal');
@@ -6557,6 +6816,9 @@ if (typeof window !== 'undefined') {
   window.sanitizeStedfastOutput   = sanitizeStedfastOutput;
   window.syncRemoteGeminiApiKey   = syncRemoteGeminiApiKey;
   window.isObsoleteGeminiModel    = isObsoleteGeminiModel;
+  window.isSlowGeminiModel        = isSlowGeminiModel;
+  window.buildGeminiThinkingConfig = buildGeminiThinkingConfig;
+  window.readGeminiSseStream      = readGeminiSseStream;
   window.saveRemoteGeminiApiKey   = saveRemoteGeminiApiKey;
   window.toggleHelperSettingsPanel = toggleHelperSettingsPanel;
   window.updateHelperGeminiStatus = updateHelperGeminiStatus;
@@ -6610,6 +6872,15 @@ if (typeof window !== 'undefined') {
         if (fp && fp.style.display !== 'none') renderForumFeed();
       }
     });
+    window.addEventListener('load', function() {
+      var warmKey = function() {
+        if (typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email'))) {
+          syncRemoteGeminiApiKey().catch(function() {});
+        }
+      };
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(warmKey);
+      else setTimeout(warmKey, 1200);
+    });
   }
 }
 
@@ -6660,6 +6931,9 @@ if (typeof module !== 'undefined' && module.exports) {
     sanitizeStedfastOutput: sanitizeStedfastOutput,
     syncRemoteGeminiApiKey: syncRemoteGeminiApiKey,
     isObsoleteGeminiModel: isObsoleteGeminiModel,
+    isSlowGeminiModel: isSlowGeminiModel,
+    buildGeminiThinkingConfig: buildGeminiThinkingConfig,
+    readGeminiSseStream: readGeminiSseStream,
     saveRemoteGeminiApiKey: saveRemoteGeminiApiKey,
     toggleHelperSettingsPanel: toggleHelperSettingsPanel,
     updateHelperGeminiStatus: updateHelperGeminiStatus,

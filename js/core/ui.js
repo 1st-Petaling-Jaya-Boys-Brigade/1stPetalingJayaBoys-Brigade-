@@ -1418,7 +1418,31 @@
     return window.Capacitor.Plugins?.LocalNotifications || null;
   }
 
-  async function scheduleNativeNotification(plugin, test, sound, tag, title, body) {
+  var _nativeNotifClickListenerAttached = false;
+
+  function ensureNativeNotificationClickListener(plugin) {
+    var targetPlugin = plugin || nativeNotificationPlugin();
+    if (!targetPlugin || typeof targetPlugin.addListener !== 'function' || _nativeNotifClickListenerAttached) {
+      return;
+    }
+    _nativeNotifClickListenerAttached = true;
+    try {
+      targetPlugin.addListener('localNotificationActionPerformed', function(actionEvent) {
+        var extra = actionEvent && actionEvent.notification && actionEvent.notification.extra;
+        if (!extra || typeof extra !== 'object') return;
+        if (typeof window !== 'undefined' && typeof window.handlePortalNotificationDeepLink === 'function') {
+          window.handlePortalNotificationDeepLink(extra);
+        } else if (extra.tab && typeof window !== 'undefined' && typeof window.switchTabNav === 'function') {
+          window.switchTabNav(extra.tab);
+        }
+      });
+    } catch (_) {
+      _nativeNotifClickListenerAttached = false;
+    }
+  }
+
+  async function scheduleNativeNotification(plugin, test, sound, tag, title, body, routeMeta) {
+    ensureNativeNotificationClickListener(plugin);
     if ((await plugin.checkPermissions()).display !== 'granted') return false;
 
     var now = Date.now();
@@ -1462,6 +1486,14 @@
       foreground: true,
       isExactNotification: false
     };
+    if (routeMeta && (routeMeta.tab || routeMeta.targetId || routeMeta.category)) {
+      notification.extra = {
+        tab: String(routeMeta.tab || ''),
+        targetId: String(routeMeta.targetId || ''),
+        category: String(routeMeta.category || ''),
+        notifId: tag ? String(tag) : ''
+      };
+    }
 
     if (window.Capacitor.getPlatform() === 'android') {
       notification.channelId = 'portal-alerts-v2';
@@ -1483,6 +1515,12 @@
     options = options || {};
     var now = Date.now();
     var isForce = options && options.force === true;
+    var routeMeta = {
+      tab: (options && options.tab) || '',
+      targetId: (options && options.targetId) || '',
+      category: (options && options.category) || '',
+      notifId: (options && options.tag) ? String(options.tag) : ''
+    };
 
     if (options.tag && !isForce) {
       var tagKey = String(options.tag);
@@ -1515,7 +1553,7 @@
         if (!isForce && (now - _lastSystemNotifTs < 1500)) return null;
       } catch (_) { return null; }
       _lastSystemNotifTs = now;
-      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound, options && options.tag, title, body).catch(function() { return false; });
+      return scheduleNativeNotification(nativePlugin, false, soundEnabled && !isSilentSound, options && options.tag, title, body, routeMeta).catch(function() { return false; });
     }
 
     // 2. Native OS System Notification (Windows Desktop Toast / macOS Banner)
@@ -1543,6 +1581,16 @@
               }
             } catch (_) {}
 
+            var targetTab = routeMeta.tab || 'home';
+            var deepLinkUrl = (options && options.url) || '';
+            if (!deepLinkUrl) {
+              var qParts = ['notif_tab=' + encodeURIComponent(targetTab)];
+              if (routeMeta.category) qParts.push('notif_cat=' + encodeURIComponent(routeMeta.category));
+              if (routeMeta.targetId) qParts.push('notif_target=' + encodeURIComponent(routeMeta.targetId));
+              if (routeMeta.notifId) qParts.push('notif_id=' + encodeURIComponent(routeMeta.notifId));
+              deepLinkUrl = './index.html?' + qParts.join('&') + '#' + targetTab;
+            }
+
             var notifOpts = {
               body: body || '',
               icon: iconUrl,
@@ -1552,8 +1600,11 @@
               requireInteraction: false,
               vibrate: [200, 100, 200, 100, 200],
               data: {
-                url: (options && options.url) || './#page-home',
-                tab: (options && options.tab) || 'home'
+                url: deepLinkUrl,
+                tab: targetTab,
+                targetId: routeMeta.targetId,
+                category: routeMeta.category,
+                notifId: routeMeta.notifId
               }
             };
 
@@ -1567,6 +1618,8 @@
                   window.focus();
                   if (options && typeof options.onClick === 'function') {
                     options.onClick();
+                  } else if (typeof window.handlePortalNotificationDeepLink === 'function' && (routeMeta.tab || routeMeta.targetId || routeMeta.category)) {
+                    window.handlePortalNotificationDeepLink(routeMeta);
                   } else if (options && options.tab && typeof window.switchTabNav === 'function') {
                     window.switchTabNav(options.tab);
                   }
@@ -1870,7 +1923,13 @@
       var latest = activeList[0];
       var title = latest ? (latest.title || "1st PJ Notification") : "1st PJ Boys' Brigade";
       var body = latest ? (latest.snippet || latest.message || latest.text || "You have a new unread notification.") : "You have new unread notifications.";
-      triggerPortalSystemNotification(title, body, { tag: latest ? latest.id : undefined });
+      triggerPortalSystemNotification(title, body, {
+        tag: latest ? latest.id : undefined,
+        tab: latest ? (latest.tab || (latest.route && latest.route.tab) || '') : '',
+        targetId: latest ? (latest.targetId || (latest.route && latest.route.targetId) || '') : '',
+        category: latest ? (latest.routeCategory || (latest.route && latest.route.category) || latest.category || '') : '',
+        onClick: (latest && typeof latest.action === 'function') ? latest.action : undefined
+      });
     } else {
       _lastSeenNotifUnread = count;
     }
@@ -1898,8 +1957,12 @@
   }
 
   if (typeof document !== 'undefined') {
+    ensureNativeNotificationClickListener();
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', disableNonAuthAutofill);
+      document.addEventListener('DOMContentLoaded', function() {
+        disableNonAuthAutofill();
+        ensureNativeNotificationClickListener();
+      });
     } else {
       disableNonAuthAutofill();
     }

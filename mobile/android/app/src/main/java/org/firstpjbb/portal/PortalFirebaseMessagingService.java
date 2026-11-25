@@ -180,6 +180,7 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
             if (tab != null && !tab.isEmpty()) openIntent.putExtra("tab", tab);
             if (targetId != null && !targetId.isEmpty()) openIntent.putExtra("targetId", targetId);
             if (category != null && !category.isEmpty()) openIntent.putExtra("category", category);
+            if (notifTag != null && !notifTag.isEmpty()) openIntent.putExtra("notifId", notifTag);
 
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
