@@ -565,7 +565,7 @@ function renderGallery() {
     if (adminGrid)         adminGrid.innerHTML = '';
     if (noPhotos) {
       noPhotos.innerHTML = '<div class="gallery-empty-state" style="text-align:center;padding:44px 20px;background:var(--bg-card);border:1px dashed var(--border-card);border-radius:14px;color:var(--text-muted);">'
-        + '<div style="font-size:32px;margin-bottom:8px;">📷</div>'
+        + '<div style="color:var(--accent);margin-bottom:8px;"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></svg></div>'
         + '<div style="font-family:var(--font-headline);font-size:16px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">No gallery media uploaded yet</div>'
         + '<div style="font-size:12.5px;color:var(--text-muted);max-width:360px;margin:0 auto;">Photos and videos from weekly parades, camps, and events will appear here.</div>'
         + '</div>';

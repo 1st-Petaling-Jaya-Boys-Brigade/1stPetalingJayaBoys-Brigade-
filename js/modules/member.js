@@ -1984,7 +1984,7 @@ async function loginMember() {
       } catch (_) {}
     }
 
-    // Obtain a notification-only credential before a successful login can reload the page.
+    // Obtain a verified member credential for notifications and checkout uploads before login can reload the page.
     if (typeof window !== 'undefined') {
       await window.PortalWebPush?.authorize(queryEmail, pass, rememberMe).catch(function () {});
     }

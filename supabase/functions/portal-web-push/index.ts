@@ -11,6 +11,9 @@ const CLIENT_ORIGINS = new Set([ORIGIN, 'https://localhost']);
 const encoder = new TextEncoder();
 const dayMs = 86_400_000;
 const MEMBER_FIELDS = 'ic,email,name,rank,department';
+const PROOF_MAX_BYTES = 256 * 1024;
+const PROOF_BUCKET = 'uniform-payment-proofs';
+const proofOrderPattern = /^BB-[A-F0-9]{16}$/;
 const MESSAGES: Record<string, [string, string, string]> = {
   announcement: ['Company announcement', 'A new announcement is available in the portal.', 'home'],
   task_assigned: ['Task assigned', 'Open the portal to view your task.', 'tasks'],
@@ -406,6 +409,36 @@ async function fanout(devices: Device[], type: string, target: string, targetId 
   return { sent, failed };
 }
 
+async function readPaymentUpload(request: Request) {
+  const limit = PROOF_MAX_BYTES + 4096;
+  const reader = request.body!.getReader();
+  const buffer = new Uint8Array(limit);
+  let size = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    if (size + value.length > limit) {
+      await reader.cancel();
+      return null;
+    }
+    buffer.set(value, size);
+    size += value.length;
+  }
+  return new Response(buffer.subarray(0, size), {
+    headers: { 'Content-Type': request.headers.get('content-type')! },
+  }).formData();
+}
+
+function proofStorage(path: string, method: string, body?: BodyInit, headers: Record<string, string> = {}) {
+  return fetch(PROJECT + '/storage/v1/object/' + path, {
+    method,
+    body,
+    headers: { apikey: SERVICE, Authorization: 'Bearer ' + SERVICE, ...headers },
+    signal: AbortSignal.timeout(7500),
+    redirect: 'error',
+  });
+}
+
 Deno.serve(async request => {
   const origin = request.headers.get('origin');
   const trustedOrigin = Boolean(origin && CLIENT_ORIGINS.has(origin));
@@ -417,13 +450,24 @@ Deno.serve(async request => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   const hasWebPush = Boolean(PUBLIC_KEY && PRIVATE_KEY);
   const hasFcm = Boolean(getFcmServiceAccount());
-  if (!hasWebPush && !hasFcm) return json({ error: 'Push service is unavailable' }, 503);
-
   try {
-    const raw = await request.text();
-    if (raw.length > 12_000) return json({ error: 'Invalid request' }, 413);
-    const data = JSON.parse(raw);
+    let data;
+    let proof: FormDataEntryValue | null = null;
+    if (request.headers.get('content-type')?.startsWith('multipart/form-data')) {
+      if (!trustedOrigin || !request.body) return json({ error: 'Invalid upload request' }, 403);
+      const form = await readPaymentUpload(request);
+      if (!form) return json({ error: 'Image exceeds the upload limit' }, 413);
+      data = { action: 'payment_proof_upload', token: form.get('token'), member: form.get('member'), order: form.get('order') };
+      proof = form.get('proof');
+    } else {
+      const raw = await request.text();
+      if (raw.length > 12_000) return json({ error: 'Invalid request' }, 413);
+      data = JSON.parse(raw);
+    }
     const action = data?.action;
+    if (!hasWebPush && !hasFcm && !['session', 'signout', 'payment_proof_upload', 'payment_proof_view'].includes(action)) {
+      return json({ error: 'Push service is unavailable' }, 503);
+    }
     const rawTopics = Array.isArray(data?.topics) ? data.topics : [];
     const topics = Array.from(new Set<string>(rawTopics.slice(0, 100).filter((topic: unknown) =>
       typeof topic === 'string' && /^(announcements|(?:user|dept)_[\w~-]{1,108})$/.test(topic))));
@@ -452,7 +496,28 @@ Deno.serve(async request => {
     if (!trustedOrigin) return json({ error: 'Invalid request origin' }, 403);
     if (action === 'session') {
       const result = await issueSession(data, request);
-      return result ? json(result) : json({ error: 'Notification sign-in could not be verified' }, 401);
+      return result ? json(result) : json({ error: 'Portal sign-in could not be verified' }, 401);
+    }
+    if (action === 'payment_proof_view') {
+      if (typeof data.token !== 'string' || !tokenPattern.test(data.token) || !proofOrderPattern.test(data.order)) {
+        return json({ error: 'Invalid proof request' }, 400);
+      }
+      const admin = await db<{ valid: boolean; scope: string; permissions?: string[] }>(
+        'rpc/rpc_verify_admin_session', 'POST', { p_token: data.token }
+      );
+      if (!admin?.valid || (admin.scope !== 'super_admin' && !admin.permissions?.includes('uniform'))) {
+        return json({ error: 'Uniform order access required' }, 403);
+      }
+      const [order] = await db<{ ic: string }[]>('bb_orders?select=ic&has_payment_proof=eq.true&' + filter('order_number', data.order) + '&limit=1');
+      if (!order) return json({ error: 'Payment proof is unavailable' }, 404);
+      const path = PROOF_BUCKET + '/' + await hash(order.ic) + '/' + data.order + '.jpg';
+      const result = await proofStorage('sign/' + path, 'POST', JSON.stringify({ expiresIn: 120 }), { 'Content-Type': 'application/json' });
+      if (!result.ok) return json({ error: 'Payment proof is unavailable' }, 404);
+      const { signedURL } = await result.json();
+      if (typeof signedURL !== 'string' || !signedURL.startsWith('/object/sign/')) {
+        return json({ error: 'Payment proof is unavailable' }, 502);
+      }
+      return json({ url: PROJECT + '/storage/v1' + signedURL });
     }
     const deviceKey = typeof data.deviceKey === 'string' ? data.deviceKey : '';
     const endpoint = appleEndpoint(data.subscription?.endpoint || data.endpoint);
@@ -470,6 +535,29 @@ Deno.serve(async request => {
     if (!session || Date.parse(session.expires_at) <= Date.now() || (await blockedEmails()).has(session.email)) return json({ error: 'Sign in to use notifications' }, 401);
     const [actor] = await db<Member[]>('bb_members?select=' + MEMBER_FIELDS + '&' + filter('ic', String(data.member || '').slice(0, 254)));
     if (!actor || !active(actor) || accountEmail(actor) !== session.email) return json({ error: 'Member could not be verified' }, 403);
+
+    if (action === 'payment_proof_upload') {
+      if (!proofOrderPattern.test(data.order) || !(proof instanceof File) || proof.type !== 'image/jpeg' ||
+          proof.size < 5 || proof.size > PROOF_MAX_BYTES) {
+        return json({ error: 'A JPEG payment screenshot is required' }, 400);
+      }
+      const [first, last] = await Promise.all([proof.slice(0, 3).arrayBuffer(), proof.slice(-2).arrayBuffer()]);
+      const [start, end] = [new Uint8Array(first), new Uint8Array(last)];
+      if (start[0] !== 255 || start[1] !== 216 || start[2] !== 255 || end[0] !== 255 || end[1] !== 217) {
+        return json({ error: 'Invalid JPEG screenshot' }, 400);
+      }
+      if (!await budget('payment-proof:' + await hash(session.email), 16, 86400)) {
+        return json({ error: 'Too many payment proof uploads' }, 429);
+      }
+      const path = PROOF_BUCKET + '/' + await hash(actor.ic) + '/' + data.order + '.jpg';
+      const result = await proofStorage(path, 'POST', proof, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' });
+      if (result.ok) return json({ ok: true });
+      if (result.status === 409 || result.status === 400) {
+        const existing = await proofStorage(path, 'HEAD');
+        if (existing.ok) return json({ ok: true });
+      }
+      return json({ error: 'Payment screenshot could not be stored' }, 502);
+    }
 
     if (action === 'register') {
       if (!hasWebPush) return json({ error: 'Web Push is unavailable' }, 503);
@@ -531,6 +619,6 @@ Deno.serve(async request => {
     const totalFailed = webResult.failed + fcmResult.failed;
     return json(combined, totalFailed && !totalSent ? 502 : 200);
   } catch {
-    return json({ error: 'Web Push could not complete the request' }, 500);
+    return json({ error: 'Portal service could not complete the request' }, 500);
   }
 });

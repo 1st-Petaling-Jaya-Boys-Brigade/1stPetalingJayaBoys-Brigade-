@@ -4909,6 +4909,8 @@ function ensureHelperAgentDOM() {
   trigger.className = 'helper-agent-btn';
   trigger.type = 'button';
   trigger.setAttribute('aria-label', 'Ask Stedfast Helper');
+  trigger.setAttribute('aria-controls', 'helper-agent-drawer');
+  trigger.setAttribute('aria-expanded', 'false');
   trigger.setAttribute('title', 'Ask Stedfast (1st PJ Helper Agent)');
   trigger.onclick = toggleHelperAgent;
 
@@ -4961,7 +4963,7 @@ function ensureHelperAgentDOM() {
       '<button type="submit" class="helper-send-btn" aria-label="Send">' + FORUM_ICONS.send + '</button>' +
     '</form>';
 
-  document.body.appendChild(trigger);
+  document.getElementById('nav-search-trigger')?.after(trigger);
   document.body.appendChild(chatBox);
   renderHelperMessages();
 }
@@ -5146,7 +5148,10 @@ function toggleHelperAgent() {
     });
     drawer.style.display = 'flex';
     drawer.classList.add('open');
-    if (trigger) trigger.classList.add('active');
+    if (trigger) {
+      trigger.classList.add('active');
+      trigger.setAttribute('aria-expanded', 'true');
+    }
     renderHelperMessages();
     if (typeof window !== 'undefined' && !window.matchMedia?.('(max-width: 1023px), (pointer: coarse)').matches) {
       setTimeout(function() {
@@ -5156,7 +5161,10 @@ function toggleHelperAgent() {
   } else {
     drawer.style.display = 'none';
     drawer.classList.remove('open');
-    if (trigger) trigger.classList.remove('active');
+    if (trigger) {
+      trigger.classList.remove('active');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
   }
 }
 

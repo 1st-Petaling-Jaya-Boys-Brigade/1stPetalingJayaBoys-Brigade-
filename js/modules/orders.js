@@ -48,6 +48,8 @@ var itemStagedQtys = {};
 var itemCustomTexts = {};
 var uniformCart = [];
 var DEFAULT_PAYMENT_INFO =
+  'Contact the logistics NCOs or officers for the current payment instructions. After payment, attach a screenshot that shows the amount and transaction reference.';
+var LEGACY_PAYMENT_INFO =
   'Payment must be completed in-person during the 3rd parade of the month before collecting your ordered uniform items. Please provide your name and order number to the logistics NCOs and officers upon payment.';
 var _paymentInfo = DEFAULT_PAYMENT_INFO;
 var DEFAULT_UNIFORM_SCHEDULE = {
@@ -66,6 +68,9 @@ var _activeUniformCategory = 'all';
 var _isSubmittingOrder = false;
 // shortcut: retries reuse the order ID on this page, move the key to durable checkout storage for reload recovery.
 var _pendingUniformOrder = null;
+var _pendingUniformProof = null;
+var _uniformPaymentProof = null;
+var UNIFORM_PROOF_MAX_BYTES = 256 * 1024;
 var MAX_UNIFORM_QUANTITY = 99;
 var UNIFORM_ORDER_TRANSITIONS = {
   pending: ['paid', 'processing', 'cancelled'],
@@ -1519,6 +1524,7 @@ function goToOrderReview() {
 
   var rc = document.getElementById('review-content');
   if (rc) {
+    if (rc.dataset.orderItems !== JSON.stringify(cart.lines)) clearUniformPaymentProof();
     rc.innerHTML = html;
     rc.dataset.orderItems = JSON.stringify(cart.lines);
   }
@@ -1526,7 +1532,7 @@ function goToOrderReview() {
   // Show payment instructions with fallback
   var pib = document.getElementById('payment-info-box');
   var pit = document.getElementById('payment-info-text');
-  var activeInstructions = (_paymentInfo && _paymentInfo.trim()) ? _paymentInfo : DEFAULT_PAYMENT_INFO;
+  var activeInstructions = _paymentInfo && _paymentInfo.trim() !== LEGACY_PAYMENT_INFO ? _paymentInfo : DEFAULT_PAYMENT_INFO;
   if (pib && pit) {
     pit.textContent = activeInstructions;
     pib.style.display = 'block';
@@ -1565,9 +1571,10 @@ function goBackOrder() {
  * @param {File|Blob|string} source
  * @param {number} [maxDimension=1200]
  * @param {number} [quality=0.75]
+ * @param {number} [maxBytes] - Request a size-limited JPEG blob only
  * @returns {Promise<{blob: Blob|null, dataUrl: string}>}
  */
-async function compressReceiptImage(source, maxDimension, quality) {
+async function compressReceiptImage(source, maxDimension, quality, maxBytes) {
   maxDimension = maxDimension || 1200;
   quality = quality || 0.75;
 
@@ -1580,6 +1587,7 @@ async function compressReceiptImage(source, maxDimension, quality) {
 
   // Headless / non-browser fallback
   if (typeof Image === 'undefined' || typeof document === 'undefined' || !document.createElement) {
+    if (maxBytes) return { blob: null, dataUrl: '' };
     if (typeof source === 'string') {
       return { blob: null, dataUrl: source };
     }
@@ -1624,6 +1632,28 @@ async function compressReceiptImage(source, maxDimension, quality) {
           ctx.drawImage(img, 0, 0, width, height);
         }
 
+        if (maxBytes) {
+          if (!ctx || typeof canvas.toBlob !== 'function') {
+            resolve({ blob: null, dataUrl: '' });
+            return;
+          }
+          var qualities = [quality, 0.68, 0.55];
+          var attempt = 0;
+          var encode = function() {
+            canvas.toBlob(function(blob) {
+              if (blob && blob.type === 'image/jpeg' && blob.size > 0 && blob.size <= maxBytes) {
+                resolve({ blob: blob, dataUrl: '' });
+              } else if (++attempt < qualities.length) {
+                encode();
+              } else {
+                resolve({ blob: null, dataUrl: '' });
+              }
+            }, 'image/jpeg', qualities[attempt]);
+          };
+          encode();
+          return;
+        }
+
         var compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
 
         if (typeof canvas.toBlob === 'function') {
@@ -1638,6 +1668,10 @@ async function compressReceiptImage(source, maxDimension, quality) {
           resolve({ blob: null, dataUrl: compressedDataUrl });
         }
       } catch (err) {
+        if (maxBytes) {
+          resolve({ blob: null, dataUrl: '' });
+          return;
+        }
         resolve({
           blob: typeof source !== 'string' ? source : null,
           dataUrl: typeof source === 'string' ? source : ''
@@ -1648,7 +1682,7 @@ async function compressReceiptImage(source, maxDimension, quality) {
     img.onerror = function () {
       cleanup();
       resolve({
-        blob: typeof source !== 'string' ? source : null,
+        blob: !maxBytes && typeof source !== 'string' ? source : null,
         dataUrl: typeof source === 'string' ? source : ''
       });
     };
@@ -1665,7 +1699,7 @@ async function compressReceiptImage(source, maxDimension, quality) {
           img.src = e.target.result;
         };
         reader.onerror = function () {
-          resolve({ blob: source, dataUrl: '' });
+          resolve({ blob: maxBytes ? null : source, dataUrl: '' });
         };
         reader.readAsDataURL(source);
       }
@@ -1774,6 +1808,48 @@ function getTngScreenshot() {
 
 // ── Order Submission ───────────────────────────────────────────────────────
 
+function renderUniformPaymentProof(status) {
+  if (typeof document === 'undefined') return;
+  var button = document.getElementById('confirm-btn');
+  var label = document.getElementById('uniform-proof-status');
+  if (button) button.disabled = !_uniformPaymentProof?.blob;
+  if (label) label.textContent = status || '';
+}
+
+function clearUniformPaymentProof() {
+  _uniformPaymentProof = null;
+  if (typeof document !== 'undefined') {
+    var input = document.getElementById('uniform-proof-input');
+    if (input) input.value = '';
+  }
+  renderUniformPaymentProof('');
+}
+
+async function stageUniformPaymentProof(file) {
+  if (_isSubmittingOrder) return false;
+  if (!file) {
+    clearUniformPaymentProof();
+    return false;
+  }
+  var selection = { blob: null, member: sessionGet('ic') || sessionGet('email') };
+  _uniformPaymentProof = selection;
+  renderUniformPaymentProof('Preparing screenshot…');
+  try {
+    if (file.size > 10 * 1024 * 1024) throw new Error('Image exceeds the selection limit.');
+    var prepared = await compressReceiptImage(file, 1600, 0.82, UNIFORM_PROOF_MAX_BYTES);
+    if (_uniformPaymentProof !== selection) return false;
+    if (!prepared.blob) throw new Error('Image could not be prepared.');
+    selection.blob = prepared.blob;
+    renderUniformPaymentProof('Screenshot ready · ' + Math.ceil(prepared.blob.size / 1024) + ' KB');
+    return true;
+  } catch (_) {
+    if (_uniformPaymentProof === selection) {
+      renderUniformPaymentProof('Choose a readable JPG, PNG or WebP screenshot under 10 MB. Crop it to the payment details if needed.');
+    }
+    return false;
+  }
+}
+
 /**
  * Submits finalized uniform order to Supabase bb_orders table
  */
@@ -1805,9 +1881,16 @@ async function submitOrder() {
     return null;
   }
 
+  var proof = _uniformPaymentProof;
+  if (!proof?.blob || proof.member !== memberId) {
+    if (typeof showToast === 'function') showToast('Choose a payment screenshot before submitting.', 'warning');
+    return null;
+  }
   var btn = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
+  var proofInput = typeof document !== 'undefined' ? document.getElementById('uniform-proof-input') : null;
   var lockButton = typeof withSmartButtonLock === 'function' ? withSmartButtonLock : require('../core/loading.js').withSmartButtonLock;
   _isSubmittingOrder = true;
+  if (proofInput) proofInput.disabled = true;
   try {
     return await lockButton(btn, async function() {
       var client = getSupa();
@@ -1816,7 +1899,7 @@ async function submitOrder() {
       var notes = typeof sanitizeHtml === 'function' ? sanitizeHtml(notesRaw) : escapeHtml(notesRaw);
       var items = JSON.stringify(cart.lines);
       if (_pendingUniformOrder && _pendingUniformOrder.ic !== memberId) _pendingUniformOrder = null;
-      if (_pendingUniformOrder && (_pendingUniformOrder.items !== items || _pendingUniformOrder.notes !== notes)) {
+      if (_pendingUniformOrder && (_pendingUniformOrder.items !== items || _pendingUniformOrder.notes !== notes || _pendingUniformProof?.selection !== proof)) {
         var previousLookup = 'bb_orders?order_number=eq.' + encodeURIComponent(_pendingUniformOrder.order_number) + '&select=order_number';
         var previous = await client.get(previousLookup, { cache: false });
         if (!Array.isArray(previous)) throw new Error('Order could not be confirmed');
@@ -1858,10 +1941,25 @@ async function submitOrder() {
         created_at: new Date().toISOString()
       };
       _pendingUniformOrder = orderRecord;
+      if (!wasPending) _pendingUniformProof = { selection: proof, uploaded: false };
       var lookup = 'bb_orders?order_number=eq.' + encodeURIComponent(orderRecord.order_number) + '&select=order_number';
       var saved = wasPending ? await client.get(lookup, { cache: false }) : [];
       if (!Array.isArray(saved)) throw new Error('Order could not be confirmed');
       if (!saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
+        if (!_pendingUniformProof.uploaded) {
+          try {
+            await window.PortalWebPush.uploadPaymentProof(orderCode, memberId, proof.blob);
+            _pendingUniformProof.uploaded = true;
+          } catch (_) {
+            if (typeof showToast === 'function') showToast('The payment screenshot could not be uploaded. Try again to submit your order.', 'error');
+            return null;
+          }
+        }
+        if ((sessionGet('ic') || sessionGet('email')) !== memberId) return null;
+        if (!isUniformOrdersAcceptingResponses().open || JSON.stringify(readUniformCart().lines) !== items) {
+          if (typeof showToast === 'function') showToast('Order availability or the catalog has changed. Review your order again.', 'warning');
+          return null;
+        }
         var payload = Object.assign({}, orderRecord);
         delete payload.id;
         try {
@@ -1888,8 +1986,10 @@ async function submitOrder() {
         syncOrderToGoogleSheetsArchive(orderRecord);
       }
       _pendingUniformOrder = null;
+      _pendingUniformProof = null;
       if ((sessionGet('ic') || sessionGet('email')) !== memberId) return orderRecord.order_number;
 
+      clearUniformPaymentProof();
       uniformCart.length = 0;
       [itemQtys, itemSizes, itemSelectedSizes, itemStagedQtys, itemCustomTexts].forEach(function(values) {
         Object.keys(values).forEach(function(key) { delete values[key]; });
@@ -1923,6 +2023,9 @@ async function submitOrder() {
     return null;
   } finally {
     _isSubmittingOrder = false;
+    if (proofInput) proofInput.disabled = false;
+    var confirm = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
+    if (confirm) confirm.disabled = !_uniformPaymentProof?.blob;
   }
 }
 
@@ -1933,6 +2036,7 @@ function renderUniformOrderInline() {
   if (typeof document === 'undefined') return;
   var container = document.getElementById('inline-form-view');
   if (!container) return;
+  clearUniformPaymentProof();
 
   var avail = typeof isUniformOrdersAcceptingResponses === 'function'
     ? isUniformOrdersAcceptingResponses()
@@ -2020,11 +2124,53 @@ function renderUniformOrderInline() {
     '<div style="font-family:var(--font-headline);font-size:14px;font-weight:600;color:var(--brand-gold);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> Payment Instructions</div>' +
     '<div id="payment-info-text" style="font-size:13px;color:var(--text-secondary);line-height:1.75;white-space:pre-wrap;"></div>' +
     '</div>' +
-    '<div style="display:flex;gap:10px;"><button class="submit-btn danger btn-with-icon" style="flex:1;margin-top:0;justify-content:center;" onclick="goBackOrder()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit</button><button class="submit-btn btn-with-icon" style="flex:2;margin-top:0;justify-content:center;" onclick="submitOrder()" id="confirm-btn"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirm &amp; Submit</button></div>' +
+    '<div class="uniform-payment-proof">' +
+      '<label for="uniform-proof-input">Payment screenshot <span>(required)</span></label>' +
+      '<p id="uniform-proof-hint">Show the paid amount and transaction reference. Crop out unrelated account details. JPG, PNG or WebP up to 10 MB.</p>' +
+      '<input type="file" id="uniform-proof-input" accept="image/jpeg,image/png,image/webp" aria-describedby="uniform-proof-hint uniform-proof-status" required>' +
+      '<div id="uniform-proof-status" role="status"></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:10px;"><button class="submit-btn danger btn-with-icon" style="flex:1;margin-top:0;justify-content:center;" onclick="goBackOrder()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit</button><button class="submit-btn btn-with-icon" style="flex:2;margin-top:0;justify-content:center;" onclick="submitOrder()" id="confirm-btn" disabled><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirm &amp; Submit</button></div>' +
     '</div></div>' +
     '<div class="success-box" id="order-success" style="display:none;"><div class="s-icon"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="s-title">Order Submitted!</div><div class="s-msg">Order <strong id="s-ordernum" style="color:var(--accent);"></strong> received! The officer will contact you when ready.</div></div>';
 
+  container.querySelector?.('#uniform-proof-input')?.addEventListener('change', function(event) {
+    stageUniformPaymentProof(event.target.files[0]);
+  });
   renderOrderItems();
+}
+
+function paymentProofButton(order) {
+  if (order.has_payment_proof !== true) return '';
+  return '<button type="button" class="portal-btn portal-btn-secondary uniform-proof-view" data-uniform-proof="' +
+    escapeHtml(order.order_number) + '">View proof</button>';
+}
+
+async function viewUniformPaymentProof(button) {
+  try {
+    await withSmartButtonLock(button, async function() {
+      var order = button.getAttribute('data-uniform-proof');
+      var token = window.getAdminSessionToken?.();
+      var result = await window.PortalWebPush.viewPaymentProof(order, token);
+      if (window.getAdminSessionToken?.() !== token || !button.isConnected) return;
+      var dialog = document.createElement('dialog');
+      dialog.className = 'uniform-proof-dialog';
+      dialog.setAttribute('aria-label', 'Payment screenshot');
+      dialog.innerHTML = '<form method="dialog"><button type="submit" class="portal-btn portal-btn-secondary">Close</button></form>' +
+        '<img alt="Payment screenshot" referrerpolicy="no-referrer">';
+      var image = dialog.querySelector('img');
+      image.src = result.url;
+      image.addEventListener('error', function() {
+        dialog.close();
+        showToast('The payment screenshot could not be opened.', 'error');
+      }, { once: true });
+      dialog.addEventListener('close', function() { dialog.remove(); }, { once: true });
+      document.body.appendChild(dialog);
+      dialog.showModal();
+    }, { loadingText: 'Opening…' });
+  } catch (_) {
+    showToast('The payment screenshot could not be opened. Check your admin session and try again.', 'error');
+  }
 }
 
 // ── Admin Orders & Products Management ─────────────────────────────────────
@@ -2932,10 +3078,10 @@ async function renderAdminOrders(forceRefresh) {
       orders = _cachedAdminOrders;
     } else {
       try {
-        orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,total_amount&order=created_at.desc', { cache: !forceRefresh });
+        orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,total_amount,has_payment_proof&order=created_at.desc', { cache: !forceRefresh });
       } catch (getErr) {
         var getErrMsg = String(getErr && (getErr.message || getErr.code) || '');
-        if (getErrMsg.includes('42703') || getErrMsg.includes('PGRST204') || getErrMsg.includes('total_amount')) {
+        if (getErrMsg.includes('42703') || getErrMsg.includes('PGRST204') || getErrMsg.includes('total_amount') || getErrMsg.includes('has_payment_proof')) {
           orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes&order=created_at.desc', { cache: !forceRefresh });
         } else {
           throw getErr;
@@ -3113,6 +3259,7 @@ async function renderAdminOrders(forceRefresh) {
           '</select>' +
           '</td>' +
           '<td style="text-align:right;white-space:nowrap;">' +
+          paymentProofButton(o) +
           '<button data-del-sub="' + escapeHtml(o.order_number) + '" title="Delete this order record" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:var(--red);padding:5px 9px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' +
           '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete' +
           '</button>' +
@@ -3235,6 +3382,7 @@ async function renderAdminOrders(forceRefresh) {
             : '') +
           '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;">' +
           btns +
+          paymentProofButton(o) +
           '<button data-del-sub="' +
           escapeHtml(o.order_number) +
           '" title="Delete submission" style="margin-left:auto;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
@@ -3245,6 +3393,9 @@ async function renderAdminOrders(forceRefresh) {
 
     list.innerHTML = toolbarHtml + contentHtml + summaryHtml;
     attachToolbarEvents(list);
+    list.querySelectorAll('[data-uniform-proof]').forEach(function(button) {
+      button.addEventListener('click', function() { viewUniformPaymentProof(button); });
+    });
 
     // Bind status button clicks
     list.querySelectorAll('[data-order-status]').forEach(function (btn) {
@@ -4183,6 +4334,7 @@ if (typeof module !== 'undefined' && module.exports) {
     goToOrderReview: goToOrderReview,
     goBackOrder: goBackOrder,
     compressReceiptImage: compressReceiptImage,
+    stageUniformPaymentProof: stageUniformPaymentProof,
     previewTngScreenshot: previewTngScreenshot,
     clearTngScreenshot: clearTngScreenshot,
     getTngScreenshot: getTngScreenshot,
