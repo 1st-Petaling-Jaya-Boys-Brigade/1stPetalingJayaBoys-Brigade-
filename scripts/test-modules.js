@@ -1874,7 +1874,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const emptyPaymentInfo = await ordersMod.loadPaymentInfo();
   global.supa.get = prevSupaGet;
   assert.ok(
-    emptyPaymentInfo && emptyPaymentInfo.includes('attach a screenshot'),
+    emptyPaymentInfo && emptyPaymentInfo.includes('attach proof of payment'),
     'loadPaymentInfo must return fallback instructions when bb_payment_info is empty'
   );
   assert.strictEqual(
@@ -1908,12 +1908,18 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const originalPaymentService = window.PortalWebPush;
   let proofUploads = 0;
   let lastProofOrder;
+  let expectedProofType = 'image/jpeg';
+  const bankPdf = '%PDF-1.7\n% Bank payment receipt\n%%EOF\n';
   window.PortalWebPush = {
     async uploadPaymentProof(order, member, blob) {
       assert.match(order, /^BB-[0-9A-F]{16}$/);
       assert.strictEqual(member, global.sessionGet('ic') || global.sessionGet('email'));
-      assert.strictEqual(blob.type, 'image/jpeg');
-      assert.strictEqual(blob.size, 64, 'Oversize first encoding must fall back to a smaller JPEG');
+      assert.strictEqual(blob.type, expectedProofType);
+      if (expectedProofType === 'application/pdf') {
+        assert.strictEqual(await blob.text(), bankPdf, 'Checkout preserves the original PDF bytes');
+      } else {
+        assert.strictEqual(blob.size, 64, 'Oversize first encoding must fall back to a smaller JPEG');
+      }
       proofUploads++;
       lastProofOrder = order;
     }
@@ -1922,7 +1928,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   ordersMod.selectSize('shirt', 'L');
   ordersMod.changeQty('shirt', 1);
   assert.strictEqual(await ordersMod.submitOrder(), null, 'Uniform checkout requires proof even when invoked directly');
+  assert.strictEqual(document.getElementById('uniform-proof-status').textContent, 'Upload proof of payment before you can submit your order.');
   assert.strictEqual(proofUploads, 0);
+  assert.strictEqual(await ordersMod.stageUniformPaymentProof(new File(
+    ['Not a PDF'], 'bad.pdf', { type: 'application/pdf' }
+  )), false, 'Renaming a file as PDF does not make it a valid receipt');
+  assert.strictEqual(await ordersMod.stageUniformPaymentProof(new File(
+    [bankPdf, new Uint8Array(1024 * 1024)], 'large.pdf', { type: 'application/pdf' }
+  )), false, 'Oversize PDF receipts fail before upload');
   assert.strictEqual(await ordersMod.stageUniformPaymentProof(new File(
     ['<svg></svg>'], 'invalid.svg', { type: 'image/svg+xml' }
   )), false, 'SVG cannot be used as proof');
@@ -4363,7 +4376,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   // Test successful submission
   ordersMod.selectSize('shirt', 'M');
-  await prepareCheckoutScreenshot();
+  expectedProofType = 'application/pdf';
+  assert.strictEqual(await ordersMod.stageUniformPaymentProof(new File([bankPdf], 'bank-receipt.pdf')), true, 'Valid PDF works with an empty browser MIME type');
   const validOrderNum = await ordersMod.submitOrder();
   assert.ok(
     validOrderNum && validOrderNum.startsWith('BB-'),
@@ -4609,8 +4623,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261125d',
-    'sw.js CACHE_VERSION must be 20261125d'
+    '20261125e',
+    'sw.js CACHE_VERSION must be 20261125e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4638,7 +4652,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261125d',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261125e',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7508,7 +7522,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261125d'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261125e'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8995,12 +9009,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261125d', 'Service Worker cache version must be 20261125d');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261125e', 'Service Worker cache version must be 20261125e');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261125d and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261125e and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10296,25 +10310,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261125d', 'sw.js CACHE_VERSION must be 20261125d');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261125d', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261125d', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261125e', 'sw.js CACHE_VERSION must be 20261125e');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261125e', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261125e', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261125d cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261125e cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261125d'), 'config.js must use v=20261125d');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261125d'), 'forum.js must use v=20261125d');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261125d'), 'variables.css must use v=20261125d');
-    assert.ok(indexRaw.includes('css/base.css?v=20261125d'), 'base.css must use v=20261125d');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261125d');
+    assert.ok(indexRaw.includes('js/config.js?v=20261125e'), 'config.js must use v=20261125e');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261125e'), 'forum.js must use v=20261125e');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261125e'), 'variables.css must use v=20261125e');
+    assert.ok(indexRaw.includes('css/base.css?v=20261125e'), 'base.css must use v=20261125e');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261125e');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -11506,11 +11520,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const calMod = require('../js/modules/calendar.js');
 
     // 1. Payment Instructions Copy in orders.js and index.html
-    const expectedPaymentCopy = 'Contact the logistics NCOs or officers for the current payment instructions. After payment, attach a screenshot that shows the amount and transaction reference.';
-    assert.strictEqual(ordersMod.DEFAULT_PAYMENT_INFO, expectedPaymentCopy, 'orders.js DEFAULT_PAYMENT_INFO must match updated copy with NCOs and officers');
+    const expectedPaymentCopy = 'Please attach proof of payment that shows the amount and the transaction reference. Thank you.';
+    assert.strictEqual(ordersMod.DEFAULT_PAYMENT_INFO, expectedPaymentCopy, 'Uniform payment instructions show the requested copy');
     const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(indexHtml.includes(expectedPaymentCopy), 'index.html payment-info-editor placeholder must match updated payment instructions');
-    console.log('  ✔ Payment instructions copy updated with logistics NCOs and officers across orders.js and index.html');
+    console.log('  ✔ Payment instructions match across orders.js and the Admin Console placeholder');
 
     // 2. Eradication of "undefined" in Calendar Kit Badges
     const calRaw = fs.readFileSync(path.join(__dirname, '../js/modules/calendar.js'), 'utf8');

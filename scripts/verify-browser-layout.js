@@ -1844,9 +1844,10 @@ async function getJson(url) {
         if (typeof switchTab === 'function') {
           switchTab('order');
         }
-        if (typeof renderUniformOrderInline === 'function') {
+        if (typeof openFormForMember === 'function') {
+          document.getElementById('order-logged-in').style.display = 'block';
           window.UNIFORM_ITEMS = window.DEFAULT_UNIFORM_ITEMS.map(item => ({ ...item, price: 45 }));
-          renderUniformOrderInline();
+          openFormForMember('__uniform__');
         }
 
         const catTabs = document.getElementById('uniform-cat-tabs');
@@ -1882,10 +1883,31 @@ async function getJson(url) {
         if (allTab) allTab.click();
 
         const gridComputed = grid ? window.getComputedStyle(grid) : null;
+        const root = document.documentElement;
+        const priorTheme = root.getAttribute('data-theme');
+        const luminance = color => {
+          const channels = color.match(/[0-9]+/g).slice(0, 3).map(component => {
+            const value = Number(component) / 255;
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+          });
+          return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+        };
+        const ctaContrast = ['light', 'dark'].map(theme => {
+          root.setAttribute('data-theme', theme);
+          const style = getComputedStyle(ctaBtn);
+          const text = luminance(style.color);
+          const background = luminance(style.backgroundColor);
+          return (Math.max(text, background) + 0.05) / (Math.min(text, background) + 0.05);
+        });
+        if (priorTheme) root.setAttribute('data-theme', priorTheme);
+        else root.removeAttribute('data-theme');
         ctaBtn?.click();
         const confirm = document.getElementById('confirm-btn');
         const proofInput = document.getElementById('uniform-proof-input');
-        const proofRequired = confirm?.disabled === true && proofInput?.required === true;
+        const status = document.getElementById('uniform-proof-status');
+        const proofRequired = confirm?.disabled === true && proofInput?.required === true &&
+          status?.textContent === 'Upload proof of payment before you can submit your order.' &&
+          status.getBoundingClientRect().height > 0;
         const canvas = document.createElement('canvas');
         canvas.width = 1400;
         canvas.height = 2000;
@@ -1899,10 +1921,16 @@ async function getJson(url) {
         const proofReady = await stageUniformPaymentProof(screenshot);
         const proofEnablesConfirm = proofReady && confirm?.disabled === false &&
           document.getElementById('uniform-proof-status')?.textContent.startsWith('Screenshot ready');
+        const pdf = new File(['%PDF-1.7\\n% Receipt\\n%%EOF\\n'], 'receipt.pdf', { type: 'application/pdf' });
+        const pdfEnablesConfirm = proofInput.accept.includes('application/pdf') &&
+          await stageUniformPaymentProof(pdf) && !confirm.disabled && status.textContent.startsWith('PDF receipt ready');
         goBackOrder();
         return {
           proofRequired,
           proofEnablesConfirm,
+          pdfEnablesConfirm,
+          ctaContrast,
+          hasOrderNotes: !!document.getElementById('order-notes-container'),
           hasCatTabs: !!catTabs,
           hasGrid: !!grid,
           cardCount: cards.length,
@@ -1929,6 +1957,9 @@ async function getJson(url) {
     const uniformGrid = evalUniformGrid.result.value;
     assert.strictEqual(uniformGrid.proofRequired, true, 'Review disables submit until a payment screenshot is prepared');
     assert.strictEqual(uniformGrid.proofEnablesConfirm, true, 'A real PNG screenshot enables submit after browser compression');
+    assert.strictEqual(uniformGrid.pdfEnablesConfirm, true, 'A PDF receipt also enables submit');
+    assert.strictEqual(uniformGrid.hasOrderNotes, false, 'The uniform checkout no longer renders Additional Notes');
+    assert.ok(uniformGrid.ctaContrast.every(ratio => ratio >= 4.5), 'Review Order text must meet 4.5:1 contrast in both themes');
     assert.strictEqual(uniformGrid.hasCatTabs, true, 'Category tabs container must exist');
     assert.strictEqual(uniformGrid.hasGrid, true, 'Product grid container must exist');
     assert.ok(uniformGrid.cardCount >= 1, 'Grid must render uniform product cards from catalog');

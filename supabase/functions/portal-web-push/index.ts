@@ -11,7 +11,8 @@ const CLIENT_ORIGINS = new Set([ORIGIN, 'https://localhost']);
 const encoder = new TextEncoder();
 const dayMs = 86_400_000;
 const MEMBER_FIELDS = 'ic,email,name,rank,department';
-const PROOF_MAX_BYTES = 256 * 1024;
+const PROOF_IMAGE_MAX_BYTES = 256 * 1024;
+const PROOF_PDF_MAX_BYTES = 1024 * 1024;
 const PROOF_BUCKET = 'uniform-payment-proofs';
 const proofOrderPattern = /^BB-[A-F0-9]{16}$/;
 const MESSAGES: Record<string, [string, string, string]> = {
@@ -410,7 +411,8 @@ async function fanout(devices: Device[], type: string, target: string, targetId 
 }
 
 async function readPaymentUpload(request: Request) {
-  const limit = PROOF_MAX_BYTES + 4096;
+  const limit = PROOF_PDF_MAX_BYTES + 4096;
+  if (Number(request.headers.get('content-length')) > limit) return null;
   const reader = request.body!.getReader();
   const buffer = new Uint8Array(limit);
   let size = 0;
@@ -427,6 +429,19 @@ async function readPaymentUpload(request: Request) {
   return new Response(buffer.subarray(0, size), {
     headers: { 'Content-Type': request.headers.get('content-type')! },
   }).formData();
+}
+
+async function paymentProofExtension(file: FormDataEntryValue | null) {
+  if (!(file instanceof File)) return '';
+  if (file.type === 'application/pdf') {
+    if (file.size > PROOF_PDF_MAX_BYTES) return '';
+    const [header, tail] = await Promise.all([file.slice(0, 5).text(), file.slice(-1024).text()]);
+    return header === '%PDF-' && /%%EOF\s*$/.test(tail) ? '.pdf' : '';
+  }
+  if (file.type !== 'image/jpeg' || file.size < 5 || file.size > PROOF_IMAGE_MAX_BYTES) return '';
+  const [first, last] = await Promise.all([file.slice(0, 3).arrayBuffer(), file.slice(-2).arrayBuffer()]);
+  const [start, end] = [new Uint8Array(first), new Uint8Array(last)];
+  return start[0] === 255 && start[1] === 216 && start[2] === 255 && end[0] === 255 && end[1] === 217 ? '.jpg' : '';
 }
 
 function proofStorage(path: string, method: string, body?: BodyInit, headers: Record<string, string> = {}) {
@@ -456,7 +471,7 @@ Deno.serve(async request => {
     if (request.headers.get('content-type')?.startsWith('multipart/form-data')) {
       if (!trustedOrigin || !request.body) return json({ error: 'Invalid upload request' }, 403);
       const form = await readPaymentUpload(request);
-      if (!form) return json({ error: 'Image exceeds the upload limit' }, 413);
+      if (!form) return json({ error: 'Proof of payment exceeds the upload limit' }, 413);
       data = { action: 'payment_proof_upload', token: form.get('token'), member: form.get('member'), order: form.get('order') };
       proof = form.get('proof');
     } else {
@@ -510,14 +525,24 @@ Deno.serve(async request => {
       }
       const [order] = await db<{ ic: string }[]>('bb_orders?select=ic&has_payment_proof=eq.true&' + filter('order_number', data.order) + '&limit=1');
       if (!order) return json({ error: 'Payment proof is unavailable' }, 404);
-      const path = PROOF_BUCKET + '/' + await hash(order.ic) + '/' + data.order + '.jpg';
-      const result = await proofStorage('sign/' + path, 'POST', JSON.stringify({ expiresIn: 120 }), { 'Content-Type': 'application/json' });
+      const path = PROOF_BUCKET + '/' + await hash(order.ic) + '/' + data.order;
+      const options = JSON.stringify({ expiresIn: 120 });
+      const headers = { 'Content-Type': 'application/json' };
+      let result = await proofStorage('sign/' + path + '.jpg', 'POST', options, headers);
+      let contentType = 'image/jpeg';
+      if (result.status === 404 || result.status === 400) {
+        await result.body?.cancel();
+        result = await proofStorage('sign/' + path + '.pdf', 'POST', options, headers);
+        contentType = 'application/pdf';
+      }
       if (!result.ok) return json({ error: 'Payment proof is unavailable' }, 404);
       const { signedURL } = await result.json();
       if (typeof signedURL !== 'string' || !signedURL.startsWith('/object/sign/')) {
         return json({ error: 'Payment proof is unavailable' }, 502);
       }
-      return json({ url: PROJECT + '/storage/v1' + signedURL });
+      const url = new URL(PROJECT + '/storage/v1' + signedURL);
+      if (contentType === 'application/pdf') url.searchParams.set('download', 'payment-proof.pdf');
+      return json({ url: url.href, contentType });
     }
     const deviceKey = typeof data.deviceKey === 'string' ? data.deviceKey : '';
     const endpoint = appleEndpoint(data.subscription?.endpoint || data.endpoint);
@@ -537,26 +562,21 @@ Deno.serve(async request => {
     if (!actor || !active(actor) || accountEmail(actor) !== session.email) return json({ error: 'Member could not be verified' }, 403);
 
     if (action === 'payment_proof_upload') {
-      if (!proofOrderPattern.test(data.order) || !(proof instanceof File) || proof.type !== 'image/jpeg' ||
-          proof.size < 5 || proof.size > PROOF_MAX_BYTES) {
-        return json({ error: 'A JPEG payment screenshot is required' }, 400);
-      }
-      const [first, last] = await Promise.all([proof.slice(0, 3).arrayBuffer(), proof.slice(-2).arrayBuffer()]);
-      const [start, end] = [new Uint8Array(first), new Uint8Array(last)];
-      if (start[0] !== 255 || start[1] !== 216 || start[2] !== 255 || end[0] !== 255 || end[1] !== 217) {
-        return json({ error: 'Invalid JPEG screenshot' }, 400);
+      const extension = await paymentProofExtension(proof);
+      if (!proofOrderPattern.test(data.order) || !(proof instanceof File) || !extension) {
+        return json({ error: 'A valid JPEG screenshot or PDF receipt is required' }, 400);
       }
       if (!await budget('payment-proof:' + await hash(session.email), 16, 86400)) {
         return json({ error: 'Too many payment proof uploads' }, 429);
       }
-      const path = PROOF_BUCKET + '/' + await hash(actor.ic) + '/' + data.order + '.jpg';
-      const result = await proofStorage(path, 'POST', proof, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' });
+      const path = PROOF_BUCKET + '/' + await hash(actor.ic) + '/' + data.order + extension;
+      const result = await proofStorage(path, 'POST', proof, { 'Content-Type': proof.type, 'Cache-Control': 'private, no-store' });
       if (result.ok) return json({ ok: true });
       if (result.status === 409 || result.status === 400) {
         const existing = await proofStorage(path, 'HEAD');
         if (existing.ok) return json({ ok: true });
       }
-      return json({ error: 'Payment screenshot could not be stored' }, 502);
+      return json({ error: 'Proof of payment could not be stored' }, 502);
     }
 
     if (action === 'register') {
