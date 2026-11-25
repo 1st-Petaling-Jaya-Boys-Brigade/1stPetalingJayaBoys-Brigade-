@@ -3365,12 +3365,12 @@ async function callGeminiApi(prompt, apiKey, options) {
 }
 
 // ── Forum Reply Notifications Synchronization ──────────────────────────────
-function syncForumNotifications(posts) {
+function syncForumNotifications(posts, isSilent) {
   var list = Array.isArray(posts) ? posts : (typeof forumPosts !== 'undefined' ? forumPosts : []);
   if (!Array.isArray(list) || !list.length) return;
 
   if (typeof window !== 'undefined' && typeof window.syncForumNotifications === 'function' && window.syncForumNotifications !== syncForumNotifications) {
-    window.syncForumNotifications(list);
+    window.syncForumNotifications(list, isSilent);
     return;
   }
 
@@ -3496,7 +3496,7 @@ function syncForumNotifications(posts) {
 }
 
 // ── Persistence Layer ────────────────────────────────────────────────────────
-async function loadForumPosts() {
+async function loadForumPosts(isSilent) {
   if (typeof fetchRemoteMemberPresence === 'function') {
     try { await fetchRemoteMemberPresence(); } catch (_) {}
   } else if (typeof window !== 'undefined' && typeof window.fetchRemoteMemberPresence === 'function') {
@@ -3513,7 +3513,7 @@ async function loadForumPosts() {
           }
         } catch (_) {}
         renderForumFeed();
-        syncForumNotifications(forumPosts);
+        syncForumNotifications(forumPosts, isSilent);
         return;
       }
     }
@@ -3529,7 +3529,7 @@ async function loadForumPosts() {
         if (Array.isArray(parsed)) {
           forumPosts = parsed;
           renderForumFeed();
-          syncForumNotifications(forumPosts);
+          syncForumNotifications(forumPosts, isSilent);
           return;
         }
       }
@@ -3538,7 +3538,7 @@ async function loadForumPosts() {
 
   forumPosts = JSON.parse(JSON.stringify(DEFAULT_FORUM_POSTS));
   renderForumFeed();
-  syncForumNotifications(forumPosts);
+  syncForumNotifications(forumPosts, isSilent);
 }
 
 async function saveForumPosts(posts) {
@@ -5910,6 +5910,7 @@ async function submitNewForumPost(e, customPost) {
 
     var newPost = {
       id: 'post-' + crypto.randomUUID(),
+      created_at: new Date().toISOString(),
       title: title,
       category: cat,
       categoryLabel: catLabels[cat] || 'General',
@@ -6448,6 +6449,7 @@ async function submitForumReply(e, postId, customText) {
   p.replies = p.replies || [];
   p.replies.push({
     id: 'rep-' + crypto.randomUUID(),
+    created_at: new Date().toISOString(),
     authorName: author,
     authorRank: rank,
     authorRole: role,

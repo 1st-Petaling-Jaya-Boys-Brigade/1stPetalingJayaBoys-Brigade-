@@ -2973,9 +2973,9 @@ async function fetchAllRemoteTasks(andRerender, options) {
       }
       fetchDepartmentMembers().catch(function() {});
       if (typeof syncTaskNotifications === 'function') {
-        syncTaskNotifications(_allLoadedTasks);
+        syncTaskNotifications(_allLoadedTasks, options?.notificationSilent);
       } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
-        window.syncTaskNotifications(_allLoadedTasks);
+        window.syncTaskNotifications(_allLoadedTasks, options?.notificationSilent);
       }
     }
   } catch (e) {
@@ -3534,6 +3534,11 @@ function openTaskDetail(id) {
   }
   paintTaskBriefDraftStatus(id);
   refreshTaskBriefRow(id);
+  var activeCommentEditor = document.querySelector('.tb-comment-edit-input');
+  if (activeCommentEditor && activeCommentEditor.dataset.taskId !== String(id)) {
+    hideMentionDropdown();
+    activeCommentEditor.closest('.tb-comment-edit-wrap').remove();
+  }
   renderTaskComments(id);
   renderTaskAttachments(id);
   renderTaskSubtasks(id);
@@ -4501,15 +4506,23 @@ function getTaskComments(taskId) {
  */
 function saveTaskComments(taskId, comments, options) {
   if (!taskId || !Array.isArray(comments)) return;
-  _taskCommentsMap[taskId] = comments;
-  try {
-    localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(comments));
-  } catch (_) {}
+  if (!options?.editedComment) cacheTaskComments(taskId, comments);
   var client = getSupaClient();
   if (!client || (typeof client.upsert !== 'function' && typeof client.req !== 'function')) return Promise.resolve(false);
 
   var doSave = async function() {
     var finalComments = comments;
+    var currentRow;
+    if (options?.editedComment) {
+      var currentRows = await client.get('bb_config?key=eq.bb_task_comments_' + encodeURIComponent(taskId) + '&select=value,updated_at', { cache: false });
+      currentRow = currentRows?.[0];
+      var current = currentRow ? JSON.parse(currentRow.value) : comments;
+      var edited = options.editedComment;
+      if (!Array.isArray(current) || !current.some(function(comment) { return comment.id === edited.id && ownsTaskComment(comment); })) return false;
+      finalComments = current.map(function(comment) {
+        return comment.id === edited.id ? Object.assign({}, comment, { text: edited.text, edited_at: edited.edited_at }) : comment;
+      });
+    }
     if (options && options.isAppend && options.newComment) {
       try {
         var remoteRows = await client.get('bb_config?key=eq.bb_task_comments_' + taskId + '&select=value', { cache: false });
@@ -4539,10 +4552,17 @@ function saveTaskComments(taskId, comments, options) {
       value: JSON.stringify(finalComments),
       updated_at: new Date().toISOString()
     };
-    var saveReq = typeof client.upsert === 'function'
-      ? client.upsert('bb_config', payload, 'key')
-      : client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
-    await saveReq;
+    if (currentRow && Object.hasOwn(currentRow, 'updated_at') && typeof client.req === 'function') {
+      var version = currentRow.updated_at == null ? 'is.null' : 'eq.' + encodeURIComponent(currentRow.updated_at);
+      var updated = await client.req('PATCH', 'bb_config?key=eq.' + encodeURIComponent(payload.key) + '&updated_at=' + version,
+        { value: payload.value, updated_at: payload.updated_at }, { Prefer: 'return=representation' }, { maxRetries: 0 });
+      if (!Array.isArray(updated) || updated.length !== 1) return false;
+    } else if (typeof client.upsert === 'function') {
+      await client.upsert('bb_config', payload, 'key');
+    } else {
+      await client.req('POST', 'bb_config?on_conflict=key', payload, { Prefer: 'return=representation,resolution=merge-duplicates' });
+    }
+    if (options?.editedComment) cacheTaskComments(taskId, finalComments);
 
     if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
       window.PortalRealtime.broadcast('comments', 'update', { taskId: taskId, comments: finalComments });
@@ -4551,6 +4571,11 @@ function saveTaskComments(taskId, comments, options) {
   };
 
   return doSave().catch(function() { return false; });
+}
+
+function cacheTaskComments(taskId, comments) {
+  _taskCommentsMap[taskId] = comments;
+  try { localStorage.setItem('bb_task_comments_' + taskId, JSON.stringify(comments)); } catch (_) {}
 }
 
 /**
@@ -4562,7 +4587,7 @@ var _lastFetchRemoteTaskCommentsTime = 0;
 /**
  * Fetches all persisted task comments from Supabase bb_config
  */
-async function fetchAllRemoteTaskComments(force) {
+async function fetchAllRemoteTaskComments(force, isSilent) {
   var now = Date.now();
   if (!force && (_isFetchingRemoteTaskComments || (now - _lastFetchRemoteTaskCommentsTime < 5000))) return;
   _isFetchingRemoteTaskComments = true;
@@ -4591,9 +4616,9 @@ async function fetchAllRemoteTaskComments(force) {
     _isFetchingRemoteTaskComments = false;
   }
   if (typeof syncTaskNotifications === 'function') {
-    syncTaskNotifications();
+    syncTaskNotifications(null, isSilent);
   } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function') {
-    window.syncTaskNotifications();
+    window.syncTaskNotifications(null, isSilent);
   }
   if (typeof renderNotifications === 'function') {
     renderNotifications();
@@ -4828,7 +4853,7 @@ function toggleTaskCommentMenu(commentId, event) {
  */
 function startEditTaskComment(taskId, commentId) {
   var tid = taskId || _activeDetailTaskId;
-  if (!tid) return;
+  if (!tid || document.querySelector('.tb-comment-edit-input')) return;
 
   // Close all open menus
   var allMenus = (typeof document !== 'undefined') ? document.querySelectorAll('.tb-comment-dropdown') : [];
@@ -4841,28 +4866,23 @@ function startEditTaskComment(taskId, commentId) {
   var textContainer = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-text[data-comment-id="' + commentId + '"]') : null;
   if (!textContainer) return;
 
-  var rawText = targetComment.text || '';
-  var safeRaw = (typeof escapeHtml === 'function') ? escapeHtml(rawText) : rawText;
-
   textContainer.innerHTML = '<div class="tb-comment-edit-wrap">'
-    + '<textarea class="tb-comment-edit-input" rows="2" data-edit-cid="' + commentId + '" '
-      + 'onkeydown="if((event.ctrlKey||event.metaKey)&&event.key===\'Enter\'){saveEditTaskComment(\'' + tid + '\', \'' + commentId + '\');}else if(event.key===\'Escape\'){cancelEditTaskComment(\'' + tid + '\', \'' + commentId + '\');}">'
-      + safeRaw
-    + '</textarea>'
+    + '<div class="tb-comment-edit-input" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Edit comment"'
+      + ' data-task-id="' + tid + '" data-edit-cid="' + commentId + '"'
+      + ' oninput="handleTaskCommentInput(this)" onkeydown="handleTaskCommentKeyDown(event, this)" onpaste="handleTaskCommentPaste(event, this)"></div>'
     + '<div class="tb-comment-edit-actions">'
-      + '<button type="button" class="tb-comment-btn-cancel" onclick="cancelEditTaskComment(\'' + tid + '\', \'' + commentId + '\')">Cancel</button>'
-      + '<button type="button" class="tb-comment-btn-save" onclick="saveEditTaskComment(\'' + tid + '\', \'' + commentId + '\')">Save</button>'
+      + '<button type="button" class="tb-comment-btn-cancel">Cancel</button>'
+      + '<button type="button" class="tb-comment-btn-save" data-no-debounce>Save</button>'
     + '</div>'
   + '</div>';
 
-  var textarea = textContainer.querySelector('.tb-comment-edit-input');
-  if (textarea) {
-    textarea.focus();
-    var len = textarea.value.length;
-    if (typeof textarea.setSelectionRange === 'function') {
-      textarea.setSelectionRange(len, len);
-    }
-  }
+  var editor = ensureCommentInputValueProperty(textContainer.querySelector('.tb-comment-edit-input'));
+  editor.value = targetComment.text || '';
+  editor.querySelectorAll('.tb-mention-pill').forEach(function(pill) { pill.contentEditable = 'false'; });
+  textContainer.querySelector('.tb-comment-btn-cancel').addEventListener('click', function() { cancelEditTaskComment(tid, commentId); });
+  textContainer.querySelector('.tb-comment-btn-save').addEventListener('click', function() { saveEditTaskComment(tid, commentId); });
+  editor.focus();
+  placeCaretAtEnd(editor);
 }
 
 /**
@@ -4870,14 +4890,14 @@ function startEditTaskComment(taskId, commentId) {
  * @param {string} taskId
  * @param {string} commentId
  */
-function saveEditTaskComment(taskId, commentId) {
+async function saveEditTaskComment(taskId, commentId) {
   var tid = taskId || _activeDetailTaskId;
   if (!tid) return;
 
-  var textarea = (typeof document !== 'undefined') ? document.querySelector('.tb-comment-edit-input[data-edit-cid="' + commentId + '"]') : null;
-  if (!textarea) return;
+  var editor = document.querySelector('.tb-comment-edit-input');
+  if (!editor || editor.dataset.editCid !== String(commentId) || editor.dataset.taskId !== String(tid) || !editor.isContentEditable) return;
 
-  var updatedText = textarea.value.trim();
+  var updatedText = editor.innerText.replace(/\u00a0/g, ' ').trim();
   if (!updatedText) {
     if (typeof showToast === 'function') {
       showToast('Comment cannot be empty', 'warning');
@@ -4887,18 +4907,40 @@ function saveEditTaskComment(taskId, commentId) {
 
   var comments = getTaskComments(tid);
   var targetComment = comments.find(function(c) { return String(c.id) === String(commentId); });
-  if (!ownsTaskComment(targetComment) || updatedText.length > 2000) return;
-  if (targetComment) {
-    if (targetComment.text !== updatedText) {
-      targetComment.text = updatedText;
-      targetComment.edited_at = new Date().toISOString();
-      saveTaskComments(tid, comments);
-    }
+  if (!ownsTaskComment(targetComment)) return;
+  if (updatedText.length > 2000) {
+    showToast('Comment cannot exceed 2,000 characters', 'warning');
+    return;
   }
-
-  renderTaskComments(tid);
-  if (typeof showToast === 'function') {
-    showToast('Comment updated', 'success', 1500);
+  if (targetComment.text === updatedText) {
+    cancelEditTaskComment(tid, commentId);
+    return;
+  }
+  var wrap = editor.closest('.tb-comment-edit-wrap');
+  var saveButton = wrap.querySelector('.tb-comment-btn-save');
+  var cancelButton = wrap.querySelector('.tb-comment-btn-cancel');
+  hideMentionDropdown();
+  editor.contentEditable = 'false';
+  cancelButton.disabled = true;
+  try {
+    await withSmartButtonLock(saveButton, async function() {
+      var edited = { id: targetComment.id, text: updatedText, edited_at: new Date().toISOString() };
+      var saved = await saveTaskComments(tid, comments, { editedComment: edited });
+      if (!editor.isConnected) return;
+      if (!saved) {
+        showToast('Could not save the comment. Your edit is still here.', 'warning');
+        return;
+      }
+      wrap.remove();
+      renderTaskComments(tid);
+      showToast('Comment updated', 'success', 1500);
+    });
+  } finally {
+    if (editor.isConnected) {
+      editor.contentEditable = 'true';
+      cancelButton.disabled = false;
+      editor.focus();
+    }
   }
 }
 
@@ -4907,8 +4949,12 @@ function saveEditTaskComment(taskId, commentId) {
  * @param {string} taskId
  * @param {string} commentId
  */
-function cancelEditTaskComment(taskId, _commentId) {
+function cancelEditTaskComment(taskId, commentId) {
   var tid = taskId || _activeDetailTaskId;
+  var editor = document.querySelector('.tb-comment-edit-input');
+  if (!editor || !editor.isContentEditable || editor.dataset.taskId !== String(tid) || editor.dataset.editCid !== String(commentId)) return;
+  hideMentionDropdown();
+  editor.closest('.tb-comment-edit-wrap').remove();
   renderTaskComments(tid);
 }
 
@@ -6026,7 +6072,7 @@ function showMentionDropdown(inputEl, query) {
   }
 
   _activeMentionTarget = inputEl;
-  var host = inputEl?.matches?.('.task-editable-desc') && inputEl.closest('[role="dialog"]');
+  var host = inputEl?.matches?.('.task-editable-desc, .tb-comment-edit-input') && inputEl.closest('[role="dialog"]');
   if (host) {
     if (!_mentionDropdownHome) {
       _mentionDropdownHome = dropdown.parentElement;
@@ -6109,6 +6155,16 @@ function handleTaskCommentKeyDown(e, inputEl) {
       return;
     }
     hideMentionDropdown();
+  }
+
+  if (inputEl.dataset?.editCid) {
+    if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') cancelEditTaskComment(inputEl.dataset.taskId, inputEl.dataset.editCid);
+      else saveEditTaskComment(inputEl.dataset.taskId, inputEl.dataset.editCid);
+    }
+    return;
   }
 
   // Enter or Ctrl+Enter submits comment (Shift+Enter inserts newline in multiline)
@@ -6600,6 +6656,57 @@ async function toggleTaskDetailAssigneeMenu(e) {
   }
 }
 
+function taskAssigneeTokens(value) {
+  return String(value || '').split(',').map(function(item) { return item.trim().toLowerCase(); }).filter(Boolean);
+}
+
+function taskAssignmentChanged(before, after) {
+  var keys = function(task) {
+    var ids = getTaskAssigneeKeys(task);
+    return Array.from(new Set(ids.length ? ids : taskAssigneeTokens(task.assignee_name))).sort().join(',');
+  };
+  return !before || keys(before) !== keys(after);
+}
+
+function publishTaskAssignment(task) {
+  if (!task?.id || (!task.assignee_ic && !task.assignee_name)) return;
+  var session = typeof sessionGet === 'function' ? sessionGet : function() { return ''; };
+  var event = {
+    id: task.id,
+    taskId: task.id,
+    title: task.title,
+    assignee_name: task.assignee_name,
+    assignee_ic: task.assignee_ic,
+    assignee_email: task.assignee_email,
+    creator_name: session('name') || task.creator_name,
+    creator_ic: session('ic') || task.creator_ic,
+    creator_email: session('email') || task.creator_email,
+    updated_at: new Date().toISOString()
+  };
+  if (typeof window !== 'undefined') {
+    window.notifyPortalTaskAssignment?.(event, false, true);
+    window.PortalRealtime?.broadcast?.('task_assigned', 'create', event);
+  }
+
+  var identities = getTaskAssigneeKeys(task);
+  var recipients = identities.length ? identities : taskAssigneeTokens(task.assignee_name);
+  var actor = [session('ic'), session('email'), session('name')].flatMap(taskAssigneeTokens);
+  var targetUsers = Array.from(new Set(recipients.filter(function(value) {
+    return value !== 'unassigned' && !actor.includes(value);
+  })));
+  var dispatch = typeof sendPortalPushNotification === 'function' ? sendPortalPushNotification : null;
+  if (dispatch && targetUsers.length) {
+    dispatch({
+      type: 'task_assigned',
+      title: 'Task Assigned: ' + task.title,
+      body: (event.creator_name || 'A member') + ' assigned a task: ' + task.title,
+      targetUsers: targetUsers,
+      tab: 'tasks',
+      targetId: task.id
+    }).catch(function() {});
+  }
+}
+
 async function selectTaskDetailAssignee(ic, name) {
   if (!findManagedTask(_activeDetailTaskId)) return;
   if (!_activeDetailTaskId) return;
@@ -6607,19 +6714,20 @@ async function selectTaskDetailAssignee(ic, name) {
   var cleanName = name === 'Unassigned' ? '' : name;
   var cleanIc = ic || '';
 
-  var t = (typeof window !== 'undefined' && window._taskMap && window._taskMap[tid]) || _taskMap[tid];
-  if (t) {
-    t.assignee_name = cleanName;
-    t.assignee_ic = cleanIc;
-    t._justAssigned = true;
-    setTimeout(function() { delete t._justAssigned; }, 15000);
-  }
+  var t = findManagedTask(tid);
   var loaded = _allLoadedTasks.find(function(x) { return String(x.id) === String(tid); });
-  if (loaded) {
-    loaded.assignee_name = cleanName;
-    loaded.assignee_ic = cleanIc;
-    loaded._justAssigned = true;
+  var previous = { assignee_name: t.assignee_name, assignee_ic: t.assignee_ic, assignee_email: t.assignee_email };
+  var assignment = { assignee_name: cleanName || null, assignee_ic: cleanIc || null, assignee_email: null };
+  if (!taskAssignmentChanged(previous, assignment) || t._assignmentPending) {
+    var dropdown = document.querySelector('.tdm-assignee-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    return;
   }
+  var affected = Array.from(new Set([t, loaded].filter(Boolean)));
+  affected.forEach(function(task) {
+    Object.assign(task, assignment);
+    task._assignmentPending = true;
+  });
 
   var aNameEl = document.getElementById('tdm-assignee');
   if (aNameEl) aNameEl.textContent = cleanName || 'Unassigned';
@@ -6699,85 +6807,34 @@ async function selectTaskDetailAssignee(ic, name) {
     renderMyTasksView();
   }
 
-  if (typeof showToast === 'function') {
-    showToast('Assigned to ' + (cleanName || 'Unassigned'), 'info', 1000);
-  }
-
-  // Background patch without refetching from server
-  var effectiveTid = tid;
-  if (String(tid).startsWith('temp_')) {
+  var effectiveTid;
+  try {
     effectiveTid = await resolveRealTaskId(tid);
+    var client = getSupaClient();
+    if (!client || String(effectiveTid).startsWith('temp_')) throw new Error('Task is unavailable');
+    var patch = { assignee_name: assignment.assignee_name, assignee_ic: assignment.assignee_ic };
+    if (previous.assignee_email) patch.assignee_email = null;
+    await patchTaskInDatabase(client, effectiveTid, patch);
+  } catch (err) {
+    affected.forEach(function(task) { Object.assign(task, previous); });
+    refreshCurrentTasksView(tid);
+    if (typeof showToast === 'function') showToast('Could not save the assignment. Try again.', 'warning');
+    return;
+  } finally {
+    affected.forEach(function(task) { delete task._assignmentPending; });
   }
-  var client = getSupaClient();
-  if (client && !String(effectiveTid).startsWith('temp_')) {
-    try {
-      await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveTid), { assignee_name: cleanName });
-      if (cleanIc) {
-        try { await client.patch('bb_tasks?id=eq.' + encodeURIComponent(effectiveTid), { assignee_ic: cleanIc }); } catch (_) {}
-      }
-      if (cleanName && cleanName !== 'Unassigned') {
-        var assignDispatcher = (typeof sendPortalPushNotification === 'function')
-          ? sendPortalPushNotification
-          : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
-        if (assignDispatcher) {
-          var targetList = [cleanIc, cleanName].filter(Boolean);
-          var mentionRes = (typeof resolveMentionTargets === 'function')
-            ? resolveMentionTargets('@' + cleanName)
-            : { targetUsers: [] };
-          var assignEmail = '';
-          if (Array.isArray(mentionRes.targetUsers)) {
-            mentionRes.targetUsers.forEach(function(u) {
-              if (u && targetList.indexOf(u) === -1) targetList.push(u);
-              if (u && u.indexOf('@') !== -1 && !assignEmail) assignEmail = u;
-            });
-          }
-          assignDispatcher({
-            type: 'task_assigned',
-            title: 'Task Assigned: ' + (t.title || 'Task Update'),
-            body: 'You have been assigned to: ' + (t.title || 'Task Update'),
-            targetUsers: targetList,
-            targetDept: null,
-            tab: 'tasks',
-            targetId: tid
-          }).catch(function() {});
-        }
-      }
-      var prAssign = (typeof window !== 'undefined' && window.PortalRealtime)
-        ? window.PortalRealtime
-        : ((typeof global !== 'undefined' && global.PortalRealtime) ? global.PortalRealtime : null);
-      if (prAssign && typeof prAssign.broadcast === 'function') {
-        try {
-          prAssign.broadcast('tasks', 'update', {
-            id: tid,
-            field: 'assignee_name',
-            value: cleanName,
-            assignee_name: cleanName,
-            assignee_ic: cleanIc,
-            assignee_email: (typeof assignEmail !== 'undefined') ? assignEmail : '',
-            title: (t && t.title) || 'Task Update',
-            creator_name: (typeof sessionGet === 'function' ? sessionGet('name') : '') || (t && t.creator_name) || 'Jeshua Koh',
-            creator_ic: (typeof sessionGet === 'function' ? sessionGet('ic') : '') || (t && t.creator_ic) || '',
-            task: t
-          });
-          if (cleanName && cleanName !== 'Unassigned') {
-            prAssign.broadcast('task_assigned', 'create', {
-              id: tid,
-              taskId: tid,
-              title: (t && t.title) || 'Task Update',
-              assignee_name: cleanName,
-              assignee_ic: cleanIc,
-              assignee_email: (typeof assignEmail !== 'undefined') ? assignEmail : '',
-              creator_name: (typeof sessionGet === 'function' ? sessionGet('name') : '') || (t && t.creator_name) || 'Jeshua Koh',
-              creator_ic: (typeof sessionGet === 'function' ? sessionGet('ic') : '') || (t && t.creator_ic) || '',
-              updated_at: new Date().toISOString()
-            });
-          }
-        } catch (_) {}
-      }
-    } catch (err) {
-      console.warn('Failed to sync assignee in background:', err);
-    }
+  if (cleanName) publishTaskAssignment(Object.assign({}, t, assignment, { id: effectiveTid }));
+  if (typeof window !== 'undefined') {
+    window.PortalRealtime?.broadcast?.('tasks', 'update', {
+      id: effectiveTid,
+      field: 'assignee_name',
+      value: assignment.assignee_name,
+      assignee_name: assignment.assignee_name,
+      assignee_ic: assignment.assignee_ic,
+      title: t.title
+    });
   }
+  if (typeof showToast === 'function') showToast('Assigned to ' + (cleanName || 'Unassigned'), 'info', 1000);
 }
 
 /**
@@ -6856,6 +6913,7 @@ async function editTaskDetailEstimate(e) {
 function closeTaskDetail() {
   if (typeof document === 'undefined') return;
   hideMentionDropdown();
+  document.querySelector('.tb-comment-edit-wrap')?.remove();
   handleTaskTitleBlur();
   handleTaskDescBlur();
   var m = document.getElementById('task-detail-modal');
@@ -7641,51 +7699,7 @@ async function handleCreateTaskSubmit(e) {
             window.PortalRealtime.broadcast('tasks', 'create', localTask);
             window.PortalRealtime.broadcast('tasks', 'reconcile', { tempId: tempId, task: saved });
           }
-          if (assigneeName && assigneeName !== 'Unassigned') {
-            var taskDispatcher = (typeof sendPortalPushNotification === 'function')
-              ? sendPortalPushNotification
-              : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
-            if (taskDispatcher) {
-              var targetList = [assigneeIc, assigneeName].filter(Boolean);
-              var isSelf = (myName && assigneeName.toLowerCase().trim() === myName.toLowerCase().trim())
-                || (myIc && assigneeIc && assigneeIc === myIc);
-              if (!isSelf) {
-                taskDispatcher({
-                  type: 'task_assigned',
-                  title: 'Task Assigned: ' + title,
-                  body: (localTask.creator_name || 'An officer') + ' assigned a task: ' + title,
-                  targetUsers: targetList,
-                  targetDept: null,
-                  tab: 'tasks',
-                  targetId: saved.id
-                }).catch(function() {});
-              }
-            }
-            var createdAssignEmail = '';
-            if (typeof resolveMentionTargets === 'function') {
-              try {
-                var cRes = resolveMentionTargets('@' + assigneeName);
-                if (cRes && Array.isArray(cRes.targetUsers)) {
-                  cRes.targetUsers.forEach(function(u) {
-                    if (u && u.indexOf('@') !== -1 && !createdAssignEmail) createdAssignEmail = u;
-                  });
-                }
-              } catch (_) {}
-            }
-            if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
-              window.PortalRealtime.broadcast('task_assigned', 'create', {
-                id: saved.id,
-                taskId: saved.id,
-                title: title,
-                assignee_name: assigneeName,
-                assignee_ic: assigneeIc,
-                assignee_email: createdAssignEmail,
-                creator_name: localTask.creator_name || 'Jeshua Koh',
-                creator_ic: localTask.creator_ic || '',
-                updated_at: saved.created_at || new Date().toISOString()
-              });
-            }
-          }
+          if (assigneeName) publishTaskAssignment(localTask);
           return saved.id;
         } else if (!inserted) {
           throw new Error('Server returned empty task response');
@@ -7718,6 +7732,7 @@ async function handleCreateTaskSubmit(e) {
           if (typeof window !== 'undefined' && window.PortalRealtime && typeof window.PortalRealtime.broadcast === 'function') {
             window.PortalRealtime.broadcast('tasks', 'create', localTask);
           }
+          if (assigneeName) publishTaskAssignment(localTask);
           return doubleCheckRow.id;
         }
 
@@ -7869,6 +7884,11 @@ async function saveTask() {
   var client = getSupaClient();
   if (!client) return;
   try {
+    var previousTask = editId ? findManagedTask(editId) : null;
+    if (editId && !previousTask) {
+      var previousRows = await client.get('bb_tasks?id=eq.' + encodeURIComponent(editId) + '&limit=1', { cache: false });
+      previousTask = previousRows?.[0];
+    }
     if (editId) {
       await patchTaskInDatabase(client, editId, payload);
       if (typeof showToast === 'function') showToast('Task updated successfully!', 'success');
@@ -7893,46 +7913,9 @@ async function saveTask() {
       }
     }
 
-    // Real-time WhatsApp-style FCM push notification for task assignment
-    var taskDispatcher = (typeof sendPortalPushNotification === 'function')
-      ? sendPortalPushNotification
-      : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
-    if (taskDispatcher) {
-      var targetUsers = [];
-      if (payload.assignee_ic) {
-        payload.assignee_ic.split(',').forEach(function(ic) {
-          var trimmed = ic.trim();
-          if (trimmed) targetUsers.push(trimmed);
-        });
-      }
-      if (payload.assignee_name) {
-        payload.assignee_name.split(',').forEach(function(n) {
-          var trimmed = n.trim();
-          if (trimmed && trimmed !== 'Unassigned') {
-            if (targetUsers.indexOf(trimmed) === -1) targetUsers.push(trimmed);
-            var mRes = (typeof resolveMentionTargets === 'function')
-              ? resolveMentionTargets('@' + trimmed)
-              : { targetUsers: [] };
-            if (Array.isArray(mRes.targetUsers)) {
-              mRes.targetUsers.forEach(function(tu) {
-                if (tu && targetUsers.indexOf(tu) === -1) targetUsers.push(tu);
-              });
-            }
-          }
-        });
-      }
-      var savedAdminTaskId = (typeof taskRes !== 'undefined' && taskRes && taskRes[0] && taskRes[0].id) || editId || '';
-      taskDispatcher({
-        type: 'task_assigned',
-        title: 'Task Assigned: ' + title,
-        body: (payload.creator_name || 'An officer') + ' assigned a task: ' + title,
-        targetUsers: targetUsers,
-        targetDept: null,
-        tab: 'tasks',
-        targetId: savedAdminTaskId
-      }).catch(function(pushErr) {
-        console.warn('Task assignment FCM push error:', pushErr);
-      });
+    var saved = Array.isArray(taskRes) ? taskRes[0] : taskRes;
+    if ((editId || saved?.id) && taskAssignmentChanged(previousTask, payload)) {
+      publishTaskAssignment(Object.assign({}, payload, { id: editId || saved.id }));
     }
     clearTaskForm();
     var body = document.getElementById('task-form-body');

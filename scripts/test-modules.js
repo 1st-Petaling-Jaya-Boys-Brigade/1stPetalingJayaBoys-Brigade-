@@ -4587,8 +4587,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261124i',
-    'sw.js CACHE_VERSION must be 20261124i'
+    '20261125a',
+    'sw.js CACHE_VERSION must be 20261125a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4616,7 +4616,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261124i',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261125a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7486,7 +7486,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261124i'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261125a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -8877,7 +8877,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(uiMod.NOTIF_SOUND_URL.includes('Notification%20Sound_PopSound'), 'NOTIF_SOUND_URL must target Notification Sound_PopSound');
 
     // Test playNotificationSound returns audio instance when Audio is available
-    let audioPlayed = false;
+    let audioPlayed = 0;
     let createdSrc = '';
     global.Audio = class MockAudio {
       constructor(src) {
@@ -8886,13 +8886,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
         this.currentTime = 0;
       }
       play() {
-        audioPlayed = true;
+        audioPlayed++;
         return Promise.resolve();
       }
     };
 
     const _playedAudio = uiMod.playNotificationSound();
-    assert.ok(audioPlayed, 'playNotificationSound must trigger audio.play()');
+    assert.strictEqual(audioPlayed, 1, 'playNotificationSound must trigger audio.play()');
+    uiMod.playNotificationSound();
+    assert.strictEqual(audioPlayed, 1, 'Rapid notification chimes must not restart playback');
     assert.ok(createdSrc.includes('Notification%20Sound_PopSound'), 'Audio instance must load configured sound file');
     console.log('  ✔ Notification pop sound effect playback and audio priming verified');
 
@@ -8968,12 +8970,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124i', 'Service Worker cache version must be 20261124i');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261125a', 'Service Worker cache version must be 20261125a');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261124i and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261125a and sound effect precaching verified');
 
     // 4. Strict 388 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -8991,7 +8993,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     const supaJsRaw = fs.readFileSync(path.resolve(__dirname, '..', 'js/api/supabase.js'), 'utf8');
     assert.ok(supaJsRaw.includes("entity === 'announcements'"), 'supabase.js must handle announcements entity');
-    assert.ok(supaJsRaw.includes('triggerPortalSystemNotification'), 'supabase.js must trigger system notification on announcement arrival');
+    assert.ok(supaJsRaw.includes('syncAnnouncementNotifications([data], false, true)'), 'Realtime announcements must use the shared inbox dispatch');
     console.log('  ✔ Web Push, Periodic Background Sync, Android notifications, and Realtime instant announcement chime verified');
     const idMatchesFinal = idxHtmlCheck.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIdsFinal = idMatchesFinal.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -10269,25 +10271,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261124i', 'sw.js CACHE_VERSION must be 20261124i');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261124i', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261124i', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261125a', 'sw.js CACHE_VERSION must be 20261125a');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261125a', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261125a', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261124i cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261125a cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261124i'), 'config.js must use v=20261124i');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261124i'), 'forum.js must use v=20261124i');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261124i'), 'variables.css must use v=20261124i');
-    assert.ok(indexRaw.includes('css/base.css?v=20261124i'), 'base.css must use v=20261124i');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261124i');
+    assert.ok(indexRaw.includes('js/config.js?v=20261125a'), 'config.js must use v=20261125a');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261125a'), 'forum.js must use v=20261125a');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261125a'), 'variables.css must use v=20261125a');
+    assert.ok(indexRaw.includes('css/base.css?v=20261125a'), 'base.css must use v=20261125a');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261125a');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -15851,84 +15853,18 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(cssContent.includes('[data-theme=\'light\'] .cal-m-pill-red'), 'Light theme specific style exists for red month no parade pills');
     console.log('  ✔ Company Calendar distinct Royal Blue (Parade) and Crimson Red (No Parade) color coding verified');
 
-    // 3. PC Web & App Task Assignment Notifications Routing
-    let toastFired = null;
-    let desktopNotifFired = null;
-    let soundPlayed = false;
-    let notificationsRendered = false;
-
-    global._allPortalNotifications = [];
-    global.sessionGet = (key) => {
-      if (key === 'name') return 'Tester Account';
-      if (key === 'ic') return '990101-14-5555';
-      if (key === 'email') return 'tester@1stpj.org';
-      return '';
-    };
-
-    if (typeof window !== 'undefined') {
-      window._allPortalNotifications = global._allPortalNotifications;
-      window.sessionGet = global.sessionGet;
-      window.showToast = (msg, type) => { toastFired = { msg, type }; };
-      window.triggerPortalSystemNotification = (title, body, opts) => { desktopNotifFired = { title, body, opts }; };
-      window.playNotificationSound = () => { soundPlayed = true; };
-      window.renderNotifications = () => { notificationsRendered = true; };
+    // Assignment events use the same inbox handler as local task saves.
+    const previousAssignmentHandler = window.notifyPortalTaskAssignment;
+    const assignment = { taskId: 'task_tester_1', title: 'Prepare NCO training deck', assignee_email: 'tester@example.test' };
+    const calls = [];
+    window.notifyPortalTaskAssignment = (...args) => calls.push(args);
+    try {
+      supaMod.PortalRealtime.triggerEntityUpdate('task_assigned', 'create', assignment);
+      assert.deepStrictEqual(calls, [[assignment, false, true]], 'Realtime assignments use the shared live inbox handler once');
+    } finally {
+      window.notifyPortalTaskAssignment = previousAssignmentHandler;
     }
-
-    // A. Assignment to someone else (should NOT trigger for Tester Account)
-    toastFired = null;
-    desktopNotifFired = null;
-    soundPlayed = false;
-    supaMod.PortalRealtime.triggerEntityUpdate('task_assigned', 'create', {
-      taskId: 'task_other_1',
-      title: 'Setup AV for parade',
-      assignee_name: 'Other Member',
-      assignee_ic: '010101-14-1111',
-      creator_name: 'Jeshua Koh',
-      creator_ic: '050505-14-2222'
-    });
-    assert.strictEqual(toastFired, null, 'Assignment to someone else must not trigger toast');
-    assert.strictEqual(desktopNotifFired, null, 'Assignment to someone else must not trigger desktop notification');
-    assert.strictEqual(soundPlayed, false, 'Assignment to someone else must not play sound');
-
-    // B. Assignment to self by self (should NOT trigger self-assignment notification)
-    toastFired = null;
-    desktopNotifFired = null;
-    soundPlayed = false;
-    supaMod.PortalRealtime.triggerEntityUpdate('task_assigned', 'create', {
-      taskId: 'task_self_1',
-      title: 'Review checklist',
-      assignee_name: 'Tester Account',
-      assignee_ic: '990101-14-5555',
-      creator_name: 'Tester Account',
-      creator_ic: '990101-14-5555'
-    });
-    assert.strictEqual(toastFired, null, 'Self-assignment must not trigger toast');
-    assert.strictEqual(desktopNotifFired, null, 'Self-assignment must not trigger desktop notification');
-
-    // C. Legitimate Task Assignment to Tester Account from Jeshua Koh
-    toastFired = null;
-    desktopNotifFired = null;
-    soundPlayed = false;
-    notificationsRendered = false;
-
-    supaMod.PortalRealtime.triggerEntityUpdate('task_assigned', 'create', {
-      taskId: 'task_tester_1',
-      title: 'Prepare NCO training deck',
-      assignee_name: 'Tester Account',
-      assignee_ic: '990101-14-5555',
-      assignee_email: 'tester@1stpj.org',
-      creator_name: 'Jeshua Koh',
-      creator_ic: '050505-14-2222'
-    });
-
-    assert.ok(toastFired, 'Legitimate task assignment must trigger in-app toast popup');
-    assert.ok(toastFired.msg.includes('Prepare NCO training deck'), 'Toast message mentions task title');
-    assert.ok(desktopNotifFired, 'Legitimate task assignment must trigger desktop system notification');
-    assert.strictEqual(desktopNotifFired.opts.force, true, 'Desktop notification dispatched with force: true');
-    assert.strictEqual(soundPlayed, true, 'Audio chime played upon task assignment');
-    assert.strictEqual(notificationsRendered, true, 'Notification dropdown and badge rendered');
-    assert.ok(global._allPortalNotifications.some(n => n.id === 'notif-task-task_tester_1'), 'Notification entry added to portal inbox');
-    console.log('  ✔ PC Web & App task assignment real-time dispatch, inbox entry, toast & desktop pop-up verified');
+    console.log('  ✔ Remote task assignments use the shared inbox handler');
 
     // Strict 388 Unique DOM IDs Invariant
     const postIdsSuite82 = new Set();
@@ -17062,6 +16998,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       if (sel === '.tasks-no-project-placeholder') return mockNoProjEl;
       if (sel === '.my-tasks-container') return mockMyTasks;
       if (sel === '#tasks-columns') return mockBoardCol;
+      if (sel === '.tdm-assignee-avatar') return null;
       return { style: {}, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {} };
     };
 

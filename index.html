@@ -25,17 +25,17 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261124i"></script>
+<script src="js/core/theme.js?v=20261125a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261124i">
-<link rel="stylesheet" href="css/base.css?v=20261124i">
-<link rel="stylesheet" href="css/nav.css?v=20261124i">
-<link rel="stylesheet" href="css/components.css?v=20261124i">
-<link rel="stylesheet" href="css/admin.css?v=20261124i">
+<link rel="stylesheet" href="css/variables.css?v=20261125a">
+<link rel="stylesheet" href="css/base.css?v=20261125a">
+<link rel="stylesheet" href="css/nav.css?v=20261125a">
+<link rel="stylesheet" href="css/components.css?v=20261125a">
+<link rel="stylesheet" href="css/admin.css?v=20261125a">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -3274,31 +3274,31 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261124i"></script>
+<script src="js/config.js?v=20261125a"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261124i" defer></script>
-<script src="js/api/supabase.js?v=20261124i"></script>
-<script src="js/api/web-push.js?v=20261124i"></script>
-<script src="js/api/fcm.js?v=20261124i"></script>
-<script src="js/core/session.js?v=20261124i"></script>
-<script src="js/core/rbac.js?v=20261124i"></script>
-<script src="js/core/utils.js?v=20261124i"></script>
-<script src="js/core/ui.js?v=20261124i"></script>
-<script src="js/core/loading.js?v=20261124i"></script>
-<script src="js/modules/member.js?v=20261124i"></script>
-<script src="js/api/sheets.js?v=20261124i"></script>
-<script src="js/modules/attendance.js?v=20261124i"></script>
-<script src="js/modules/announcements.js?v=20261124i"></script>
-<script src="js/modules/gallery.js?v=20261124i"></script>
-<script src="js/modules/resources.js?v=20261124i"></script>
-<script src="js/modules/calendar.js?v=20261124i"></script>
-<script src="js/modules/orders.js?v=20261124i"></script>
-<script src="js/modules/forms.js?v=20261124i"></script>
-<script src="js/modules/badges.js?v=20261124i"></script>
-<script src="js/modules/tasks.js?v=20261124i"></script>
-<script src="js/modules/admin.js?v=20261124i"></script>
-<script src="js/modules/forum.js?v=20261124i"></script>
-<script src="js/modules/arcade.js?v=20261124i"></script>
+<script src="js/core/install.js?v=20261125a" defer></script>
+<script src="js/api/supabase.js?v=20261125a"></script>
+<script src="js/api/web-push.js?v=20261125a"></script>
+<script src="js/api/fcm.js?v=20261125a"></script>
+<script src="js/core/session.js?v=20261125a"></script>
+<script src="js/core/rbac.js?v=20261125a"></script>
+<script src="js/core/utils.js?v=20261125a"></script>
+<script src="js/core/ui.js?v=20261125a"></script>
+<script src="js/core/loading.js?v=20261125a"></script>
+<script src="js/modules/member.js?v=20261125a"></script>
+<script src="js/api/sheets.js?v=20261125a"></script>
+<script src="js/modules/attendance.js?v=20261125a"></script>
+<script src="js/modules/announcements.js?v=20261125a"></script>
+<script src="js/modules/gallery.js?v=20261125a"></script>
+<script src="js/modules/resources.js?v=20261125a"></script>
+<script src="js/modules/calendar.js?v=20261125a"></script>
+<script src="js/modules/orders.js?v=20261125a"></script>
+<script src="js/modules/forms.js?v=20261125a"></script>
+<script src="js/modules/badges.js?v=20261125a"></script>
+<script src="js/modules/tasks.js?v=20261125a"></script>
+<script src="js/modules/admin.js?v=20261125a"></script>
+<script src="js/modules/forum.js?v=20261125a"></script>
+<script src="js/modules/arcade.js?v=20261125a"></script>
 
 <script>
 
@@ -4709,7 +4709,7 @@ function markNotifSeen(id) {
   } catch (_) {}
 }
 
-function pushPortalNotification(notif, isSilent) {
+function pushPortalNotification(notif, isSilent, isLive) {
   if (!notif || !notif.id) return false;
   var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
   if (accTs > 0 && notif.timestamp && notif.timestamp < (accTs - 60000)) {
@@ -4718,14 +4718,15 @@ function pushPortalNotification(notif, isSilent) {
   var dismissed = getDismissedNotifIds();
   if (dismissed.indexOf(notif.id) !== -1) return false;
   var existing = _allPortalNotifications.find(function(n) { return n.id === notif.id; });
-  if (existing) return false;
-
   var seenList = getSeenNotifIds();
   var alreadySeen = (seenList.indexOf(notif.id) !== -1);
+  if (existing && (!isLive || alreadySeen)) return false;
 
-  _allPortalNotifications.unshift(notif);
-  if ((_initialNotifSyncDone || notif.dailyOverdue) && !isSilent && !alreadySeen) {
-    markNotifSeen(notif.id);
+  if (!existing) _allPortalNotifications.unshift(notif);
+  var age = Date.now() - notif.timestamp;
+  var isFresh = Number.isFinite(notif.timestamp) && age >= -5000 && age <= 60000;
+  if (!isFresh || (!isSilent && (_initialNotifSyncDone || isLive || notif.dailyOverdue))) markNotifSeen(notif.id);
+  if ((_initialNotifSyncDone || isLive || notif.dailyOverdue) && !isSilent && !alreadySeen && (isFresh || notif.dailyOverdue)) {
     if (typeof showToast === 'function') {
       var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
       showToast('🔔 ' + (notif.title || 'New Notification') + snippetText, 'info', 5000);
@@ -4734,6 +4735,9 @@ function pushPortalNotification(notif, isSilent) {
     var isBackgrounded = (typeof document !== 'undefined' && document.hidden);
     var isNative = (typeof window !== 'undefined' && Boolean(window.Capacitor?.isNativePlatform?.()));
     var androidPush = notif.dailyOverdue && isNative && window.Capacitor.getPlatform?.() === 'android';
+    var soundOn = true;
+    try { soundOn = localStorage.getItem('bb_notif_sound_enabled') !== 'false'; } catch (_) {}
+    if (!isBackgrounded && !androidPush && soundOn && typeof playNotificationSound === 'function') playNotificationSound();
     if ((!isNative || isBackgrounded) && !androidPush) {
       if (typeof triggerPortalSystemNotification === 'function') {
         var notifTitle = notif.title || "1st Petaling Jaya Boys' Brigade";
@@ -4746,7 +4750,7 @@ function pushPortalNotification(notif, isSilent) {
           notifBody,
           {
             tag: notif.id,
-            silentSound: false,
+            silentSound: !isBackgrounded || !soundOn,
             tab: notifTab,
             targetId: notifTargetId,
             category: notifRouteCat,
@@ -4754,8 +4758,6 @@ function pushPortalNotification(notif, isSilent) {
           }
         );
       }
-    } else if (!androidPush && typeof playNotificationSound === 'function') {
-      playNotificationSound();
     }
   }
   return true;
@@ -4891,6 +4893,78 @@ function addPortalNotification(notif) {
   }
 }
 
+function getTaskNotifDateMeta(dateStr) {
+  var ts = dateStr ? new Date(dateStr).getTime() : Date.now();
+  if (isNaN(ts) || ts <= 0) ts = Date.now();
+  var now = Date.now();
+  var diffMs = now - ts;
+  var diffDays = diffMs / (1000 * 60 * 60 * 24);
+  var group = (diffDays < 1) ? 'Today' : (diffDays < 2 ? 'Yesterday' : (diffDays < 7 ? 'This Week' : 'Earlier'));
+  var timeStr = 'Today';
+  if (diffDays < 1) {
+    var diffMins = Math.floor(diffMs / (1000 * 60));
+    var diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    if (diffMins < 5) timeStr = 'Just now';
+    else if (diffMins < 60) timeStr = diffMins + 'm ago';
+    else timeStr = diffHrs + 'h ago';
+  } else if (diffDays < 2) {
+    timeStr = 'Yesterday';
+  } else if (dateStr && String(dateStr).indexOf('T') !== -1) {
+    timeStr = String(dateStr).split('T')[0];
+  } else {
+    timeStr = (diffDays < 7) ? Math.floor(diffDays) + 'd ago' : 'Earlier';
+  }
+  return { timestamp: ts, group: group, time: timeStr, isStale: diffDays > 14 };
+}
+
+function isTaskNotificationAssignee(task, name, ic, email) {
+  var normalize = function(value) { return String(value || '').trim().toLowerCase(); };
+  var keys = getTaskAssigneeKeys(task);
+  if (keys.length) return [ic, email].some(function(value) { return value && keys.includes(normalize(value)); });
+  var fullName = normalize(name);
+  return Boolean(fullName && String(task.assignee_name || task.assignee || '').split(',').some(function(value) {
+    return normalize(value) === fullName;
+  }));
+}
+
+function notifyPortalTaskAssignment(task, isSilent, isLive) {
+  var id = task && (task.taskId || task.id);
+  if (!id || task._assignmentPending || String(id).toLowerCase().startsWith('temp_') || typeof sessionGet !== 'function') return;
+  var name = sessionGet('name');
+  var ic = sessionGet('ic');
+  var email = sessionGet('email');
+  if (!isTaskNotificationAssignee(task, name, ic, email)) return;
+
+  var date = getTaskNotifDateMeta(task.updated_at || task.created_at);
+  if (date.isStale) return;
+  var creator = task.creator_name || 'A member';
+  var same = function(value, target) {
+    return value && target && String(value).trim().toLowerCase() === String(target).trim().toLowerCase();
+  };
+  var selfAssigned = same(task.creator_ic, ic) || same(task.creator_email, email) || same(task.creator_name, name);
+  var notifId = 'notif-task-' + id;
+  var added = pushPortalNotification({
+    id: notifId,
+    category: 'tasks',
+    tab: 'tasks',
+    targetId: String(id),
+    routeCategory: 'task_assigned',
+    group: date.group,
+    timestamp: date.timestamp,
+    avatarInitials: creator.split(/\s+/).map(function(word) { return word[0]; }).join('').slice(0, 2).toUpperCase(),
+    avatarMemberName: creator,
+    avatarMemberIc: task.creator_ic || '',
+    title: selfAssigned ? 'You assigned yourself a task' : creator + ' assigned a task',
+    snippet: String(id).toUpperCase() + ' - ' + (task.title || 'Task Update'),
+    time: date.time,
+    unread: true,
+    action: function() {
+      handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(id), category: 'task_assigned', notifId: notifId });
+    }
+  }, isSilent, isLive);
+  if (added && isLive) renderNotifications();
+}
+
 function syncTaskNotifications(tasks, isSilent) {
   var taskList = Array.isArray(tasks) ? tasks : ((typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks)) ? _allLoadedTasks : ((typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks)) ? window._allLoadedTasks : []));
   if ((!taskList || !taskList.length) && typeof localStorage !== 'undefined') {
@@ -4929,7 +5003,7 @@ function syncTaskNotifications(tasks, isSilent) {
           if (typeof _allLoadedTasks !== 'undefined') _allLoadedTasks = fetched;
           if (typeof window !== 'undefined') window._allLoadedTasks = fetched;
           try { localStorage.setItem('bb_cached_tasks', JSON.stringify(fetched)); } catch (_) {}
-          syncTaskNotifications(fetched);
+          syncTaskNotifications(fetched, isSilent);
         }
       }).catch(function() {});
     }
@@ -4944,52 +5018,14 @@ function syncTaskNotifications(tasks, isSilent) {
 
   var dismissed = getDismissedNotifIds();
 
-  function getTaskNotifDateMeta(dateStr) {
-    var ts = dateStr ? new Date(dateStr).getTime() : Date.now();
-    if (isNaN(ts) || ts <= 0) ts = Date.now();
-    var now = Date.now();
-    var diffMs = now - ts;
-    var diffDays = diffMs / (1000 * 60 * 60 * 24);
-    var group = (diffDays < 1) ? 'Today' : (diffDays < 2 ? 'Yesterday' : (diffDays < 7 ? 'This Week' : 'Earlier'));
-    var timeStr = 'Today';
-    if (diffDays < 1) {
-      var diffMins = Math.floor(diffMs / (1000 * 60));
-      var diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-      if (diffMins < 5) timeStr = 'Just now';
-      else if (diffMins < 60) timeStr = diffMins + 'm ago';
-      else timeStr = diffHrs + 'h ago';
-    } else if (diffDays < 2) {
-      timeStr = 'Yesterday';
-    } else if (dateStr && String(dateStr).indexOf('T') !== -1) {
-      timeStr = String(dateStr).split('T')[0];
-    } else {
-      timeStr = (diffDays < 7) ? Math.floor(diffDays) + 'd ago' : 'Earlier';
-    }
-    return { timestamp: ts, group: group, time: timeStr, isStale: diffDays > 14 };
-  }
-
-  var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
   var dailyIds = new Set();
   var canReceiveReminders = typeof AuthGuard !== 'undefined' && AuthGuard.isUserAuthenticated() &&
     typeof hasDepartmentRole === 'function' && hasDepartmentRole() &&
     (typeof navigator === 'undefined' || navigator.onLine !== false);
   taskList.forEach(function(t) {
     if (!t || !t.id) return;
-    var isAssigned = false;
-    if (t.assignee_ic && myIc && (t.assignee_ic === myIc || t.assignee_ic.split(',').map(function(s) { return s.trim(); }).indexOf(myIc) !== -1)) {
-      isAssigned = true;
-    } else if (t.assignee_name && myName && t.assignee_name.toLowerCase().trim() === myName.toLowerCase().trim()) {
-      isAssigned = true;
-    } else if (t.assignee && myName && t.assignee.toLowerCase().trim() === myName.toLowerCase().trim()) {
-      isAssigned = true;
-    } else if (myEmail && ((t.assignee_email && t.assignee_email.toLowerCase().trim() === myEmail.toLowerCase().trim()) || (t.assignee_ic && t.assignee_ic.toLowerCase().trim() === myEmail.toLowerCase().trim()))) {
-      isAssigned = true;
-    }
-    var assigneeKeys = typeof getTaskAssigneeKeys === 'function' ? getTaskAssigneeKeys(t) : [];
-    var isReminderAssignee = assigneeKeys.length
-      ? [myIc, myEmail].some(function(key) { return !!key && assigneeKeys.includes(key.toLowerCase().trim()); })
-      : isAssigned;
-    var overdueId = canReceiveReminders && isReminderAssignee && typeof getOverdueTaskReminder === 'function' && getOverdueTaskReminder(t);
+    var isAssigned = isTaskNotificationAssignee(t, myName, myIc, myEmail);
+    var overdueId = canReceiveReminders && isAssigned && typeof getOverdueTaskReminder === 'function' && getOverdueTaskReminder(t);
     if (overdueId) {
       dailyIds.add(overdueId);
       pushPortalNotification({
@@ -5012,49 +5048,7 @@ function syncTaskNotifications(tasks, isSilent) {
     }
 
     if (!isAssigned) return;
-    if (accTs > 0 && t.created_at) {
-      var tTs = new Date(t.created_at).getTime();
-      if (!isNaN(tTs) && tTs < (accTs - 60000)) return;
-    }
-
-    // Do not notify creator when assigning tasks to themselves
-    var isSelfAssigned = (myIc && t.creator_ic === myIc)
-      || (myName && t.creator_name && t.creator_name.toLowerCase().trim() === myName.toLowerCase().trim())
-      || (myEmail && t.creator_email && t.creator_email.toLowerCase().trim() === myEmail.toLowerCase().trim());
-    if (isSelfAssigned) return;
-
-    // 1. Task Assigned Notification
-    var notifId = 'notif-task-' + t.id;
-    if (dismissed.indexOf(notifId) === -1) {
-      var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
-      if (!existing) {
-        var dMeta = getTaskNotifDateMeta(t.updated_at || t.created_at);
-        if (dMeta.isStale) return;
-        var creatorName = t.creator_name || 'Jeshua Koh';
-        var creatorIc = t.creator_ic || '';
-        var initials = creatorName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
-
-        pushPortalNotification({
-          id: notifId,
-          category: 'tasks',
-          tab: 'tasks',
-          targetId: String(t.id),
-          routeCategory: 'task_assigned',
-          group: dMeta.group,
-          timestamp: dMeta.timestamp,
-          avatarInitials: initials,
-          avatarMemberName: creatorName,
-          avatarMemberIc: creatorIc,
-          title: creatorName + ' assigned a task',
-          snippet: ((t.id && !String(t.id).toLowerCase().startsWith('temp_')) ? (String(t.id).toUpperCase() + ' - ') : '') + (t.title || 'Task Update'),
-          time: dMeta.time,
-          unread: true,
-          action: function() {
-            handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'task_assigned', notifId: notifId });
-          }
-        }, isSilent);
-      }
-    }
+    notifyPortalTaskAssignment(t, isSilent);
 
     // 2. Due Date Nearing Notification
     if (t.due_date && typeof isTaskCompleted === 'function' && !isTaskCompleted(t, getTaskProjectName(t) || 'General Project')) {
@@ -5170,7 +5164,7 @@ function syncTaskNotifications(tasks, isSilent) {
           || (myName && c.author_name && c.author_name.toLowerCase().trim() === myName.toLowerCase().trim());
         if (isSelfComment && !isExplicitSelfMention(c.text, myName, myEmail)) return;
 
-        var cMeta = getTaskNotifDateMeta(c.created_at);
+        var cMeta = getTaskNotifDateMeta(c.edited_at || c.created_at);
         if (cMeta.isStale) return;
 
         var isMentioned = checkFn ? checkFn(c.text, c.author_email, c.author_name, myName, myEmail, myDept, myRank) : false;
@@ -5205,7 +5199,7 @@ function syncTaskNotifications(tasks, isSilent) {
   renderNotifications();
 }
 
-function syncAnnouncementNotifications(annList, isSilent) {
+function syncAnnouncementNotifications(annList, isSilent, isLive) {
   var list = Array.isArray(annList) ? annList : (typeof announcements !== 'undefined' ? announcements : []);
   if (!Array.isArray(list) || !list.length) return;
   var dismissed = getDismissedNotifIds();
@@ -5220,8 +5214,8 @@ function syncAnnouncementNotifications(annList, isSilent) {
     var notifId = 'notif-announcement-' + a.id;
     if (dismissed.indexOf(notifId) !== -1) return;
     var existing = _allPortalNotifications.find(function(n) { return n.id === notifId; });
-    if (!existing) {
-      var snippet = (a.content || a.message || a.body || '').replace(/<[^>]+>/g, '').trim();
+    if (!existing || isLive) {
+      var snippet = (a.content || a.message || a.body || a.snippet || '').replace(/<[^>]+>/g, '').trim();
       if (snippet.length > 70) snippet = snippet.slice(0, 67) + '...';
 
       var annText = (a.title || '') + ' ' + (a.content || a.message || a.body || '');
@@ -5254,11 +5248,38 @@ function syncAnnouncementNotifications(annList, isSilent) {
         time: a.date || 'Today',
         unread: true,
         action: function() { handlePortalNotificationDeepLink({ tab: 'home', targetId: String(a.id), category: 'announcement', notifId: notifId }); }
-      }, isSilent);
+      }, isSilent, isLive);
     }
   });
 
   renderNotifications();
+}
+
+function getPortalNotificationTimestamp(record) {
+  var recorded = Date.parse(record.created_at || record.createdAt || '');
+  if (Number.isFinite(recorded)) return recorded;
+  var embedded = String(record.id || '').match(/^(?:form|res|s)_(\d{13})(?:_|$)/);
+  return embedded ? Number(embedded[1]) : Date.parse(record.date || '');
+}
+
+function notifyPortalOrderStatus(order, updatedAt, statusLabel) {
+  var orderNumber = String(order.order_number);
+  var id = 'notif-order-status-' + orderNumber + '-' + order.status;
+  var added = pushPortalNotification({
+    id: id,
+    category: 'announcements',
+    tab: 'member',
+    targetId: orderNumber,
+    routeCategory: 'order_status',
+    title: 'Uniform order updated',
+    snippet: orderNumber + ' · ' + (statusLabel || order.status),
+    timestamp: updatedAt ? Date.parse(updatedAt) : Date.now(),
+    time: 'Just now',
+    group: 'Today',
+    unread: true,
+    action: function() { handlePortalNotificationDeepLink({ tab: 'member', targetId: orderNumber, category: 'order_status', notifId: id }); }
+  }, false, true);
+  if (added) renderNotifications();
 }
 
 function syncFormNotifications(formsList, isSilent) {
@@ -5278,6 +5299,7 @@ function syncFormNotifications(formsList, isSilent) {
         tab: 'order',
         targetId: String(f.id),
         routeCategory: 'form',
+        timestamp: getPortalNotificationTimestamp(f),
         group: 'Today',
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
         title: 'New Form Available: ' + (f.title || 'Portal Form'),
@@ -5310,6 +5332,7 @@ function syncHighlightNotifications(highlightsList, isSilent) {
         tab: 'gallery',
         targetId: String(hKey),
         routeCategory: 'highlight',
+        timestamp: getPortalNotificationTimestamp(h),
         group: 'Today',
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>',
         title: 'New Story Highlight: ' + (h.title || 'Gallery Highlight'),
@@ -5341,6 +5364,7 @@ function syncResourceNotifications(resourcesList, isSilent) {
         tab: 'resources',
         targetId: String(r.id),
         routeCategory: 'resource',
+        timestamp: getPortalNotificationTimestamp(r),
         group: 'Today',
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
         title: 'New Resource: ' + (r.title || 'Document'),
@@ -5398,6 +5422,7 @@ function syncForumNotifications(postsList, isSilent) {
             tab: 'forum',
             targetId: String(p.id),
             routeCategory: 'forum_mention',
+            timestamp: getPortalNotificationTimestamp(p),
             group: 'Today',
             avatarInitials: pInitials,
             icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -5453,6 +5478,7 @@ function syncForumNotifications(postsList, isSilent) {
           tab: 'forum',
           targetId: String(p.id),
           routeCategory: 'forum_reply',
+          timestamp: getPortalNotificationTimestamp(r),
           group: 'Today',
           avatarInitials: initials,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -5478,19 +5504,19 @@ function syncAllPortalNotifications(isSilent) {
     promises.push(fetchRemoteMemberPresence().catch(function() {}));
   }
   if (typeof fetchAllRemoteTasks === 'function') {
-    promises.push(fetchAllRemoteTasks(true).then(function(tasks) {
+    promises.push(fetchAllRemoteTasks(true, { notificationSilent: isSilent }).then(function(tasks) {
       if (typeof syncTaskNotifications === 'function') syncTaskNotifications(tasks, isSilent);
     }).catch(function() {}));
   } else if (typeof syncTaskNotifications === 'function') {
     syncTaskNotifications(null, isSilent);
   }
   if (typeof fetchAllRemoteTaskComments === 'function') {
-    promises.push(fetchAllRemoteTaskComments(true).then(function() {
+    promises.push(fetchAllRemoteTaskComments(true, isSilent).then(function() {
       if (typeof syncTaskNotifications === 'function') syncTaskNotifications(null, isSilent);
     }).catch(function() {}));
   }
   if (typeof loadAnnouncements === 'function') {
-    promises.push(loadAnnouncements().catch(function() {}));
+    promises.push(loadAnnouncements(isSilent).catch(function() {}));
   } else if (typeof syncAnnouncementNotifications === 'function') {
     syncAnnouncementNotifications(null, isSilent);
   }
@@ -5501,7 +5527,7 @@ function syncAllPortalNotifications(isSilent) {
     syncHighlightNotifications(null, isSilent);
   }
   if (typeof loadForumPosts === 'function') {
-    promises.push(loadForumPosts().then(function(posts) {
+    promises.push(loadForumPosts(isSilent).then(function(posts) {
       if (typeof syncForumNotifications === 'function') syncForumNotifications(posts, isSilent);
       if (typeof renderNotifications === 'function') renderNotifications();
     }).catch(function() {}));
@@ -6021,6 +6047,7 @@ window.setDismissedNotifId        = setDismissedNotifId;
 window.getSeenNotifIds            = getSeenNotifIds;
 window.markNotifSeen              = markNotifSeen;
 window.syncTaskNotifications       = syncTaskNotifications;
+window.notifyPortalTaskAssignment = notifyPortalTaskAssignment;
 window.updateNavUserHeader        = updateNavUserHeader;
 window.handleNavProfileClick      = handleNavProfileClick;
 window.handleHeaderSearchKeyDown  = handleHeaderSearchKeyDown;

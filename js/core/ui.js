@@ -1299,6 +1299,7 @@
   var _notifAudioInstance = null;
   var _lastNotifSoundPlayTs = 0;
   var _audioUnlocked = false;
+  var _audioUnlockPending = false;
 
   function _getWebAudioCtx() {
     try {
@@ -1317,10 +1318,7 @@
   function _playWebAudioPopFallback() {
     try {
       var ctx = _getWebAudioCtx();
-      if (!ctx) return;
-      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
-        ctx.resume().catch(function() {});
-      }
+      if (!ctx || ctx.state !== 'running') return;
       var now = ctx.currentTime;
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
@@ -1337,7 +1335,7 @@
   }
 
   function unlockAudioContextAndElement() {
-    if (_audioUnlocked) return;
+    if (_audioUnlocked || _audioUnlockPending) return;
     try {
       var ctx = _getWebAudioCtx();
       if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
@@ -1348,32 +1346,37 @@
         _notifAudioInstance.preload = 'auto';
       }
       if (_notifAudioInstance) {
-        _notifAudioInstance.muted = true;
-        var p = _notifAudioInstance.play();
+        var audio = _notifAudioInstance;
+        var lastPlay = _lastNotifSoundPlayTs;
+        audio.muted = true;
+        _audioUnlockPending = true;
+        var p = audio.play();
         if (p && typeof p.then === 'function') {
           p.then(function() {
-            _notifAudioInstance.pause();
-            _notifAudioInstance.currentTime = 0;
-            _notifAudioInstance.muted = false;
+            if (lastPlay === _lastNotifSoundPlayTs) {
+              audio.pause();
+              audio.currentTime = 0;
+              audio.muted = false;
+            }
             _audioUnlocked = true;
-          }).catch(function() {});
+          }).catch(function() {}).finally(function() { _audioUnlockPending = false; });
         } else {
           _audioUnlocked = true;
+          _audioUnlockPending = false;
         }
       }
-    } catch (_) {}
+    } catch (_) { _audioUnlockPending = false; }
   }
 
   function playNotificationSound(soundUrl) {
     try {
+      var now = Date.now();
+      if (now - _lastNotifSoundPlayTs < 750) return null;
+      _lastNotifSoundPlayTs = now;
       if (typeof Audio === 'undefined') {
         _playWebAudioPopFallback();
         return null;
       }
-
-      var now = Date.now();
-      if (now - _lastNotifSoundPlayTs < 200) return null;
-      _lastNotifSoundPlayTs = now;
 
       var url = soundUrl || NOTIF_SOUND_URL;
       if (!_notifAudioInstance || (_notifAudioInstance.src && _notifAudioInstance.src.indexOf('Notification%20Sound_PopSound%20(1).wav') === -1 && soundUrl)) {
@@ -1383,11 +1386,20 @@
       _notifAudioInstance.muted = false;
       _notifAudioInstance.volume = 1.0;
       _notifAudioInstance.currentTime = 0;
-      var p = _notifAudioInstance.play();
+      var audio = _notifAudioInstance;
+      if (audio.readyState === 0) {
+        _playWebAudioPopFallback();
+        return null;
+      }
+      var p = audio.play();
       if (p && typeof p.catch === 'function') {
+        // Drop a stalled chime so it cannot play long after the inbox entry appeared.
+        var timeout = setTimeout(function() {
+          if (_lastNotifSoundPlayTs === now) audio.pause?.();
+        }, 500);
         p.catch(function() {
-          _playWebAudioPopFallback();
-        });
+          if (_lastNotifSoundPlayTs === now && Date.now() - now < 500) _playWebAudioPopFallback();
+        }).finally(function() { clearTimeout(timeout); });
       }
       return _notifAudioInstance;
     } catch (err) {
@@ -1597,8 +1609,8 @@
               badge: iconUrl,
               tag: (options && options.tag) || ('bb-notif-' + now),
               renotify: true,
+              silent: isSilentSound || !soundEnabled,
               requireInteraction: false,
-              vibrate: [200, 100, 200, 100, 200],
               data: {
                 url: deepLinkUrl,
                 tab: targetTab,
@@ -1607,6 +1619,7 @@
                 notifId: routeMeta.notifId
               }
             };
+            if (!notifOpts.silent) notifOpts.vibrate = [200, 100, 200, 100, 200];
 
             // Directly spawn native desktop OS notification (Windows Action Center Toast)
             try {
@@ -1630,10 +1643,10 @@
               // Mobile fallback for environments that disallow window Notification constructor (e.g. Android Chrome)
               if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
                 try {
-                  var swPromise = navigator.serviceWorker.ready || navigator.serviceWorker.getRegistration();
+                  var swPromise = navigator.serviceWorker.getRegistration();
                   if (swPromise && typeof swPromise.then === 'function') {
                     swPromise.then(function(reg) {
-                      if (reg && typeof reg.showNotification === 'function') {
+                      if (Date.now() - now < 1000 && reg && typeof reg.showNotification === 'function') {
                         return reg.showNotification(notifTitle, notifOpts);
                       }
                     }).catch(function() {});

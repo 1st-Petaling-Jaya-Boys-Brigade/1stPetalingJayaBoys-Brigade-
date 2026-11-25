@@ -5067,7 +5067,7 @@ async function renderDashboard() {
   }
 }
 
-async function loadMemberOrders() {
+async function loadMemberOrders(statusUpdate) {
   var id = (typeof sessionGet === 'function') ? (sessionGet('ic') || sessionGet('email')) : null;
   var container = document.getElementById('member-orders-list');
   var formsContainer = (typeof document !== 'undefined') ? document.querySelector('.member-form-responses-list') : null;
@@ -5109,6 +5109,13 @@ async function loadMemberOrders() {
         uniformOrders.push(o);
       }
     });
+
+    if (statusUpdate?.order_number && statusUpdate.status) {
+      var updated = uniformOrders.find(function(order) {
+        return order.order_number === statusUpdate.order_number && order.status === statusUpdate.status;
+      });
+      if (updated) window.notifyPortalOrderStatus?.(updated, statusUpdate.updated_at, SL[updated.status]);
+    }
 
     // 1. Render Uniform Orders
     if (!uniformOrders.length) {

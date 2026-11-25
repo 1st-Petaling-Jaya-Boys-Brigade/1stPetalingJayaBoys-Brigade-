@@ -1139,7 +1139,7 @@ var PortalRealtime = (function() {
   function broadcastLocalChange(entity, action, data) {
     var now = Date.now();
     // Flood protection: drop rapid bursts for non-transactional entities
-    if (entity !== 'projects' && entity !== 'project_statuses' && entity !== 'tasks' && entity !== 'comments' && _lastBroadcastTimes[entity] && (now - _lastBroadcastTimes[entity] < _BROADCAST_THROTTLE_MS)) {
+    if (entity !== 'projects' && entity !== 'project_statuses' && entity !== 'tasks' && entity !== 'task_assigned' && entity !== 'comments' && _lastBroadcastTimes[entity] && (now - _lastBroadcastTimes[entity] < _BROADCAST_THROTTLE_MS)) {
       return;
     }
     _lastBroadcastTimes[entity] = now;
@@ -1726,7 +1726,7 @@ var PortalRealtime = (function() {
         ? window.loadMemberOrders
         : null;
       if (loadOrdersFn) {
-        try { loadOrdersFn(); } catch (_) {}
+        try { loadOrdersFn(action === 'update' ? data : null); } catch (_) {}
       }
       if (typeof document !== 'undefined') {
         var admOverlay = document.getElementById('admin-overlay');
@@ -1768,6 +1768,7 @@ var PortalRealtime = (function() {
     if (entity === 'resources') {
       if (typeof window !== 'undefined' && typeof window.loadResources === 'function') {
         window.loadResources(true).then(function() {
+          window.syncResourceNotifications?.();
           var pRes = document.getElementById('page-resources');
           if (pRes && pRes.style.display !== 'none' && typeof window.renderResourcesPage === 'function') {
             window.renderResourcesPage();
@@ -1831,6 +1832,7 @@ var PortalRealtime = (function() {
     }
 
     if (entity === 'gallery' || entity === 'gallery_update') {
+      if (typeof window !== 'undefined' && entity === 'gallery') window.loadStoryHighlights?.().catch(function() {});
       if (typeof window !== 'undefined' && typeof window.loadGallery === 'function') {
         window.loadGallery(true).then(function() {
           var pGal = document.getElementById('page-gallery');
@@ -2016,153 +2018,8 @@ var PortalRealtime = (function() {
     }
 
     if (entity === 'task_assigned' || (entity === 'tasks' && action === 'assign')) {
-      var assignedData = data || {};
-      var aTid = assignedData.taskId || assignedData.id;
-      var cleanTargetName = (assignedData.assignee_name || '').trim().toLowerCase();
-      var cleanTargetIc = (assignedData.assignee_ic || '').trim().toLowerCase();
-      var cleanTargetEmail = (assignedData.assignee_email || '').trim().toLowerCase();
-
-      var sessGetFn = (typeof sessionGet === 'function')
-        ? sessionGet
-        : (typeof window !== 'undefined' && typeof window.sessionGet === 'function')
-          ? window.sessionGet
-          : (typeof global !== 'undefined' && typeof global.sessionGet === 'function')
-            ? global.sessionGet
-            : null;
-
-      var curMyIc = (sessGetFn ? (sessGetFn('ic') || '') : '').trim().toLowerCase();
-      var curMyName = (sessGetFn ? (sessGetFn('name') || '') : '').trim().toLowerCase();
-      var curMyEmail = (sessGetFn ? (sessGetFn('email') || '') : '').trim().toLowerCase();
-
-      if (typeof window !== 'undefined') {
-        if (!curMyName && document.getElementById('sidebar-user-name')) {
-          var sbEl = document.getElementById('sidebar-user-name');
-          if (sbEl && sbEl.textContent && sbEl.textContent.trim() !== 'Member') {
-            curMyName = sbEl.textContent.trim().toLowerCase();
-          }
-        }
-        if ((!curMyName || !curMyIc || !curMyEmail) && typeof localStorage !== 'undefined') {
-          try {
-            var rawSess = JSON.parse(localStorage.getItem('bb_session') || '{}');
-            if (!curMyName && rawSess.name) curMyName = String(rawSess.name).trim().toLowerCase();
-            if (!curMyIc && rawSess.ic) curMyIc = String(rawSess.ic).trim().toLowerCase();
-            if (!curMyEmail && rawSess.email) curMyEmail = String(rawSess.email).trim().toLowerCase();
-          } catch (_) {}
-        }
-      }
-
-      var isTargetUser = false;
-      if (cleanTargetIc && curMyIc && (cleanTargetIc === curMyIc || cleanTargetIc.split(',').map(function(s) { return s.trim(); }).indexOf(curMyIc) !== -1)) {
-        isTargetUser = true;
-      } else if (cleanTargetName && curMyName && (cleanTargetName === curMyName || curMyName.indexOf(cleanTargetName) !== -1 || cleanTargetName.indexOf(curMyName) !== -1)) {
-        isTargetUser = true;
-      } else if (cleanTargetEmail && curMyEmail && cleanTargetEmail === curMyEmail) {
-        isTargetUser = true;
-      }
-
-      // Check not self-assigned
-      var cIc = (assignedData.creator_ic || '').trim().toLowerCase();
-      var cName = (assignedData.creator_name || '').trim().toLowerCase();
-      var cEmail = (assignedData.creator_email || '').trim().toLowerCase();
-      var isSelfAssigned = (curMyIc && cIc && curMyIc === cIc)
-        || (curMyName && cName && curMyName === cName)
-        || (curMyEmail && cEmail && curMyEmail === cEmail);
-
-      if (isTargetUser && !isSelfAssigned && aTid) {
-        var notifId = 'notif-task-' + aTid;
-        var creatorName = assignedData.creator_name || 'Jeshua Koh';
-        var creatorIc = assignedData.creator_ic || '';
-        var taskTitle = assignedData.title || 'Task Update';
-        var initials = creatorName.split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase() || 'BB';
-
-        // 1. Un-dismiss / Un-see so new assignment surfaces to inbox
-        if (typeof window !== 'undefined') {
-          if (Array.isArray(window._allPortalNotifications)) {
-            window._allPortalNotifications = window._allPortalNotifications.filter(function(n) { return n && n.id !== notifId; });
-          }
-          try {
-            var sKey = 'bb_seen_notifications';
-            var dKey = (typeof window.getDismissedNotifStorageKey === 'function') ? window.getDismissedNotifStorageKey() : 'bb_dismissed_notifications';
-            var rawSeen = JSON.parse(localStorage.getItem(sKey) || '[]');
-            localStorage.setItem(sKey, JSON.stringify(rawSeen.filter(function(x) { return x !== notifId; })));
-            var rawDis = JSON.parse(localStorage.getItem(dKey) || '[]');
-            localStorage.setItem(dKey, JSON.stringify(rawDis.filter(function(x) { return x !== notifId; })));
-          } catch (_) {}
-
-          // 2. Push notification into inboxes & header notification list
-          var notifObj = {
-            id: notifId,
-            category: 'tasks',
-            tab: 'tasks',
-            targetId: aTid ? String(aTid) : '',
-            routeCategory: 'task_assigned',
-            group: 'Today',
-            timestamp: Date.now(),
-            avatarInitials: initials,
-            avatarMemberName: creatorName,
-            avatarMemberIc: creatorIc,
-            title: creatorName + ' assigned a task',
-            snippet: ((aTid && !String(aTid).toLowerCase().startsWith('temp_')) ? (String(aTid).toUpperCase() + ' - ') : '') + taskTitle,
-            time: 'Just now',
-            unread: true,
-            action: function() {
-              if (typeof window.handlePortalNotificationDeepLink === 'function') {
-                window.handlePortalNotificationDeepLink({ tab: 'tasks', targetId: aTid ? String(aTid) : '', category: 'task_assigned', notifId: notifId });
-                return;
-              }
-              if (typeof window.switchTabNav === 'function') window.switchTabNav('tasks');
-              if (typeof window.switchTaskSectionView === 'function') window.switchTaskSectionView('board');
-              if (typeof window.openTaskDetail === 'function') window.openTaskDetail(aTid);
-            }
-          };
-
-          if (typeof window.pushPortalNotification === 'function') {
-            window.pushPortalNotification(notifObj, false);
-          } else if (Array.isArray(window._allPortalNotifications)) {
-            window._allPortalNotifications.unshift(notifObj);
-          }
-
-          // 3. In-App Pop-up Toast
-          if (typeof window.showToast === 'function') {
-            window.showToast('📋 ' + creatorName + ' assigned you a task: ' + taskTitle, 'info', 6000);
-          }
-
-          // 4. Native OS Desktop Notification (PC / Web / PWA)
-          var sysNotifFn = (typeof window.triggerPortalSystemNotification === 'function')
-            ? window.triggerPortalSystemNotification
-            : ((typeof global !== 'undefined' && typeof global.triggerPortalSystemNotification === 'function') ? global.triggerPortalSystemNotification : null);
-          if (sysNotifFn) {
-            sysNotifFn(
-              '📋 Task Assigned: ' + taskTitle,
-              creatorName + ' assigned you a task in Projects & Tasks.',
-              {
-                tag: notifId,
-                tab: 'tasks',
-                targetId: aTid ? String(aTid) : '',
-                category: 'task_assigned',
-                silentSound: false,
-                force: true
-              }
-            );
-          }
-
-          // 5. Play notification chime
-          if (typeof window.playNotificationSound === 'function') {
-            try { window.playNotificationSound(); } catch (_) {}
-          }
-
-          // 6. Update Notification Bell Badge & Dropdown
-          if (typeof window.renderNotifications === 'function') {
-            window.renderNotifications();
-          }
-
-          // 7. Refresh Task Views
-          if (typeof window.fetchAllRemoteTasks === 'function') {
-            window.fetchAllRemoteTasks(true).then(function() {
-              if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView(aTid);
-            }).catch(function() {});
-          }
-        }
+      if (data && typeof window !== 'undefined' && typeof window.notifyPortalTaskAssignment === 'function') {
+        window.notifyPortalTaskAssignment(data, false, true);
       }
       return;
     }
@@ -2332,25 +2189,9 @@ var PortalRealtime = (function() {
       }
     } else if (entity === 'announcements') {
       if (typeof window !== 'undefined') {
-        if (data && data.title && (action === 'create' || action === 'save' || action === 'INSERT' || action === 'insert')) {
-          var sysNotifFn = (typeof window !== 'undefined' && typeof window.triggerPortalSystemNotification === 'function')
-            ? window.triggerPortalSystemNotification
-            : ((typeof global !== 'undefined' && typeof global.triggerPortalSystemNotification === 'function') ? global.triggerPortalSystemNotification : null);
-          if (sysNotifFn) {
-            var annSnippet = data.snippet || (data.body ? String(data.body).replace(/<[^>]+>/g, '').trim().slice(0, 70) : 'A new company announcement was posted.');
-            sysNotifFn(
-              '📢 ' + (data.title || "New Announcement"),
-              annSnippet,
-              {
-                tag: 'notif-announcement-' + (data.id || Date.now()),
-                tab: 'home',
-                targetId: data.id ? String(data.id) : '',
-                category: 'announcement',
-                silentSound: false,
-                force: false
-              }
-            );
-          }
+        if (data?.id && data.title && ['create', 'save', 'INSERT', 'insert'].includes(action) &&
+            typeof window.syncAnnouncementNotifications === 'function') {
+          window.syncAnnouncementNotifications([data], false, true);
         }
         if (typeof window.loadAnnouncements === 'function') {
           // shortcut: reload the feed for each signal, use row deltas when all legacy metadata is on the row.
