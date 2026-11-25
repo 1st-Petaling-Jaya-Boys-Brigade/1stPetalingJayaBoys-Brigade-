@@ -4641,7 +4641,7 @@ async function getJson(url) {
             && getComputedStyle(lightTaskCol).boxShadow.includes('203, 213, 225');
           const lightCardBorderVisible = Boolean(lightTaskCard)
             && getComputedStyle(lightTaskCard).borderTopWidth === '1px'
-            && getComputedStyle(lightTaskCard).borderTopColor === 'rgb(203, 213, 225)';
+            && getComputedStyle(lightTaskCard).borderTopColor === 'rgb(184, 196, 212)';
 
           // Light Mode List View: single uniform #cbd5e1 outer border matching inner row lines (no double border)
           setMyTasksDisplayMode('list');
@@ -4665,9 +4665,9 @@ async function getJson(url) {
           const lightCalAligned = Boolean(lightCalFrame && lightCalControlsRow)
             && Math.abs(lightCalFrame.getBoundingClientRect().left - lightCalControlsRow.getBoundingClientRect().left) <= 1;
           const lightCalGridlinesVisible = Boolean(lightCalFrame && lightCalCell)
-            && getComputedStyle(lightCalFrame).borderTopColor === 'rgb(203, 213, 225)'
-            && getComputedStyle(lightCalCell).borderRightColor === 'rgb(203, 213, 225)'
-            && getComputedStyle(lightCalCell).borderBottomColor === 'rgb(203, 213, 225)';
+            && getComputedStyle(lightCalFrame).borderTopColor === 'rgb(148, 163, 184)'
+            && getComputedStyle(lightCalCell).borderRightColor === 'rgb(184, 196, 212)'
+            && getComputedStyle(lightCalCell).borderBottomColor === 'rgb(184, 196, 212)';
 
           // Calendar auto-reset check: navigate to next month + Year view -> switch to Board/List -> return to Calendar -> must reset to Month + current date
           const currentMonthHeading = document.querySelector('.my-tasks-container .task-cal-period-title')?.textContent?.trim() || '';

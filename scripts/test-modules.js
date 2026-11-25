@@ -18054,9 +18054,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(varsCss95.includes('--task-status-near-color: #fde047;') && varsCss95.includes('--task-status-near-bg: rgba(250, 204, 21, 0.18);'), 'variables.css must define pure yellow dark-mode tokens for nearing due date');
     assert.ok(css95.includes('color: var(--task-status-near-color)') && css95.includes('background: var(--task-status-near-bg)'), 'components.css must unify Board/List/Calendar nearing-due yellow via shared tokens');
 
-    // Light-mode uniform outer/inner borders (#cbd5e1) & Tasks Board/Calendar parity with Project section
-    assert.ok(css95.includes("[data-theme='light'] .task-cal-cell") && css95.includes('border-right: 1px solid #cbd5e1;'), 'components.css must use uniform #cbd5e1 calendar gridlines in light mode');
-    assert.ok(css95.includes("[data-theme='light'] .task-cal-month-frame") && css95.includes('border-color: #cbd5e1;'), 'components.css must match calendar outer frame border to inner #cbd5e1 lines in light mode');
+    // Light-mode borders/gridlines (crisp #b8c4d4/#94a3b8 on Calendar & Board, uniform #cbd5e1 on Projects/Tasks List without double border)
+    assert.ok(css95.includes("[data-theme='light'] .task-cal-cell") && css95.includes('border-right: 1px solid #b8c4d4;'), 'components.css must define crisp #b8c4d4 calendar gridlines in light mode');
+    assert.ok(css95.includes("[data-theme='light'] .task-cal-month-frame") && css95.includes('border-color: #94a3b8;'), 'components.css must define crisp #94a3b8 calendar outer frame border in light mode');
     assert.ok(css95.includes("[data-theme='light'] .my-tasks-table-container") && css95.includes('border: none;'), 'components.css must prevent double border on light-mode Tasks List container');
     assert.ok(css95.includes("[data-theme='light'] .my-tasks-board-card") && css95.includes("[data-theme='light'] .my-tasks-calendar-card"), 'components.css must keep Tasks Board and Calendar wrappers transparent/borderless in light mode');
 
