@@ -68,12 +68,13 @@ var _uniformOrdersSchedule = {
 };
 var _activeUniformCategory = 'all';
 var _isSubmittingOrder = false;
+var _isPromptingUniformProof = false;
 // shortcut: retries reuse the order ID on this page, move the key to durable checkout storage for reload recovery.
 var _pendingUniformOrder = null;
 var _pendingUniformProof = null;
 var _uniformPaymentProof = null;
 var UNIFORM_PROOF_MAX_BYTES = 256 * 1024;
-var UNIFORM_PROOF_PDF_MAX_BYTES = 1024 * 1024;
+var UNIFORM_PROOF_FILE_MAX_BYTES = 10 * 1024 * 1024;
 var UNIFORM_PROOF_REQUIRED = 'Upload proof of payment before you can submit your order.';
 var MAX_UNIFORM_QUANTITY = 99;
 var UNIFORM_ORDER_TRANSITIONS = {
@@ -1793,10 +1794,10 @@ function renderUniformPaymentProof(status, state) {
   if (typeof document === 'undefined') return;
   var button = document.getElementById('confirm-btn');
   var label = document.getElementById('uniform-proof-status');
-  if (button) button.disabled = !_uniformPaymentProof?.blob;
+  if (button) button.disabled = _isSubmittingOrder || state === 'preparing';
   if (label) {
-    label.textContent = status || UNIFORM_PROOF_REQUIRED;
-    label.dataset.state = state || 'required';
+    label.textContent = status || '';
+    label.dataset.state = state || '';
   }
 }
 
@@ -1810,7 +1811,7 @@ function clearUniformPaymentProof() {
 }
 
 async function prepareUniformProofPdf(file) {
-  if (file.size > UNIFORM_PROOF_PDF_MAX_BYTES) throw new Error('Choose a PDF receipt that is 1 MB or smaller.');
+  if (file.size > UNIFORM_PROOF_FILE_MAX_BYTES) throw new Error('Choose a PDF receipt that is 10 MB or smaller.');
   var bytes = await Promise.all([file.slice(0, 5).text(), file.slice(-1024).text()]);
   if (bytes[0] !== '%PDF-' || !/%%EOF\s*$/.test(bytes[1])) throw new Error('Choose a valid PDF receipt from your bank.');
   return file.type === 'application/pdf' ? file : file.slice(0, file.size, 'application/pdf');
@@ -1830,7 +1831,7 @@ async function stageUniformPaymentProof(file) {
     var blob;
     if (pdf) {
       blob = await prepareUniformProofPdf(file);
-    } else if (file.size <= 10 * 1024 * 1024) {
+    } else if (file.size <= UNIFORM_PROOF_FILE_MAX_BYTES) {
       blob = (await compressReceiptImage(file, 1600, 0.82, UNIFORM_PROOF_MAX_BYTES)).blob;
     }
     if (_uniformPaymentProof !== selection) return false;
@@ -1841,7 +1842,7 @@ async function stageUniformPaymentProof(file) {
   } catch (error) {
     if (_uniformPaymentProof === selection) {
       var message = pdf && error instanceof Error && error.message.startsWith('Choose')
-        ? error.message : 'Choose a readable JPG, PNG or WebP screenshot up to 10 MB, or a PDF receipt up to 1 MB.';
+        ? error.message : 'Choose a readable JPG, PNG, WebP or PDF file up to 10 MB.';
       renderUniformPaymentProof(message, 'error');
     }
     return false;
@@ -1852,7 +1853,7 @@ async function stageUniformPaymentProof(file) {
  * Submits finalized uniform order to Supabase bb_orders table
  */
 async function submitOrder() {
-  if (_isSubmittingOrder) return null;
+  if (_isSubmittingOrder || _isPromptingUniformProof) return null;
   var availability = isUniformOrdersAcceptingResponses();
   if (!availability.open) {
     if (typeof showToast === 'function') showToast(availability.message || 'Uniform ordering is currently closed.', 'warning');
@@ -1880,13 +1881,25 @@ async function submitOrder() {
   }
 
   var proof = _uniformPaymentProof;
+  var proofInput = typeof document !== 'undefined' ? document.getElementById('uniform-proof-input') : null;
   if (!proof?.blob || proof.member !== memberId) {
-    renderUniformPaymentProof();
-    if (typeof showToast === 'function') showToast(UNIFORM_PROOF_REQUIRED, 'warning');
+    if (typeof showConfirmModal === 'function') {
+      _isPromptingUniformProof = true;
+      try {
+        await showConfirmModal(UNIFORM_PROOF_REQUIRED, 'Proof of payment required', {
+          confirmText: 'Choose file',
+          cancelText: 'Back to review',
+          onConfirm: function() { proofInput?.click?.(); }
+        });
+      } finally {
+        _isPromptingUniformProof = false;
+      }
+    } else if (typeof showToast === 'function') {
+      showToast(UNIFORM_PROOF_REQUIRED, 'warning');
+    }
     return null;
   }
   var btn = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
-  var proofInput = typeof document !== 'undefined' ? document.getElementById('uniform-proof-input') : null;
   var lockButton = typeof withSmartButtonLock === 'function' ? withSmartButtonLock : require('../core/loading.js').withSmartButtonLock;
   _isSubmittingOrder = true;
   if (proofInput) proofInput.disabled = true;
@@ -2022,7 +2035,7 @@ async function submitOrder() {
     _isSubmittingOrder = false;
     if (proofInput) proofInput.disabled = false;
     var confirm = typeof document !== 'undefined' ? document.getElementById('confirm-btn') : null;
-    if (confirm) confirm.disabled = !_uniformPaymentProof?.blob;
+    if (confirm) confirm.disabled = false;
   }
 }
 
@@ -2122,11 +2135,11 @@ function renderUniformOrderInline() {
     '</div>' +
     '<div class="uniform-payment-proof">' +
       '<label for="uniform-proof-input">Proof of payment <span>(required)</span></label>' +
-      '<p id="uniform-proof-hint">JPG, PNG or WebP up to 10 MB, or PDF up to 1 MB.</p>' +
+      '<p id="uniform-proof-hint">JPG, PNG, WebP or PDF up to 10 MB.</p>' +
       '<input type="file" id="uniform-proof-input" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" aria-describedby="uniform-proof-hint uniform-proof-status" required>' +
-      '<div id="uniform-proof-status" role="status" data-state="required">' + UNIFORM_PROOF_REQUIRED + '</div>' +
+      '<div id="uniform-proof-status" role="status"></div>' +
     '</div>' +
-    '<div style="display:flex;gap:10px;"><button class="submit-btn danger btn-with-icon" style="flex:1;margin-top:0;justify-content:center;" onclick="goBackOrder()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit</button><button class="submit-btn btn-with-icon" style="flex:2;margin-top:0;justify-content:center;" onclick="submitOrder()" id="confirm-btn" disabled><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirm &amp; Submit</button></div>' +
+    '<div style="display:flex;gap:10px;"><button class="submit-btn danger btn-with-icon" style="flex:1;margin-top:0;justify-content:center;" onclick="goBackOrder()"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Edit</button><button type="button" class="submit-btn btn-with-icon" style="flex:2;margin-top:0;justify-content:center;" onclick="submitOrder()" id="confirm-btn"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Confirm &amp; Submit</button></div>' +
     '</div></div>' +
     '<div class="success-box" id="order-success" style="display:none;"><div class="s-icon"><svg class="ui-icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="s-title">Order Submitted!</div><div class="s-msg">Order <strong id="s-ordernum" style="color:var(--accent);"></strong> received! The officer will contact you when ready.</div></div>';
 

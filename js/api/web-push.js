@@ -231,16 +231,17 @@
       }
     }
     if (!token || checkoutMember() !== memberId) throw new Error('Portal verification is required.');
+    const pdf = proof.type === 'application/pdf';
     const form = new FormData();
     form.set('token', token);
     form.set('member', memberId);
     form.set('order', order);
-    form.set('proof', proof, proof.type === 'application/pdf' ? 'payment.pdf' : 'payment.jpg');
+    form.set('proof', proof, pdf ? 'payment.pdf' : 'payment.jpg');
     const response = await fetch(endpoint, {
       method: 'POST',
       body: form,
       credentials: 'omit',
-      signal: AbortSignal.timeout(20000)
+      signal: AbortSignal.timeout(pdf ? 120000 : 20000)
     });
     if (!response.ok) {
       if (response.status === 401) {

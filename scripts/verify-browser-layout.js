@@ -1905,9 +1905,19 @@ async function getJson(url) {
         const confirm = document.getElementById('confirm-btn');
         const proofInput = document.getElementById('uniform-proof-input');
         const status = document.getElementById('uniform-proof-status');
-        const proofRequired = confirm?.disabled === true && proofInput?.required === true &&
-          status?.textContent === 'Upload proof of payment before you can submit your order.' &&
-          status.getBoundingClientRect().height > 0;
+        const checkoutCanPrompt = confirm?.disabled === false && proofInput?.required === true &&
+          status?.textContent === '';
+        let pickerOpened = false;
+        proofInput.addEventListener('click', event => {
+          event.preventDefault();
+          pickerOpened = true;
+        }, { once: true });
+        confirm.click();
+        const dialog = document.querySelector('[role="dialog"][aria-label="Proof of payment required"]');
+        const proofRequired = checkoutCanPrompt && dialog?.textContent.includes('Upload proof of payment before you can submit your order.') &&
+          dialog.getBoundingClientRect().height > 0;
+        dialog?.querySelector('#portal-modal-ok').click();
+        const chooseFileOpensPicker = pickerOpened;
         const canvas = document.createElement('canvas');
         canvas.width = 1400;
         canvas.height = 2000;
@@ -1921,12 +1931,16 @@ async function getJson(url) {
         const proofReady = await stageUniformPaymentProof(screenshot);
         const proofEnablesConfirm = proofReady && confirm?.disabled === false &&
           document.getElementById('uniform-proof-status')?.textContent.startsWith('Screenshot ready');
-        const pdf = new File(['%PDF-1.7\\n% Receipt\\n%%EOF\\n'], 'receipt.pdf', { type: 'application/pdf' });
+        const pdfHeader = '%PDF-1.7\\n';
+        const pdfTail = '\\n%%EOF\\n';
+        const padding = new Uint8Array(10 * 1024 * 1024 - pdfHeader.length - pdfTail.length);
+        const pdf = new File([pdfHeader, padding, pdfTail], 'receipt.pdf', { type: 'application/pdf' });
         const pdfEnablesConfirm = proofInput.accept.includes('application/pdf') &&
           await stageUniformPaymentProof(pdf) && !confirm.disabled && status.textContent.startsWith('PDF receipt ready');
         goBackOrder();
         return {
           proofRequired,
+          chooseFileOpensPicker,
           proofEnablesConfirm,
           pdfEnablesConfirm,
           ctaContrast,
@@ -1955,9 +1969,10 @@ async function getJson(url) {
     });
     assert.ok(!evalUniformGrid.exceptionDetails, evalUniformGrid.exceptionDetails?.exception?.description);
     const uniformGrid = evalUniformGrid.result.value;
-    assert.strictEqual(uniformGrid.proofRequired, true, 'Review disables submit until a payment screenshot is prepared');
+    assert.strictEqual(uniformGrid.proofRequired, true, 'Missing proof opens a visible dialog when Confirm & Submit is clicked');
+    assert.strictEqual(uniformGrid.chooseFileOpensPicker, true, 'Choose file activates the existing proof input');
     assert.strictEqual(uniformGrid.proofEnablesConfirm, true, 'A real PNG screenshot enables submit after browser compression');
-    assert.strictEqual(uniformGrid.pdfEnablesConfirm, true, 'A PDF receipt also enables submit');
+    assert.strictEqual(uniformGrid.pdfEnablesConfirm, true, 'A 10 MiB PDF receipt is accepted by the review step');
     assert.strictEqual(uniformGrid.hasOrderNotes, false, 'The uniform checkout no longer renders Additional Notes');
     assert.ok(uniformGrid.ctaContrast.every(ratio => ratio >= 4.5), 'Review Order text must meet 4.5:1 contrast in both themes');
     assert.strictEqual(uniformGrid.hasCatTabs, true, 'Category tabs container must exist');
