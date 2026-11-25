@@ -8683,7 +8683,8 @@ body.light-theme .tb-mention-pill,
   font-size: 13px;
   color: var(--text-primary);
   font-family: inherit;
-  resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   box-sizing: border-box;
   outline: none;
   transition: border-color 0.2s ease;

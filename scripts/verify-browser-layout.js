@@ -23,18 +23,17 @@ async function getJson(url) {
     return;
   }
 
-  const port = 9333;
-  const tempProfile = path.join(process.env.TEMP || 'C:\\Temp', 'edge-test-profile-' + Date.now());
-  fs.mkdirSync(tempProfile, { recursive: true });
+  const tempProfile = fs.mkdtempSync(path.join(process.env.TEMP || 'C:\\Temp', 'edge-test-profile-'));
+  const devToolsPort = path.join(tempProfile, 'DevToolsActivePort');
 
   const htmlUrl = 'file:///' + path.resolve('index.html').replace(/\\/g, '/');
 
-  console.log('Launching headless Edge on port ' + port + '...');
+  console.log('Launching headless Edge in an isolated profile...');
   const edgeProc = spawn(
     edgePath,
     [
       '--headless=new',
-      '--remote-debugging-port=' + port,
+      '--remote-debugging-port=0',
       '--user-data-dir=' + tempProfile,
       '--window-size=1280,900',
       '--disable-gpu',
@@ -50,6 +49,8 @@ async function getJson(url) {
     for (let i = 0; i < 30; i++) {
       await new Promise(r => setTimeout(r, 200));
       try {
+        const port = Number(fs.readFileSync(devToolsPort, 'utf8').split(/\s+/)[0]);
+        if (!port) continue;
         targets = await getJson(`http://127.0.0.1:${port}/json/list`);
         if (targets) {
           pageTarget = targets.find(
@@ -4138,6 +4139,123 @@ async function getJson(url) {
     assert.strictEqual(cmtRes.hasDropdown, true, 'Comment item must render comment options dropdown');
     assert.strictEqual(cmtRes.menuToggled, true, 'Clicking 3-dots button must toggle comment dropdown menu');
     assert.strictEqual(cmtRes.authorSelfNotified, false, 'Author (Jeshua Koh) must NOT receive a mention notification for mentioning Jason Koh');
+
+    const taskRepairDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const taskId = 'comment-edit-fixture';
+        const commentId = 'comment-fixture';
+        const list = document.querySelector('.tb-comments-list');
+        const oldMarkup = list.innerHTML;
+        const originalClient = getSupaClient;
+        const originalBroadcast = PortalRealtime.broadcast;
+        const originalPlay = window.playNotificationSound;
+        const originalSystem = window.triggerPortalSystemNotification;
+        const originalReady = _initialNotifSyncDone;
+        const originalDetail = _activeDetailTaskId;
+        const originalInbox = _allPortalNotifications.slice();
+        const soundPreference = localStorage.getItem('bb_notif_sound_enabled');
+        const originalSeen = localStorage.getItem('bb_seen_notifications');
+        const comment = { id: commentId, text: '@Tester Account\\nOriginal line', author_email: sessionGet('email') };
+        const task = { id: 'self-assignment-fixture', title: 'Inbox test task', department: 'HQ', status: 'todo' };
+        _taskCommentsMap[taskId] = [comment];
+        let remote = [comment];
+        let failWrite = true;
+        let chimes = 0;
+        try {
+          getSupaClient = () => ({
+            get: async () => [{ value: JSON.stringify(remote), updated_at: '2026-11-25T00:00:00Z' }],
+            req: async (method, url, payload) => {
+              if (method !== 'PATCH' || !url.includes('&updated_at=eq.')) throw new Error('Expected a conditional comment update');
+              if (failWrite) return [];
+              remote = JSON.parse(payload.value);
+              return [payload];
+            },
+            patch: async () => []
+          });
+          PortalRealtime.broadcast = () => {};
+          renderTaskComments(taskId);
+          startEditTaskComment(taskId, commentId);
+          const editor = list.querySelector('.tb-comment-edit-input');
+          const highlightsWhileEditing = editor.querySelector('.tb-mention-pill')?.textContent === '@Tester Account';
+          editor.value = '@Tester Account\\nUpdated line';
+          const clickSave = async () => {
+            const save = list.querySelector('.tb-comment-btn-save');
+            save.click();
+            for (let i = 0; i < 30 && save.isConnected && save.disabled; i++) {
+              await new Promise(resolve => setTimeout(resolve, 10));
+            }
+          };
+          await clickSave();
+          const preservesDraftOnFailure = editor.isConnected && remote[0].text === comment.text;
+          failWrite = false;
+          remote.push({ id: 'other-comment', author_email: 'other@example.test', text: 'Concurrent comment' });
+          await clickSave();
+          const savesAndCloses = !list.querySelector('.tb-comment-edit-input') &&
+            remote[0].text === '@Tester Account\\nUpdated line' &&
+            remote[1]?.text === 'Concurrent comment' &&
+            list.querySelector('.tb-mention-pill')?.textContent === '@Tester Account';
+          startEditTaskComment(taskId, commentId);
+          cancelEditTaskComment(taskId, commentId);
+          const cancelCloses = !list.querySelector('.tb-comment-edit-input');
+
+          window.playNotificationSound = () => { chimes++; };
+          window.triggerPortalSystemNotification = () => {};
+          _initialNotifSyncDone = true;
+          localStorage.setItem('bb_notif_sound_enabled', 'true');
+          _taskMap[task.id] = task;
+          _activeDetailTaskId = task.id;
+          await selectTaskDetailAssignee(sessionGet('ic') || sessionGet('email'), sessionGet('name'));
+          const self = { ...task, creator_name: sessionGet('name'), updated_at: new Date().toISOString() };
+          const inboxImmediate = document.getElementById('notif-items-list').textContent.includes(self.title);
+          PortalRealtime.triggerEntityUpdate('task_assigned', 'create', self);
+          const singleAlert = chimes === 1 && _allPortalNotifications.filter(n => n.id === 'notif-task-' + self.id).length === 1;
+          localStorage.setItem('bb_notif_sound_enabled', 'false');
+          syncTaskNotifications([{ ...self, id: 'muted-assignment-fixture', title: 'Muted assignment' }]);
+          const respectsMute = chimes === 1 && document.getElementById('notif-items-list').textContent.includes('Muted assignment');
+          localStorage.setItem('bb_notif_sound_enabled', 'true');
+          syncTaskNotifications([{ ...self, id: 'old-assignment-fixture', updated_at: new Date(Date.now() - 300000).toISOString() }]);
+          const historyStaysQuiet = chimes === 1 && _allPortalNotifications.some(n => n.id === 'notif-task-old-assignment-fixture');
+          const before = chimes;
+          const now = new Date().toISOString();
+          syncAnnouncementNotifications([{ id: 'fresh-ann', title: 'Fresh announcement', created_at: now }]);
+          syncFormNotifications([{ id: 'fresh-form', title: 'Fresh form', created_at: now }]);
+          syncHighlightNotifications([{ id: 'fresh-highlight', title: 'Fresh highlight', created_at: now }]);
+          syncResourceNotifications([{ id: 'fresh-resource', title: 'Fresh resource', created_at: now }]);
+          syncForumNotifications([{ id: 'fresh-forum', authorEmail: sessionGet('email'), title: 'Forum update',
+            replies: [{ id: 'fresh-reply', authorEmail: 'other@example.test', content: 'A reply', created_at: now }] }]);
+          notifyPortalOrderStatus({ order_number: 'fixture-order', status: 'ready' }, now, 'Ready');
+          _taskCommentsMap['fresh-mention-task'] = [{ id: 'fresh-mention', author_email: 'other@example.test', text: '@' + sessionGet('name'), created_at: now }];
+          syncTaskNotifications([{ id: 'fresh-mention-task', title: 'Mention task', created_at: now }]);
+          const otherTriggers = chimes === before + 7 && ['notif-announcement-fresh-ann', 'notif-form-fresh-form',
+            'notif-highlight-fresh-highlight', 'notif-resource-fresh-resource', 'notif-forum-reply-fresh-reply',
+            'notif-order-status-fixture-order-ready', 'notif-mention-fresh-mention'].every(id => _allPortalNotifications.some(n => n.id === id));
+          return { highlightsWhileEditing, preservesDraftOnFailure, savesAndCloses, cancelCloses, inboxImmediate, singleAlert, respectsMute, historyStaysQuiet, otherTriggers };
+        } finally {
+          getSupaClient = originalClient;
+          PortalRealtime.broadcast = originalBroadcast;
+          window.playNotificationSound = originalPlay;
+          window.triggerPortalSystemNotification = originalSystem;
+          _initialNotifSyncDone = originalReady;
+          _activeDetailTaskId = originalDetail;
+          delete _taskMap[task.id];
+          delete _taskCommentsMap['fresh-mention-task'];
+          _allPortalNotifications = originalInbox;
+          delete _taskCommentsMap[taskId];
+          localStorage.removeItem('bb_task_comments_' + taskId);
+          if (soundPreference === null) localStorage.removeItem('bb_notif_sound_enabled');
+          else localStorage.setItem('bb_notif_sound_enabled', soundPreference);
+          if (originalSeen === null) localStorage.removeItem('bb_seen_notifications');
+          else localStorage.setItem('bb_seen_notifications', originalSeen);
+          list.innerHTML = oldMarkup;
+          renderNotifications();
+        }
+      })()`, awaitPromise: true, returnByValue: true
+    });
+    assert.ok(!taskRepairDiag.exceptionDetails, JSON.stringify(taskRepairDiag.exceptionDetails));
+    assert.deepStrictEqual(taskRepairDiag.result.value, {
+      highlightsWhileEditing: true, preservesDraftOnFailure: true, savesAndCloses: true, cancelCloses: true,
+      inboxImmediate: true, singleAlert: true, respectsMute: true, historyStaysQuiet: true, otherTriggers: true
+    }, 'Comment editing and self-assignment inbox alerts work through their normal entry points');
     console.log('  ✔ Comment 3-dots options menu, edit/delete actions, and author mention exclusion verified in browser');
 
 
