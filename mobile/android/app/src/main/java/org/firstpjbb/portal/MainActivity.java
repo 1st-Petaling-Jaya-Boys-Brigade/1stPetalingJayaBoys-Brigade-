@@ -16,11 +16,82 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 import com.google.firebase.messaging.FirebaseMessaging;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQUEST_POST_NOTIFICATIONS = 101;
+    private volatile String pendingNotificationRouteJson = null;
+
+    private String readIntentStringExtra(Intent intent, String key) {
+        if (intent == null || key == null) return "";
+        try {
+            Bundle extras = intent.getExtras();
+            if (extras == null || !extras.containsKey(key)) return "";
+            Object val = extras.get(key);
+            return val != null ? String.valueOf(val).trim() : "";
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private void captureNotificationIntent(Intent intent) {
+        if (intent == null) return;
+        try {
+            String tab = readIntentStringExtra(intent, "tab");
+            String targetId = readIntentStringExtra(intent, "targetId");
+            String category = readIntentStringExtra(intent, "category");
+            String notifId = readIntentStringExtra(intent, "notifId");
+            String url = readIntentStringExtra(intent, "url");
+
+            if (tab.isEmpty() && targetId.isEmpty() && category.isEmpty() && url.isEmpty()) {
+                return;
+            }
+
+            JSONObject payload = new JSONObject();
+            if (!tab.isEmpty()) payload.put("tab", tab);
+            if (!targetId.isEmpty()) payload.put("targetId", targetId);
+            if (!category.isEmpty()) payload.put("category", category);
+            if (!notifId.isEmpty()) payload.put("notifId", notifId);
+            if (!url.isEmpty()) payload.put("url", url);
+            pendingNotificationRouteJson = payload.toString();
+
+            // Clear extras so subsequent activity resumes do not re-trigger the same deep link
+            intent.removeExtra("tab");
+            intent.removeExtra("targetId");
+            intent.removeExtra("category");
+            intent.removeExtra("notifId");
+            intent.removeExtra("url");
+        } catch (Exception ignored) {}
+    }
+
+    private void dispatchPendingNotificationToWebView() {
+        final String routeJson = pendingNotificationRouteJson;
+        if (routeJson == null || routeJson.isEmpty()) return;
+        try {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().post(() -> {
+                    try {
+                        String quoted = JSONObject.quote(routeJson);
+                        String js = "(function(){if(typeof window.handlePortalNotificationDeepLink==='function'){try{window.handlePortalNotificationDeepLink(JSON.parse(" + quoted + "));return 'handled';}catch(e){return 'error';}}return 'pending';})();";
+                        getBridge().getWebView().evaluateJavascript(js, result -> {
+                            if (result != null && result.contains("handled") && routeJson.equals(pendingNotificationRouteJson)) {
+                                pendingNotificationRouteJson = null;
+                            }
+                        });
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
+    }
 
     public class AndroidFcmBridge {
+        @JavascriptInterface
+        public String consumePendingNotificationRoute() {
+            String route = pendingNotificationRouteJson;
+            pendingNotificationRouteJson = null;
+            return route != null ? route : "";
+        }
+
         @JavascriptInterface
         public void subscribeTopic(String topic) {
             if (topic != null) {
@@ -158,6 +229,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        captureNotificationIntent(getIntent());
         AnnouncementSyncReceiver.createNotificationChannel(this);
         AnnouncementSyncReceiver.scheduleNext(this);
 
@@ -192,8 +264,17 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        captureNotificationIntent(intent);
+        dispatchPendingNotificationToWebView();
+    }
+
+    @Override
     public void onResume() {
         super.onResume();
+        captureNotificationIntent(getIntent());
         AnnouncementSyncReceiver.createNotificationChannel(this);
         AnnouncementSyncReceiver.scheduleNext(this);
         try {
@@ -216,6 +297,7 @@ public class MainActivity extends BridgeActivity {
                         );
                     } catch (Exception ignored) {}
                 });
+                dispatchPendingNotificationToWebView();
             }
         } catch (Exception ignored) {}
     }

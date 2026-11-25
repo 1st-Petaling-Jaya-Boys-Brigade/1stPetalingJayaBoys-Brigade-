@@ -2093,6 +2093,9 @@ var PortalRealtime = (function() {
           var notifObj = {
             id: notifId,
             category: 'tasks',
+            tab: 'tasks',
+            targetId: aTid ? String(aTid) : '',
+            routeCategory: 'task_assigned',
             group: 'Today',
             timestamp: Date.now(),
             avatarInitials: initials,
@@ -2103,6 +2106,10 @@ var PortalRealtime = (function() {
             time: 'Just now',
             unread: true,
             action: function() {
+              if (typeof window.handlePortalNotificationDeepLink === 'function') {
+                window.handlePortalNotificationDeepLink({ tab: 'tasks', targetId: aTid ? String(aTid) : '', category: 'task_assigned', notifId: notifId });
+                return;
+              }
               if (typeof window.switchTabNav === 'function') window.switchTabNav('tasks');
               if (typeof window.switchTaskSectionView === 'function') window.switchTaskSectionView('board');
               if (typeof window.openTaskDetail === 'function') window.openTaskDetail(aTid);
@@ -2130,6 +2137,9 @@ var PortalRealtime = (function() {
               creatorName + ' assigned you a task in Projects & Tasks.',
               {
                 tag: notifId,
+                tab: 'tasks',
+                targetId: aTid ? String(aTid) : '',
+                category: 'task_assigned',
                 silentSound: false,
                 force: true
               }
@@ -2333,6 +2343,9 @@ var PortalRealtime = (function() {
               annSnippet,
               {
                 tag: 'notif-announcement-' + (data.id || Date.now()),
+                tab: 'home',
+                targetId: data.id ? String(data.id) : '',
+                category: 'announcement',
                 silentSound: false,
                 force: false
               }

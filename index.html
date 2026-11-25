@@ -28,6 +28,7 @@
 <script src="js/core/theme.js?v=20261124i"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
 <link rel="stylesheet" href="css/variables.css?v=20261124i">
@@ -3930,15 +3931,40 @@ window.addEventListener('load', function() {
   if (typeof resetTasksFiltersToDefault === 'function') resetTasksFiltersToDefault();
   // 1. Gatekeeper Route Protection: Synchronously evaluate authentication before async network traffic
   var ic = sessionGet('ic');
+  var incomingNotifRoute = null;
+  try {
+    incomingNotifRoute = parseNotificationRouteFromLocation();
+    if (!incomingNotifRoute && typeof window !== 'undefined' && window.AndroidFCM && typeof window.AndroidFCM.consumePendingNotificationRoute === 'function') {
+      var nativeRouteRaw = window.AndroidFCM.consumePendingNotificationRoute();
+      if (nativeRouteRaw) {
+        incomingNotifRoute = normalizeNotificationRoute(nativeRouteRaw);
+      }
+    }
+    if (!incomingNotifRoute) {
+      incomingNotifRoute = consumePendingNotificationRoute();
+    }
+  } catch (_) {}
+
   if (!ic) {
-    var currentHash = (window.location.hash || '').replace('#', '');
-    if (currentHash !== 'member' && currentHash !== 'admin') {
+    if (incomingNotifRoute) {
+      savePendingNotificationRoute(incomingNotifRoute);
       if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.setRedirectTarget === 'function') {
-        AuthGuard.setRedirectTarget(currentHash || 'home');
+        AuthGuard.setRedirectTarget(incomingNotifRoute.tab || 'home');
       }
       switchTab('member');
       if (typeof history !== 'undefined' && history.replaceState) {
         history.replaceState(null, '', '#member');
+      }
+    } else {
+      var currentHash = (window.location.hash || '').replace('#', '');
+      if (currentHash !== 'member' && currentHash !== 'admin') {
+        if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.setRedirectTarget === 'function') {
+          AuthGuard.setRedirectTarget(currentHash || 'home');
+        }
+        switchTab('member');
+        if (typeof history !== 'undefined' && history.replaceState) {
+          history.replaceState(null, '', '#member');
+        }
       }
     }
   } else {
@@ -4002,7 +4028,11 @@ window.addEventListener('load', function() {
     var pendingTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
       ? AuthGuard.getRedirectTarget()
       : null;
-    if (pendingTarget && pendingTarget !== 'member') {
+    if (incomingNotifRoute) {
+      if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.clearRedirectTarget === 'function') {
+        AuthGuard.clearRedirectTarget();
+      }
+    } else if (pendingTarget && pendingTarget !== 'member') {
       AuthGuard.clearRedirectTarget();
       switchTabNav(pendingTarget);
       if (typeof history !== 'undefined' && history.replaceState) {
@@ -4098,7 +4128,11 @@ window.addEventListener('load', function() {
   if (typeof history !== 'undefined' && history.replaceState) {
     history.replaceState({ tab: initialHash, admin: initialHash === 'admin' }, '', '#' + initialHash);
   }
-  handleHashNavigation();
+  if (ic && incomingNotifRoute && typeof handlePortalNotificationDeepLink === 'function') {
+    handlePortalNotificationDeepLink(incomingNotifRoute);
+  } else {
+    handleHashNavigation();
+  }
 });
 
 function handleHashNavigation(event) {
@@ -4230,13 +4264,426 @@ if ('serviceWorker' in navigator && !window.Capacitor?.isNativePlatform?.()) {
 
     navigator.serviceWorker.addEventListener('message', function(event) {
       if (!event || !event.data) return;
-      if (event.data.type === 'PORTAL_NAVIGATE_TAB' && event.data.tab) {
-        if (typeof switchTabNav === 'function') {
+      if (event.data.type === 'PORTAL_NAVIGATE_TAB' && (event.data.tab || event.data.targetId || event.data.category)) {
+        if (typeof handlePortalNotificationDeepLink === 'function') {
+          handlePortalNotificationDeepLink(event.data);
+        } else if (typeof switchTabNav === 'function' && event.data.tab) {
           switchTabNav(event.data.tab);
         }
       }
     });
   });
+}
+
+// ── Notification Deep-Link Navigation Engine ────────────────────────────────
+var PENDING_NOTIF_ROUTE_KEY = 'bb_pending_notif_route';
+
+function normalizeNotificationRoute(rawRoute) {
+  var input = rawRoute;
+  if (typeof input === 'string') {
+    var trimmed = input.trim();
+    if (!trimmed) return null;
+    if (trimmed.charAt(0) === '{') {
+      try {
+        input = JSON.parse(trimmed);
+      } catch (_) {
+        input = { url: trimmed };
+      }
+    } else {
+      input = { url: trimmed };
+    }
+  }
+  if (!input || typeof input !== 'object') return null;
+
+  var rawTab = String(input.tab || '').trim();
+  var rawTargetId = String(input.targetId || input.target_id || input.target || '').trim();
+  var rawCategory = String(input.category || input.routeCategory || input.type || '').trim();
+  var rawNotifId = String(input.notifId || input.notif_id || input.id || '').trim();
+
+  if (input.url && typeof input.url === 'string') {
+    try {
+      var parsedUrl = new URL(input.url, (typeof window !== 'undefined' && window.location && window.location.href) ? window.location.href : 'https://localhost/');
+      if (!rawTab && parsedUrl.searchParams.get('notif_tab')) rawTab = parsedUrl.searchParams.get('notif_tab');
+      if (!rawTargetId && parsedUrl.searchParams.get('notif_target')) rawTargetId = parsedUrl.searchParams.get('notif_target');
+      if (!rawCategory && parsedUrl.searchParams.get('notif_cat')) rawCategory = parsedUrl.searchParams.get('notif_cat');
+      if (!rawNotifId && parsedUrl.searchParams.get('notif_id')) rawNotifId = parsedUrl.searchParams.get('notif_id');
+      if (!rawTab && parsedUrl.hash) rawTab = parsedUrl.hash.replace(/^#/, '');
+    } catch (_) {}
+  }
+
+  var cleanCat = rawCategory.toLowerCase();
+  var cleanTab = rawTab.toLowerCase().replace(/^#/, '').replace(/^page-/, '');
+  if (cleanTab === 'calendar') cleanTab = 'parade';
+  if (cleanTab === 'orders' || cleanCat === 'order_status') cleanTab = 'member';
+  if (cleanTab === 'forms' || cleanCat === 'form') cleanTab = 'order';
+  if (cleanTab === 'announcements' || cleanCat === 'announcement') cleanTab = 'home';
+
+  if (!cleanTab) {
+    if (['task_assigned', 'task_comment', 'task_due', 'task_due_soon', 'task_overdue', 'mention'].indexOf(cleanCat) !== -1) {
+      cleanTab = 'tasks';
+    } else if (['forum_reply', 'forum_mention', 'forum'].indexOf(cleanCat) !== -1) {
+      cleanTab = 'forum';
+    } else if (['resource', 'resources'].indexOf(cleanCat) !== -1) {
+      cleanTab = 'resources';
+    } else if (['highlight', 'gallery'].indexOf(cleanCat) !== -1) {
+      cleanTab = 'gallery';
+    } else if (['calendar', 'parade', 'event'].indexOf(cleanCat) !== -1) {
+      cleanTab = 'parade';
+    } else {
+      cleanTab = 'home';
+    }
+  }
+
+  var validTabs = ['home', 'order', 'member', 'parade', 'tasks', 'badges', 'attendance', 'resources', 'gallery', 'forum', 'arcade', 'admin'];
+  if (validTabs.indexOf(cleanTab) === -1) cleanTab = 'home';
+
+  return {
+    tab: cleanTab,
+    targetId: rawTargetId,
+    category: cleanCat,
+    notifId: rawNotifId
+  };
+}
+
+function parseNotificationRouteFromLocation() {
+  if (typeof window === 'undefined' || !window.location || !window.location.search) return null;
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var tab = params.get('notif_tab') || '';
+    var targetId = params.get('notif_target') || '';
+    var category = params.get('notif_cat') || '';
+    var notifId = params.get('notif_id') || '';
+    if (!tab && !targetId && !category) return null;
+
+    var route = normalizeNotificationRoute({
+      tab: tab,
+      targetId: targetId,
+      category: category,
+      notifId: notifId
+    });
+
+    params.delete('notif_tab');
+    params.delete('notif_target');
+    params.delete('notif_cat');
+    params.delete('notif_id');
+    if (typeof history !== 'undefined' && history.replaceState) {
+      var remaining = params.toString();
+      var nextUrl = window.location.pathname + (remaining ? ('?' + remaining) : '') + '#' + (route ? route.tab : 'home');
+      history.replaceState(null, '', nextUrl);
+    }
+    return route;
+  } catch (_) {
+    return null;
+  }
+}
+
+function savePendingNotificationRoute(route) {
+  if (!route || typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(PENDING_NOTIF_ROUTE_KEY, JSON.stringify(route));
+  } catch (_) {}
+}
+
+function consumePendingNotificationRoute() {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    var raw = sessionStorage.getItem(PENDING_NOTIF_ROUTE_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(PENDING_NOTIF_ROUTE_KEY);
+    return normalizeNotificationRoute(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+function highlightDeepLinkedElement(el) {
+  if (!el) return;
+  try {
+    if (typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    var prevTransition = el.style.transition;
+    var prevBoxShadow = el.style.boxShadow;
+    el.style.transition = 'box-shadow 0.3s ease';
+    el.style.boxShadow = '0 0 0 3px var(--accent, #d9a323), 0 8px 24px rgba(217, 163, 35, 0.25)';
+    setTimeout(function() {
+      try {
+        el.style.boxShadow = prevBoxShadow || '';
+        el.style.transition = prevTransition || '';
+      } catch (_) {}
+    }, 2400);
+  } catch (_) {}
+}
+
+function findLoadedTaskById(targetId) {
+  if (!targetId) return null;
+  var key = String(targetId).trim();
+  if (!key) return null;
+  var fromMap = (typeof window !== 'undefined' && window._taskMap && window._taskMap[key])
+    || (typeof _taskMap !== 'undefined' && _taskMap[key]);
+  if (fromMap) return fromMap;
+  var list = (typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks) && window._allLoadedTasks)
+    || (typeof _allLoadedTasks !== 'undefined' && Array.isArray(_allLoadedTasks) && _allLoadedTasks)
+    || [];
+  var found = list.find(function(t) { return t && String(t.id) === key; });
+  if (found) return found;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      var cached = JSON.parse(localStorage.getItem('bb_cached_tasks') || '[]');
+      if (Array.isArray(cached)) {
+        var cFound = cached.find(function(t) { return t && String(t.id) === key; });
+        if (cFound) return cFound;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+function findMemberOverdueTasks(tasksList) {
+  var list = Array.isArray(tasksList) ? tasksList : [];
+  var myIc = (typeof sessionGet === 'function') ? String(sessionGet('ic') || '').trim().toLowerCase() : '';
+  var myEmail = (typeof sessionGet === 'function') ? String(sessionGet('email') || '').trim().toLowerCase() : '';
+  var myName = (typeof sessionGet === 'function') ? String(sessionGet('name') || '').trim().toLowerCase() : '';
+  return list.filter(function(t) {
+    if (!t || !t.id) return false;
+    if (typeof getOverdueTaskReminder !== 'function' || !getOverdueTaskReminder(t)) return false;
+    var keys = (typeof getTaskAssigneeKeys === 'function') ? getTaskAssigneeKeys(t) : [];
+    if (keys.length) {
+      return (myIc && keys.indexOf(myIc) !== -1) || (myEmail && keys.indexOf(myEmail) !== -1);
+    }
+    var aName = String(t.assignee_name || t.assignee || '').trim().toLowerCase();
+    return Boolean(myName && aName && aName === myName);
+  });
+}
+
+async function openDeepLinkedTask(targetId, category) {
+  var task = findLoadedTaskById(targetId);
+
+  if (targetId && typeof window !== 'undefined') {
+    window._deepLinkTaskGuard = { id: String(targetId), expiresAt: Date.now() + 4000 };
+  }
+
+  if ((!task && targetId) || (!targetId && category === 'task_overdue')) {
+    if (typeof fetchAllRemoteTasks === 'function') {
+      try {
+        await fetchAllRemoteTasks(true, { cache: false });
+      } catch (_) {}
+    }
+    if (targetId) {
+      task = findLoadedTaskById(targetId);
+    }
+    if (!task && targetId && typeof getSupaClient === 'function') {
+      try {
+        var client = getSupaClient();
+        if (client && typeof client.get === 'function') {
+          var rows = await client.get('bb_tasks?id=eq.' + encodeURIComponent(targetId), { cache: false });
+          if (Array.isArray(rows) && rows[0] && rows[0].id) {
+            task = rows[0];
+            if (typeof window !== 'undefined') {
+              window._taskMap = window._taskMap || {};
+              window._taskMap[task.id] = task;
+              if (Array.isArray(window._allLoadedTasks) && !window._allLoadedTasks.some(function(x) { return String(x.id) === String(task.id); })) {
+                window._allLoadedTasks.push(task);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  if (!task && !targetId && category === 'task_overdue') {
+    var loadedList = (typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks)) ? window._allLoadedTasks : [];
+    var overdueTasks = findMemberOverdueTasks(loadedList);
+    if (overdueTasks.length === 1) {
+      task = overdueTasks[0];
+    } else {
+      if (typeof setTasksViewMode === 'function') {
+        setTasksViewMode('mytasks');
+      }
+      return;
+    }
+  }
+
+  var resolvedId = (task && task.id) || targetId;
+  if (!resolvedId) return;
+
+  if (typeof window !== 'undefined') {
+    window._deepLinkTaskGuard = { id: String(resolvedId), expiresAt: Date.now() + 4000 };
+  }
+
+  if (task && typeof getTaskProjectName === 'function' && typeof openProjectBoard === 'function') {
+    var projName = getTaskProjectName(task);
+    if (projName) {
+      openProjectBoard(projName, { skipRemoteFetch: true });
+    }
+  } else if (typeof setTasksViewMode === 'function') {
+    setTasksViewMode('board', { skipRemoteFetch: true });
+  }
+
+  if (typeof openTaskDetail === 'function') {
+    openTaskDetail(resolvedId);
+    if (category === 'task_comment' || category === 'mention') {
+      if (typeof fetchRemoteTaskComments === 'function') {
+        fetchRemoteTaskComments(resolvedId).catch(function() {});
+      }
+      setTimeout(function() {
+        var commentsEl = document.querySelector('.tb-comments-list');
+        if (commentsEl) highlightDeepLinkedElement(commentsEl);
+      }, 260);
+    }
+  }
+}
+
+async function handlePortalNotificationDeepLink(rawRoute) {
+  var route = normalizeNotificationRoute(rawRoute);
+  if (!route) return { handled: false, route: null };
+
+  if (route.notifId && typeof setDismissedNotifId === 'function') {
+    var matchingNotif = _allPortalNotifications.find(function(n) { return n && n.id === route.notifId; });
+    if (matchingNotif) {
+      matchingNotif.unread = false;
+      setDismissedNotifId(route.notifId);
+      if (typeof renderNotifications === 'function') renderNotifications();
+    }
+  }
+
+  // Close transient overlays before navigating
+  if (typeof closeNotificationDropdown === 'function') closeNotificationDropdown();
+  if (typeof closeGlobalSearch === 'function') closeGlobalSearch();
+  if (typeof closeSidebar === 'function') closeSidebar();
+
+  var isAuthed = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.isUserAuthenticated === 'function')
+    ? AuthGuard.isUserAuthenticated()
+    : Boolean(typeof sessionGet === 'function' && (sessionGet('ic') || sessionGet('email')));
+
+  if (!isAuthed) {
+    savePendingNotificationRoute(route);
+    if (typeof AuthGuard !== 'undefined' && typeof AuthGuard.setRedirectTarget === 'function') {
+      AuthGuard.setRedirectTarget(route.tab);
+    }
+    if (typeof switchTabNav === 'function') switchTabNav('member');
+    return { handled: false, queued: true, route: route };
+  }
+
+  if (route.tab === 'admin') {
+    if (typeof openAdmin === 'function') openAdmin();
+    return { handled: true, route: route };
+  }
+
+  if (route.tab === 'tasks') {
+    if (typeof hasDepartmentRole === 'function' && !hasDepartmentRole()) {
+      if (typeof switchTabNav === 'function') switchTabNav('tasks');
+      return { handled: true, route: route };
+    }
+    if (route.targetId && typeof window !== 'undefined') {
+      window._deepLinkTaskGuard = { id: String(route.targetId), expiresAt: Date.now() + 4000 };
+    }
+    if (typeof switchTabNav === 'function') switchTabNav('tasks');
+    await openDeepLinkedTask(route.targetId, route.category);
+    return { handled: true, route: route };
+  }
+
+  if (route.tab === 'forum') {
+    if (typeof switchTabNav === 'function') switchTabNav('forum');
+    if (route.targetId) {
+      var existingPosts = (typeof window !== 'undefined' && Array.isArray(window.forumPosts)) ? window.forumPosts : [];
+      var hasPost = existingPosts.some(function(p) { return p && String(p.id) === String(route.targetId); });
+      if (!hasPost && typeof loadForumPosts === 'function') {
+        try { await loadForumPosts(); } catch (_) {}
+      }
+      if (typeof openForumPostDetail === 'function') {
+        openForumPostDetail(route.targetId);
+      }
+    }
+    return { handled: true, route: route };
+  }
+
+  if (route.tab === 'home') {
+    if (typeof switchTabNav === 'function') switchTabNav('home');
+    if (route.targetId && typeof document !== 'undefined') {
+      var findAnnCard = function() {
+        var cards = document.querySelectorAll('[data-ann-card-id]');
+        for (var i = 0; i < cards.length; i++) {
+          if (String(cards[i].getAttribute('data-ann-card-id')) === String(route.targetId)) return cards[i];
+        }
+        return null;
+      };
+      var annCard = findAnnCard();
+      if (!annCard && typeof loadAnnouncements === 'function') {
+        try { await loadAnnouncements(); } catch (_) {}
+        annCard = findAnnCard();
+      }
+      highlightDeepLinkedElement(annCard || document.getElementById('announcements-list'));
+    } else if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    return { handled: true, route: route };
+  }
+
+  if (route.tab === 'resources') {
+    if (typeof switchTabNav === 'function') switchTabNav('resources');
+    if (route.targetId && typeof document !== 'undefined') {
+      var findResCard = function() {
+        var cards = document.querySelectorAll('[data-resource-open]');
+        for (var i = 0; i < cards.length; i++) {
+          if (String(cards[i].getAttribute('data-resource-open')) === String(route.targetId)) return cards[i];
+        }
+        return null;
+      };
+      var resCard = findResCard();
+      if (!resCard && typeof loadResources === 'function') {
+        try { await loadResources(); } catch (_) {}
+        if (typeof renderResourcesPage === 'function') renderResourcesPage();
+        resCard = findResCard();
+      }
+      if (resCard) highlightDeepLinkedElement(resCard);
+    }
+    return { handled: true, route: route };
+  }
+
+  if (route.tab === 'member') {
+    if (typeof switchTabNav === 'function') switchTabNav('member');
+    if (route.category === 'order_status' && typeof document !== 'undefined') {
+      if (typeof loadMemberOrders === 'function') {
+        try { await loadMemberOrders(); } catch (_) {}
+      }
+      setTimeout(function() {
+        var ordersWrap = document.getElementById('member-orders-list');
+        if (!ordersWrap) return;
+        var matchedCard = null;
+        if (route.targetId) {
+          var cards = ordersWrap.querySelectorAll('.order-card, .card, [data-order-num]');
+          for (var i = 0; i < cards.length; i++) {
+            if ((cards[i].textContent || '').indexOf(route.targetId) !== -1) {
+              matchedCard = cards[i];
+              break;
+            }
+          }
+        }
+        highlightDeepLinkedElement(matchedCard || ordersWrap);
+      }, 160);
+    }
+    return { handled: true, route: route };
+  }
+
+  if (route.tab === 'order') {
+    if (typeof switchTabNav === 'function') switchTabNav('order');
+    if (route.category === 'form' && route.targetId && typeof openFormForMember === 'function') {
+      if (typeof loadCustomForms === 'function') {
+        try { await loadCustomForms(); } catch (_) {}
+      }
+      setTimeout(function() {
+        try { openFormForMember(route.targetId); } catch (_) {}
+      }, 150);
+    }
+    return { handled: true, route: route };
+  }
+
+  if (typeof switchTabNav === 'function') {
+    switchTabNav(route.tab);
+  }
+  return { handled: true, route: route };
 }
 
 // ── Header Utilities & App Shell Controllers ────────────────────────────────
@@ -4291,13 +4738,19 @@ function pushPortalNotification(notif, isSilent) {
       if (typeof triggerPortalSystemNotification === 'function') {
         var notifTitle = notif.title || "1st Petaling Jaya Boys' Brigade";
         var notifBody = notif.snippet || notif.message || notif.text || (notif.title ? ('Update: ' + notif.title) : 'Tap to view company updates.');
+        var notifTab = notif.tab || (notif.route && notif.route.tab) || (notif.dailyOverdue ? 'tasks' : (notif.category === 'tasks' ? 'tasks' : 'home'));
+        var notifTargetId = notif.targetId || (notif.route && notif.route.targetId) || '';
+        var notifRouteCat = notif.routeCategory || (notif.route && notif.route.category) || (notif.dailyOverdue ? 'task_overdue' : notif.category) || '';
         triggerPortalSystemNotification(
           notifTitle,
           notifBody,
           {
             tag: notif.id,
             silentSound: false,
-            tab: notif.dailyOverdue ? 'tasks' : undefined
+            tab: notifTab,
+            targetId: notifTargetId,
+            category: notifRouteCat,
+            onClick: typeof notif.action === 'function' ? notif.action : undefined
           }
         );
       }
@@ -4543,6 +4996,9 @@ function syncTaskNotifications(tasks, isSilent) {
         id: overdueId,
         dailyOverdue: true,
         category: 'tasks',
+        tab: 'tasks',
+        targetId: String(t.id),
+        routeCategory: 'task_overdue',
         group: 'Today',
         timestamp: Date.now(),
         title: 'Overdue task: ' + (t.title || 'Assigned task'),
@@ -4550,9 +5006,7 @@ function syncTaskNotifications(tasks, isSilent) {
         time: 'Today',
         unread: true,
         action: function() {
-          switchTabNav('tasks');
-          if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
-          if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+          handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'task_overdue', notifId: overdueId });
         }
       }, false);
     }
@@ -4583,6 +5037,9 @@ function syncTaskNotifications(tasks, isSilent) {
         pushPortalNotification({
           id: notifId,
           category: 'tasks',
+          tab: 'tasks',
+          targetId: String(t.id),
+          routeCategory: 'task_assigned',
           group: dMeta.group,
           timestamp: dMeta.timestamp,
           avatarInitials: initials,
@@ -4593,9 +5050,7 @@ function syncTaskNotifications(tasks, isSilent) {
           time: dMeta.time,
           unread: true,
           action: function() {
-            switchTabNav('tasks');
-            if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
-            if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+            handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'task_assigned', notifId: notifId });
           }
         }, isSilent);
       }
@@ -4614,6 +5069,9 @@ function syncTaskNotifications(tasks, isSilent) {
               pushPortalNotification({
                 id: dueId,
                 category: 'tasks',
+                tab: 'tasks',
+                targetId: String(t.id),
+                routeCategory: 'task_due',
                 group: 'Today',
                 timestamp: Date.now(),
                 icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
@@ -4622,9 +5080,7 @@ function syncTaskNotifications(tasks, isSilent) {
                 time: 'Today',
                 unread: true,
                 action: function() {
-                  switchTabNav('tasks');
-                  if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
-                  if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+                  handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'task_due', notifId: dueId });
                 }
               }, isSilent);
             }
@@ -4678,6 +5134,9 @@ function syncTaskNotifications(tasks, isSilent) {
         pushPortalNotification({
           id: notifId,
           category: 'tasks',
+          tab: 'tasks',
+          targetId: String(t.id),
+          routeCategory: 'mention',
           group: dMeta.group,
           timestamp: dMeta.timestamp,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -4686,9 +5145,7 @@ function syncTaskNotifications(tasks, isSilent) {
           time: dMeta.time,
           unread: true,
           action: function() {
-            switchTabNav('tasks');
-            if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
-            if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+            handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'mention', notifId: notifId });
           }
         }, isSilent);
       }
@@ -4725,6 +5182,9 @@ function syncTaskNotifications(tasks, isSilent) {
             pushPortalNotification({
               id: notifId,
               category: 'tasks',
+              tab: 'tasks',
+              targetId: String(t.id),
+              routeCategory: 'task_comment',
               group: cMeta.group,
               timestamp: cMeta.timestamp,
               icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -4733,9 +5193,7 @@ function syncTaskNotifications(tasks, isSilent) {
               time: cMeta.time,
               unread: true,
               action: function() {
-                switchTabNav('tasks');
-                if (typeof switchTaskSectionView === 'function') switchTaskSectionView('board');
-                if (typeof openTaskDetail === 'function') openTaskDetail(t.id);
+                handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'task_comment', notifId: notifId });
               }
             }, isSilent);
           }
@@ -4785,6 +5243,9 @@ function syncAnnouncementNotifications(annList, isSilent) {
       pushPortalNotification({
         id: notifId,
         category: 'announcements',
+        tab: 'home',
+        targetId: String(a.id),
+        routeCategory: 'announcement',
         group: 'Today',
         timestamp: a.created_at ? new Date(a.created_at).getTime() : (a.date ? new Date(a.date).getTime() : Date.now()),
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>',
@@ -4792,7 +5253,7 @@ function syncAnnouncementNotifications(annList, isSilent) {
         snippet: snippet || 'Tap to view company announcement.',
         time: a.date || 'Today',
         unread: true,
-        action: function() { switchTabNav('home'); }
+        action: function() { handlePortalNotificationDeepLink({ tab: 'home', targetId: String(a.id), category: 'announcement', notifId: notifId }); }
       }, isSilent);
     }
   });
@@ -4814,13 +5275,16 @@ function syncFormNotifications(formsList, isSilent) {
       pushPortalNotification({
         id: notifId,
         category: 'announcements',
+        tab: 'order',
+        targetId: String(f.id),
+        routeCategory: 'form',
         group: 'Today',
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
         title: 'New Form Available: ' + (f.title || 'Portal Form'),
         snippet: (f.description || 'Open to submit response online.').slice(0, 70),
         time: 'Today',
         unread: true,
-        action: function() { switchTabNav('order'); }
+        action: function() { handlePortalNotificationDeepLink({ tab: 'order', targetId: String(f.id), category: 'form', notifId: notifId }); }
       }, isSilent);
     }
   });
@@ -4843,13 +5307,16 @@ function syncHighlightNotifications(highlightsList, isSilent) {
       pushPortalNotification({
         id: notifId,
         category: 'announcements',
+        tab: 'gallery',
+        targetId: String(hKey),
+        routeCategory: 'highlight',
         group: 'Today',
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>',
         title: 'New Story Highlight: ' + (h.title || 'Gallery Highlight'),
         snippet: 'Explore latest photos in ' + (h.title || 'company gallery') + '!',
         time: 'Today',
         unread: true,
-        action: function() { switchTabNav('gallery'); }
+        action: function() { handlePortalNotificationDeepLink({ tab: 'gallery', targetId: String(hKey), category: 'highlight', notifId: notifId }); }
       }, isSilent);
     }
   });
@@ -4871,13 +5338,16 @@ function syncResourceNotifications(resourcesList, isSilent) {
       pushPortalNotification({
         id: notifId,
         category: 'announcements',
+        tab: 'resources',
+        targetId: String(r.id),
+        routeCategory: 'resource',
         group: 'Today',
         icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
         title: 'New Resource: ' + (r.title || 'Document'),
         snippet: (r.description || 'New reference document or manual added to Company Resources.').slice(0, 70),
         time: 'Today',
         unread: true,
-        action: function() { switchTabNav('resources'); }
+        action: function() { handlePortalNotificationDeepLink({ tab: 'resources', targetId: String(r.id), category: 'resource', notifId: notifId }); }
       }, isSilent);
     }
   });
@@ -4925,6 +5395,9 @@ function syncForumNotifications(postsList, isSilent) {
           pushPortalNotification({
             id: pNotifId,
             category: 'announcements',
+            tab: 'forum',
+            targetId: String(p.id),
+            routeCategory: 'forum_mention',
             group: 'Today',
             avatarInitials: pInitials,
             icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -4933,12 +5406,7 @@ function syncForumNotifications(postsList, isSilent) {
             time: p.date || 'Today',
             unread: true,
             action: function() {
-              switchTabNav('forum');
-              if (typeof openForumPostDetail === 'function') {
-                openForumPostDetail(p.id);
-              } else if (typeof window !== 'undefined' && typeof window.openForumPostDetail === 'function') {
-                window.openForumPostDetail(p.id);
-              }
+              handlePortalNotificationDeepLink({ tab: 'forum', targetId: String(p.id), category: 'forum_mention', notifId: pNotifId });
             }
           }, isSilent);
         }
@@ -4982,6 +5450,9 @@ function syncForumNotifications(postsList, isSilent) {
         pushPortalNotification({
           id: notifId,
           category: 'announcements',
+          tab: 'forum',
+          targetId: String(p.id),
+          routeCategory: 'forum_reply',
           group: 'Today',
           avatarInitials: initials,
           icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -4990,12 +5461,7 @@ function syncForumNotifications(postsList, isSilent) {
           time: r.date || 'Today',
           unread: true,
           action: function() {
-            switchTabNav('forum');
-            if (typeof openForumPostDetail === 'function') {
-              openForumPostDetail(p.id);
-            } else if (typeof window !== 'undefined' && typeof window.openForumPostDetail === 'function') {
-              window.openForumPostDetail(p.id);
-            }
+            handlePortalNotificationDeepLink({ tab: 'forum', targetId: String(p.id), category: 'forum_reply', notifId: notifId });
           }
         }, isSilent);
       }
@@ -5538,6 +6004,9 @@ window.markAllNotificationsRead   = markAllNotificationsRead;
 window.renderNotifications        = renderNotifications;
 window.addPortalNotification      = addPortalNotification;
 window.pushPortalNotification     = pushPortalNotification;
+window.normalizeNotificationRoute = normalizeNotificationRoute;
+window.parseNotificationRouteFromLocation = parseNotificationRouteFromLocation;
+window.handlePortalNotificationDeepLink = handlePortalNotificationDeepLink;
 window.syncAnnouncementNotifications = syncAnnouncementNotifications;
 window.syncFormNotifications      = syncFormNotifications;
 window.syncHighlightNotifications = syncHighlightNotifications;

@@ -4267,6 +4267,60 @@ async function getJson(url) {
     console.log('  ✔ Stedfast conversational intelligence, Privacy Shield, navigation action buttons & forum citations verified in browser');
 
 
+    // ── Mobile Notification Deep-Link Routing CDP Verification ──
+    const notifDeepLinkDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        if (typeof sessionSet === 'function') {
+          sessionSet('ic', 'jeshuakoh2008@gmail.com');
+          sessionSet('email', 'jeshuakoh2008@gmail.com');
+          sessionSet('name', 'Jeshua Koh');
+          sessionSet('rank', 'Sergeant');
+          sessionSet('department', 'HQ');
+        }
+        window._taskMap = window._taskMap || {};
+        window._taskMap['DL-TASK-99'] = {
+          id: 'DL-TASK-99',
+          title: 'Deep Link Test Task',
+          project_name: 'Portal Development',
+          department: 'hq',
+          status: 'todo',
+          due_date: '2026-11-20'
+        };
+        window._allLoadedTasks = Array.isArray(window._allLoadedTasks) ? window._allLoadedTasks : [];
+        if (!window._allLoadedTasks.some(t => t && t.id === 'DL-TASK-99')) {
+          window._allLoadedTasks.push(window._taskMap['DL-TASK-99']);
+        }
+
+        await window.handlePortalNotificationDeepLink({ tab: 'tasks', targetId: 'DL-TASK-99', category: 'task_due' });
+        const tasksPageActive = document.getElementById('page-tasks')?.classList.contains('active') || false;
+        const taskModal = document.getElementById('task-detail-modal');
+        const taskModalOpen = Boolean(taskModal && taskModal.style.display !== 'none');
+        const openedTaskTitle = (document.getElementById('tdm-title')?.textContent || '').trim();
+        if (typeof closeTaskDetail === 'function') closeTaskDetail(true);
+
+        await window.handlePortalNotificationDeepLink({ tab: 'home', targetId: 'ann-1', category: 'announcement' });
+        const homePageActive = document.getElementById('page-home')?.classList.contains('active') || false;
+
+        await window.handlePortalNotificationDeepLink({ tab: 'orders', targetId: 'BB-ORDER-1', category: 'order_status' });
+        const memberPageActive = document.getElementById('page-member')?.classList.contains('active') || false;
+
+        await window.handlePortalNotificationDeepLink({ tab: 'forum', category: 'forum_reply' });
+        const forumPageActive = document.getElementById('page-forum')?.classList.contains('active') || false;
+
+        return { tasksPageActive, taskModalOpen, openedTaskTitle, homePageActive, memberPageActive, forumPageActive };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const dlRes = (notifDeepLinkDiag.result && notifDeepLinkDiag.result.value) || {};
+    assert.strictEqual(dlRes.tasksPageActive, true, 'Task notification click must activate Projects & Tasks tab');
+    assert.strictEqual(dlRes.taskModalOpen, true, 'Task due-date/mention notification click must open exact task detail modal');
+    assert.strictEqual(dlRes.openedTaskTitle, 'Deep Link Test Task', 'Task detail modal must display the exact deep-linked task');
+    assert.strictEqual(dlRes.homePageActive, true, 'Announcement notification click must navigate to Home page');
+    assert.strictEqual(dlRes.memberPageActive, true, 'Order status notification click must navigate to Member Hub (My Orders)');
+    assert.strictEqual(dlRes.forumPageActive, true, 'Forum reply notification click must navigate to Support Forum');
+    console.log('  ✔ Mobile & portal notification click deep-link routing verified across Home, Tasks, Member Orders, and Forum');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 

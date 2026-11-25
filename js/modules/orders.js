@@ -3412,7 +3412,7 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
           title: 'Uniform Order Update',
           body: 'Order #' + orderNum + ' status updated to ' + status.toUpperCase() + '.',
           targetUsers: targetUsers,
-          tab: 'orders',
+          tab: 'member',
           targetId: orderNum
         }).catch(function(err) {
           console.warn('Order FCM push error:', err);

@@ -805,7 +805,7 @@ function renderAnnouncements() {
       ? '<div class="ann-pinned-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg><span>Pinned Announcement</span></div>'
       : '';
 
-    html += '<div class="announcement-item' + (isPinned ? ' is-pinned' : '') + '" id="ann-item-' + realIdx + '">'
+    html += '<div class="announcement-item' + (isPinned ? ' is-pinned' : '') + '" id="ann-item-' + realIdx + '"' + (a.id ? (' data-ann-card-id="' + escapeHtml(String(a.id)) + '"') : '') + '>'
       + pinnedBadgeHtml
       + '<div class="ann-date">' + safeDate + '</div>'
       + '<div class="ann-title">' + formatAnnouncementMentions(safeTitle, true) + '</div>'
