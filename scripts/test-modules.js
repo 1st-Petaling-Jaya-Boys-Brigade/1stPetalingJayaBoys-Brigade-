@@ -18113,6 +18113,276 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Project Calendar mutual exclusivity, default Assigned+Open auto-reset, and 3-view Overdue vs Completed Late split verified');
   }
 
+  // ── Suite 96: Real-Time Admin / Super Admin Access Revocation & Scope Enforcement ──
+  console.log('\nSuite 96: Real-Time Admin / Super Admin Access Revocation & Scope Enforcement...');
+  {
+    const rbac96 = require('../js/core/rbac.js');
+    const admin96 = require('../js/modules/admin.js');
+    const supa96 = require('../js/api/supabase.js');
+    const supaSrc96 = fs.readFileSync(path.join(__dirname, '../js/api/supabase.js'), 'utf8');
+    const adminSrc96 = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
+    const rbacSrc96 = fs.readFileSync(path.join(__dirname, '../js/core/rbac.js'), 'utf8');
+
+    // Static architecture invariants
+    assert.ok(supaSrc96.includes("if (entity === 'roles')"), 'supabase.js triggerEntityUpdate must handle entity === roles');
+    assert.ok(supaSrc96.includes('bb_admin_roles,bb_company_calendar'), 'checkDeltaSync must include bb_admin_roles in batched bb_config query');
+    assert.ok(supaSrc96.includes("entity !== 'roles'"), 'broadcastLocalChange must exempt roles from burst throttling');
+    assert.ok(supaSrc96.includes("forwardToFollowerTabs('roles', 'update', record)"), 'postgres_changes bb_admin_roles must forward to follower tabs');
+    assert.ok(adminSrc96.includes('syncLiveAdminAccess'), 'admin.js must implement syncLiveAdminAccess live enforcement');
+    assert.ok(rbacSrc96.includes('applyRolesConfigUpdate'), 'rbac.js must export applyRolesConfigUpdate');
+
+    const targetEmail96 = 'live.superadmin@pjbb.org';
+    const origRbac96 = global.RBAC;
+    const origWinRbac96 = global.window && global.window.RBAC;
+    const origSyncLive96 = global.syncLiveAdminAccess;
+    const origWinSyncLive96 = global.window && global.window.syncLiveAdminAccess;
+    const origSessionGet96 = global.sessionGet;
+    const origSessionSet96 = global.sessionSet;
+    const origToast96 = global.showToast;
+    const origSignIn96 = global.getAdminMemberSignIn;
+    const origSupaRpc96 = global.supa.rpc;
+    const origSupaGet96 = global.supa.get;
+    const origGetById96 = global.document.getElementById;
+    const origQS96 = global.document.querySelector;
+    const origQSA96 = global.document.querySelectorAll;
+    const origRolesCfg96 = JSON.parse(JSON.stringify(rbac96._getRolesConfig()));
+
+    const sessStore96 = { email: targetEmail96, ic: targetEmail96, role: 'super_admin', adminAuthed: true };
+    const toasts96 = [];
+    const mockAdminBtn96 = { hidden: false, style: { display: 'flex' } };
+    const mockBadgeText96 = { textContent: 'Super Admin' };
+    const mockBadgeIcon96 = { innerHTML: '' };
+    const mockBadgeClasses96 = new Set(['nav-role-badge', 'role-super-admin']);
+    const mockBadge96 = {
+      style: { display: 'inline-flex' },
+      title: '',
+      attrs: {},
+      setAttribute(k, v) { this.attrs[k] = v; },
+      classList: {
+        add(...cs) { cs.forEach(c => mockBadgeClasses96.add(c)); },
+        remove(...cs) { cs.forEach(c => mockBadgeClasses96.delete(c)); },
+        contains(c) { return mockBadgeClasses96.has(c); }
+      },
+      querySelector(sel) {
+        if (sel === '.nav-role-badge-text') return mockBadgeText96;
+        if (sel === '.nav-role-badge-icon') return mockBadgeIcon96;
+        return null;
+      }
+    };
+    const mockOverlay96 = { id: 'admin-overlay', style: { display: 'block' } };
+    const mockPanel96 = { id: 'admin-panel', style: { display: 'block' } };
+    const mockBackBar96 = { id: 'adm-back-bar', style: { display: 'block' } };
+    const mockRolesSec96 = { id: 'adm-section-roles', style: { display: 'block' } };
+    const mockMembersSec96 = { id: 'adm-section-members', style: { display: 'none' } };
+    const mockOrdersSec96 = { id: 'adm-section-orders', style: { display: 'none' } };
+    const mockRoster96 = { id: 'admin-members-list', textContent: 'member rows' };
+    const mockBtnRoles96 = { id: 'sec-btn-roles', tagName: 'DIV', style: { display: 'none' }, setAttribute() {} };
+    const mockBtnOrders96 = { id: 'sec-btn-orders', tagName: 'DIV', style: { display: 'none' }, setAttribute() {} };
+    const mockBtnMembers96 = { id: 'sec-btn-members', tagName: 'DIV', style: { display: 'none' }, setAttribute() {} };
+    const mockBtnCreator96 = { id: 'sec-btn-creator-outlines', tagName: 'DIV', style: { display: 'none' }, setAttribute() {} };
+    const mockModulesCount96 = { textContent: '' };
+
+    const elMap96 = {
+      'admin-overlay': mockOverlay96,
+      'admin-panel': mockPanel96,
+      'adm-back-bar': mockBackBar96,
+      'adm-section-roles': mockRolesSec96,
+      'adm-section-members': mockMembersSec96,
+      'adm-section-orders': mockOrdersSec96,
+      'admin-members-list': mockRoster96,
+      'sec-btn-roles': mockBtnRoles96,
+      'sec-btn-orders': mockBtnOrders96,
+      'sec-btn-members': mockBtnMembers96,
+      'sec-btn-creator-outlines': mockBtnCreator96
+    };
+
+    try {
+      global.RBAC = rbac96.RBAC;
+      if (global.window) global.window.RBAC = rbac96.RBAC;
+      global.syncLiveAdminAccess = admin96.syncLiveAdminAccess;
+      if (global.window) global.window.syncLiveAdminAccess = admin96.syncLiveAdminAccess;
+      global.sessionGet = k => sessStore96[k] ?? null;
+      global.sessionSet = (k, v) => { sessStore96[k] = v; };
+      global.showToast = (msg, type) => { toasts96.push({ msg, type }); };
+      global.getAdminMemberSignIn = () => 'b'.repeat(64);
+      global.supa.rpc = async () => ({ success: true });
+      global.document.getElementById = id => elMap96[id] || null;
+      global.document.querySelector = sel => {
+        if (sel === '.nav-role-badge') return mockBadge96;
+        if (sel === '.adm-modules-count') return mockModulesCount96;
+        return null;
+      };
+      global.document.querySelectorAll = sel => {
+        if (sel === '.sidebar-admin-btn') return [mockAdminBtn96];
+        if (sel === '.adm-section-btn') return [mockBtnRoles96, mockBtnOrders96, mockBtnMembers96, mockBtnCreator96];
+        return [];
+      };
+
+      // Seed active Super Admin session with Roles & Permissions open
+      rbac96.applyRolesConfigUpdate({
+        super_admins: ['jeshuakoh2008@gmail.com', targetEmail96],
+        admins: {}
+      }, { fromSelf: true });
+      admin96.setAdminSessionTokenForTesting('tok-live-96', {
+        role: 'officer_admin',
+        officerEmail: targetEmail96,
+        scope: 'super_admin',
+        permissions: ['members', 'orders', 'roles'],
+        expiresAt: Date.now() + 3600000,
+        confirmed: true
+      });
+      toasts96.length = 0;
+
+      assert.strictEqual(rbac96.getUserRole(targetEmail96), 'super_admin');
+      assert.strictEqual(admin96.verifyAdminSessionSync(), true);
+      assert.strictEqual(admin96.hasAdminModuleAccess('roles'), true);
+
+      // 1. Live downgrade Super Admin -> Scoped Admin (['orders'])
+      supa96.PortalRealtime.trigger('roles', 'update', {
+        rolesConfig: {
+          super_admins: ['jeshuakoh2008@gmail.com'],
+          admins: { [targetEmail96]: ['orders'] }
+        }
+      }, true);
+
+      assert.strictEqual(rbac96.getUserRole(targetEmail96), 'admin', 'Live downgrade must immediately update RBAC role to admin');
+      assert.strictEqual(admin96.hasAdminModuleAccess('roles'), false, 'Downgraded admin must immediately lose roles module access');
+      assert.strictEqual(admin96.hasAdminModuleAccess('members'), false, 'Downgraded admin must immediately lose ungranted module access');
+      assert.strictEqual(admin96.hasAdminModuleAccess('orders'), true, 'Downgraded admin must retain granted orders module access');
+      assert.strictEqual(mockRolesSec96.style.display, 'none', 'Active Roles section must immediately close when downgraded from Super Admin');
+      assert.strictEqual(mockOverlay96.style.display, 'block', 'Admin overlay stays open on Admin Home when downgraded to scoped Admin');
+      assert.strictEqual(mockBtnRoles96.style.display, 'none', 'Roles button must immediately hide on Admin Home');
+      assert.strictEqual(mockBtnOrders96.style.display, 'flex', 'Granted Orders button must stay visible on Admin Home');
+      assert.strictEqual(mockBtnMembers96.style.display, 'none', 'Ungranted Members button must hide on Admin Home');
+      assert.strictEqual(mockBadgeText96.textContent, 'Admin', 'Header role badge must immediately update to Admin');
+
+      // 2. Live revocation Admin -> Member while Admin Console is open
+      toasts96.length = 0;
+      supa96.PortalRealtime.trigger('roles', 'update', {
+        rolesConfig: {
+          super_admins: ['jeshuakoh2008@gmail.com'],
+          admins: {}
+        }
+      }, true);
+
+      assert.strictEqual(rbac96.getUserRole(targetEmail96), 'member', 'Live revocation must immediately set role to member');
+      assert.strictEqual(admin96.verifyAdminSessionSync(), false, 'Live revocation must immediately invalidate admin session');
+      assert.strictEqual(admin96.getAdminSessionToken(), null, 'Live revocation must immediately clear admin session token');
+      assert.strictEqual(mockOverlay96.style.display, 'none', 'Live revocation must immediately close #admin-overlay');
+      assert.strictEqual(mockPanel96.style.display, 'none', 'Live revocation must immediately hide #admin-panel');
+      assert.strictEqual(mockAdminBtn96.hidden, true, 'Live revocation must immediately hide .sidebar-admin-btn');
+      assert.strictEqual(mockAdminBtn96.style.display, 'none', 'Live revocation must immediately set .sidebar-admin-btn display to none');
+      assert.strictEqual(mockBadgeText96.textContent, 'Member', 'Live revocation must immediately downgrade header badge to Member');
+      assert.strictEqual(sessStore96.adminAuthed, false, 'Live revocation must set adminAuthed to false');
+      assert.strictEqual(toasts96.filter(t => t.msg.includes('Admin Console access has been removed')).length, 1, 'Revocation must display warning toast once');
+
+      // 3. Duplicate postgres_changes payload must be idempotent (no duplicate toast)
+      supa96.PortalRealtime.trigger('roles', 'update', {
+        key: 'bb_admin_roles',
+        value: JSON.stringify({ super_admins: ['jeshuakoh2008@gmail.com'], admins: {} })
+      }, true);
+      assert.strictEqual(toasts96.filter(t => t.msg.includes('Admin Console access has been removed')).length, 1, 'Subsequent duplicate realtime event must not spam duplicate toast');
+
+      // 4. Live promotion Member -> Super Admin immediately reveals Admin button & updates badge
+      supa96.PortalRealtime.trigger('roles', 'update', {
+        key: 'bb_admin_roles',
+        value: JSON.stringify({ super_admins: ['jeshuakoh2008@gmail.com', targetEmail96], admins: {} })
+      }, true);
+      assert.strictEqual(rbac96.getUserRole(targetEmail96), 'super_admin', 'Live promotion must immediately update RBAC role');
+      assert.strictEqual(mockAdminBtn96.hidden, false, 'Live promotion must immediately reveal .sidebar-admin-btn');
+      assert.strictEqual(mockAdminBtn96.style.display, 'flex', 'Live promotion must set .sidebar-admin-btn display to flex');
+      assert.strictEqual(mockBadgeText96.textContent, 'Super Admin', 'Live promotion must immediately update header badge to Super Admin');
+
+      // 5. openAdmin() fast path revokes if background rpc_verify_admin_session explicitly returns { valid: false }
+      admin96.setAdminSessionTokenForTesting('tok-revoked-server', {
+        role: 'officer_admin',
+        officerEmail: targetEmail96,
+        scope: 'super_admin',
+        permissions: ['members', 'orders', 'roles'],
+        expiresAt: Date.now() + 3600000,
+        confirmed: true
+      });
+      mockOverlay96.style.display = 'none';
+      mockPanel96.style.display = 'none';
+      global.supa.get = async () => [{ value: JSON.stringify({ super_admins: ['jeshuakoh2008@gmail.com', targetEmail96], admins: {} }) }];
+      global.supa.rpc = async (route) => {
+        if (route === 'rpc_verify_admin_session') return { valid: false };
+        return { success: true };
+      };
+      await admin96.openAdmin(true);
+      await new Promise(resolve => setTimeout(resolve, 20));
+      assert.strictEqual(admin96.getAdminSessionToken(), null, 'openAdmin fast path must revoke token when server explicitly returns valid: false');
+      assert.strictEqual(mockOverlay96.style.display, 'none', 'openAdmin fast path must close overlay when server explicitly returns valid: false');
+
+      // 6. saveMemberRbacPermissions broadcasts realtime 'roles' event immediately
+      const broadcastedRoles96 = [];
+      const origRtBroadcast96 = supa96.PortalRealtime.broadcast;
+      const origWinRt96 = global.window && global.window.PortalRealtime;
+      const stubRt96 = Object.assign({}, supa96.PortalRealtime, {
+        broadcast(entity, action, payload) {
+          broadcastedRoles96.push({ entity, action, payload });
+        }
+      });
+      global.PortalRealtime = stubRt96;
+      if (global.window) global.window.PortalRealtime = stubRt96;
+
+      admin96.setAdminSessionTokenForTesting('tok-super-actor', {
+        role: 'officer_admin',
+        officerEmail: targetEmail96,
+        scope: 'super_admin',
+        permissions: ['members', 'orders', 'roles'],
+        expiresAt: Date.now() + 3600000,
+        confirmed: true
+      });
+      global.supa.rpc = async (route) => {
+        if (route === 'rpc_verify_admin_session') {
+          return { valid: true, officer_email: targetEmail96, scope: 'super_admin', permissions: ['members', 'orders', 'roles'] };
+        }
+        if (route === 'rpc_set_admin_role') return { success: true, role: 'member' };
+        return { success: true };
+      };
+      global.supa.get = async () => [{ value: JSON.stringify({ super_admins: ['jeshuakoh2008@gmail.com', targetEmail96], admins: {} }) }];
+      const mockRow96 = {
+        attrs: {},
+        setAttribute(k, v) { this.attrs[k] = v; },
+        querySelector(sel) { return sel === '.rbac-role-select' ? { value: 'member' } : null; },
+        querySelectorAll() { return []; }
+      };
+      global.document.querySelector = sel => {
+        if (sel.includes('rbac-member-row')) return mockRow96;
+        if (sel === '.nav-role-badge') return mockBadge96;
+        return null;
+      };
+      await admin96.saveMemberRbacPermissions('demoted.user@pjbb.org', 'member');
+      assert.strictEqual(broadcastedRoles96.length, 1, 'saveMemberRbacPermissions must broadcast realtime roles update');
+      assert.strictEqual(broadcastedRoles96[0].entity, 'roles', 'Broadcast entity must be roles');
+      assert.strictEqual(broadcastedRoles96[0].payload.targetEmail, 'demoted.user@pjbb.org');
+      assert.strictEqual(broadcastedRoles96[0].payload.role, 'member');
+      assert.ok(broadcastedRoles96[0].payload.rolesConfig && Array.isArray(broadcastedRoles96[0].payload.rolesConfig.super_admins), 'Broadcast payload must include updated rolesConfig for 0ms client revocation');
+
+      global.PortalRealtime = supa96.PortalRealtime;
+      if (global.window) global.window.PortalRealtime = origWinRt96;
+      supa96.PortalRealtime.broadcast = origRtBroadcast96;
+    } finally {
+      admin96.revokeAdminSession();
+      rbac96._setRolesConfig(origRolesCfg96);
+      global.RBAC = origRbac96;
+      if (global.window) global.window.RBAC = origWinRbac96;
+      global.syncLiveAdminAccess = origSyncLive96;
+      if (global.window) global.window.syncLiveAdminAccess = origWinSyncLive96;
+      global.sessionGet = origSessionGet96;
+      global.sessionSet = origSessionSet96;
+      global.showToast = origToast96;
+      global.getAdminMemberSignIn = origSignIn96;
+      global.supa.rpc = origSupaRpc96;
+      global.supa.get = origSupaGet96;
+      global.document.getElementById = origGetById96;
+      global.document.querySelector = origQS96;
+      global.document.querySelectorAll = origQSA96;
+    }
+    console.log('  ✔ Real-time admin/super-admin revocation, live scope downgrade, promotion, and broadcast verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);

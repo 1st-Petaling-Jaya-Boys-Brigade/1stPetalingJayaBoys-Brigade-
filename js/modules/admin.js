@@ -1514,8 +1514,20 @@
     if (section === 'creator_outlines' || section === 'creator-outlines') {
       return typeof isCreatorSession === 'function' && isCreatorSession();
     }
-    if (_adminSessionData.scope === 'super_admin') return true;
-    return section !== 'roles' && _adminSessionData.permissions.includes(section);
+    var liveRole = (_adminSessionData && _adminSessionData.officerEmail && typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function')
+      ? RBAC.getUserRole(_adminSessionData.officerEmail)
+      : _adminSessionData.scope;
+    if (liveRole === 'member') return false;
+    if (section === 'roles') {
+      return liveRole === 'super_admin' && _adminSessionData.scope === 'super_admin';
+    }
+    if (liveRole === 'super_admin' && _adminSessionData.scope === 'super_admin') return true;
+    var livePerms = (_adminSessionData && _adminSessionData.officerEmail && typeof RBAC !== 'undefined' && typeof RBAC.getUserPermissions === 'function')
+      ? RBAC.getUserPermissions(_adminSessionData.officerEmail)
+      : _adminSessionData.permissions;
+    var effectivePerms = Array.isArray(livePerms) ? livePerms : [];
+    return effectivePerms.includes(section) &&
+      (_adminSessionData.scope === 'super_admin' || (Array.isArray(_adminSessionData.permissions) && _adminSessionData.permissions.includes(section)));
   }
 
   async function authorizeAdminMutation(section) {
@@ -1570,10 +1582,25 @@
           result.officer_email.toLowerCase() === _adminSessionData.officerEmail &&
           ['admin', 'super_admin'].includes(result.scope) && Array.isArray(result.permissions)) {
         if (!isAdminSessionCurrent()) return false;
+        var prevScope = _adminSessionData.scope;
+        var prevPermsKey = Array.isArray(_adminSessionData.permissions) ? _adminSessionData.permissions.slice().sort().join(',') : '';
         _adminSessionData.confirmed = true;
         _adminSessionData.scope = result.scope;
         _adminSessionData.permissions = result.permissions;
+        try {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('bb_admin_session_data', JSON.stringify(_adminSessionData));
+          }
+        } catch (_) {}
         if (typeof sessionSet === 'function') sessionSet('adminAuthed', true, { localOnly: true });
+        var nextPermsKey = result.permissions.slice().sort().join(',');
+        if (prevScope !== result.scope || prevPermsKey !== nextPermsKey) {
+          syncLiveAdminAccess(result.scope, result.permissions, {
+            fromRefresh: true,
+            roleChanged: prevScope !== result.scope,
+            permsChanged: prevPermsKey !== nextPermsKey
+          });
+        }
         return true;
       }
       if (!renewing && result && typeof result.valid === 'boolean') revokeAdminSession();
@@ -1622,6 +1649,172 @@
 
     if (reason && typeof showToast === 'function') {
       showToast('Security Alert: ' + reason, 'error');
+    }
+  }
+
+  function closeAllAdminModals() {
+    if (typeof document === 'undefined') return;
+    try { closeEditMember(); } catch (_) {}
+    try { closeBlockedEmailsModal(); } catch (_) {}
+    try { closeColumnFilterMenu(); } catch (_) {}
+    try { closeGlobalPopovers(); } catch (_) {}
+    var eventModal = document.getElementById('adm-event-edit-modal');
+    if (eventModal) eventModal.style.display = 'none';
+    document.querySelectorAll('.adm-product-modal-overlay').forEach(function(el) {
+      try { el.remove(); } catch (_) { el.style.display = 'none'; }
+    });
+  }
+
+  function getVisibleAdminSection() {
+    if (typeof document === 'undefined') return null;
+    var allSections = ADMIN_SECTIONS.concat(['roles', 'creator-outlines']);
+    for (var i = 0; i < allSections.length; i++) {
+      var secId = allSections[i];
+      var el = document.getElementById('adm-section-' + secId);
+      if (el && el.style.display && el.style.display !== 'none') {
+        return secId === 'creator-outlines' ? 'creator_outlines' : secId;
+      }
+    }
+    return null;
+  }
+
+  function refreshNonAdminRoleUi(liveRole) {
+    if (typeof document === 'undefined') return;
+    var activePage = document.querySelector('.page.active');
+    var activeId = activePage ? activePage.id : '';
+    if (activeId === 'page-home' && typeof renderAnnouncements === 'function') {
+      try { renderAnnouncements(); } catch (_) {}
+    } else if (activeId === 'page-calendar' && typeof window !== 'undefined' && typeof window.renderCompanyCalendar === 'function') {
+      try { window.renderCompanyCalendar(); } catch (_) {}
+    } else if (activeId === 'page-forum' && typeof window !== 'undefined' && typeof window.renderForumPosts === 'function') {
+      try { window.renderForumPosts(); } catch (_) {}
+    } else if (activeId === 'page-tasks') {
+      var canUseTasks = (typeof window !== 'undefined' && typeof window.hasDepartmentRole === 'function')
+        ? window.hasDepartmentRole()
+        : true;
+      if (liveRole === 'member' && !canUseTasks && typeof window !== 'undefined' && typeof window.switchTabNav === 'function') {
+        try { window.switchTabNav('home'); } catch (_) {}
+      } else if (typeof window !== 'undefined' && typeof window.refreshCurrentTasksView === 'function') {
+        try { window.refreshCurrentTasksView(); } catch (_) {}
+      }
+    }
+  }
+
+  function syncLiveAdminAccess(nextRole, nextPerms, options) {
+    var opts = options || {};
+    var identity = getAdminMemberEmail();
+    if (!identity) return;
+
+    var liveRole = nextRole || getAdminRole(identity);
+    var livePerms = Array.isArray(nextPerms)
+      ? nextPerms.slice()
+      : ((typeof RBAC !== 'undefined' && typeof RBAC.getUserPermissions === 'function')
+        ? RBAC.getUserPermissions(identity)
+        : []);
+
+    var overlay = typeof document !== 'undefined' ? document.getElementById('admin-overlay') : null;
+    var panel = typeof document !== 'undefined' ? document.getElementById('admin-panel') : null;
+    var wasAdminOpen = Boolean(
+      (overlay && overlay.style.display && overlay.style.display !== 'none') ||
+      (panel && panel.style.display && panel.style.display !== 'none')
+    );
+    var hadAdminSession = Boolean(_adminSessionToken || _adminSessionData);
+
+    if (liveRole === 'member') {
+      if (hadAdminSession) {
+        revokeAdminSession();
+      } else if (typeof sessionSet === 'function') {
+        sessionSet('adminAuthed', false, { localOnly: true });
+      }
+
+      closeAllAdminModals();
+
+      if (typeof document !== 'undefined') {
+        if (panel) panel.style.display = 'none';
+        if (overlay && overlay.style.display !== 'none') {
+          closeAdmin(true);
+          overlay.style.display = 'none';
+        }
+        if (typeof window !== 'undefined' && window.location && window.location.hash === '#admin' &&
+            typeof history !== 'undefined' && typeof history.replaceState === 'function') {
+          var activePageEl = document.querySelector('.page.active');
+          var activeTab = activePageEl ? activePageEl.id.replace('page-', '') : 'home';
+          try {
+            history.replaceState({ tab: activeTab }, '', '#' + activeTab);
+          } catch (_) {}
+        }
+      }
+
+      if (typeof RBAC !== 'undefined' && typeof RBAC.syncAdminButtonVisibility === 'function') {
+        RBAC.syncAdminButtonVisibility();
+      }
+
+      refreshNonAdminRoleUi('member');
+
+      var lostAdminRole = Boolean(
+        opts.fromRealtime && opts.roleChanged &&
+        (opts.prevRole === 'admin' || opts.prevRole === 'super_admin')
+      );
+      if ((wasAdminOpen || hadAdminSession || lostAdminRole) && typeof showToast === 'function') {
+        showToast('Your Admin Console access has been removed.', 'warning');
+      }
+      return;
+    }
+
+    var scopeChanged = false;
+    var sessionPermsChanged = false;
+    if (_adminSessionData && _adminSessionData.officerEmail === identity) {
+      if (_adminSessionData.scope !== liveRole) {
+        _adminSessionData.scope = liveRole;
+        scopeChanged = true;
+      }
+      var prevSessionPerms = Array.isArray(_adminSessionData.permissions)
+        ? _adminSessionData.permissions.slice().sort().join(',')
+        : '';
+      var nextSessionPerms = livePerms.slice().sort().join(',');
+      if (prevSessionPerms !== nextSessionPerms) {
+        _adminSessionData.permissions = livePerms.slice();
+        sessionPermsChanged = true;
+      }
+      if (scopeChanged || sessionPermsChanged) {
+        try {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('bb_admin_session_data', JSON.stringify(_adminSessionData));
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (wasAdminOpen) {
+      var activeSection = getVisibleAdminSection();
+      if (activeSection) {
+        if (!hasAdminModuleAccess(activeSection)) {
+          closeAllAdminModals();
+          backToAdminHome();
+          if (typeof showToast === 'function') {
+            showToast('Your Admin Console permissions were updated.', 'warning');
+          }
+        } else if (activeSection === 'roles' && liveRole === 'super_admin' && opts.fromRealtime && !opts.fromSelf) {
+          renderAdminRoles();
+        }
+      } else if (scopeChanged || sessionPermsChanged || opts.roleChanged || opts.permsChanged) {
+        backToAdminHome();
+        if (opts.fromRealtime && (opts.roleChanged || opts.permsChanged) && typeof showToast === 'function') {
+          showToast('Your Admin Console permissions were updated.', 'info');
+        }
+      }
+    } else if (opts.fromRealtime && opts.roleChanged && typeof showToast === 'function') {
+      if (opts.prevRole === 'member') {
+        showToast('You have been granted ' + (liveRole === 'super_admin' ? 'Super Admin' : 'Admin') + ' access.', 'success');
+      } else if (opts.prevRole === 'super_admin' && liveRole === 'admin') {
+        showToast('Your role has been updated to Admin.', 'info');
+      } else if (opts.prevRole === 'admin' && liveRole === 'super_admin') {
+        showToast('You have been promoted to Super Admin.', 'success');
+      }
+    }
+
+    if (opts.roleChanged || opts.permsChanged) {
+      refreshNonAdminRoleUi(liveRole);
     }
   }
 
@@ -1694,9 +1887,16 @@
       showAuthenticatedAdmin();
       // Asynchronous background revalidation without blocking UI opening
       if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
-        RBAC.loadRolesConfig(false).catch(function() {});
+        RBAC.loadRolesConfig(true).catch(function() {});
       }
-      verifyAdminSession(true).catch(function() {});
+      verifyAdminSession(true).then(function(isValid) {
+        if (!isValid && _adminSessionToken) {
+          revokeAdminSession();
+          if (typeof showToast === 'function') {
+            showToast('Your Admin Console access has been removed.', 'warning');
+          }
+        }
+      }).catch(function() {});
       return;
     }
 
@@ -4132,7 +4332,7 @@
     if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
       try {
         await Promise.race([
-          RBAC.loadRolesConfig(),
+          RBAC.loadRolesConfig(true),
           new Promise(function(resolve) { setTimeout(resolve, 800); })
         ]);
       } catch (_) {}
@@ -4414,7 +4614,39 @@
           p_token: getAdminSessionToken(), p_target_email: email, p_role: newRole, p_permissions: checkedPerms
         });
         if (!change || change.success !== true) throw new Error('Role update was rejected.');
-        await RBAC.loadRolesConfig(true);
+        if (typeof RBAC !== 'undefined' && typeof RBAC.loadRolesConfig === 'function') {
+          await RBAC.loadRolesConfig(true, { fromSelf: true });
+        }
+        var updatedRolesCfg = (typeof RBAC !== 'undefined' && typeof RBAC._getRolesConfig === 'function')
+          ? RBAC._getRolesConfig()
+          : null;
+        if (updatedRolesCfg && typeof RBAC !== 'undefined' && typeof RBAC.getUserRole === 'function' && RBAC.getUserRole(email) !== newRole) {
+          var normTargetEmail = String(email).trim().toLowerCase();
+          var patchedSupers = Array.isArray(updatedRolesCfg.super_admins)
+            ? updatedRolesCfg.super_admins.filter(function(e) { return String(e || '').trim().toLowerCase() !== normTargetEmail; })
+            : [];
+          var patchedAdmins = Object.assign({}, updatedRolesCfg.admins || {});
+          delete patchedAdmins[normTargetEmail];
+          if (newRole === 'super_admin') patchedSupers.push(normTargetEmail);
+          else if (newRole === 'admin') patchedAdmins[normTargetEmail] = checkedPerms.filter(function(p) { return p !== 'roles'; });
+          updatedRolesCfg = { super_admins: patchedSupers, admins: patchedAdmins };
+          if (typeof RBAC.applyRolesConfigUpdate === 'function') {
+            RBAC.applyRolesConfigUpdate(updatedRolesCfg, { fromSelf: true });
+          }
+        }
+        var rtClient = (typeof PortalRealtime !== 'undefined')
+          ? PortalRealtime
+          : (typeof window !== 'undefined' && window.PortalRealtime)
+            ? window.PortalRealtime
+            : (typeof global !== 'undefined' && global.PortalRealtime ? global.PortalRealtime : null);
+        if (rtClient && typeof rtClient.broadcast === 'function') {
+          rtClient.broadcast('roles', 'update', {
+            targetEmail: String(email).trim().toLowerCase(),
+            role: newRole,
+            permissions: checkedPerms,
+            rolesConfig: updatedRolesCfg
+          });
+        }
         if (typeof logAuditEvent === 'function') await logAuditEvent({
           action: 'admin.role_change', targetType: 'member', targetId: email, actorRole: 'officer_admin',
           details: { role: newRole, permissions: checkedPerms }
@@ -5181,6 +5413,7 @@
     global.closeAdmin               = closeAdmin;
     global.logoutAdmin              = logoutAdmin;
     global.revokeAdminSession       = revokeAdminSession;
+    global.syncLiveAdminAccess      = syncLiveAdminAccess;
     global.verifyAdminSession       = verifyAdminSession;
     global.verifyAdminSessionSync   = verifyAdminSessionSync;
     global.hasAdminModuleAccess    = hasAdminModuleAccess;
@@ -5295,7 +5528,9 @@
       logoutAdmin: logoutAdmin,
       verifyAdminSession: verifyAdminSession,
       verifyAdminSessionSync: verifyAdminSessionSync,
+      hasAdminModuleAccess: hasAdminModuleAccess,
       revokeAdminSession: revokeAdminSession,
+      syncLiveAdminAccess: syncLiveAdminAccess,
       getAdminSessionToken: getAdminSessionToken,
       getAdminSessionData: getAdminSessionData,
       setAdminSessionTokenForTesting: setAdminSessionTokenForTesting,

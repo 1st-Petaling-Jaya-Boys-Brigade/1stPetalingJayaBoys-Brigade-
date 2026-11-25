@@ -4792,6 +4792,153 @@ async function getJson(url) {
     assert.strictEqual(mCalRes.firstColDisplay, 'flex', 'Tasks Board columns must remain visible on 390px mobile');
     console.log('  ✔ Project Calendar View (Month/Year, 4 colors, Today highlight, Day Popover) & Tasks 3-view overview verified on desktop and mobile');
 
+    // ── Verify Real-Time Admin / Super Admin Access Revocation in Live Browser DOM ──
+    await sendCmd('Emulation.clearDeviceMetricsOverride');
+    console.log('\nChecking Real-Time Admin / Super Admin Access Revocation...');
+    const rtRevokeDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origEmail = sessionGet('email');
+        const origIc = sessionGet('ic');
+        const origRole = sessionGet('role');
+        const origRoles = JSON.parse(JSON.stringify(RBAC._getRolesConfig()));
+        const origSignIn = sessionStorage.getItem('bb_admin_member_signin');
+        const origLocalSignIn = localStorage.getItem('bb_admin_member_signin');
+        const testUser = 'live.revoke.browser@pjbb.org';
+
+        try {
+          sessionSet('email', testUser, { localOnly: true });
+          sessionSet('ic', testUser, { localOnly: true });
+          sessionSet('role', 'super_admin', { localOnly: true });
+          const proof = 'c'.repeat(64);
+          sessionStorage.setItem('bb_admin_member_signin', JSON.stringify({
+            email: testUser,
+            token: proof,
+            expires_at: new Date(Date.now() + 3600000).toISOString()
+          }));
+          RBAC.applyRolesConfigUpdate({
+            super_admins: ['jeshuakoh2008@gmail.com', testUser],
+            admins: {}
+          }, { fromSelf: true });
+
+          const origRpc = supa.rpc;
+          supa.rpc = async (route) => {
+            if (route === 'rpc_open_member_admin_session') {
+              return {
+                valid: true,
+                token: 'browser-live-token',
+                officer_email: testUser,
+                scope: 'super_admin',
+                permissions: ['members', 'orders', 'roles'],
+                expires_at: new Date(Date.now() + 3600000).toISOString()
+              };
+            }
+            if (route === 'rpc_verify_admin_session') {
+              return { valid: true, officer_email: testUser, scope: 'super_admin', permissions: ['members', 'orders', 'roles'] };
+            }
+            return { success: true };
+          };
+          const origGet = supa.get;
+          supa.get = async (path) => {
+            if (String(path).includes('bb_admin_roles')) {
+              return [{ value: JSON.stringify(RBAC._getRolesConfig()) }];
+            }
+            return [];
+          };
+
+          await openAdmin(false);
+          switchAdminSection('roles');
+
+          const overlayEl = document.getElementById('admin-overlay');
+          const panelEl = document.getElementById('admin-panel');
+          const rolesSecEl = document.getElementById('adm-section-roles');
+          const adminBtnEl = document.querySelector('.sidebar-admin-btn');
+          const badgeTextEl = document.querySelector('.nav-role-badge-text');
+
+          const initialOpen = overlayEl && overlayEl.style.display === 'block' &&
+            panelEl && panelEl.style.display === 'block' &&
+            rolesSecEl && rolesSecEl.style.display === 'block' &&
+            adminBtnEl && !adminBtnEl.hidden &&
+            badgeTextEl && badgeTextEl.textContent === 'Super Admin';
+
+          // Real-time downgrade Super Admin -> Scoped Admin (['orders'])
+          PortalRealtime.trigger('roles', 'update', {
+            rolesConfig: {
+              super_admins: ['jeshuakoh2008@gmail.com'],
+              admins: { [testUser]: ['orders'] }
+            }
+          }, true);
+
+          const rolesBtnEl = document.getElementById('sec-btn-roles');
+          const ordersBtnEl = document.getElementById('sec-btn-orders');
+          const membersBtnEl = document.getElementById('sec-btn-members');
+          const downgradeEnforced = rolesSecEl.style.display === 'none' &&
+            overlayEl.style.display === 'block' &&
+            rolesBtnEl && rolesBtnEl.style.display === 'none' &&
+            membersBtnEl && membersBtnEl.style.display === 'none' &&
+            ordersBtnEl && ordersBtnEl.style.display === 'flex' &&
+            badgeTextEl && badgeTextEl.textContent === 'Admin' &&
+            hasAdminModuleAccess('roles') === false &&
+            hasAdminModuleAccess('orders') === true;
+
+          // Real-time revocation Admin -> Member while Admin Console is open
+          PortalRealtime.trigger('roles', 'update', {
+            rolesConfig: {
+              super_admins: ['jeshuakoh2008@gmail.com'],
+              admins: {}
+            }
+          }, true);
+
+          const revokedImmediately = overlayEl.style.display === 'none' &&
+            panelEl.style.display === 'none' &&
+            verifyAdminSessionSync() === false &&
+            sessionStorage.getItem('bb_admin_session_token') === null &&
+            adminBtnEl && adminBtnEl.hidden === true && adminBtnEl.style.display === 'none' &&
+            badgeTextEl && badgeTextEl.textContent === 'Member' &&
+            window.location.hash !== '#admin';
+
+          // Attempting openAdmin() after revocation must stay closed
+          await openAdmin(true);
+          const blockedReopen = overlayEl.style.display === 'none';
+
+          // Real-time promotion back to Super Admin (postgres_changes JSON value shape)
+          PortalRealtime.trigger('roles', 'update', {
+            key: 'bb_admin_roles',
+            value: JSON.stringify({
+              super_admins: ['jeshuakoh2008@gmail.com', testUser],
+              admins: {}
+            })
+          }, true);
+
+          const promotedImmediately = adminBtnEl && adminBtnEl.hidden === false &&
+            adminBtnEl.style.display === 'flex' &&
+            badgeTextEl && badgeTextEl.textContent === 'Super Admin';
+
+          supa.rpc = origRpc;
+          supa.get = origGet;
+          return { initialOpen, downgradeEnforced, revokedImmediately, blockedReopen, promotedImmediately };
+        } finally {
+          revokeAdminSession();
+          if (origSignIn === null) sessionStorage.removeItem('bb_admin_member_signin');
+          else sessionStorage.setItem('bb_admin_member_signin', origSignIn);
+          if (origLocalSignIn === null) localStorage.removeItem('bb_admin_member_signin');
+          else localStorage.setItem('bb_admin_member_signin', origLocalSignIn);
+          if (origEmail !== null) sessionSet('email', origEmail, { localOnly: true });
+          if (origIc !== null) sessionSet('ic', origIc, { localOnly: true });
+          if (origRole !== null) sessionSet('role', origRole, { localOnly: true });
+          RBAC.applyRolesConfigUpdate(origRoles, { fromSelf: true });
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const rtRevokeRes = (rtRevokeDiag.result && rtRevokeDiag.result.value) || {};
+    assert.strictEqual(rtRevokeRes.initialOpen, true, 'Super Admin must open Admin Console and Roles section initially');
+    assert.strictEqual(rtRevokeRes.downgradeEnforced, true, 'Real-time Super Admin -> Scoped Admin downgrade must immediately exit Roles section, hide revoked modules, and update badge');
+    assert.strictEqual(rtRevokeRes.revokedImmediately, true, 'Real-time Admin -> Member revocation must immediately close Admin Console, revoke session, clear #admin hash, hide Admin button, and update badge');
+    assert.strictEqual(rtRevokeRes.blockedReopen, true, 'Attempting to re-open Admin Console after real-time revocation must remain blocked');
+    assert.strictEqual(rtRevokeRes.promotedImmediately, true, 'Real-time promotion to Super Admin must immediately restore Admin button and header badge');
+    console.log('  ✔ Real-time Admin/Super Admin revocation, live scope downgrade, and live promotion verified in headless Edge');
+
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
