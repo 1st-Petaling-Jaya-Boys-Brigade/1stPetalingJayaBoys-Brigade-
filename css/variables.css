@@ -86,6 +86,28 @@
   --platoon-hotel-bg: rgba(16, 185, 129, 0.15);
   --platoon-hotel-color: #34d399;
 
+  /* Unified Task Status Tokens (Shared across Board, List, Calendar & Summary Chips) */
+  --task-status-overdue-bg: rgba(239, 68, 68, 0.18);
+  --task-status-overdue-color: #f87171;
+  --task-status-overdue-border: rgba(239, 68, 68, 0.44);
+  --task-status-overdue-dot: #ef4444;
+  --task-status-late-bg: rgba(234, 88, 12, 0.22);
+  --task-status-late-color: #ff8a5b;
+  --task-status-late-border: rgba(234, 88, 12, 0.54);
+  --task-status-late-dot: #e8531b;
+  --task-status-near-bg: rgba(250, 204, 21, 0.18);
+  --task-status-near-color: #fde047;
+  --task-status-near-border: rgba(250, 204, 21, 0.48);
+  --task-status-near-dot: #facc15;
+  --task-status-completed-bg: rgba(16, 185, 129, 0.18);
+  --task-status-completed-color: #6ee7b7;
+  --task-status-completed-border: rgba(16, 185, 129, 0.40);
+  --task-status-completed-dot: #10b981;
+  --task-status-normal-bg: rgba(148, 163, 184, 0.14);
+  --task-status-normal-color: #cbd5e1;
+  --task-status-normal-border: rgba(148, 163, 184, 0.30);
+  --task-status-normal-dot: #94a3b8;
+
   /* Legacy Backward-Compatibility Mappings */
   --navy: var(--bg-canvas);
   --navy2: var(--bg-card);
@@ -172,6 +194,28 @@
   --platoon-papa-color: #b91c1c;
   --platoon-hotel-bg: #ecfdf5;
   --platoon-hotel-color: #047857;
+
+  /* Unified Task Status Tokens (Shared across Board, List, Calendar & Summary Chips) */
+  --task-status-overdue-bg: #fee2e2;
+  --task-status-overdue-color: #b91c1c;
+  --task-status-overdue-border: #fca5a5;
+  --task-status-overdue-dot: #ef4444;
+  --task-status-late-bg: #ffedd5;
+  --task-status-late-color: #c2410c;
+  --task-status-late-border: #fb923c;
+  --task-status-late-dot: #e8531b;
+  --task-status-near-bg: #fef9c3;
+  --task-status-near-color: #854d0e;
+  --task-status-near-border: #facc15;
+  --task-status-near-dot: #eab308;
+  --task-status-completed-bg: #dcfce7;
+  --task-status-completed-color: #166534;
+  --task-status-completed-border: #86efac;
+  --task-status-completed-dot: #10b981;
+  --task-status-normal-bg: #f1f5f9;
+  --task-status-normal-color: #334155;
+  --task-status-normal-border: #cbd5e1;
+  --task-status-normal-dot: #94a3b8;
 
   /* Legacy Backward-Compatibility Mappings */
   --navy: var(--bg-canvas);

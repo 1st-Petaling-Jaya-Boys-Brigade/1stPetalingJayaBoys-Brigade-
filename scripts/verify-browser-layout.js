@@ -4494,22 +4494,40 @@ async function getJson(url) {
             demoTasks.forEach(t => { if (!_allLoadedTasks.some(x => x && x.id === t.id)) _allLoadedTasks.push(t); });
           }
 
+          const prevThemeCal = document.documentElement.getAttribute('data-theme');
+          document.documentElement.setAttribute('data-theme', 'dark');
+
           switchTabNav('tasks');
           openProjectBoard('Portal Development', { skipRemoteFetch: true });
 
-          // Check Board View: Overdue (red) vs Completed Late (orange-red) have distinct computed colors
-          setProjectDisplayMode('board');
+          // Project section must default to Board View on open
+          const projDefaultIsBoard = getComputedStyle(document.getElementById('tasks-columns')).display !== 'none'
+            && getComputedStyle(document.querySelector('.tasks-board-list-view')).display === 'none'
+            && getComputedStyle(document.querySelector('.tasks-board-calendar-view')).display === 'none';
+
+          // Check Board View in Dark Mode: Overdue (red), Completed Late (orange-red), Near (pure yellow)
           const projBoardOverdueEl = document.querySelector('#tasks-columns .task-due-pill.due-overdue');
           const projBoardLateEl = document.querySelector('#tasks-columns .task-due-pill.due-late');
-          const projBoardColorsDistinct = Boolean(projBoardOverdueEl && projBoardLateEl)
-            && getComputedStyle(projBoardOverdueEl).color !== getComputedStyle(projBoardLateEl).color;
+          const projBoardNearEl = document.querySelector('#tasks-columns .task-due-pill.due-near');
+          const boardNearColor = projBoardNearEl ? getComputedStyle(projBoardNearEl).color : '';
+          const boardNearBg = projBoardNearEl ? getComputedStyle(projBoardNearEl).backgroundColor : '';
+          const boardLateColor = projBoardLateEl ? getComputedStyle(projBoardLateEl).color : '';
+          const boardLateBg = projBoardLateEl ? getComputedStyle(projBoardLateEl).backgroundColor : '';
+          const boardOverdueColor = projBoardOverdueEl ? getComputedStyle(projBoardOverdueEl).color : '';
+          const projBoardColorsDistinct = Boolean(projBoardOverdueEl && projBoardLateEl && projBoardNearEl)
+            && boardOverdueColor !== boardLateColor
+            && boardLateColor !== boardNearColor
+            && boardOverdueColor !== boardNearColor;
 
-          // Check List View: Overdue (red) vs Completed Late (orange-red) have distinct computed colors
+          // Check List View in Dark Mode: exact color parity with Board View
           setProjectDisplayMode('list');
           const projListOverdueEl = document.querySelector('.tasks-board-list-view .task-due-pill.due-overdue');
           const projListLateEl = document.querySelector('.tasks-board-list-view .task-due-pill.due-late');
-          const projListColorsDistinct = Boolean(projListOverdueEl && projListLateEl)
-            && getComputedStyle(projListOverdueEl).color !== getComputedStyle(projListLateEl).color;
+          const projListNearEl = document.querySelector('.tasks-board-list-view .task-due-pill.due-near');
+          const projListColorsDistinct = Boolean(projListOverdueEl && projListLateEl && projListNearEl)
+            && getComputedStyle(projListOverdueEl).color !== getComputedStyle(projListLateEl).color
+            && getComputedStyle(projListNearEl).color === boardNearColor
+            && getComputedStyle(projListLateEl).color === boardLateColor;
 
           setProjectDisplayMode('calendar');
           jumpTaskCalendarToday();
@@ -4521,11 +4539,22 @@ async function getJson(url) {
           const hasTodayHighlight = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-cell.is-today'));
           const projCalRedEl = document.querySelector('.tasks-board-calendar-view .task-cal-pill-red');
           const projCalLateEl = document.querySelector('.tasks-board-calendar-view .task-cal-pill-late');
+          const projCalYellowEl = document.querySelector('.tasks-board-calendar-view .task-cal-pill-yellow');
           const hasRedPill = Boolean(projCalRedEl);
           const hasLatePill = Boolean(projCalLateEl);
-          const projCalColorsDistinct = Boolean(projCalRedEl && projCalLateEl)
-            && getComputedStyle(projCalRedEl).color !== getComputedStyle(projCalLateEl).color;
-          const hasYellowPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill-yellow'));
+          const hasYellowPill = Boolean(projCalYellowEl);
+          const projCalColorsDistinct = Boolean(projCalRedEl && projCalLateEl && projCalYellowEl)
+            && getComputedStyle(projCalRedEl).color !== getComputedStyle(projCalLateEl).color
+            && getComputedStyle(projCalLateEl).color !== getComputedStyle(projCalYellowEl).color;
+          const darkModeYellowExactMatch = Boolean(projBoardNearEl && projCalYellowEl)
+            && boardNearColor === getComputedStyle(projCalYellowEl).color
+            && boardNearBg === getComputedStyle(projCalYellowEl).backgroundColor
+            && boardNearColor === 'rgb(253, 224, 71)';
+          const darkModeLateExactMatch = Boolean(projBoardLateEl && projCalLateEl)
+            && boardLateColor === getComputedStyle(projCalLateEl).color
+            && boardLateBg === getComputedStyle(projCalLateEl).backgroundColor;
+          const darkModeOverdueExactMatch = Boolean(projBoardOverdueEl && projCalRedEl)
+            && boardOverdueColor === getComputedStyle(projCalRedEl).color;
           const hasAvatarInPill = Boolean(document.querySelector('.tasks-board-calendar-view .task-cal-pill .task-cal-pill-avatar'));
 
           // Open Day Popover & trigger + New task prefill
@@ -4543,13 +4572,19 @@ async function getJson(url) {
           const yearMonthCardsCount = document.querySelectorAll('.tasks-board-calendar-view .task-cal-year-card').length;
           setTaskCalendarSubMode('month');
 
-          // Global Tasks section: verify default filters auto-set to Assigned to me + Open
+          // Re-entering Project from Projects list must reset back to Board View
+          setTasksViewMode('projects');
+          openProjectBoard('Portal Development', { skipRemoteFetch: true });
+          const projResetsToBoardOnReentry = getComputedStyle(document.getElementById('tasks-columns')).display !== 'none'
+            && getComputedStyle(document.querySelector('.tasks-board-calendar-view')).display === 'none';
+
+          // Global Tasks section: verify defaults auto-set to List View + Assigned to me + Open
           const isDefaultAssignedOpenActive = () => {
             const activeChips = Array.from(document.querySelectorAll('.my-tasks-container .filter-chip-option.active')).map(el => el.textContent.trim());
             return activeChips.includes('Assigned to me') && activeChips.includes('Open');
           };
           setTasksViewMode('mytasks');
-          setMyTasksDisplayMode('list');
+          const tasksDefaultIsList = document.querySelector('.my-tasks-view-body')?.getAttribute('data-mytasks-active-view') === 'list';
           const defaultAssignedOpenInitial = isDefaultAssignedOpenActive();
           const defaultText = document.querySelector('.my-tasks-container')?.textContent || '';
           const defaultShowsOwnOpenOnly = defaultText.includes('Overdue Parade Task')
@@ -4587,19 +4622,28 @@ async function getJson(url) {
           );
           const desktopCalOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
 
-          // Leave Tasks section -> Projects -> return to Tasks: must auto-reset back to Assigned to me + Open
+          // Leave Tasks section -> Projects -> return to Tasks: must auto-reset back to List View + Assigned to me + Open
           setTasksViewMode('projects');
           setTasksViewMode('mytasks');
           const autoResetAfterLeavingSection = isDefaultAssignedOpenActive();
+          const tasksResetsToListAfterLeaving = document.querySelector('.my-tasks-view-body')?.getAttribute('data-mytasks-active-view') === 'list';
 
-          // Change filters again, switch to Home tab, then return to Tasks tab: must auto-reset back to Assigned to me + Open
+          // Change filters & view mode again, switch to Home tab, then return to Tasks tab: must auto-reset back to List View + Assigned to me + Open
+          setMyTasksDisplayMode('board');
           setMyTasksScopeFilter('all');
           setMyTasksStatusFilter('all');
           switchTabNav('home');
           switchTabNav('tasks');
           const autoResetAfterTabSwitch = isDefaultAssignedOpenActive();
+          const tasksResetsToListAfterTabSwitch = document.querySelector('.my-tasks-view-body')?.getAttribute('data-mytasks-active-view') === 'list';
+
+          if (prevThemeCal) document.documentElement.setAttribute('data-theme', prevThemeCal);
+          else document.documentElement.removeAttribute('data-theme');
 
           return {
+            projDefaultIsBoard, projResetsToBoardOnReentry, tasksDefaultIsList,
+            tasksResetsToListAfterLeaving, tasksResetsToListAfterTabSwitch,
+            darkModeYellowExactMatch, darkModeLateExactMatch, darkModeOverdueExactMatch,
             projCalVisible, projBoardHidden, projListHidden, calModes, hasTodayHighlight,
             hasRedPill, hasLatePill, projBoardColorsDistinct, projListColorsDistinct, projCalColorsDistinct,
             hasYellowPill, hasAvatarInPill, popoverOpen, createModalOpen, prefilledDue,
@@ -4617,9 +4661,17 @@ async function getJson(url) {
       returnByValue: true
     });
     const taskCalRes = (calAndOverviewDiag.result && calAndOverviewDiag.result.value) || {};
-    assert.strictEqual(taskCalRes.projBoardColorsDistinct, true, 'Project Board View must style Overdue (red) and Completed Late (orange-red) with distinct colors');
-    assert.strictEqual(taskCalRes.projListColorsDistinct, true, 'Project List View must style Overdue (red) and Completed Late (orange-red) with distinct colors');
-    assert.strictEqual(taskCalRes.projCalColorsDistinct, true, 'Project Calendar View must style Overdue (red) and Completed Late (orange-red) with distinct colors');
+    assert.strictEqual(taskCalRes.projDefaultIsBoard, true, 'Project section must default to Board View on open');
+    assert.strictEqual(taskCalRes.projResetsToBoardOnReentry, true, 'Project section must reset back to Board View on re-entry');
+    assert.strictEqual(taskCalRes.tasksDefaultIsList, true, 'Tasks section must default to List View on open');
+    assert.strictEqual(taskCalRes.tasksResetsToListAfterLeaving, true, 'Tasks section must auto-reset to List View after leaving section');
+    assert.strictEqual(taskCalRes.tasksResetsToListAfterTabSwitch, true, 'Tasks section must auto-reset to List View after switching tabs');
+    assert.strictEqual(taskCalRes.darkModeYellowExactMatch, true, 'Dark mode nearing-due yellow must be pure yellow and identical across Board, List, and Calendar views');
+    assert.strictEqual(taskCalRes.darkModeLateExactMatch, true, 'Dark mode completed-late orange-red must be identical across Board, List, and Calendar views');
+    assert.strictEqual(taskCalRes.darkModeOverdueExactMatch, true, 'Dark mode overdue red must be identical across Board, List, and Calendar views');
+    assert.strictEqual(taskCalRes.projBoardColorsDistinct, true, 'Project Board View must style Overdue (red), Completed Late (orange-red), and Due Soon (yellow) distinctly');
+    assert.strictEqual(taskCalRes.projListColorsDistinct, true, 'Project List View must style Overdue, Completed Late, and Due Soon consistently with Board View');
+    assert.strictEqual(taskCalRes.projCalColorsDistinct, true, 'Project Calendar View must style Overdue, Completed Late, and Due Soon distinctly');
     assert.strictEqual(taskCalRes.projCalVisible, true, 'Project Calendar View must be visible when calendar mode is active');
     assert.strictEqual(taskCalRes.projBoardHidden, true, 'Project Board must stay hidden in Calendar View');
     assert.strictEqual(taskCalRes.projListHidden, true, 'Project List must stay hidden in Calendar View');

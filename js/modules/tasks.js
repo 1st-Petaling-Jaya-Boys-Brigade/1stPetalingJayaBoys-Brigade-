@@ -213,10 +213,8 @@ function getTabCount(status) {
 
 var _activeTasksSection = 'parade'; // 'parade' | 'board'
 var _tasksViewMode      = 'projects'; // 'projects' | 'board' | 'mytasks'
-var _savedProjViewMode  = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_proj_view_mode') : '';
-var _projectDisplayMode = (_savedProjViewMode === 'list' || _savedProjViewMode === 'calendar') ? _savedProjViewMode : 'board'; // 'board' | 'list' | 'calendar'
-var _savedMyTasksViewMode = (typeof localStorage !== 'undefined') ? localStorage.getItem('bb_mytasks_view_mode') : '';
-var _myTasksDisplayMode = (_savedMyTasksViewMode === 'board' || _savedMyTasksViewMode === 'calendar') ? _savedMyTasksViewMode : 'list'; // 'board' | 'list' | 'calendar'
+var _projectDisplayMode = 'board';    // Default Project section view: 'board' ('board' | 'list' | 'calendar')
+var _myTasksDisplayMode = 'list';     // Default Tasks section view: 'list' ('board' | 'list' | 'calendar')
 var _activeProject      = '';
 var _companyProjects    = [];
 var _activeDetailTaskId = null;
@@ -250,6 +248,9 @@ var _taskCalPopoverContext = 'project'; // 'project' | 'mytasks'
 var _taskCalLastTrigger = null;
 
 function resetTasksFiltersToDefault() {
+  _projectDisplayMode    = 'board';
+  _myTasksDisplayMode    = 'list';
+  if (typeof window !== 'undefined') window._projectDisplayMode = 'board';
   _myTasksScopeFilter    = 'me';
   _myTasksStatusFilter   = 'open';
   _myTasksProjectFilter  = 'all';
@@ -1141,6 +1142,8 @@ function setTasksViewMode(mode, options) {
  */
 function openProjectBoard(projectName, options) {
   _activeProject = projectName || 'General Project';
+  _projectDisplayMode = 'board';
+  if (typeof window !== 'undefined') window._projectDisplayMode = 'board';
   setTasksViewMode('board', options);
 }
 
@@ -2522,11 +2525,7 @@ function renderActiveProjectSubView() {
  */
 function setProjectDisplayMode(mode) {
   _projectDisplayMode = (mode === 'list' || mode === 'calendar') ? mode : 'board';
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('bb_proj_view_mode', _projectDisplayMode);
-    }
-  } catch (_) {}
+  if (typeof window !== 'undefined') window._projectDisplayMode = _projectDisplayMode;
 
   if (typeof document === 'undefined') return;
   if (typeof closeTaskCalendarDayPopover === 'function') closeTaskCalendarDayPopover();
@@ -3564,6 +3563,7 @@ function refreshCurrentTasksView(affectedTaskId) {
       var lView = document.querySelector('.tasks-board-list-view');
       var calV = document.querySelector('.tasks-board-calendar-view');
       var cTabs = document.getElementById('task-col-tabs');
+      syncProjectViewToggleButtons();
       if (_projectDisplayMode === 'list') {
         if (bCol) setElementDisplayNone(bCol);
         if (cTabs) setElementDisplayNone(cTabs);
@@ -4068,11 +4068,6 @@ function filterMyTasksList(query) {
  */
 function setMyTasksDisplayMode(mode) {
   _myTasksDisplayMode = (mode === 'board' || mode === 'calendar') ? mode : 'list';
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('bb_mytasks_view_mode', _myTasksDisplayMode);
-    }
-  } catch (_) {}
   closeTaskCalendarDayPopover();
   renderMyTasksView();
 }
@@ -4490,7 +4485,9 @@ function setMyTasksAssigneeFilter(assigneeKey) {
 }
 
 function resetMyTasksFilters() {
+  var currentDisplayMode = _myTasksDisplayMode;
   resetTasksFiltersToDefault();
+  _myTasksDisplayMode = currentDisplayMode;
   renderMyTasksView();
 }
 
