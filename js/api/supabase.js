@@ -887,11 +887,12 @@ const supa = {
    */
   async uploadFile(bucket, filePath, blob) {
     if (typeof validateFileSecurity === 'function') {
+      const isResourceSubpath = bucket === 'gallery' && typeof filePath === 'string' && filePath.startsWith('resources/');
       await validateFileSecurity(blob, {
-        bucket: bucket,
-        allowVideo: bucket === 'gallery' || bucket === 'story_highlights',
-        allowPdf: bucket === 'resources' || bucket === 'waivers',
-        allowDocs: bucket === 'resources' || bucket === 'waivers',
+        bucket: isResourceSubpath ? 'resources' : bucket,
+        allowVideo: (bucket === 'gallery' && !isResourceSubpath) || bucket === 'story_highlights',
+        allowPdf: bucket === 'resources' || bucket === 'waivers' || isResourceSubpath,
+        allowDocs: bucket === 'resources' || bucket === 'waivers' || isResourceSubpath,
         allowImages: true
       });
     }
@@ -1217,6 +1218,217 @@ var PortalRealtime = (function() {
   var _realtimeTabId = 'rt_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now();
   var _seenRealtimeMsgIds = new Set();
   var _pendingBroadcastQueue = [];
+  var _joinRef = null;
+  var _channelJoined = false;
+  var _trackedPresence = null;
+  var _livePresenceRefs = Object.create(null);
+  var _livePresenceMap = Object.create(null);
+
+  function publishLivePresence(removedKeys) {
+    var nextLive = Object.create(null);
+    Object.keys(_livePresenceRefs).forEach(function(phxKey) {
+      var metas = _livePresenceRefs[phxKey];
+      if (!Array.isArray(metas) || !metas.length) return;
+      // Pick the best active meta for each logical member key ('online' wins over 'idle')
+      metas.forEach(function(meta) {
+        if (!meta || typeof meta !== 'object') return;
+        var memberKey = String(meta.key || meta.email || meta.ic || phxKey || '').toLowerCase().trim();
+        if (!memberKey || memberKey.startsWith('rt_')) return;
+        var st = meta.status === 'idle' ? 'idle' : 'online';
+        var existing = nextLive[memberKey];
+        if (!existing || (existing.status === 'idle' && st === 'online')) {
+          nextLive[memberKey] = {
+            status: st,
+            last_seen: meta.last_seen || Date.now(),
+            name: meta.name || (existing && existing.name) || 'Member',
+            email: meta.email || (existing && existing.email) || '',
+            ic: meta.ic || (existing && existing.ic) || '',
+            rank: meta.rank || (existing && existing.rank) || '',
+            _live: true
+          };
+        }
+      });
+    });
+
+    _livePresenceMap = nextLive;
+    var nowTs = Date.now();
+    if (typeof window !== 'undefined') {
+      window._livePresenceMap = Object.assign({}, _livePresenceMap);
+      var mergedWin = Object.assign({}, window._globalPresenceMap || {});
+      if (Array.isArray(removedKeys)) {
+        removedKeys.forEach(function(rk) {
+          if (rk && !nextLive[rk]) {
+            mergedWin[rk] = Object.assign({}, mergedWin[rk] || {}, { status: 'offline', last_seen: nowTs, _live: false });
+          }
+        });
+      }
+      Object.keys(nextLive).forEach(function(k) {
+        mergedWin[k] = nextLive[k];
+      });
+      window._globalPresenceMap = mergedWin;
+      try {
+        localStorage.setItem('bb_member_presence', JSON.stringify(mergedWin));
+      } catch (_) {}
+      if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('bb:presence_updated', { detail: mergedWin }));
+      }
+    }
+    if (typeof global !== 'undefined') {
+      global._livePresenceMap = Object.assign({}, _livePresenceMap);
+      var mergedGlob = Object.assign({}, global._globalPresenceMap || {});
+      if (Array.isArray(removedKeys)) {
+        removedKeys.forEach(function(rk) {
+          if (rk && !nextLive[rk]) {
+            mergedGlob[rk] = Object.assign({}, mergedGlob[rk] || {}, { status: 'offline', last_seen: nowTs, _live: false });
+          }
+        });
+      }
+      Object.keys(nextLive).forEach(function(k) {
+        mergedGlob[k] = nextLive[k];
+      });
+      global._globalPresenceMap = mergedGlob;
+    }
+
+    var refreshDots = (typeof refreshLivePresenceDots === 'function')
+      ? refreshLivePresenceDots
+      : (typeof window !== 'undefined' && typeof window.refreshLivePresenceDots === 'function' ? window.refreshLivePresenceDots : null);
+    if (refreshDots) {
+      try { refreshDots(); } catch (_) {}
+    }
+
+    if (_broadcastChannel) {
+      try {
+        _broadcastChannel.postMessage({
+          type: 'PORTAL_REALTIME_PRESENCE_SYNC',
+          senderId: _realtimeTabId,
+          liveMap: _livePresenceMap,
+          removedKeys: Array.isArray(removedKeys) ? removedKeys : []
+        });
+      } catch (_) {}
+    }
+  }
+
+  function applyRealtimePresenceState(state) {
+    _livePresenceRefs = Object.create(null);
+    if (state && typeof state === 'object') {
+      Object.keys(state).forEach(function(phxKey) {
+        var entry = state[phxKey];
+        if (entry && Array.isArray(entry.metas) && entry.metas.length) {
+          _livePresenceRefs[phxKey] = entry.metas.slice();
+        }
+      });
+    }
+    publishLivePresence([]);
+  }
+
+  function applyRealtimePresenceDiff(diff) {
+    if (!diff || typeof diff !== 'object') return;
+    var removedKeys = [];
+
+    if (diff.joins && typeof diff.joins === 'object') {
+      Object.keys(diff.joins).forEach(function(phxKey) {
+        var entry = diff.joins[phxKey];
+        var incoming = (entry && Array.isArray(entry.metas)) ? entry.metas : [];
+        if (!incoming.length) return;
+        var existing = Array.isArray(_livePresenceRefs[phxKey]) ? _livePresenceRefs[phxKey] : [];
+        var seenRefs = new Set(existing.map(function(m) { return m && m.phx_ref; }).filter(Boolean));
+        incoming.forEach(function(m) {
+          if (!m) return;
+          if (m.phx_ref && seenRefs.has(m.phx_ref)) return;
+          existing.push(m);
+          if (m.phx_ref) seenRefs.add(m.phx_ref);
+        });
+        _livePresenceRefs[phxKey] = existing;
+      });
+    }
+
+    if (diff.leaves && typeof diff.leaves === 'object') {
+      Object.keys(diff.leaves).forEach(function(phxKey) {
+        var entry = diff.leaves[phxKey];
+        var leaving = (entry && Array.isArray(entry.metas)) ? entry.metas : [];
+        var leaveRefs = new Set(leaving.map(function(m) { return m && m.phx_ref; }).filter(Boolean));
+        leaving.forEach(function(m) {
+          var mk = String((m && (m.key || m.email || m.ic)) || phxKey || '').toLowerCase().trim();
+          if (mk && !mk.startsWith('rt_')) removedKeys.push(mk);
+        });
+        var current = _livePresenceRefs[phxKey];
+        if (Array.isArray(current)) {
+          var remaining = current.filter(function(m) {
+            return !(m && m.phx_ref && leaveRefs.has(m.phx_ref));
+          });
+          if (remaining.length) _livePresenceRefs[phxKey] = remaining;
+          else delete _livePresenceRefs[phxKey];
+        }
+      });
+    }
+
+    publishLivePresence(removedKeys);
+  }
+
+  function sendWsPresenceTrack(payload) {
+    if (!_ws || _ws.readyState !== WebSocket.OPEN || !_channelJoined || !payload) return false;
+    try {
+      _ws.send(JSON.stringify({
+        topic: 'realtime:public',
+        event: 'presence',
+        payload: {
+          type: 'presence',
+          event: 'track',
+          payload: payload
+        },
+        ref: String(_refCounter++)
+      }));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function trackPresence(key, payload) {
+    var cleanKey = String(key || '').toLowerCase().trim();
+    if (!cleanKey || !payload || typeof payload !== 'object') return false;
+    var trackPayload = Object.assign({}, payload, { key: cleanKey });
+    _trackedPresence = { key: cleanKey, payload: trackPayload };
+    if (sendWsPresenceTrack(trackPayload)) {
+      return true;
+    }
+    // Follower tabs ask the leader tab to relay presence over its single shared WebSocket
+    if (_broadcastChannel) {
+      try {
+        _broadcastChannel.postMessage({
+          type: 'PORTAL_REALTIME_PRESENCE_TRACK',
+          senderId: _realtimeTabId,
+          key: cleanKey,
+          payload: trackPayload
+        });
+      } catch (_) {}
+    }
+    return false;
+  }
+
+  function untrackPresence() {
+    _trackedPresence = null;
+    if (_ws && _ws.readyState === WebSocket.OPEN && _channelJoined) {
+      try {
+        _ws.send(JSON.stringify({
+          topic: 'realtime:public',
+          event: 'presence',
+          payload: {
+            type: 'presence',
+            event: 'untrack'
+          },
+          ref: String(_refCounter++)
+        }));
+      } catch (_) {}
+    } else if (_broadcastChannel) {
+      try {
+        _broadcastChannel.postMessage({
+          type: 'PORTAL_REALTIME_PRESENCE_UNTRACK',
+          senderId: _realtimeTabId
+        });
+      } catch (_) {}
+    }
+  }
 
   function forwardToFollowerTabs(entity, action, data, senderId, msgId) {
     if (!_broadcastChannel) return;
@@ -1247,6 +1459,39 @@ var PortalRealtime = (function() {
             var firstKey = _seenRealtimeMsgIds.keys().next().value;
             _seenRealtimeMsgIds.delete(firstKey);
           }
+        }
+        if (msg.type === 'PORTAL_REALTIME_PRESENCE_SYNC' && msg.liveMap && typeof msg.liveMap === 'object') {
+          _livePresenceMap = Object.assign(Object.create(null), msg.liveMap);
+          var nowSync = Date.now();
+          if (typeof window !== 'undefined') {
+            window._livePresenceMap = Object.assign({}, _livePresenceMap);
+            var mergedFollower = Object.assign({}, window._globalPresenceMap || {});
+            (msg.removedKeys || []).forEach(function(rk) {
+              if (rk && !_livePresenceMap[rk]) {
+                mergedFollower[rk] = Object.assign({}, mergedFollower[rk] || {}, { status: 'offline', last_seen: nowSync, _live: false });
+              }
+            });
+            Object.keys(_livePresenceMap).forEach(function(k) { mergedFollower[k] = _livePresenceMap[k]; });
+            window._globalPresenceMap = mergedFollower;
+            if (typeof window.dispatchEvent === 'function') {
+              window.dispatchEvent(new CustomEvent('bb:presence_updated', { detail: mergedFollower }));
+            }
+            if (typeof window.refreshLivePresenceDots === 'function') {
+              try { window.refreshLivePresenceDots(); } catch (_) {}
+            }
+          }
+          return;
+        }
+        if (msg.type === 'PORTAL_REALTIME_PRESENCE_TRACK' && msg.key && msg.payload) {
+          _trackedPresence = { key: msg.key, payload: msg.payload };
+          sendWsPresenceTrack(msg.payload);
+          return;
+        }
+        if (msg.type === 'PORTAL_REALTIME_PRESENCE_UNTRACK') {
+          if (_ws && _ws.readyState === WebSocket.OPEN && _channelJoined) {
+            untrackPresence();
+          }
+          return;
         }
         if (msg.type === 'PORTAL_REALTIME_CHANGE') {
           triggerEntityUpdate(msg.entity, msg.action, msg.data, true);
@@ -1386,7 +1631,12 @@ var PortalRealtime = (function() {
 
       _ws.onopen = function() {
         _reconnectAttempts = 0;
-        // Join realtime:public channel for instant cross-device Broadcast push.
+        _channelJoined = false;
+        var joinPresenceKey = (_trackedPresence && _trackedPresence.key)
+          || (typeof sessionGet === 'function' ? String(sessionGet('email') || sessionGet('ic') || '').toLowerCase().trim() : '')
+          || _realtimeTabId;
+        _joinRef = String(_refCounter++);
+        // Join realtime:public channel for instant cross-device Broadcast & Native Presence.
         // postgres_changes is left empty because tables are not published to supabase_realtime;
         // requesting unpublished tables generates an error log on every client join.
         var joinMsg = {
@@ -1395,10 +1645,11 @@ var PortalRealtime = (function() {
           payload: {
             config: {
               broadcast: { self: false },
+              presence: { key: joinPresenceKey },
               postgres_changes: []
             }
           },
-          ref: String(_refCounter++)
+          ref: _joinRef
         };
         _ws.send(JSON.stringify(joinMsg));
 
@@ -1426,6 +1677,23 @@ var PortalRealtime = (function() {
         if (!event || !event.data) return;
         try {
           var data = JSON.parse(event.data);
+
+          // 0. Phoenix Join Ack & Native Supabase Realtime Presence (0 DB reads/writes)
+          if (data.event === 'phx_reply' && data.ref === _joinRef && data.payload && data.payload.status === 'ok') {
+            _channelJoined = true;
+            if (_trackedPresence && _trackedPresence.payload) {
+              sendWsPresenceTrack(_trackedPresence.payload);
+            }
+            return;
+          }
+          if (data.event === 'presence_state' && data.payload && typeof data.payload === 'object') {
+            applyRealtimePresenceState(data.payload);
+            return;
+          }
+          if (data.event === 'presence_diff' && data.payload && typeof data.payload === 'object') {
+            applyRealtimePresenceDiff(data.payload);
+            return;
+          }
 
           // 1. Supabase Cross-Device Broadcast Events
           if (data.event === 'broadcast' && data.payload) {
@@ -1548,6 +1816,7 @@ var PortalRealtime = (function() {
       var socket = _ws;
       _ws.onclose = function() {
         if (_ws !== socket) return;
+        _channelJoined = false;
         if (_heartbeatTimer) clearInterval(_heartbeatTimer);
         if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
         var delay = Math.min(10000, 1000 * Math.pow(2, _reconnectAttempts++));
@@ -1592,7 +1861,7 @@ var PortalRealtime = (function() {
 
     _deltaSyncInFlight = true;
     try {
-      var rows = await client.get('bb_config?key=in.(bb_admin_roles,bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_project_statuses,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights,bb_member_presence,bb_member_pfps)&select=key,updated_at', { cache: false });
+      var rows = await client.get('bb_config?key=in.(bb_admin_roles,bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_project_statuses,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights,bb_member_pfps)&select=key,updated_at', { cache: false });
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r?.key) return;
@@ -2785,6 +3054,13 @@ var PortalRealtime = (function() {
     broadcast: broadcastLocalChange,
     trigger: triggerEntityUpdate,
     triggerEntityUpdate: triggerEntityUpdate,
+    trackPresence: trackPresence,
+    untrackPresence: untrackPresence,
+    getLivePresence: function() {
+      return Object.assign({}, _livePresenceMap);
+    },
+    applyPresenceState: applyRealtimePresenceState,
+    applyPresenceDiff: applyRealtimePresenceDiff,
     checkDeltaSync: checkDeltaSync
   };
 })();

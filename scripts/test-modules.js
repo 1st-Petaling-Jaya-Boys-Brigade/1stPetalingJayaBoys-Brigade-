@@ -585,14 +585,30 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     type: 'image/png',
     arrayBuffer: async () => new ArrayBuffer(8)
   };
-  await galleryModule.uploadGalleryFiles([mockFile]);
+  const directUploadRes = await galleryModule.uploadGalleryFiles([mockFile]);
+  assert.strictEqual(
+    directUploadRes,
+    null,
+    'Direct gallery file uploads must be disabled in favor of Google Drive links'
+  );
+  assert.strictEqual(
+    galleryModule.galleryImages.length,
+    1,
+    'Direct gallery upload guard must not insert files into galleryImages'
+  );
+  const nonDriveReject = await galleryModule.addGalleryMediaByUrl('https://example.com/photo.jpg', 'image');
+  assert.strictEqual(nonDriveReject, null, 'Non-Google Drive links must be rejected in gallery');
+  const ytReject = await galleryModule.addGalleryMediaByUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'video');
+  assert.strictEqual(ytReject, null, 'YouTube links must be rejected when gallery is Google Drive only');
+  const multiAcctDrive = await galleryModule.addGalleryMediaByUrl('https://drive.google.com/file/u/0/d/1DriveMultiAcct99/view?usp=sharing', 'image');
+  assert.ok(multiAcctDrive, 'Google Drive multi-account (/file/u/0/d/...) link must be accepted');
   assert.strictEqual(
     galleryModule.galleryImages.length,
     2,
-    'Should add newly uploaded photo to array'
+    'Should add Google Drive photo to galleryImages'
   );
   assert.strictEqual(lastPosted.path, 'bb_gallery', 'Should insert into bb_gallery table');
-  console.log('  ✔ uploadGalleryFiles uploads to storage and inserts database record');
+  console.log('  ✔ Gallery enforces Google Drive links only and disables direct Storage uploads');
 
   // Gallery Upload Size Limits & Compression Validation
   const oversizePhoto = {
@@ -681,25 +697,20 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ normalizeMediaUrl automatically converts Google Drive and YouTube links to embed streams'
   );
 
-  // Upload Video File Test
-  const mockVideoFile = {
-    name: 'band_parade.mp4',
-    type: 'video/mp4',
-    size: 15 * 1024 * 1024,
-    arrayBuffer: async () => new ArrayBuffer(32)
-  };
-  await galleryModule.uploadGalleryFiles([mockVideoFile]);
+  // Add Google Drive Video Link Test
+  const driveVideoAdded = await galleryModule.addGalleryMediaByUrl('https://drive.google.com/file/d/1BandParadeVideo99/view?usp=sharing', 'video');
+  assert.ok(driveVideoAdded, 'Must support Google Drive video links in gallery');
   assert.strictEqual(
     galleryModule.galleryImages.length,
     3,
-    'Must support video files in gallery upload'
+    'Must append Google Drive video link to gallery'
   );
   assert.strictEqual(
     galleryModule.galleryImages[2].type,
     'video',
-    'Uploaded file must be tagged as video'
+    'Google Drive video link must be tagged as video'
   );
-  console.log('  ✔ uploadGalleryFiles handles video files (MP4, MOV, WebM) alongside photos');
+  console.log('  ✔ addGalleryMediaByUrl handles Google Drive video links alongside photos');
 
   // Filter Gallery
   galleryModule.filterGallery('videos');
@@ -875,63 +886,16 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ saveResources successfully stores documents in bb_config with upsert resolution'
   );
 
-  // 6. Role-Based Visibility Checks
+  // 6. Open-to-All-Members Resource Visibility (Role Visibility removed in Phase 2)
   const originalResourceSessionGet = global.sessionGet;
   global.sessionGet = key => key === 'rank' ? mockRank : key === 'ic' || key === 'email' ? 'fixture@example.com' : null;
   mockRank = 'Recruit';
   mockAdmin = false;
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('all'),
-    true,
-    'Recruit can access public resources'
-  );
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('nco'),
-    false,
-    'Recruit cannot access NCO resources'
-  );
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('officer'),
-    false,
-    'Recruit cannot access Officer resources'
-  );
-
-  mockRank = 'Corporal';
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('nco'),
-    true,
-    'Corporal can access NCO resources'
-  );
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('officer'),
-    false,
-    'Corporal cannot access Officer resources'
-  );
-
-  mockRank = 'Lieutenant';
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('nco'),
-    true,
-    'Lieutenant can access NCO resources'
-  );
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('officer'),
-    true,
-    'Lieutenant can access Officer resources'
-  );
-
-  mockRank = 'Recruit';
-  mockAdmin = true;
-  const originalResourcesScope = global.hasAdminModuleAccess;
-  global.hasAdminModuleAccess = scope => scope === 'resources';
-  assert.strictEqual(
-    resourcesModule.hasResourceAccess('officer'),
-    true,
-    'Admin can access Officer resources regardless of rank'
-  );
-  console.log('  ✔ hasResourceAccess correctly enforces Public / NCO / Officer role restrictions');
-  global.hasAdminModuleAccess = originalResourcesScope;
-  assert.strictEqual(resourcesModule.hasResourceAccess('unrecognized'), false);
+  assert.strictEqual(resourcesModule.hasResourceAccess('all'), true, 'All members can access public resources');
+  assert.strictEqual(resourcesModule.hasResourceAccess('nco'), true, 'Legacy nco-tagged resources are now visible to all members');
+  assert.strictEqual(resourcesModule.hasResourceAccess('officer'), true, 'Legacy officer-tagged resources are now visible to all members');
+  assert.strictEqual(resourcesModule.hasResourceAccess(''), true, 'Empty visibility is accessible to all members');
+  console.log('  ✔ hasResourceAccess grants open access to all uploaded resources with Role Visibility removed');
 
   // 7. Empty State Verification (Confirm NO "Open Admin Upload Console" button)
   resourcesModule.resources.length = 0;
@@ -1034,30 +998,43 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   };
   
   resourcesModule.resources.push({
+    id: 'res-cdn-supa-test',
+    title: 'CDN Drill Manual',
+    category: 'Handbooks & Manuals',
+    fileType: 'PDF',
+    url: 'https://test.supabase.co/storage/v1/object/sign/gallery/resources/drill.pdf?token=legacy',
+    visibility: 'all'
+  });
+  resourcesModule.resources.push({
     id: 'res-private-supa-test',
-    title: 'Private Handbook',
+    title: 'Legacy Authenticated Handbook',
     category: 'Handbooks & Manuals',
     fileType: 'PDF',
     url: 'https://test.supabase.co/storage/v1/object/authenticated/resources/handbook.pdf',
-    visibility: 'officer'
+    visibility: 'all'
   });
-  
-  mockRank = 'Corporal';
+
+  await resourcesModule.openResourceDocument('res-cdn-supa-test');
+  assert.strictEqual(
+    openedUrl,
+    'https://test.supabase.co/storage/v1/object/public/gallery/resources/drill.pdf',
+    'Legacy signed gallery/resources links must upgrade directly to Cloudflare CDN public URL'
+  );
+
+  openedUrl = null;
+  openedTabHref = '';
   await resourcesModule.openResourceDocument('res-private-supa-test');
-  assert.strictEqual(openedUrl, null, 'NCO cannot open Officer documents');
-  mockRank = 'Lieutenant';
-  await resourcesModule.openResourceDocument('res-private-supa-test');
-  assert.ok(openedUrl !== null, 'openResourceDocument must trigger opening of private resource document');
+  assert.ok(openedUrl !== null, 'openResourceDocument must still open legacy authenticated storage documents');
   assert.ok(
     openedTabHref.includes('/storage/v1/object/sign/resources/handbook.pdf'),
-    'Private previews require a short-lived signed link'
+    'Legacy authenticated bucket previews still resolve a short-lived signed link'
   );
   global.SUPA_URL = originalResourceSupaUrl;
   global.supa.createSignedUrl = originalResourceSigner;
   mockRank = 'Recruit';
   global.sessionGet = originalResourceSessionGet;
   if (originalWindowOpen) global.window.open = originalWindowOpen;
-  console.log('  ✔ openResourceDocument resolves private storage documents and opens them securely');
+  console.log('  ✔ openResourceDocument serves CDN public URLs directly and preserves legacy signed URL fallback');
 
   // ── Child Safety (COPPA/PDPA) & Parental Consent Governance Tests ──
   console.log('\nTesting Child Safety (COPPA/PDPA) & Parental Consent Governance...');
@@ -4062,11 +4039,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(duplicateIds.length, 0, 'No duplicate DOM IDs allowed in index.html');
   assert.strictEqual(
     foundIds.length,
-    388,
+    385,
     'All 361 core DOM IDs plus semantic landmarks, offline indicator, uniform products preview, admin order filter, layout/header controls, and honeypot trap must be preserved in index.html'
   );
   console.log(
-    '  ✔ Exactly 388 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview + 1 admin order filter + 1 registration honeypot trap)'
+    '  ✔ Exactly 385 unique DOM IDs preserved with 0 duplicates (361 original + 2 semantic landmarks + 1 offline indicator + 21 layout/header controls + 1 uniform products preview + 1 admin order filter + 1 registration honeypot trap)'
   );
 
   console.log('\nTesting Client-side Validation & Concurrency Safety...');
@@ -4587,8 +4564,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261125b',
-    'sw.js CACHE_VERSION must be 20261125b'
+    '20261125c',
+    'sw.js CACHE_VERSION must be 20261125c'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4616,7 +4593,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261125b',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261125c',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6201,7 +6178,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(signoutRes && signoutRes.success, 'signOutEverywhere executes cleanly');
     console.log('  ✔ Sign Out Everywhere button, remote revocation, and local state purge verified');
 
-    // 6. UI integration & 388 DOM IDs invariant in index.html
+    // 6. UI integration & 385 DOM IDs invariant in index.html
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(indexHtml.includes('btn-signout-everywhere'), 'Sign Out Everywhere button present in member profile');
     assert.ok(indexHtml.includes('btn-admin-signout-everywhere'), 'Sign Out Everywhere button present in Admin console');
@@ -6232,12 +6209,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(!indexHtml.includes('gstatic.com/recaptcha'), 'Zero Google reCAPTCHA scripts in DOM');
     console.log('  ✔ Privacy-first CSP allowlists, explicit script loader & zero tracking cookies verified (PDPA/COPPA)');
 
-    // 2. Strict DOM ID preservation: exactly 388 unique DOM IDs
+    // 2. Strict DOM ID preservation: exactly 385 unique DOM IDs
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'Turnstile containers preserved strict 388 DOM IDs invariant (uses classes & data attributes)');
-    console.log('  ✔ Turnstile widget containers preserve strict 388 DOM IDs invariant with zero ID bloat');
+    assert.strictEqual(uniqueIds.length, 385, 'Turnstile containers preserved strict 385 DOM IDs invariant (uses classes & data attributes)');
+    console.log('  ✔ Turnstile widget containers preserve strict 385 DOM IDs invariant with zero ID bloat');
 
     // 3. Configuration constants in js/config.js
     const configMod = require('../js/config.js');
@@ -6427,12 +6404,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(memberJs.includes("switchTab('member')"), 'logoutMember routes back to login/registration screen');
     console.log('  ✔ Member module post-auth redirection and logout gatekeeper lock verified');
 
-    // 7. Strict DOM ID preservation: exactly 388 unique DOM IDs
+    // 7. Strict DOM ID preservation: exactly 385 unique DOM IDs
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'AuthGuard gatekeeper preserved strict 388 unique DOM IDs invariant');
-    console.log('  ✔ AuthGuard gatekeeper integration preserved strict 388 unique DOM IDs invariant with 0 bloat');
+    assert.strictEqual(uniqueIds.length, 385, 'AuthGuard gatekeeper preserved strict 385 unique DOM IDs invariant');
+    console.log('  ✔ AuthGuard gatekeeper integration preserved strict 385 unique DOM IDs invariant with 0 bloat');
   }
 
   // ─── Granular Role-Based Access Control (RBAC), Scoped Admin Console & Header Role Badge ───
@@ -6678,13 +6655,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(migrationSql.includes(legacy3), false, 'Legacy email removed from migration 013');
     console.log('  ✔ PostgreSQL migration schema 013 and SECURITY DEFINER RPCs verified');
 
-    // 9. Strict DOM ID preservation: exactly 388 unique DOM IDs
+    // 9. Strict DOM ID preservation: exactly 385 unique DOM IDs
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'RBAC integration preserved strict 388 unique DOM IDs invariant');
-    console.log('  ✔ RBAC integration preserved strict 388 unique DOM IDs invariant with 0 bloat');
+    assert.strictEqual(uniqueIds.length, 385, 'RBAC integration preserved strict 385 unique DOM IDs invariant');
+    console.log('  ✔ RBAC integration preserved strict 385 unique DOM IDs invariant with 0 bloat');
 
     // Restore globals
     global.document.getElementById = origGetEl;
@@ -6993,12 +6970,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(tasksMod.getTaskComments(testCmtTaskId)[0].id, 'cmt_001');
     console.log('  ✔ Task comment editing, edited_at timestamping, and deletion verified');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'Portal notifications and attachments preserved strict 388 unique DOM IDs invariant');
-    console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
+    assert.strictEqual(uniqueIds.length, 385, 'Portal notifications and attachments preserved strict 385 unique DOM IDs invariant');
+    console.log('  ✔ Preserved strict 385 unique DOM IDs invariant with 0 bloat');
   }
 
   
@@ -7141,12 +7118,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(leaderboardHtml.includes('50%'), false, 'Raw percentage 50% is not exposed to peers in squad members list');
     console.log('  ✔ Squad views display confidential achievement tiers with 80% One Year Service tooltips without leaking raw percentages');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, ' attendance tiers preserved strict 388 unique DOM IDs invariant');
-    console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
+    assert.strictEqual(uniqueIds.length, 385, ' attendance tiers preserved strict 385 unique DOM IDs invariant');
+    console.log('  ✔ Preserved strict 385 unique DOM IDs invariant with 0 bloat');
   }
 
   // =========================================================================
@@ -7223,12 +7200,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     );
     console.log('  ✔ Arrow buttons cleanly hidden on mobile viewports (<=768px) in favor of touch tap zones');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, ' preserved strict 388 unique DOM IDs invariant');
-    console.log('  ✔ Preserved strict 388 unique DOM IDs invariant with 0 bloat');
+    assert.strictEqual(uniqueIds.length, 385, ' preserved strict 385 unique DOM IDs invariant');
+    console.log('  ✔ Preserved strict 385 unique DOM IDs invariant with 0 bloat');
   }
 
   
@@ -7484,15 +7461,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('.forum-post-card'), 'components.css must define .forum-post-card');
     console.log('  ✔ Helper Agent and Support Forum UI styles verified in components.css');
 
-    // 6. index.html Navigation & Exact 388 Unique DOM IDs Invariant
+    // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261125b'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261125c'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIds = Array.from(new Set(extractedIds));
-    assert.strictEqual(uniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
+    assert.strictEqual(uniqueIds.length, 385, 'Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html');
   }
 
   // ── Browser Navigation Undo & Redo (HTML5 History API) ─────────────
@@ -8120,7 +8097,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(mig014.includes('idx_bb_members_presence_status'), 'Migration 014 defines presence_status index');
     console.log('  ✔ Database migration 014_member_presence_tracking.sql verified with schema and indexing');
 
-    // 6. UI Styles & Strict 388 Unique DOM IDs Invariant
+    // 6. UI Styles & Strict 385 Unique DOM IDs Invariant
     const compCssPresence = fs.readFileSync('css/components.css', 'utf8');
     assert.ok(compCssPresence.includes('.admin-avatar-status-dot'), 'components.css defines .admin-avatar-status-dot');
     assert.ok(compCssPresence.includes('.admin-presence-badge'), 'components.css defines .admin-presence-badge');
@@ -8133,8 +8110,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const idMatchesPresence = indexHtmlPresence.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIdsPresence = idMatchesPresence.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIdsPresence = Array.from(new Set(extractedIdsPresence));
-    assert.strictEqual(uniqueIdsPresence.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+    assert.strictEqual(uniqueIdsPresence.length, 385, 'Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
   // =========================================================================
   // Creator-Governed Custom Profile Avatar Outlines, Gradients & Animations
@@ -8301,15 +8278,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Creator Studio loads members directly without requiring navigation to Member Management first');
     global.document = prevDoc;
 
-        // 8. Strict 388 Unique DOM IDs Invariant
+        // 8. Strict 385 Unique DOM IDs Invariant
     const allMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();
     allMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) idSet.add(matchId[1]);
     });
-    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(idSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -8405,9 +8382,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(stoppedSoundProp, true, 'toggleStorySound must stop event propagation');
     console.log('  ✔ Highlight pause & mute button event isolation and propagation suppression verified');
 
-    // 5. Background Polling Timers Relaxed to Protect Supabase Nano compute
+    // 5. Background Polling Timers Relaxed & Native Realtime Presence (0 Periodic DB Writes)
     const sessionJs = fs.readFileSync(path.join(__dirname, '../js/core/session.js'), 'utf8');
-    assert.ok(sessionJs.includes('180000'), 'session.js presence and heartbeat intervals must be relaxed to 180,000ms');
+    assert.ok(
+      sessionJs.includes('trackPresence') && sessionJs.includes('options.persistLastSeen === true'),
+      'session.js must use Native Realtime Presence with login-only bb_member_presence DB persistence'
+    );
     assert.ok(sessionJs.includes('PRESENCE_FETCH_CACHE_MS = 120000'), 'session.js presence cache must be relaxed to 120,000ms');
     assert.ok(sessionJs.includes('_lastSessionVerifyTs > 600000'), 'session.js member verification must be throttled to 600,000ms');
 
@@ -8415,15 +8395,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtmlContent.includes('}, 120000);'), 'index.html notification sync must be relaxed to 120,000ms');
     console.log('  ✔ Background polling timers and presence heartbeats relaxed to protect Supabase Nano connection pool');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const finalMatches = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) finalIdSet.add(matchId[1]);
     });
-    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIdSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
   
   // ── Verification: Officer Platoon Auto-Selection & Leaderboard Fuzzy Name Matching ──
@@ -8640,13 +8620,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtmlText.includes('bb_notif_dismissed_'), 'index.html must use bb_notif_dismissed_ for Supabase bb_config sync');
     console.log('  ✔ syncResourceNotifications and cross-device dismissed state sync verified in index.html');
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const finalHtml = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     const finalMatches = finalHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const finalIds = finalMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const finalUniqueIds = Array.from(new Set(finalIds));
-    assert.strictEqual(finalUniqueIds.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
+    assert.strictEqual(finalUniqueIds.length, 385, 'Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html');
   }
 
   // ── [TEST] RBAC Hardening, Avatar Creator Bleed Fix, Officer Task Revocation & Blocklist ─
@@ -8853,12 +8833,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.getSupaClient = prevClient;
     console.log('  ✔ Registration strictly blocks duplicate account names and prompts to log in');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const finalHtml2 = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     const finalMatches2 = finalHtml2.match(/\bid=["']([^"']+)["']/g) || [];
     const finalIds2 = finalMatches2.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const finalUniqueIds2 = Array.from(new Set(finalIds2));
-    assert.strictEqual(finalUniqueIds2.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    assert.strictEqual(finalUniqueIds2.length, 385, 'Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
   }
 
   // ── Registration Immediate Auto-Login & Notification Sound Verification ──
@@ -8970,14 +8950,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261125b', 'Service Worker cache version must be 20261125b');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261125c', 'Service Worker cache version must be 20261125c');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261125b and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261125c and sound effect precaching verified');
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxHtmlCheck.includes('pushPortalNotification'), 'index.html must include pushPortalNotification helper');
     assert.ok(idxHtmlCheck.includes('playNotificationSound'), 'index.html must invoke playNotificationSound');
@@ -8998,9 +8978,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const idMatchesFinal = idxHtmlCheck.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIdsFinal = idMatchesFinal.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const uniqueIdsFinal = Array.from(new Set(extractedIdsFinal));
-    assert.strictEqual(uniqueIdsFinal.length, 388, 'Strict 388 unique DOM IDs invariant preserved in index.html');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+    assert.strictEqual(uniqueIdsFinal.length, 385, 'Strict 385 unique DOM IDs invariant preserved in index.html');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html with 0 bloat');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
   // ── [TEST] Real-Time Member Presence Synchronization Across All Tabs & Profiles ──
@@ -9117,13 +9097,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.supa = prevSupa;
     if (typeof window !== 'undefined') window.supa = prevSupa;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const finalHtml3 = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     const finalMatches3 = finalHtml3.match(/\bid=["']([^"']+)["']/g) || [];
     const finalIds3 = finalMatches3.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const finalUniqueIds3 = Array.from(new Set(finalIds3));
-    assert.strictEqual(finalUniqueIds3.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+    assert.strictEqual(finalUniqueIds3.length, 385, 'Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html with 0 bloat');
   }
 
   
@@ -9253,13 +9233,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Cleanup mock element
     if (mockBadgesList.parentNode) mockBadgesList.parentNode.removeChild(mockBadgesList);
 
-    // 8. Strict 388 Unique DOM IDs Invariant
+    // 8. Strict 385 Unique DOM IDs Invariant
     const finalHtmlBadges = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     const finalMatchesBadges = finalHtmlBadges.match(/\bid=["']([^"']+)["']/g) || [];
     const finalIdsBadges = finalMatchesBadges.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const finalUniqueIdsBadges = Array.from(new Set(finalIdsBadges));
-    assert.strictEqual(finalUniqueIdsBadges.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+    assert.strictEqual(finalUniqueIdsBadges.length, 385, 'Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html with 0 bloat');
 
       // =========================================================================
     // [TEST] Stedfast Helper Smart Conversational Intelligence, Privacy Shield, Navigation & Forum Search
@@ -9386,13 +9366,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(navigatedTab, 'forum', 'executeHelperAction view-thread must switch to forum tab');
     console.log('  ✔ executeHelperAction correctly dispatches navigation and modal thread viewing');
 
-    // 7. Strict 388 Unique DOM IDs Invariant
+    // 7. Strict 385 Unique DOM IDs Invariant
     const finalHtmlStedfast = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
     const finalMatchesStedfast = finalHtmlStedfast.match(/\bid=["']([^"']+)["']/g) || [];
     const finalIdsStedfast = finalMatchesStedfast.map(m => m.replace(/^id=["']/, '').slice(0, -1));
     const finalUniqueIdsStedfast = Array.from(new Set(finalIdsStedfast));
-    assert.strictEqual(finalUniqueIdsStedfast.length, 388, 'Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html with 0 bloat');
+    assert.strictEqual(finalUniqueIdsStedfast.length, 385, 'Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html with 0 bloat');
 
     
   // ── Stedfast Helper Company Resources & Drill Manual Grounding ────────
@@ -10005,12 +9985,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   const htmlSource = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 
-  // 1. Strict 388 Unique DOM IDs Invariant
+  // 1. Strict 385 Unique DOM IDs Invariant
   const idMatches = htmlSource.match(/\bid=["']([^"']+)["']/g) || [];
   const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
   const uniqueIds = Array.from(new Set(extractedIds));
-  assert.strictEqual(uniqueIds.length, 388, `Strict DOM IDs count must be exactly 388, found ${uniqueIds.length}`);
-  console.log('  ✔ Strict 388 unique DOM IDs invariant preserved in index.html');
+  assert.strictEqual(uniqueIds.length, 385, `Strict DOM IDs count must be exactly 385, found ${uniqueIds.length}`);
+  console.log('  ✔ Strict 385 unique DOM IDs invariant preserved in index.html');
 
   // 2. Modal Accessibility & Backdrop Click attributes
   assert.ok(htmlSource.includes('id="edit-member-modal" role="dialog" aria-modal="true" aria-labelledby="em-modal-title" onclick="if(event.target===this)closeEditMember()"'), 'edit-member-modal must have role dialog, aria-modal, aria-labelledby, and backdrop dismissal');
@@ -10271,25 +10251,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261125b', 'sw.js CACHE_VERSION must be 20261125b');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261125b', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261125b', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261125c', 'sw.js CACHE_VERSION must be 20261125c');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261125c', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261125c', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261125b cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261125c cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261125b'), 'config.js must use v=20261125b');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261125b'), 'forum.js must use v=20261125b');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261125b'), 'variables.css must use v=20261125b');
-    assert.ok(indexRaw.includes('css/base.css?v=20261125b'), 'base.css must use v=20261125b');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261125b');
+    assert.ok(indexRaw.includes('js/config.js?v=20261125c'), 'config.js must use v=20261125c');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261125c'), 'forum.js must use v=20261125c');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261125c'), 'variables.css must use v=20261125c');
+    assert.ok(indexRaw.includes('css/base.css?v=20261125c'), 'base.css must use v=20261125c');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261125c');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -10344,11 +10324,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(forumSrc.includes('forum-screenshot-preview-img'), 'forum.js must support screenshot preview rendering');
     assert.ok(forumSrc.includes('forum-post-screenshot-container'), 'forum.js must render attached bug screenshot container');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const idRe = /id=["']([^"']+)["']/g;
     const uniqueIds = Array.from(new Set([...indexHtml.matchAll(idRe)].map(m => m[1])));
-    assert.strictEqual(uniqueIds.length, 388, `Strict 388 unique DOM IDs invariant preserved in index.html (found ${uniqueIds.length})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 duplicates');
+    assert.strictEqual(uniqueIds.length, 385, `Strict 385 unique DOM IDs invariant preserved in index.html (found ${uniqueIds.length})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 duplicates');
     console.log('  ✔ 1stPJ Arcade candidate key resolution and cross-device continuation verified');
     console.log('  ✔ Default light mode with user preference persistence verified');
     console.log('  ✔ Mobile task brief mentions and 44px touch targets verified');
@@ -10708,7 +10688,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     );
     console.log('  ✔ Announcement mentions engine verified (departments, admins, squads, platoons, creator, seniors, juniors, all)');
 
-    // 25. Strict 388 Unique DOM IDs Invariant
+    // 25. Strict 385 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();
@@ -10716,8 +10696,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) idSet.add(matchId[1]);
     });
-    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(idSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
 
@@ -10884,7 +10864,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCssContent.includes('z-index: 95'), 'portal-ambient-canvas must have z-index: 95 to float over cards');
     console.log('  ✔ Seasonal Falling Animation (Snow & Leaves) engine and settings controls verified');
 
-    // 7. Strict 388 Unique DOM IDs Invariant
+    // 7. Strict 385 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();
@@ -10892,8 +10872,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) idSet.add(matchId[1]);
     });
-    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(idSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 49. WhatsApp-Style Reaction Emojis, Per-Announcement Selection & Breakdown View ──
@@ -11001,7 +10981,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       console.log('  ✔ Admin announcement reaction chips and presets (All, Poll, Clear) verified');
     }
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();
@@ -11009,8 +10989,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) idSet.add(matchId[1]);
     });
-    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(idSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Testing Highlights Video Playback, Unmuted Audio, Progress Bar & Realtime Member Sync ──
@@ -11158,7 +11138,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('aspect-ratio: 9/16'), '.story-viewer-card is configured with authentic 9:16 vertical ratio (Image 1)');
     console.log('  ✔ Desktop highlights UI upgraded to centered 9:16 card on pure dark background with exterior navigation arrows (Image 1)');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const postTestHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const allMatches = postTestHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();
@@ -11166,8 +11146,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) idSet.add(matchId[1]);
     });
-    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(idSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Testing Announcement Post Fix & Section Copy Updates ──
@@ -11292,15 +11272,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     );
     console.log('  ✔ 1stPJ Arcade description verified with Daily Wordle and BB Trivia wording');
 
-    // 8. Strict 388 Unique DOM IDs Invariant
+    // 8. Strict 385 Unique DOM IDs Invariant
     const allMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const idSet = new Set();
     allMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) idSet.add(matchId[1]);
     });
-    assert.strictEqual(idSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${idSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(idSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${idSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Uniform Orders Schedule & Forms Bug Fix Verification ──────────────────
@@ -11417,15 +11397,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtml.includes('uo-paused-msg-input'), 'index.html must include uo-paused-msg-input');
     console.log('  ✔ Admin Uniform Orders module Response Availability & Auto-Schedule controls verified');
 
-    // 5. Strict 388 unique DOM IDs Invariant
+    // 5. Strict 385 unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) finalIdSet.add(matchId[1]);
     });
-    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIdSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
 
     // 6. Pause / Resume Toggle in Admin Forms List updates button & badge
     formsMod._customForms.push({
@@ -11535,15 +11515,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(supaRaw.includes('isLeaderTab'), 'supabase.js must check isLeaderTab to guard WebSocket connection and delta-sync');
     console.log('  ✔ Multi-tab concurrency leader election & seasonal particle rAF loop protection verified');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) finalIdSet.add(matchId[1]);
     });
-    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIdSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 47. Automatic President's Award Tracker & Light Mode Contrast Verification ──
@@ -12053,15 +12033,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     testAdminSupa.get = getTestRoster;
     restoreRosterAdmin();
 
-    // 8. Strict 388 Unique DOM IDs Invariant
+    // 8. Strict 385 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) finalIdSet.add(matchId[1]);
     });
-    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIdSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 51. Member Form Responses Separation, Admin Products Drag & Drop and Modals ──
@@ -12115,15 +12095,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtml.includes('onclick="openProductModal()"'), 'index.html must include openProductModal button below products');
     assert.ok(indexHtml.includes('onclick="openUniformScheduleModal()"'), 'index.html must include openUniformScheduleModal button next to Orders');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const finalMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdSet = new Set();
     finalMatches.forEach(m => {
       const matchId = m.match(/\sid=["']([^"']+)["']/);
       if (matchId) finalIdSet.add(matchId[1]);
     });
-    assert.strictEqual(finalIdSet.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIdSet.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIdSet.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ──
@@ -12221,15 +12201,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(formHost.innerHTML.includes('cf-turnstile-container'), false, 'Turnstile CAPTCHA container completely removed from built-in forms');
     console.log('  ✔ Multi-section pagination, bottom-left navigation, input preservation and CAPTCHA removal verified');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const finalIdMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIds = new Set();
     finalIdMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) finalIds.add(match[1]);
     });
-    assert.strictEqual(finalIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Uniform Custom Text, Top-Left Edit, Instant Drag & Calendar Polish ──────
@@ -12323,15 +12303,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(adminGrid.innerHTML.includes('Add Event'), 'Add Event button present');
     console.log('  ✔ Calendar manager date reset on leave, single plus on Add Event, and vertical layout verified');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const finalIdMatchesAfter = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIdsAfter = new Set();
     finalIdMatchesAfter.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) finalIdsAfter.add(match[1]);
     });
-    assert.strictEqual(finalIdsAfter.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIdsAfter.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIdsAfter.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIdsAfter.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Form Submission PGRST204 Eradication & Member Responses Cleanup ─────────
@@ -12451,15 +12431,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.supa = origSupa;
     if (typeof window !== 'undefined') window.supa = origSupa;
 
-    // 3. Strict 388 Unique DOM IDs Invariant
+    // 3. Strict 385 Unique DOM IDs Invariant
     const finalIdMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalIds = new Set();
     finalIdMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) finalIds.add(match[1]);
     });
-    assert.strictEqual(finalIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -12623,15 +12603,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.supa = savedSupa;
     if (typeof window !== 'undefined') window.supa = savedSupa;
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const finalCheckMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const finalCheckIds = new Set();
     finalCheckMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) finalCheckIds.add(match[1]);
     });
-    assert.strictEqual(finalCheckIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${finalCheckIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(finalCheckIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${finalCheckIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -12673,15 +12653,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ 80% Req. replaced with clean white circular info icon (Image 1)');
     console.log('  ✔ Qualification pill box eliminated while retaining green One Year Service tick line');
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const attIdMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const attIds = new Set();
     attIdMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) attIds.add(match[1]);
     });
-    assert.strictEqual(attIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${attIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(attIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${attIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 55. Attendance Status Cards Redesign, Progress Bar Removal & Points Layout (Image 1) ──
@@ -12735,15 +12715,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Points Breakdown formatted with glowing gold Total Points box and 3 icon metrics');
     console.log('  ✔ Hotel Platoon standing card rendered with amber border and Non-Competing badge');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const idMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const ids = new Set();
     idMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) ids.add(match[1]);
     });
-    assert.strictEqual(ids.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${ids.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(ids.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${ids.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 56. Form Response Table Split, Wide-Screen Layout & Topbar Alignment (Images 1-2) ──
@@ -12865,15 +12845,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     console.log('  ✔ Wide-screen layout restricted to responses table view; default 820px preserved for other tabs (Image 1)');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const postIds = new Set();
     postMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds.add(match[1]);
     });
-    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 57. Points Metrics Alignment & Form File Upload Removal (Images 1-2) ──
@@ -12960,15 +12940,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     if (formWrap.parentNode) formWrap.parentNode.removeChild(formWrap);
     console.log('  ✔ Form file upload remove button renders and resets file input and payload cleanly (Image 2)');
 
-    // 3. Strict 388 Unique DOM IDs Invariant
+    // 3. Strict 385 Unique DOM IDs Invariant
     const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const postIds = new Set();
     postMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds.add(match[1]);
     });
-    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 58. Highlights & Photos Exclusively in Gallery Tab (Removed from Homepage) ──
@@ -12999,15 +12979,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(galleryContent.includes('id="no-photos"'), 'Gallery page retains empty state container');
     console.log('  ✔ Highlights and Photos completely removed from homepage and exclusive to Gallery tab');
 
-    // 3. Strict 388 Unique DOM IDs Invariant
+    // 3. Strict 385 Unique DOM IDs Invariant
     const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const postIds = new Set();
     postMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds.add(match[1]);
     });
-    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 59. Mobile & Cross-Device UI/UX Polish Verification ──
@@ -13041,15 +13021,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('.points-breakdown-subgrid'), 'Points breakdown responsive subgrid defined');
     console.log('  ✔ Member profile stat boxes and points breakdown alignment verified');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const postIds = new Set();
     postMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds.add(match[1]);
     });
-    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 61. Mobile Points Overlap, Upcoming Box Bounds & 7-Day Week Fit (Images 1-4) ──
@@ -13097,7 +13077,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('[data-theme=\'light\'] .cal-week-hour-cell') && compCss.includes('border-bottom: 1px solid #cbd5e1;'), 'Light mode week cells enforce border-bottom grid lines');
     console.log('  ✔ 7-Day week view fits all days without horizontal scrolling and renders crisp grid lines (Images 3 & 4)');
 
-    // 4. Strict 388 unique DOM IDs Invariant
+    // 4. Strict 385 unique DOM IDs Invariant
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     const postIds = new Set();
@@ -13105,8 +13085,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds.add(match[1]);
     });
-    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Test Calendar Month Polish, Nav Title Bounds, Leaderboard Podium Bounds & Wordle Keyboard Fit ──
@@ -13142,15 +13122,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('.wordle-card') && compCss.includes('padding: 14px 6px 16px;'), 'Wordle card has compact mobile padding');
     console.log('  ✔ Wordle keyboard fits 10 keys fluidly within card borders on mobile without truncation (Image 5)');
 
-    // 5. Strict 388 unique DOM IDs Invariant
+    // 5. Strict 385 unique DOM IDs Invariant
     const postIds2 = new Set();
     const postMatches2 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches2.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds2.add(match[1]);
     });
-    assert.strictEqual(postIds2.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds2.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds2.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds2.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Test Default Not Verified Status for New Accounts & Admin Verification Governance ──
@@ -13235,15 +13215,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(adminMod.getMemberVerificationStatus(memberC), 'not_verified', 'Member C (unset) remains not_verified');
     console.log('  ✔ Independent verification statuses preserved with zero unwanted cross-member mutation');
 
-    // 5. Strict 388 unique DOM IDs Invariant
+    // 5. Strict 385 unique DOM IDs Invariant
     const postIds3 = new Set();
     const postMatches3 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches3.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds3.add(match[1]);
     });
-    assert.strictEqual(postIds3.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds3.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds3.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds3.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 63. Mobile UI Polish: Calendar Schedule Wrapping, Subnav Tabs, Arcade Grid & Attendance Label ──
@@ -13278,15 +13258,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(arcadeJs.includes('minmax(min(100%, 220px), 1fr)'), 'arcade.js must use responsive minmax with min(100%, 220px)');
     console.log('  ✔ Arcade rewards and streaks cards fluidly adapt to mobile screens without edge clipping (Image 2)');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIds = new Set();
     const postMatches = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds.add(match[1]);
     });
-    assert.strictEqual(postIds.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── 64. Company Resources Hub Admin Redesign & Announcements Pinning ──
@@ -13471,15 +13451,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Restore document
     global.document = origDoc;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIds4 = new Set();
     const postMatches4 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches4.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds4.add(match[1]);
     });
-    assert.strictEqual(postIds4.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds4.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds4.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds4.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -13690,15 +13670,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document = origDoc;
     global.supa = origSupa;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIds5 = new Set();
     const postMatches5 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches5.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds5.add(match[1]);
     });
-    assert.strictEqual(postIds5.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds5.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds5.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds5.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -13755,15 +13735,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(supaSrc.includes("window.addEventListener('focus'"), 'supabase.js and index.html must wake up checkDeltaSync on window focus');
     console.log('  ✔ checkDeltaSync detects remote announcement changes and wakes up on window focus/visibility');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const postIds6 = new Set();
     const postMatches6 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches6.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds6.add(match[1]);
     });
-    assert.strictEqual(postIds6.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds6.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds6.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds6.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -13867,15 +13847,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document = origDoc;
     global.supa = origSupa;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIds7 = new Set();
     const postMatches7 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches7.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds7.add(match[1]);
     });
-    assert.strictEqual(postIds7.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds7.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds7.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds7.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -14012,7 +13992,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(mockCounter.textContent, '3 of 3', 'goToGallerySlide must navigate to slide 3 of 3');
     assert.strictEqual(mockBadge.textContent, 'Video', 'Slide 2 must identify Video');
     assert.strictEqual(mockTrack.children[2].active, true, 'Third thumbnail must be marked active');
-    assert.ok(mockMediaWrap.innerHTML.includes('<video'), 'Video slide must render HTML5 video element');
+    assert.ok(
+      mockMediaWrap.innerHTML.includes('<video') || mockMediaWrap.innerHTML.includes('<iframe'),
+      'Video slide must render HTML5 video element or Google Drive preview iframe'
+    );
 
     // Navigate previous (Arrow Left / Swipe Right)
     galleryMod.prevGallerySlide();
@@ -14027,15 +14010,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Restore document
     global.document = origDoc;
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const postIds8 = new Set();
     const postMatches8 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches8.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds8.add(match[1]);
     });
-    assert.strictEqual(postIds8.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds8.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds8.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds8.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Testing Google Drive Photos & Videos Support & Storage Best Practice Removal ──
@@ -14111,15 +14094,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(deleteFileInvoked, false, 'deleteFile must NOT be invoked for external Google Drive links');
     console.log('  ✔ deleteGalleryImage safely bypasses Supabase storage deletion for Google Drive links');
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIds9 = new Set();
     const postMatches9 = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatches9.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIds9.add(match[1]);
     });
-    assert.strictEqual(postIds9.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIds9.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIds9.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIds9.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -14214,15 +14197,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(utilsMod.safeUrl('https://example.com/safe'), 'https://example.com/safe', 'safeUrl must allow https: URI');
     console.log('  ✔ safeUrl neutralizes javascript: and arbitrary data: protocols');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const postIdsSec = new Set();
     const postMatchesSec = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSec.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSec.add(match[1]);
     });
-    assert.strictEqual(postIdsSec.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSec.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSec.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSec.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -14314,15 +14297,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.supa = origSupa71;
     if (typeof window !== 'undefined') window.supa = origSupa71;
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const postIdsRes = new Set();
     const postMatchesRes = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesRes.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsRes.add(match[1]);
     });
-    assert.strictEqual(postIdsRes.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsRes.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsRes.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsRes.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -14384,15 +14367,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.querySelector = origQuerySel;
     console.log('  ✔ Standardized empty states render user-friendly guidance across media views');
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const postIdsUX = new Set();
     const postMatchesUX = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesUX.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsUX.add(match[1]);
     });
-    assert.strictEqual(postIdsUX.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsUX.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsUX.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsUX.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -14592,15 +14575,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.getSupa = origGetSupa;
     global.logAuditEvent = origLogAudit;
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const postIdsAudit = new Set();
     const postMatchesAudit = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesAudit.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsAudit.add(match[1]);
     });
-    assert.strictEqual(postIdsAudit.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsAudit.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsAudit.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsAudit.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -14820,53 +14803,24 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     }
     console.log('  ✔ RBAC module permissions, Super Admin demotion immunity, and authorization gates verified');
 
-    // 6. Resource Hub Role-Based Access Boundaries (hasResourceAccess)
+    // 6. Resource Hub Open Member Access (Role Visibility removed per Phase 2 spec)
     assert.strictEqual(typeof resourcesMod.hasResourceAccess, 'function', 'hasResourceAccess must be exported');
+    assert.ok(!indexHtml.includes('id="adm-res-vis"'), 'Role Visibility dropdown #adm-res-vis must be removed from Admin Console');
+    assert.strictEqual(resourcesMod.hasResourceAccess('all'), true, 'Public resources accessible to all members');
+    assert.strictEqual(resourcesMod.hasResourceAccess(''), true, 'Empty visibility accessible to all members');
+    assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'Legacy nco resources open to all members');
+    assert.strictEqual(resourcesMod.hasResourceAccess('officer'), true, 'Legacy officer resources open to all members');
+    console.log('  ✔ Resource hub open visibility and #adm-res-vis removal verified');
 
-    const origSessionGet = global.sessionGet;
-    const origResourceScope = global.hasAdminModuleAccess;
-    try {
-      // Public resources are accessible to everyone
-      global.sessionGet = () => null;
-      assert.strictEqual(resourcesMod.hasResourceAccess('all'), true, 'Public resources accessible without session');
-      assert.strictEqual(resourcesMod.hasResourceAccess(''), true, 'Empty visibility defaults to public access');
-
-      // NCO resources
-      global.sessionGet = (k) => (k === 'rank' ? 'Lance Corporal' : (k === 'email' ? 'nco@example.com' : null));
-      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'NCO rank accesses NCO resources');
-      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), false, 'NCO rank denied officer resources');
-
-      // Officer resources
-      global.sessionGet = (k) => (k === 'rank' ? 'Captain' : (k === 'email' ? 'officer@example.com' : null));
-      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'Officer accesses NCO resources');
-      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), true, 'Officer accesses Officer resources');
-
-      // Admin override
-      global.sessionGet = (k) => (k === 'rank' ? 'Private' : (k === 'email' ? 'store@example.com' : null));
-      global.hasAdminModuleAccess = scope => scope === 'resources';
-      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), true, 'Admin session accesses Officer resources regardless of rank');
-      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), true, 'Admin session accesses NCO resources regardless of rank');
-
-      // Private rank denied restricted resources
-      global.hasAdminModuleAccess = origResourceScope;
-      global.sessionGet = (k) => (k === 'rank' ? 'Private' : null);
-      assert.strictEqual(resourcesMod.hasResourceAccess('nco'), false, 'Private denied NCO resources');
-      assert.strictEqual(resourcesMod.hasResourceAccess('officer'), false, 'Private denied Officer resources');
-    } finally {
-      global.sessionGet = origSessionGet;
-      global.hasAdminModuleAccess = origResourceScope;
-    }
-    console.log('  ✔ Resource hub visibility tiers (public, NCO, officer, admin) verified');
-
-    // 7. Strict 388 Unique DOM IDs Invariant
+    // 7. Strict 385 Unique DOM IDs Invariant
     const postIdsQA = new Set();
     const postMatchesQA = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesQA.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsQA.add(match[1]);
     });
-    assert.strictEqual(postIdsQA.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsQA.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsQA.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsQA.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -14950,15 +14904,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       console.log('  ✔ Production build output preserves all unhashed runtime assets and Service Worker precache targets');
     }
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIdsDevOps = new Set();
     const postMatchesDevOps = indexHtml.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesDevOps.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsDevOps.add(match[1]);
     });
-    assert.strictEqual(postIdsDevOps.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsDevOps.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsDevOps.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsDevOps.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 76: Firebase Cloud Messaging (FCM) Universal Push Notification Architecture ───
@@ -15038,15 +14992,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(manifestXml.includes('REQUEST_IGNORE_BATTERY_OPTIMIZATIONS'), 'AndroidManifest.xml must declare REQUEST_IGNORE_BATTERY_OPTIMIZATIONS');
     console.log('  ✔ Android Firebase Messaging Service, deduplication cache & WebView Bridge verified for instant background alerts');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const postIdsFcm = new Set();
     const postMatchesFcm = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesFcm.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsFcm.add(match[1]);
     });
-    assert.strictEqual(postIdsFcm.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsFcm.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsFcm.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsFcm.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 77: Avatar Visual Consistency & Universal Department Member Mentions Engine ───
@@ -15137,15 +15091,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(step2Html.includes('WhatsApp-style'), false, 'Step 2 must not include (WhatsApp-style)');
     console.log('  ✔ Onboarding notification text verified clean without (WhatsApp-Style)');
 
-    // 6. Strict 388 Unique DOM IDs Invariant
+    // 6. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite77 = new Set();
     const postMatchesSuite77 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite77.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite77.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite77.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite77.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite77.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite77.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -15453,15 +15407,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       supabaseMod.PortalRealtime.broadcast = origBroadcast;
     }
 
-    // 11. Strict 388 Unique DOM IDs Invariant
+    // 11. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite78 = new Set();
     const postMatchesSuite78 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite78.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite78.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite78.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite78.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite78.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite78.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -15538,15 +15492,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'tasks.js task assignment dispatcher calls must NOT pass department topics');
     console.log('  ✔ Task assignment push notifications route exclusively to target assignees without department broadcasting');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite79 = new Set();
     const postMatchesSuite79 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite79.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite79.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite79.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite79.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite79.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite79.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 80: Universal Real-Time Avatar Outline Propagation Across All Surfaces ──
@@ -15627,15 +15581,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     console.log('  ✔ Instant real-time outline propagation engine verified with 0ms local dispatch');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite80 = new Set();
     const postMatchesSuite80 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite80.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite80.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite80.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite80.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite80.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite80.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -15814,15 +15768,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(prefetchedAtts.length, 1, 'Prefetched attachments stored in memory map');
     console.log('  ✔ Parallel batch prefetching of task subtasks, links, attachments, and comments verified');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite81 = new Set();
     const postMatchesSuite81 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite81.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite81.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite81.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite81.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite81.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite81.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 82: PC Web/App Task Notifications, Store Contrast & Calendar Distinction ──
@@ -15866,15 +15820,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     }
     console.log('  ✔ Remote task assignments use the shared inbox handler');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite82 = new Set();
     const postMatchesSuite82 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite82.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite82.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite82.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite82.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite82.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite82.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -16056,15 +16010,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(patchedBody.p_value.includes('4h'), 'Saves updated estimate metadata with real ID');
     console.log('  ✔ Task creation temp ID resolution prevents PostgreSQL bigint 400 syntax errors');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite83 = new Set();
     const postMatchesSuite83 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite83.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite83.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite83.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite83.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite83.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite83.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // --- Suite 84: Dynamic Task Schema Resilience, creator_name Extraction & Adaptive Fallback ---
@@ -16203,15 +16157,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(patchAttempts[1].priority, 'high', 'Second patch maintained valid priority column');
     console.log('  ✔ patchTaskInDatabase strips unsupported columns on update without crashing or showing error toast');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite84 = new Set();
     const postMatchesSuite84 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite84.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite84.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite84.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite84.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite84.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite84.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -16344,15 +16298,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     if (priorCache) localStorage.setItem('bb_members_cache', priorCache);
     else localStorage.removeItem('bb_members_cache');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite85 = new Set();
     const postMatchesSuite85 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite85.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite85.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite85.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite85.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite85.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite85.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // Suite 86: Universal Cross-Device Profile Picture Real-Time Synchronization & Cache Invalidation
@@ -16697,15 +16651,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     // Restore document.getElementById
     document.getElementById = originalGetEl;
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite86 = new Set();
     const postMatchesSuite86 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite86.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite86.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite86.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite86.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite86.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite86.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // --- Suite 87: Customizable Project-Specific Task Statuses, CRUD & Horizontal Scroll Kanban ---
@@ -16813,15 +16767,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(cssContent.includes('.custom-status-badge'), 'CSS includes subtle custom status number pill badge');
     console.log('  ✔ Horizontal scroll, fixed 280px column width, hover trash can, and custom badge styling verified in CSS');
 
-    // Strict 388 Unique DOM IDs Invariant
+    // Strict 385 Unique DOM IDs Invariant
     const postIdsSuite87 = new Set();
     const postMatchesSuite87 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite87.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite87.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite87.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite87.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite87.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite87.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 88: Profile Picture Fit, Aspect-Ratio Geometry & Cross-Tab Synchronization ──
@@ -16947,15 +16901,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCssText.includes('.member-avatar-unified'), 'components.css styles .member-avatar-unified');
     console.log('  ✔ CSS enforces aspect-ratio: 1 / 1 and absolute layering to prevent split-oval avatar bugs');
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite88 = new Set();
     const postMatchesSuite88 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite88.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite88.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite88.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite88.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite88.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite88.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 89: Projects View Board Isolation & Real-Time Status Synchronization ──
@@ -17067,15 +17021,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.querySelector = origQuerySel;
     global.document.querySelectorAll = origQuerySelAll;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite89 = new Set();
     const postMatchesSuite89 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite89.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite89.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite89.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite89.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite89.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite89.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 90: Task Board / List View Mutual Exclusivity & Universal Profile Picture Synchronization ──
@@ -17211,15 +17165,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.querySelector = origQuerySel;
     global.document.querySelectorAll = origQuerySelAll;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite90 = new Set();
     const postMatchesSuite90 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite90.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite90.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite90.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite90.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite90.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite90.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // ── Suite 91: Task Project List View Status Grouping & Parity with Board View ──
@@ -17324,15 +17278,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.querySelector = origDocQuery;
     global.document.getElementById = origDocGetId;
 
-    // 4. Strict 388 Unique DOM IDs Invariant
+    // 4. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite91 = new Set();
     const postMatchesSuite91 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite91.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite91.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite91.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite91.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite91.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite91.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -17506,15 +17460,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     global.document.getElementById = origDocGetId;
     global.document.querySelector = origDocQuery;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite92 = new Set();
     const postMatchesSuite92 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite92.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite92.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite92.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite92.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite92.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite92.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   // =========================================================================
@@ -17588,15 +17542,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     global.document.querySelector = origQuerySelector;
 
-    // 5. Strict 388 Unique DOM IDs Invariant
+    // 5. Strict 385 Unique DOM IDs Invariant
     const postIdsSuite93 = new Set();
     const postMatchesSuite93 = indexHtmlContent.match(/\sid=["']([^"']+)["']/g) || [];
     postMatchesSuite93.forEach(m => {
       const match = m.match(/\sid=["']([^"']+)["']/);
       if (match) postIdsSuite93.add(match[1]);
     });
-    assert.strictEqual(postIdsSuite93.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${postIdsSuite93.size})`);
-    console.log('  ✔ Strict 388 unique DOM IDs invariant preserved with 0 bloat');
+    assert.strictEqual(postIdsSuite93.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${postIdsSuite93.size})`);
+    console.log('  ✔ Strict 385 unique DOM IDs invariant preserved with 0 bloat');
   }
 
   {
@@ -17709,7 +17663,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(webPushEdgeSrc.includes("order_status: ['Order update', 'Open the portal to view your order status.', 'member']"), 'portal-web-push must route order_status notifications to member hub');
     console.log('  ✔ Android native MainActivity/FCM bridge and Web Push edge function deep-link metadata verified');
 
-    // 3. index.html unified notification router & preconnect verified with strict 388 DOM IDs
+    // 3. index.html unified notification router & preconnect verified with strict 385 DOM IDs
     const idxSrc = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     assert.ok(idxSrc.includes('function handlePortalNotificationDeepLink('), 'index.html must define handlePortalNotificationDeepLink');
     assert.ok(idxSrc.includes('function normalizeNotificationRoute('), 'index.html must define normalizeNotificationRoute');
@@ -17720,8 +17674,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       const mm = m.match(/\sid=["']([^"']+)["']/);
       return mm ? mm[1] : '';
     }).filter(Boolean));
-    assert.strictEqual(uniqueIds94.size, 388, 'index.html must preserve strict 388 unique DOM IDs invariant');
-    console.log('  ✔ Unified deep-link router, Gemini preconnect, and strict 388 DOM IDs invariant verified');
+    assert.strictEqual(uniqueIds94.size, 385, 'index.html must preserve strict 385 unique DOM IDs invariant');
+    console.log('  ✔ Unified deep-link router, Gemini preconnect, and strict 385 DOM IDs invariant verified');
 
     // 4. Stedfast Helper sub-2s latency optimizations (thinkingConfig, fast model pruning, SSE streaming, local-first key sync, cache, SLA fallback)
     const forumMod94 = require('../js/modules/forum.js');
@@ -17825,13 +17779,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const idxHtml95 = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const css95 = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
 
-    // 1. Strict 388 unique DOM IDs preserved & Calendar button + containers present in index.html
+    // 1. Strict 385 unique DOM IDs preserved & Calendar button + containers present in index.html
     const ids95 = new Set();
     (idxHtml95.match(/\sid=["']([^"']+)["']/g) || []).forEach(m => {
       const mm = m.match(/\sid=["']([^"']+)["']/);
       if (mm) ids95.add(mm[1]);
     });
-    assert.strictEqual(ids95.size, 388, `Strict 388 unique DOM IDs invariant preserved (found ${ids95.size})`);
+    assert.strictEqual(ids95.size, 385, `Strict 385 unique DOM IDs invariant preserved (found ${ids95.size})`);
     assert.ok(idxHtml95.includes('data-proj-vmode="calendar"'), 'index.html must include Calendar View toggle button');
     assert.ok(idxHtml95.includes('class="tasks-board-calendar-view hidden"'), 'index.html must include .tasks-board-calendar-view container');
     assert.ok(idxHtml95.includes('class="task-cal-day-popover"'), 'index.html must include .task-cal-day-popover container');

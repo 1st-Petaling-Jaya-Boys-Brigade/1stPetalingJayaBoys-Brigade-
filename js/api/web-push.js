@@ -204,11 +204,17 @@
     await request('test', { endpoint: device?.endpoint, deviceKey: device?.deviceKey, member: member(), token: activeToken() });
   }
 
-  async function notify(category, topics, target) {
+  async function notify(category, topics, target, meta) {
     const token = activeToken();
     if (!token || !member() || !topics.length) return false;
-    return request('notify', { token, member: member(), category, topics, target }, 25000)
-      .then(result => result.sent > 0).catch(() => false);
+    const payload = { token, member: member(), category, topics, target };
+    if (meta && typeof meta === 'object') {
+      if (typeof meta.title === 'string' && meta.title) payload.title = meta.title.slice(0, 80);
+      if (typeof meta.body === 'string' && meta.body) payload.body = meta.body.slice(0, 160);
+      if (typeof meta.tab === 'string' && meta.tab) payload.tab = meta.tab.slice(0, 32);
+    }
+    return request('notify', payload, 25000)
+      .then(result => Boolean(result && ((result.sent || 0) > 0 || (result.fcmSent || 0) > 0))).catch(() => false);
   }
 
   window.PortalWebPush = { isIOS, isEnabled, readyForSetup, authorize, enable, disable, signOut, test, notify };

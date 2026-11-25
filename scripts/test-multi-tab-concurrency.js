@@ -272,6 +272,132 @@ const supaApi = require('../js/api/supabase.js');
   assert.strictEqual(capturedUploadHeaders.receipts, 'max-age=3600, private', 'Private receipts use private cache-control');
   console.log('  ✔ Storage CDN Cache-Control headers verified across public & private buckets');
 
+  // ── 12. Phase 2: Native Realtime Presence (0 DB Writes) & Login-Only last_seen ──
+  const fs = require('fs');
+  const path = require('path');
+  let dbPresenceWrites = 0;
+  let trackedPresencePayload = null;
+  const origTrack = supaApi.PortalRealtime.trackPresence;
+  const origUntrack = supaApi.PortalRealtime.untrackPresence;
+  const origSafeUpdate = supaApi.supa.safeConfigUpdate;
+
+  global.window.PortalRealtime = supaApi.PortalRealtime;
+  global.PortalRealtime = supaApi.PortalRealtime;
+  global.window.supa = supaApi.supa;
+  global.supa = supaApi.supa;
+  global.getSupabaseClient = () => supaApi.supa;
+  if (typeof sessionMod.initLeaderElection === 'function') sessionMod.initLeaderElection();
+  sessionMod.sessionSet('email', 'member60@bb.org', { localOnly: true });
+  sessionMod.sessionSet('ic', '080101-14-1234', { localOnly: true });
+  sessionMod.sessionSet('name', 'Member 60', { localOnly: true });
+  sessionMod.sessionSet('rank', 'Corporal', { localOnly: true });
+  supaApi.supa.safeConfigUpdate = async (k, fn) => {
+    if (k === 'bb_member_presence') dbPresenceWrites++;
+    return typeof fn === 'function' ? fn({}) : fn;
+  };
+  supaApi.PortalRealtime.trackPresence = (key, payload) => {
+    trackedPresencePayload = { key, payload };
+    return true;
+  };
+
+  // Normal online/idle transitions must produce 0 DB writes
+  await sessionMod.sendPresenceHeartbeat('online');
+  await sessionMod.sendPresenceHeartbeat('idle');
+  assert.strictEqual(dbPresenceWrites, 0, 'Periodic/status presence updates must perform 0 Postgres writes');
+  assert.ok(trackedPresencePayload && trackedPresencePayload.key === 'member60@bb.org', 'Presence updates must track via Native Realtime Presence');
+
+  // Login-only persistence writes once
+  await sessionMod.sendPresenceHeartbeat('online', { persistLastSeen: true });
+  assert.strictEqual(dbPresenceWrites, 1, 'Login-only persistLastSeen writes bb_member_presence exactly once');
+
+  // Restore hooks and verify presence_state + presence_diff multi-device joins & leaves
+  supaApi.PortalRealtime.trackPresence = origTrack;
+  supaApi.PortalRealtime.untrackPresence = origUntrack;
+  supaApi.supa.safeConfigUpdate = origSafeUpdate;
+
+  supaApi.PortalRealtime.applyPresenceState({
+    'alice@bb.org': {
+      metas: [
+        { phx_ref: 'ref_phone', key: 'alice@bb.org', email: 'alice@bb.org', name: 'Alice', status: 'idle' },
+        { phx_ref: 'ref_laptop', key: 'alice@bb.org', email: 'alice@bb.org', name: 'Alice', status: 'online' }
+      ]
+    }
+  });
+  let aliceStatus = sessionMod.getMemberPresenceStatus({ email: 'alice@bb.org', name: 'Alice' });
+  assert.strictEqual(aliceStatus.status, 'online', 'Online device takes precedence over idle device for same member');
+
+  // Laptop closes -> phone still connected as idle
+  supaApi.PortalRealtime.applyPresenceDiff({
+    joins: {},
+    leaves: { 'alice@bb.org': { metas: [{ phx_ref: 'ref_laptop', key: 'alice@bb.org' }] } }
+  });
+  aliceStatus = sessionMod.getMemberPresenceStatus({ email: 'alice@bb.org', name: 'Alice' });
+  assert.strictEqual(aliceStatus.status, 'idle', 'Remaining idle device keeps member Away/Idle when laptop closes');
+
+  // Last device disconnects -> instantly Offline with Last seen
+  supaApi.PortalRealtime.applyPresenceDiff({
+    joins: {},
+    leaves: { 'alice@bb.org': { metas: [{ phx_ref: 'ref_phone', key: 'alice@bb.org' }] } }
+  });
+  aliceStatus = sessionMod.getMemberPresenceStatus({ email: 'alice@bb.org', name: 'Alice' });
+  assert.strictEqual(aliceStatus.status, 'offline', 'Disconnecting last device instantly flips member to Offline');
+  assert.ok(aliceStatus.label.includes('Last seen'), 'Offline member retains Last seen label');
+  console.log('  ✔ Native Realtime Presence state/diff multi-device sync & 0-DB-write heartbeats verified');
+
+  // ── 13. Phase 2: FCM Server-Side Edge Function Hardening ─────────────────────
+  if (typeof global.document === 'undefined') {
+    global.document = { readyState: 'complete', getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] };
+  }
+  const fcmMod = require('../js/api/fcm.js');
+  let edgePushCall = null;
+  global.window.PortalWebPush = {
+    notify: async (category, topics, targetId, meta) => {
+      edgePushCall = { category, topics, targetId, meta };
+      return true;
+    }
+  };
+  assert.strictEqual(await fcmMod.getFcmCredentials(), null, 'Client browser must NEVER fetch bb_fcm_service_account');
+  const pushSent = await fcmMod.sendPortalPushNotification({
+    type: 'announcement',
+    title: 'Parade Notice',
+    body: 'Fall in at 9:30 AM',
+    tab: 'home',
+    targetId: 'ann-42'
+  });
+  assert.strictEqual(pushSent, true, 'sendPortalPushNotification must succeed via Edge Function');
+  assert.ok(edgePushCall && edgePushCall.category === 'announcement' && edgePushCall.topics.includes('announcements'), 'Notification must dispatch through PortalWebPush.notify');
+  assert.strictEqual(edgePushCall.meta.title, 'Parade Notice', 'Custom title forwarded to Edge Function for FCM');
+  const edgeTs = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'portal-web-push', 'index.ts'), 'utf8');
+  assert.ok(edgeTs.includes("Deno.env.get('FCM_SERVICE_ACCOUNT_JSON')"), 'Edge Function must read server-only FCM_SERVICE_ACCOUNT_JSON secret');
+  const mig033 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '033_lockdown_fcm_secret.sql'), 'utf8');
+  assert.ok(mig033.includes("DELETE FROM bb_config WHERE key = 'bb_fcm_service_account'") && mig033.includes("key <> 'bb_fcm_service_account'"), 'Migration 033 must purge and block bb_fcm_service_account');
+  console.log('  ✔ FCM Edge Function routing, zero client secret access, and Migration 033 lockdown verified');
+
+  // ── 14. Phase 2: Gallery Google Drive Only, Public CDN Resources & Safe Migration ──
+  const indexHtmlSrc = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(!indexHtmlSrc.includes('id="gallery-drop"') && !indexHtmlSrc.includes('id="gallery-file"'), 'Direct gallery upload dropzone removed from index.html');
+  assert.ok(indexHtmlSrc.includes('Anyone with the link'), 'Admin Google Drive sharing guide rendered in Gallery');
+  assert.ok(!indexHtmlSrc.includes('id="adm-res-vis"'), 'Resource Role Visibility dropdown removed from Admin Console');
+
+  const resMod = require('../js/modules/resources.js');
+  let uploadedResBucket = null;
+  let uploadedResPath = null;
+  global.supa = {
+    uploadFile: async (bucket, filePath) => { uploadedResBucket = bucket; uploadedResPath = filePath; return { Key: filePath }; },
+    fileUrl: (bucket, filePath, opts) => `https://test.supabase.co/storage/v1/object/${opts && opts.private === false ? 'public' : 'authenticated'}/${bucket}/${filePath}`
+  };
+  const uploadedDocUrl = await resMod.handleResourceFileUpload({
+    files: [{ name: 'Drill_Manual.pdf', size: 2048, type: 'application/pdf', arrayBuffer: async () => new ArrayBuffer(8) }]
+  });
+  assert.strictEqual(uploadedResBucket, 'gallery', 'Resources upload to CDN-cached public gallery bucket under resources/ prefix');
+  assert.ok(uploadedResPath && uploadedResPath.startsWith('resources/doc_'), 'Resource object stored under resources/ path');
+  assert.ok(uploadedDocUrl.includes('/storage/v1/object/public/gallery/resources/'), 'Resource URL uses public Cloudflare CDN path');
+
+  const migScript = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'migrate-catalog-base64-to-storage.js'), 'utf8');
+  assert.ok(migScript.includes('bb_badge_defs') && migScript.includes('bb_uniform_items'), 'Migration script covers badges and uniforms catalog');
+  assert.ok(!migScript.includes('/rest/v1/bb_members') && !migScript.includes('/object/avatars') && !migScript.includes('bb_member_pfps'), 'Migration script never touches user profile photos');
+  console.log('  ✔ Gallery Drive-only guide, public CDN resources, and profile-photo-safe migration script verified');
+
   console.log('\n🎉 ALL MULTI-TAB CONCURRENCY & 60-USER SCALE STRESS TESTS PASSED 100%!\n');
   process.exit(0);
 })();
