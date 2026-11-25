@@ -4224,6 +4224,17 @@ window.addEventListener('pageshow', function(e) {
     if (typeof refreshCurrentTasksView === 'function') refreshCurrentTasksView();
   }
 });
+window.addEventListener('pagehide', function() {
+  if (typeof resetTaskCalendarToToday === 'function') resetTaskCalendarToToday();
+});
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'hidden') {
+    if (typeof resetTaskCalendarToToday === 'function') resetTaskCalendarToToday();
+  } else if (document.visibilityState === 'visible') {
+    if (typeof resetTaskCalendarToToday === 'function') resetTaskCalendarToToday();
+    if (typeof rerenderActiveTaskCalendar === 'function') rerenderActiveTaskCalendar();
+  }
+});
 // ── Offline Connectivity & PWA Service Worker ────────────────────
 function updateOfflineIndicator() {
   var indicator = document.getElementById('offline-indicator');

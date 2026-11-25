@@ -4641,7 +4641,18 @@ async function getJson(url) {
             && getComputedStyle(lightTaskCol).boxShadow.includes('203, 213, 225');
           const lightCardBorderVisible = Boolean(lightTaskCard)
             && getComputedStyle(lightTaskCard).borderTopWidth === '1px'
-            && getComputedStyle(lightTaskCard).borderTopColor === 'rgb(184, 196, 212)';
+            && getComputedStyle(lightTaskCard).borderTopColor === 'rgb(203, 213, 225)';
+
+          // Light Mode List View: single uniform #cbd5e1 outer border matching inner row lines (no double border)
+          setMyTasksDisplayMode('list');
+          const lightListCard = document.querySelector('.my-tasks-container .my-tasks-table-card');
+          const lightListTableCont = document.querySelector('.my-tasks-container .my-tasks-table-container');
+          const lightListCell = document.querySelector('.my-tasks-container .my-tasks-table td');
+          const lightListBordersUniform = Boolean(lightListCard && lightListTableCont && lightListCell)
+            && getComputedStyle(lightListCard).borderTopWidth === '1px'
+            && getComputedStyle(lightListCard).borderTopColor === 'rgb(203, 213, 225)'
+            && getComputedStyle(lightListTableCont).borderTopWidth === '0px'
+            && getComputedStyle(lightListCell).borderBottomColor === 'rgb(203, 213, 225)';
 
           setMyTasksDisplayMode('calendar');
           const lightCalWrap = document.querySelector('.my-tasks-container .my-tasks-calendar-card');
@@ -4654,9 +4665,18 @@ async function getJson(url) {
           const lightCalAligned = Boolean(lightCalFrame && lightCalControlsRow)
             && Math.abs(lightCalFrame.getBoundingClientRect().left - lightCalControlsRow.getBoundingClientRect().left) <= 1;
           const lightCalGridlinesVisible = Boolean(lightCalFrame && lightCalCell)
-            && getComputedStyle(lightCalFrame).borderTopColor === 'rgb(148, 163, 184)'
-            && getComputedStyle(lightCalCell).borderRightColor === 'rgb(184, 196, 212)'
-            && getComputedStyle(lightCalCell).borderBottomColor === 'rgb(184, 196, 212)';
+            && getComputedStyle(lightCalFrame).borderTopColor === 'rgb(203, 213, 225)'
+            && getComputedStyle(lightCalCell).borderRightColor === 'rgb(203, 213, 225)'
+            && getComputedStyle(lightCalCell).borderBottomColor === 'rgb(203, 213, 225)';
+
+          // Calendar auto-reset check: navigate to next month + Year view -> switch to Board/List -> return to Calendar -> must reset to Month + current date
+          const currentMonthHeading = document.querySelector('.my-tasks-container .task-cal-period-title')?.textContent?.trim() || '';
+          navigateTaskCalendar(1);
+          setTaskCalendarSubMode('year');
+          setMyTasksDisplayMode('board');
+          setMyTasksDisplayMode('calendar');
+          const calResetAfterViewSwitch = document.querySelector('.my-tasks-container .task-cal-shell')?.getAttribute('data-cal-mode') === 'month'
+            && (document.querySelector('.my-tasks-container .task-cal-period-title')?.textContent?.trim() || '') === currentMonthHeading;
 
           // Leave Tasks section -> Projects -> return to Tasks: must auto-reset back to List View + Assigned to me + Open
           setTasksViewMode('projects');
@@ -4665,13 +4685,18 @@ async function getJson(url) {
           const tasksResetsToListAfterLeaving = document.querySelector('.my-tasks-view-body')?.getAttribute('data-mytasks-active-view') === 'list';
 
           // Change filters & view mode again, switch to Home tab, then return to Tasks tab: must auto-reset back to List View + Assigned to me + Open
-          setMyTasksDisplayMode('board');
+          setMyTasksDisplayMode('calendar');
+          navigateTaskCalendar(2);
           setMyTasksScopeFilter('all');
           setMyTasksStatusFilter('all');
           switchTabNav('home');
           switchTabNav('tasks');
           const autoResetAfterTabSwitch = isDefaultAssignedOpenActive();
           const tasksResetsToListAfterTabSwitch = document.querySelector('.my-tasks-view-body')?.getAttribute('data-mytasks-active-view') === 'list';
+          setMyTasksDisplayMode('calendar');
+          const calResetAfterTabSwitch = document.querySelector('.my-tasks-container .task-cal-shell')?.getAttribute('data-cal-mode') === 'month'
+            && (document.querySelector('.my-tasks-container .task-cal-period-title')?.textContent?.trim() || '') === currentMonthHeading;
+          setMyTasksDisplayMode('list');
 
           if (prevThemeCal) document.documentElement.setAttribute('data-theme', prevThemeCal);
           else document.documentElement.removeAttribute('data-theme');
@@ -4679,9 +4704,10 @@ async function getJson(url) {
           return {
             projDefaultIsBoard, projResetsToBoardOnReentry, tasksDefaultIsList,
             tasksResetsToListAfterLeaving, tasksResetsToListAfterTabSwitch,
+            calResetAfterViewSwitch, calResetAfterTabSwitch,
             darkModeYellowExactMatch, darkModeLateExactMatch, darkModeOverdueExactMatch,
             lightBoardWrapClean, lightBoardAligned, lightLaneOutlined, lightCardBorderVisible,
-            lightCalWrapClean, lightCalAligned, lightCalGridlinesVisible,
+            lightListBordersUniform, lightCalWrapClean, lightCalAligned, lightCalGridlinesVisible,
             projCalVisible, projBoardHidden, projListHidden, calModes, hasTodayHighlight,
             hasRedPill, hasLatePill, projBoardColorsDistinct, projListColorsDistinct, projCalColorsDistinct,
             hasYellowPill, hasAvatarInPill, popoverOpen, createModalOpen, prefilledDue,
@@ -4702,10 +4728,13 @@ async function getJson(url) {
     assert.strictEqual(taskCalRes.lightBoardWrapClean, true, 'Light mode Tasks Board wrapper must be transparent/borderless like Dark Mode and Project Board');
     assert.strictEqual(taskCalRes.lightBoardAligned, true, 'Light mode Tasks Board columns must align flush with controls bar');
     assert.strictEqual(taskCalRes.lightLaneOutlined, true, 'Light mode Kanban lanes must have crisp visible outline while keeping borderTopWidth 0px');
-    assert.strictEqual(taskCalRes.lightCardBorderVisible, true, 'Light mode Kanban task cards must have crisp visible 1px borders');
+    assert.strictEqual(taskCalRes.lightCardBorderVisible, true, 'Light mode Kanban task cards must use uniform 1px #cbd5e1 borders');
+    assert.strictEqual(taskCalRes.lightListBordersUniform, true, 'Light mode Tasks List outer border must match inner #cbd5e1 lines without double borders');
     assert.strictEqual(taskCalRes.lightCalWrapClean, true, 'Light mode Tasks Calendar wrapper must be transparent/borderless like Dark Mode and Project Calendar');
     assert.strictEqual(taskCalRes.lightCalAligned, true, 'Light mode Tasks Calendar frame must align flush with controls bar');
-    assert.strictEqual(taskCalRes.lightCalGridlinesVisible, true, 'Light mode Calendar gridlines and outer frame borders must be clearly visible');
+    assert.strictEqual(taskCalRes.lightCalGridlinesVisible, true, 'Light mode Calendar outer frame and inner gridlines must share uniform #cbd5e1 lines');
+    assert.strictEqual(taskCalRes.calResetAfterViewSwitch, true, 'Switching Calendar -> Board/List -> Calendar must auto-reset to Month view and current date');
+    assert.strictEqual(taskCalRes.calResetAfterTabSwitch, true, 'Switching portal tabs and returning to Calendar must auto-reset to Month view and current date');
     assert.strictEqual(taskCalRes.projDefaultIsBoard, true, 'Project section must default to Board View on open');
     assert.strictEqual(taskCalRes.projResetsToBoardOnReentry, true, 'Project section must reset back to Board View on re-entry');
     assert.strictEqual(taskCalRes.tasksDefaultIsList, true, 'Tasks section must default to List View on open');

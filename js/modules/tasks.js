@@ -247,10 +247,20 @@ var _taskCalPopoverDate = null;
 var _taskCalPopoverContext = 'project'; // 'project' | 'mytasks'
 var _taskCalLastTrigger = null;
 
+function resetTaskCalendarToToday() {
+  var todayIso = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  _taskCalSubMode = 'month';
+  _taskCalYear = parseInt(todayIso.slice(0, 4), 10) || new Date().getFullYear();
+  _taskCalMonth = (parseInt(todayIso.slice(5, 7), 10) || (new Date().getMonth() + 1)) - 1;
+  if (typeof closeTaskCalendarDayPopover === 'function') closeTaskCalendarDayPopover();
+}
+if (typeof window !== 'undefined') window.resetTaskCalendarToToday = resetTaskCalendarToToday;
+
 function resetTasksFiltersToDefault() {
   _projectDisplayMode    = 'board';
   _myTasksDisplayMode    = 'list';
   if (typeof window !== 'undefined') window._projectDisplayMode = 'board';
+  resetTaskCalendarToToday();
   _myTasksScopeFilter    = 'me';
   _myTasksStatusFilter   = 'open';
   _myTasksProjectFilter  = 'all';
@@ -1144,6 +1154,7 @@ function openProjectBoard(projectName, options) {
   _activeProject = projectName || 'General Project';
   _projectDisplayMode = 'board';
   if (typeof window !== 'undefined') window._projectDisplayMode = 'board';
+  resetTaskCalendarToToday();
   setTasksViewMode('board', options);
 }
 
@@ -2524,8 +2535,12 @@ function renderActiveProjectSubView() {
  * @param {"board"|"list"|"calendar"} mode
  */
 function setProjectDisplayMode(mode) {
+  var prevDisplayMode = _projectDisplayMode;
   _projectDisplayMode = (mode === 'list' || mode === 'calendar') ? mode : 'board';
   if (typeof window !== 'undefined') window._projectDisplayMode = _projectDisplayMode;
+  if (prevDisplayMode !== _projectDisplayMode || _projectDisplayMode !== 'calendar') {
+    resetTaskCalendarToToday();
+  }
 
   if (typeof document === 'undefined') return;
   if (typeof closeTaskCalendarDayPopover === 'function') closeTaskCalendarDayPopover();
@@ -3269,7 +3284,10 @@ function renderTasksCalendarView(projectName) {
 }
 
 function rerenderActiveTaskCalendar() {
-  if (_tasksViewMode === 'mytasks') {
+  var pTasks = (typeof document !== 'undefined') ? document.getElementById('page-tasks') : null;
+  var isTasksActive = !pTasks || pTasks.classList.contains('active') || (pTasks.style && pTasks.style.display !== 'none');
+  if (!isTasksActive) return;
+  if (_tasksViewMode === 'mytasks' && _myTasksDisplayMode === 'calendar') {
     renderMyTasksView(true);
   } else if (_tasksViewMode === 'board' && _projectDisplayMode === 'calendar') {
     renderTasksCalendarView(_activeProject);
@@ -4067,7 +4085,11 @@ function filterMyTasksList(query) {
  * @param {"board"|"list"|"calendar"} mode
  */
 function setMyTasksDisplayMode(mode) {
+  var prevDisplayMode = _myTasksDisplayMode;
   _myTasksDisplayMode = (mode === 'board' || mode === 'calendar') ? mode : 'list';
+  if (prevDisplayMode !== _myTasksDisplayMode || _myTasksDisplayMode !== 'calendar') {
+    resetTaskCalendarToToday();
+  }
   closeTaskCalendarDayPopover();
   renderMyTasksView();
 }
@@ -4488,8 +4510,14 @@ function setMyTasksAssigneeFilter(assigneeKey) {
 
 function resetMyTasksFilters() {
   var currentDisplayMode = _myTasksDisplayMode;
+  var currentCalSubMode = _taskCalSubMode;
+  var currentCalYear = _taskCalYear;
+  var currentCalMonth = _taskCalMonth;
   resetTasksFiltersToDefault();
   _myTasksDisplayMode = currentDisplayMode;
+  _taskCalSubMode = currentCalSubMode;
+  _taskCalYear = currentCalYear;
+  _taskCalMonth = currentCalMonth;
   renderMyTasksView();
 }
 
@@ -9427,6 +9455,8 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.setTaskCalendarSubMode       = setTaskCalendarSubMode;
   window.navigateTaskCalendar         = navigateTaskCalendar;
   window.jumpTaskCalendarToday        = jumpTaskCalendarToday;
+  window.resetTaskCalendarToToday     = resetTaskCalendarToToday;
+  window.rerenderActiveTaskCalendar   = rerenderActiveTaskCalendar;
   window.openTaskCalendarMonth        = openTaskCalendarMonth;
   window.openTaskCalendarDayPopover   = openTaskCalendarDayPopover;
   window.closeTaskCalendarDayPopover  = closeTaskCalendarDayPopover;
@@ -9678,6 +9708,8 @@ if (typeof module !== 'undefined' && module.exports) {
     setTaskCalendarSubMode,
     navigateTaskCalendar,
     jumpTaskCalendarToday,
+    resetTaskCalendarToToday,
+    rerenderActiveTaskCalendar,
     openTaskCalendarMonth,
     openTaskCalendarDayPopover,
     closeTaskCalendarDayPopover,

@@ -18054,9 +18054,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(varsCss95.includes('--task-status-near-color: #fde047;') && varsCss95.includes('--task-status-near-bg: rgba(250, 204, 21, 0.18);'), 'variables.css must define pure yellow dark-mode tokens for nearing due date');
     assert.ok(css95.includes('color: var(--task-status-near-color)') && css95.includes('background: var(--task-status-near-bg)'), 'components.css must unify Board/List/Calendar nearing-due yellow via shared tokens');
 
-    // Light-mode borders/gridlines & Tasks Board/Calendar parity with Project section
-    assert.ok(css95.includes("[data-theme='light'] .task-cal-cell") && css95.includes('border-right: 1px solid #b8c4d4;'), 'components.css must define clearly visible calendar gridlines in light mode');
-    assert.ok(css95.includes("[data-theme='light'] .task-cal-month-frame") && css95.includes('border-color: #94a3b8;'), 'components.css must define crisp calendar outer border in light mode');
+    // Light-mode uniform outer/inner borders (#cbd5e1) & Tasks Board/Calendar parity with Project section
+    assert.ok(css95.includes("[data-theme='light'] .task-cal-cell") && css95.includes('border-right: 1px solid #cbd5e1;'), 'components.css must use uniform #cbd5e1 calendar gridlines in light mode');
+    assert.ok(css95.includes("[data-theme='light'] .task-cal-month-frame") && css95.includes('border-color: #cbd5e1;'), 'components.css must match calendar outer frame border to inner #cbd5e1 lines in light mode');
+    assert.ok(css95.includes("[data-theme='light'] .my-tasks-table-container") && css95.includes('border: none;'), 'components.css must prevent double border on light-mode Tasks List container');
     assert.ok(css95.includes("[data-theme='light'] .my-tasks-board-card") && css95.includes("[data-theme='light'] .my-tasks-calendar-card"), 'components.css must keep Tasks Board and Calendar wrappers transparent/borderless in light mode');
 
     // Custom statuses in Tasks Board View must appear before Complete (matching Project Board View)
@@ -18074,7 +18075,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     tasksMod95.setMyTasksDisplayMode('calendar');
     assert.ok(!mMyTasks95.innerHTML.includes('class="my-tasks-card my-tasks-calendar-card"'), 'Tasks Calendar View must not wrap calendar in bordered .my-tasks-card shell');
 
-    assert.ok(idxHtml95.includes("window.addEventListener('pageshow'") && idxHtml95.includes('resetTasksFiltersToDefault()'), 'index.html must auto-reset Tasks filters on tab switch, load, and pageshow');
+    // Calendar View must auto-reset to Month view + current Malaysia date when switching views or leaving section
+    const curTodayIso95 = tasksMod95.getTaskMalaysiaDay(Date.now());
+    const curYear95 = parseInt(curTodayIso95.slice(0, 4), 10);
+    const curMonth95 = parseInt(curTodayIso95.slice(5, 7), 10) - 1;
+    tasksMod95.setTaskCalendarSubMode('year');
+    tasksMod95.navigateTaskCalendar(1);
+    assert.strictEqual(tasksMod95._taskCalSubMode, 'year');
+    assert.strictEqual(tasksMod95._taskCalYear, curYear95 + 1);
+    tasksMod95.setMyTasksDisplayMode('list');
+    assert.strictEqual(tasksMod95._taskCalSubMode, 'month', 'Switching Tasks Calendar -> List must reset calendar to Month view');
+    assert.strictEqual(tasksMod95._taskCalYear, curYear95, 'Switching Tasks Calendar -> List must reset calendar to current year');
+    assert.strictEqual(tasksMod95._taskCalMonth, curMonth95, 'Switching Tasks Calendar -> List must reset calendar to current month');
+
+    tasksMod95.openProjectBoard('Logistics', { skipRemoteFetch: true });
+    tasksMod95.setProjectDisplayMode('calendar');
+    tasksMod95.navigateTaskCalendar(1);
+    tasksMod95.setTaskCalendarSubMode('year');
+    tasksMod95.setProjectDisplayMode('board');
+    assert.strictEqual(tasksMod95._taskCalSubMode, 'month', 'Switching Project Calendar -> Board must reset calendar to Month view');
+    assert.strictEqual(tasksMod95._taskCalYear, curYear95, 'Switching Project Calendar -> Board must reset calendar to current year');
+    assert.strictEqual(tasksMod95._taskCalMonth, curMonth95, 'Switching Project Calendar -> Board must reset calendar to current month');
+
+    assert.ok(idxHtml95.includes("window.addEventListener('pageshow'") && idxHtml95.includes("window.addEventListener('pagehide'") && idxHtml95.includes('resetTaskCalendarToToday()'), 'index.html must auto-reset Calendar to Month + Today on tab switch, load, pageshow, pagehide, and visibilitychange');
     const adminJs95 = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
     assert.ok(adminJs95.includes('resetTasksFiltersToDefault'), 'admin.js must auto-reset Tasks filters when closing Admin Console');
 
