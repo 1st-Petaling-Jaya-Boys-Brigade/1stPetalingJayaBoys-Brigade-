@@ -95,7 +95,7 @@ jobs:
           cat app-release.apk.sha256
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: app-release
           path: |
@@ -116,7 +116,7 @@ jobs:
       contents: write
     steps:
       - name: Download signed APK artifact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: app-release
           path: release
