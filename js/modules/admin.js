@@ -1798,6 +1798,10 @@
       if (_adminPreviousTitle) document.title = _adminPreviousTitle;
       if (_adminPreviousFocus && _adminPreviousFocus.isConnected && _adminPreviousFocus.focus) _adminPreviousFocus.focus();
       document.removeEventListener('keydown', adminOverlayKeys);
+      if (typeof window !== 'undefined' && typeof window.resetTasksFiltersToDefault === 'function') {
+        window.resetTasksFiltersToDefault();
+        if (typeof window.refreshCurrentTasksView === 'function') window.refreshCurrentTasksView();
+      }
     }
     var creatorSec = document.getElementById('adm-section-creator-outlines');
     if (creatorSec) creatorSec.style.display = 'none';

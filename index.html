@@ -4218,6 +4218,12 @@ function handleHashNavigation(event) {
 }
 window.addEventListener('popstate', handleHashNavigation);
 window.addEventListener('hashchange', handleHashNavigation);
+window.addEventListener('pageshow', function(e) {
+  if (e && e.persisted) {
+    if (typeof resetTasksFiltersToDefault === 'function') resetTasksFiltersToDefault();
+    if (typeof refreshCurrentTasksView === 'function') refreshCurrentTasksView();
+  }
+});
 // ── Offline Connectivity & PWA Service Worker ────────────────────
 function updateOfflineIndicator() {
   var indicator = document.getElementById('offline-indicator');
