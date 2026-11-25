@@ -212,10 +212,10 @@
   --task-status-completed-color: #166534;
   --task-status-completed-border: #86efac;
   --task-status-completed-dot: #10b981;
-  --task-status-normal-bg: #f1f5f9;
+  --task-status-normal-bg: #eef2f7;
   --task-status-normal-color: #334155;
-  --task-status-normal-border: #cbd5e1;
-  --task-status-normal-dot: #94a3b8;
+  --task-status-normal-border: #94a3b8;
+  --task-status-normal-dot: #64748b;
 
   /* Legacy Backward-Compatibility Mappings */
   --navy: var(--bg-canvas);

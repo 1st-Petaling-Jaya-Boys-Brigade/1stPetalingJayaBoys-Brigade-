@@ -4237,13 +4237,15 @@ function buildMyTasksBoardHtml(filtered) {
         var customId = (match && match.id) || compactTaskStatus(customLabel) || 'custom';
         var newCol = { id: customId, label: customLabel, kind: '', isCustom: true, items: [] };
         customByLabel[customKey] = newCol;
-        columns.push(newCol);
+        var completeIdx = columns.findIndex(function(c) { return c.kind === 'completed' || c.id === 'completed'; });
+        if (completeIdx !== -1) columns.splice(completeIdx, 0, newCol);
+        else columns.push(newCol);
       }
       customByLabel[customKey].items.push(t);
     }
   });
 
-  var html = '<div class="my-tasks-card my-tasks-board-card">'
+  var html = '<div class="my-tasks-board-card">'
     + '<div class="tasks-board-columns my-tasks-board-columns">';
 
   columns.forEach(function(col) {
@@ -4333,7 +4335,7 @@ function renderMyTasksView(bodyOnly) {
   if (_myTasksDisplayMode === 'board') {
     bodyHtml = buildMyTasksBoardHtml(filtered);
   } else if (_myTasksDisplayMode === 'calendar') {
-    bodyHtml = '<div class="my-tasks-card my-tasks-calendar-card">'
+    bodyHtml = '<div class="my-tasks-calendar-card">'
       + buildTaskCalendarHtml(filtered, { context: 'mytasks', showProjectTag: true })
       + '</div>';
   } else {

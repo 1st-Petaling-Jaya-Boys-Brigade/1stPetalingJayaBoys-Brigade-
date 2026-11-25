@@ -18053,6 +18053,27 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const varsCss95 = fs.readFileSync(path.join(__dirname, '../css/variables.css'), 'utf8');
     assert.ok(varsCss95.includes('--task-status-near-color: #fde047;') && varsCss95.includes('--task-status-near-bg: rgba(250, 204, 21, 0.18);'), 'variables.css must define pure yellow dark-mode tokens for nearing due date');
     assert.ok(css95.includes('color: var(--task-status-near-color)') && css95.includes('background: var(--task-status-near-bg)'), 'components.css must unify Board/List/Calendar nearing-due yellow via shared tokens');
+
+    // Light-mode borders/gridlines & Tasks Board/Calendar parity with Project section
+    assert.ok(css95.includes("[data-theme='light'] .task-cal-cell") && css95.includes('border-right: 1px solid #b8c4d4;'), 'components.css must define clearly visible calendar gridlines in light mode');
+    assert.ok(css95.includes("[data-theme='light'] .task-cal-month-frame") && css95.includes('border-color: #94a3b8;'), 'components.css must define crisp calendar outer border in light mode');
+    assert.ok(css95.includes("[data-theme='light'] .my-tasks-board-card") && css95.includes("[data-theme='light'] .my-tasks-calendar-card"), 'components.css must keep Tasks Board and Calendar wrappers transparent/borderless in light mode');
+
+    // Custom statuses in Tasks Board View must appear before Complete (matching Project Board View)
+    tasksMod95._allLoadedTasks = calSampleTasks.concat([
+      { id: 'cal-testing', title: 'QA Pass', status: 'testing', project_name: 'Logistics', assignee_name: 'Jeshua Koh', assignee_ic: 'jeshuakoh2008@gmail.com', due_date: '2026-11-28' }
+    ]);
+    tasksMod95.setTasksViewMode('mytasks');
+    tasksMod95.setMyTasksScopeFilter('all');
+    tasksMod95.setMyTasksStatusFilter('all');
+    tasksMod95.setMyTasksDisplayMode('board');
+    assert.ok(!mMyTasks95.innerHTML.includes('class="my-tasks-card my-tasks-board-card"'), 'Tasks Board View must not wrap columns in bordered .my-tasks-card shell');
+    const idxTesting95 = mMyTasks95.innerHTML.indexOf('data-col-status="testing"');
+    const idxComplete95 = mMyTasks95.innerHTML.indexOf('data-col-status="completed"');
+    assert.ok(idxTesting95 !== -1 && idxComplete95 !== -1 && idxTesting95 < idxComplete95, 'Custom statuses (e.g. Testing) must appear before Complete in Tasks Board View');
+    tasksMod95.setMyTasksDisplayMode('calendar');
+    assert.ok(!mMyTasks95.innerHTML.includes('class="my-tasks-card my-tasks-calendar-card"'), 'Tasks Calendar View must not wrap calendar in bordered .my-tasks-card shell');
+
     assert.ok(idxHtml95.includes("window.addEventListener('pageshow'") && idxHtml95.includes('resetTasksFiltersToDefault()'), 'index.html must auto-reset Tasks filters on tab switch, load, and pageshow');
     const adminJs95 = fs.readFileSync(path.join(__dirname, '../js/modules/admin.js'), 'utf8');
     assert.ok(adminJs95.includes('resetTasksFiltersToDefault'), 'admin.js must auto-reset Tasks filters when closing Admin Console');

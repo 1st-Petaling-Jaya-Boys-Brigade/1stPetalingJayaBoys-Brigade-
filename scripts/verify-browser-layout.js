@@ -4622,6 +4622,42 @@ async function getJson(url) {
           );
           const desktopCalOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
 
+          // Light Mode parity check: crisp visible calendar gridlines/borders & borderless transparent Tasks Board/Calendar wrappers aligned flush like Dark Mode
+          document.documentElement.setAttribute('data-theme', 'light');
+          setMyTasksScopeFilter('all');
+          setMyTasksStatusFilter('all');
+          setMyTasksDisplayMode('board');
+          const lightBoardWrap = document.querySelector('.my-tasks-container .my-tasks-board-card');
+          const lightControlsRow = document.querySelector('.my-tasks-container .my-tasks-controls-row');
+          const lightTaskCol = document.querySelector('.my-tasks-container .task-col');
+          const lightTaskCard = document.querySelector('.my-tasks-container .task-card');
+          const lightBoardWrapClean = Boolean(lightBoardWrap)
+            && getComputedStyle(lightBoardWrap).borderTopWidth === '0px'
+            && getComputedStyle(lightBoardWrap).backgroundColor === 'rgba(0, 0, 0, 0)';
+          const lightBoardAligned = Boolean(lightBoardWrap && lightControlsRow)
+            && Math.abs(lightBoardWrap.getBoundingClientRect().left - lightControlsRow.getBoundingClientRect().left) <= 1;
+          const lightLaneOutlined = Boolean(lightTaskCol)
+            && getComputedStyle(lightTaskCol).borderTopWidth === '0px'
+            && getComputedStyle(lightTaskCol).boxShadow.includes('203, 213, 225');
+          const lightCardBorderVisible = Boolean(lightTaskCard)
+            && getComputedStyle(lightTaskCard).borderTopWidth === '1px'
+            && getComputedStyle(lightTaskCard).borderTopColor === 'rgb(184, 196, 212)';
+
+          setMyTasksDisplayMode('calendar');
+          const lightCalWrap = document.querySelector('.my-tasks-container .my-tasks-calendar-card');
+          const lightCalControlsRow = document.querySelector('.my-tasks-container .my-tasks-controls-row');
+          const lightCalFrame = document.querySelector('.my-tasks-container .task-cal-month-frame');
+          const lightCalCell = document.querySelector('.my-tasks-container .task-cal-cell');
+          const lightCalWrapClean = Boolean(lightCalWrap)
+            && getComputedStyle(lightCalWrap).borderTopWidth === '0px'
+            && getComputedStyle(lightCalWrap).backgroundColor === 'rgba(0, 0, 0, 0)';
+          const lightCalAligned = Boolean(lightCalFrame && lightCalControlsRow)
+            && Math.abs(lightCalFrame.getBoundingClientRect().left - lightCalControlsRow.getBoundingClientRect().left) <= 1;
+          const lightCalGridlinesVisible = Boolean(lightCalFrame && lightCalCell)
+            && getComputedStyle(lightCalFrame).borderTopColor === 'rgb(148, 163, 184)'
+            && getComputedStyle(lightCalCell).borderRightColor === 'rgb(184, 196, 212)'
+            && getComputedStyle(lightCalCell).borderBottomColor === 'rgb(184, 196, 212)';
+
           // Leave Tasks section -> Projects -> return to Tasks: must auto-reset back to List View + Assigned to me + Open
           setTasksViewMode('projects');
           setTasksViewMode('mytasks');
@@ -4644,6 +4680,8 @@ async function getJson(url) {
             projDefaultIsBoard, projResetsToBoardOnReentry, tasksDefaultIsList,
             tasksResetsToListAfterLeaving, tasksResetsToListAfterTabSwitch,
             darkModeYellowExactMatch, darkModeLateExactMatch, darkModeOverdueExactMatch,
+            lightBoardWrapClean, lightBoardAligned, lightLaneOutlined, lightCardBorderVisible,
+            lightCalWrapClean, lightCalAligned, lightCalGridlinesVisible,
             projCalVisible, projBoardHidden, projListHidden, calModes, hasTodayHighlight,
             hasRedPill, hasLatePill, projBoardColorsDistinct, projListColorsDistinct, projCalColorsDistinct,
             hasYellowPill, hasAvatarInPill, popoverOpen, createModalOpen, prefilledDue,
@@ -4661,6 +4699,13 @@ async function getJson(url) {
       returnByValue: true
     });
     const taskCalRes = (calAndOverviewDiag.result && calAndOverviewDiag.result.value) || {};
+    assert.strictEqual(taskCalRes.lightBoardWrapClean, true, 'Light mode Tasks Board wrapper must be transparent/borderless like Dark Mode and Project Board');
+    assert.strictEqual(taskCalRes.lightBoardAligned, true, 'Light mode Tasks Board columns must align flush with controls bar');
+    assert.strictEqual(taskCalRes.lightLaneOutlined, true, 'Light mode Kanban lanes must have crisp visible outline while keeping borderTopWidth 0px');
+    assert.strictEqual(taskCalRes.lightCardBorderVisible, true, 'Light mode Kanban task cards must have crisp visible 1px borders');
+    assert.strictEqual(taskCalRes.lightCalWrapClean, true, 'Light mode Tasks Calendar wrapper must be transparent/borderless like Dark Mode and Project Calendar');
+    assert.strictEqual(taskCalRes.lightCalAligned, true, 'Light mode Tasks Calendar frame must align flush with controls bar');
+    assert.strictEqual(taskCalRes.lightCalGridlinesVisible, true, 'Light mode Calendar gridlines and outer frame borders must be clearly visible');
     assert.strictEqual(taskCalRes.projDefaultIsBoard, true, 'Project section must default to Board View on open');
     assert.strictEqual(taskCalRes.projResetsToBoardOnReentry, true, 'Project section must reset back to Board View on re-entry');
     assert.strictEqual(taskCalRes.tasksDefaultIsList, true, 'Tasks section must default to List View on open');
