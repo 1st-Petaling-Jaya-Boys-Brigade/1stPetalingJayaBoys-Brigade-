@@ -1147,9 +1147,9 @@
             <div class="s-title task-main-heading" id="tasks-dept-sub">Projects &amp; Tasks</div>
             <span class="tasks-dept-badge" id="tasks-dept-badge" style="display:none !important;">Active</span>
           </div>
-          <!-- Project Board / List View Mode Toggle (Image 1) -->
+          <!-- Project Board / List / Calendar View Mode Toggle -->
           <div class="project-board-view-toggle" role="group" aria-label="Project board layout mode">
-            <button type="button" class="project-view-btn active" data-proj-vmode="board" onclick="setProjectDisplayMode('board')" title="Board View" aria-label="Board View">
+            <button type="button" class="project-view-btn active" data-proj-vmode="board" onclick="setProjectDisplayMode('board')" title="Board View" aria-label="Board View" aria-pressed="true">
               <svg class="proj-view-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <rect x="3" y="3" width="18" height="18" rx="5" />
                 <line x1="8.5" y1="8" x2="8.5" y2="16" stroke-width="2.5" />
@@ -1157,11 +1157,19 @@
                 <line x1="15.5" y1="8" x2="15.5" y2="16" stroke-width="2.5" />
               </svg>
             </button>
-            <button type="button" class="project-view-btn" data-proj-vmode="list" onclick="setProjectDisplayMode('list')" title="List View" aria-label="List View">
+            <button type="button" class="project-view-btn" data-proj-vmode="list" onclick="setProjectDisplayMode('list')" title="List View" aria-label="List View" aria-pressed="false">
               <svg class="proj-view-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <line x1="4" y1="6" x2="20" y2="6" />
                 <line x1="4" y1="12" x2="20" y2="12" />
                 <line x1="4" y1="18" x2="20" y2="18" />
+              </svg>
+            </button>
+            <button type="button" class="project-view-btn" data-proj-vmode="calendar" onclick="setProjectDisplayMode('calendar')" title="Calendar View" aria-label="Calendar View" aria-pressed="false">
+              <svg class="proj-view-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="3" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             </button>
           </div>
@@ -1257,8 +1265,14 @@
       <!-- Project List View Container (Image 2) -->
       <div class="tasks-board-list-view" style="display:none;width:100%;"></div>
 
-      <!-- My Tasks View Container (Image 4) -->
+      <!-- Project Calendar View Container -->
+      <div class="tasks-board-calendar-view hidden" style="display:none;width:100%;"></div>
+
+      <!-- My Tasks View Container (Board, List, Calendar across all projects) -->
       <div class="my-tasks-container" style="display:none;"></div>
+
+      <!-- Task Calendar Day Popover (Light-dismiss day detail & quick task creation) -->
+      <div class="task-cal-day-popover" role="dialog" aria-modal="false" aria-label="Tasks on selected date" style="display:none;"></div>
     </div>
 
     <!-- Task detail modal (Interactive Linear-inspired Task Brief) -->
