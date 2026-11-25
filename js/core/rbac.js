@@ -88,49 +88,164 @@
     return null;
   }
 
+  function getCurrentSessionIdentity() {
+    return cleanEmail(getSession('email') || getSession('ic'));
+  }
+
+  function setSessionRole(role) {
+    var setter = (typeof sessionSet === 'function')
+      ? sessionSet
+      : (typeof window !== 'undefined' && typeof window.sessionSet === 'function')
+        ? window.sessionSet
+        : (typeof global !== 'undefined' && typeof global.sessionSet === 'function')
+          ? global.sessionSet
+          : null;
+    if (setter && getCurrentSessionIdentity()) {
+      try { setter('role', role, { localOnly: true }); } catch (_) {}
+    }
+  }
+
+  function normalizeRolesConfig(raw) {
+    var obj = raw;
+    if (typeof obj === 'string') {
+      try { obj = JSON.parse(obj); } catch (_) { return null; }
+    }
+    if (!obj || typeof obj !== 'object') return null;
+    if (obj.rolesConfig && typeof obj.rolesConfig === 'object') {
+      obj = obj.rolesConfig;
+    } else if (obj.value !== undefined && !Array.isArray(obj.super_admins) && !(obj.admins && typeof obj.admins === 'object')) {
+      return normalizeRolesConfig(obj.value);
+    }
+    if (!Array.isArray(obj.super_admins) && !(obj.admins && typeof obj.admins === 'object')) {
+      return null;
+    }
+    var superAdmins = Array.isArray(obj.super_admins)
+      ? obj.super_admins.map(cleanEmail).filter(Boolean)
+      : [...SUPER_ADMIN_DEFAULT_EMAILS];
+    var rawAdmins = (obj.admins && typeof obj.admins === 'object' && !Array.isArray(obj.admins)) ? obj.admins : {};
+    var normalizedAdmins = {};
+    Object.keys(rawAdmins).forEach(function(k) {
+      var ck = cleanEmail(k);
+      if (ck) normalizedAdmins[ck] = rawAdmins[k];
+    });
+    return {
+      super_admins: superAdmins,
+      admins: normalizedAdmins
+    };
+  }
+
+  function broadcastRolesUpdate(targetEmail, role, permissions) {
+    var rt = (typeof window !== 'undefined' && window.PortalRealtime)
+      ? window.PortalRealtime
+      : (typeof global !== 'undefined' && global.PortalRealtime)
+        ? global.PortalRealtime
+        : (typeof PortalRealtime !== 'undefined' ? PortalRealtime : null);
+    if (rt && typeof rt.broadcast === 'function') {
+      try {
+        rt.broadcast('roles', 'update', {
+          targetEmail: cleanEmail(targetEmail),
+          role: cleanEmail(role),
+          permissions: Array.isArray(permissions) ? permissions.slice() : [],
+          rolesConfig: _rolesConfig
+        });
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Applies an incoming roles configuration update immediately in memory, localStorage,
+   * header role badge, sidebar visibility, and live Admin Console session enforcement.
+   * @param {Object|string} rawConfig
+   * @param {Object} [options]
+   * @returns {Object} Updated roles config
+   */
+  function applyRolesConfigUpdate(rawConfig, options) {
+    var opts = options || {};
+    var normalized = normalizeRolesConfig(rawConfig);
+    if (!normalized) return _rolesConfig;
+
+    var identity = getCurrentSessionIdentity();
+    var prevRole = identity ? getUserRole(identity) : ROLES.MEMBER;
+    var prevPerms = identity ? getUserPermissions(identity).slice().sort().join(',') : '';
+
+    _rolesConfig = normalized;
+
+    if (!opts.fromStorage) {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('bb_admin_roles', JSON.stringify(_rolesConfig));
+        }
+      } catch (_) {}
+    }
+
+    try {
+      var clientForCache = getSupabaseClient();
+      if (clientForCache && typeof clientForCache.invalidateCache === 'function') {
+        clientForCache.invalidateCache('bb_config');
+      }
+    } catch (_) {}
+
+    var nextRole = identity ? getUserRole(identity) : ROLES.MEMBER;
+    var nextPermsList = identity ? getUserPermissions(identity) : [];
+    var nextPerms = nextPermsList.slice().sort().join(',');
+    var roleChanged = Boolean(identity && prevRole !== nextRole);
+    var permsChanged = Boolean(identity && prevPerms !== nextPerms);
+
+    if (identity) {
+      setSessionRole(nextRole);
+    }
+
+    renderHeaderRoleBadge();
+    syncAdminButtonVisibility();
+
+    var syncLiveFn = (typeof window !== 'undefined' && typeof window.syncLiveAdminAccess === 'function')
+      ? window.syncLiveAdminAccess
+      : (typeof global !== 'undefined' && typeof global.syncLiveAdminAccess === 'function')
+        ? global.syncLiveAdminAccess
+        : null;
+    if (syncLiveFn) {
+      try {
+        syncLiveFn(nextRole, nextPermsList, {
+          fromRealtime: Boolean(opts.fromRealtime),
+          fromStorage: Boolean(opts.fromStorage),
+          fromRefresh: Boolean(opts.fromRefresh),
+          fromSelf: Boolean(opts.fromSelf),
+          prevRole: prevRole,
+          roleChanged: roleChanged,
+          permsChanged: permsChanged
+        });
+      } catch (_) {}
+    }
+
+    return _rolesConfig;
+  }
+
   /**
    * Loads the active roles configuration from bb_config or remote RPC.
    * @param {boolean} forceRefresh
+   * @param {Object} [options]
    * @returns {Promise<Object>}
    */
-  async function loadRolesConfig(_forceRefresh) {
+  async function loadRolesConfig(_forceRefresh, options) {
+    var applyOpts = Object.assign({ fromRefresh: true }, options || {});
     try {
-      if (!_forceRefresh && typeof supa !== 'undefined' && typeof supa.safeConfigGet === 'function') {
-        var snapRoles = await supa.safeConfigGet('bb_admin_roles');
+      var client = getSupabaseClient();
+      if (!_forceRefresh && client && typeof client.safeConfigGet === 'function') {
+        var snapRoles = await client.safeConfigGet('bb_admin_roles');
         if (snapRoles && typeof snapRoles === 'object' && (snapRoles.super_admins || snapRoles.admins)) {
-          _rolesConfig = {
-            super_admins: Array.isArray(snapRoles.super_admins) ? snapRoles.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
-            admins: (snapRoles.admins && typeof snapRoles.admins === 'object') ? snapRoles.admins : {}
-          };
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem('bb_admin_roles', JSON.stringify(_rolesConfig));
-            }
-          } catch (_) {}
-          renderHeaderRoleBadge();
-          syncAdminButtonVisibility();
-          return _rolesConfig;
+          return applyRolesConfigUpdate(snapRoles, applyOpts);
         }
       }
 
-      var client = getSupabaseClient();
-      if (client) {
-        var res = await client.get('bb_config?key=eq.bb_admin_roles&select=value');
+      if (client && typeof client.get === 'function') {
+        if (_forceRefresh && typeof client.invalidateCache === 'function') {
+          client.invalidateCache('bb_config');
+        }
+        var res = await client.get('bb_config?key=eq.bb_admin_roles&select=value', _forceRefresh ? { cache: false } : undefined);
         if (res && res.length && res[0].value) {
           var parsed = typeof res[0].value === 'string' ? JSON.parse(res[0].value) : res[0].value;
           if (parsed && typeof parsed === 'object') {
-            _rolesConfig = {
-              super_admins: Array.isArray(parsed.super_admins) ? parsed.super_admins : [...SUPER_ADMIN_DEFAULT_EMAILS],
-              admins: (parsed.admins && typeof parsed.admins === 'object') ? parsed.admins : {}
-            };
-            try {
-              if (typeof localStorage !== 'undefined') {
-                localStorage.setItem('bb_admin_roles', JSON.stringify(_rolesConfig));
-              }
-            } catch (_) {}
-            renderHeaderRoleBadge();
-            syncAdminButtonVisibility();
-            return _rolesConfig;
+            return applyRolesConfigUpdate(parsed, applyOpts);
           }
         }
       }
@@ -299,7 +414,8 @@
           p_permissions: validPerms
         });
         if (rpcRes && rpcRes.success) {
-          await loadRolesConfig(true);
+          await loadRolesConfig(true, { fromSelf: true });
+          broadcastRolesUpdate(target, role, validPerms);
           return rpcRes;
         }
       } catch (rpcErr) {
@@ -350,8 +466,8 @@
         console.warn('Failed to save bb_admin_roles to Supabase:', saveErr);
       }
     }
-    renderHeaderRoleBadge();
-    syncAdminButtonVisibility();
+    applyRolesConfigUpdate(_rolesConfig, { fromSelf: true });
+    broadcastRolesUpdate(target, role, validPerms);
 
     // Log mutation in bb_audit_logs if available
     if (typeof logAuditEvent === 'function') {
@@ -466,6 +582,14 @@
     }
   }
 
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('storage', function(event) {
+      if (event && event.key === 'bb_admin_roles' && event.newValue) {
+        applyRolesConfigUpdate(event.newValue, { fromRealtime: true, fromStorage: true });
+      }
+    });
+  }
+
   // Attach to window & export
   var RBAC = {
     ROLES: ROLES,
@@ -474,6 +598,7 @@
     DEFAULT_ADMIN_MODULES: DEFAULT_ADMIN_MODULES,
     _getRolesConfig: function() { return _rolesConfig; },
     _setRolesConfig: function(cfg) { _rolesConfig = cfg; },
+    applyRolesConfigUpdate: applyRolesConfigUpdate,
     loadRolesConfig: loadRolesConfig,
     getUserRole: getUserRole,
     getUserPermissions: getUserPermissions,
@@ -501,6 +626,7 @@
       DEFAULT_ADMIN_MODULES: DEFAULT_ADMIN_MODULES,
       _getRolesConfig: function() { return _rolesConfig; },
       _setRolesConfig: function(cfg) { _rolesConfig = cfg; },
+      applyRolesConfigUpdate: applyRolesConfigUpdate,
       loadRolesConfig: loadRolesConfig,
       getUserRole: getUserRole,
       getUserPermissions: getUserPermissions,

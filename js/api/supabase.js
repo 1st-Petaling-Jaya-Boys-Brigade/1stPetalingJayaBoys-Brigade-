@@ -1110,6 +1110,20 @@ var PortalRealtime = (function() {
   var _seenRealtimeMsgIds = new Set();
   var _pendingBroadcastQueue = [];
 
+  function forwardToFollowerTabs(entity, action, data, senderId, msgId) {
+    if (!_broadcastChannel) return;
+    try {
+      _broadcastChannel.postMessage({
+        type: 'PORTAL_REALTIME_CHANGE',
+        senderId: senderId || _realtimeTabId,
+        msgId: msgId || (_realtimeTabId + ':' + entity + ':' + Date.now() + ':' + (++_refCounter)),
+        entity: entity,
+        action: action || 'update',
+        data: data || null
+      });
+    } catch (_) {}
+  }
+
   // 1. Cross-Tab Instant BroadcastChannel (0ms latency on same machine)
   if (typeof BroadcastChannel !== 'undefined') {
     try {
@@ -1128,6 +1142,27 @@ var PortalRealtime = (function() {
         }
         if (msg.type === 'PORTAL_REALTIME_CHANGE') {
           triggerEntityUpdate(msg.entity, msg.action, msg.data, true);
+          if (msg.relayToWs && _ws && _ws.readyState === WebSocket.OPEN) {
+            try {
+              _ws.send(JSON.stringify({
+                topic: 'realtime:public',
+                event: 'broadcast',
+                payload: {
+                  type: 'broadcast',
+                  event: 'PORTAL_REALTIME_CHANGE',
+                  payload: {
+                    type: 'PORTAL_REALTIME_CHANGE',
+                    senderId: msg.senderId || _realtimeTabId,
+                    msgId: msg.msgId || (_realtimeTabId + ':' + msg.entity + ':' + Date.now() + ':' + (++_refCounter)),
+                    entity: msg.entity,
+                    action: msg.action || 'update',
+                    data: msg.data || null
+                  }
+                },
+                ref: String(_refCounter++)
+              }));
+            } catch (_) {}
+          }
         }
       };
     } catch (_) {}
@@ -1139,7 +1174,7 @@ var PortalRealtime = (function() {
   function broadcastLocalChange(entity, action, data) {
     var now = Date.now();
     // Flood protection: drop rapid bursts for non-transactional entities
-    if (entity !== 'projects' && entity !== 'project_statuses' && entity !== 'tasks' && entity !== 'task_assigned' && entity !== 'comments' && _lastBroadcastTimes[entity] && (now - _lastBroadcastTimes[entity] < _BROADCAST_THROTTLE_MS)) {
+    if (entity !== 'roles' && entity !== 'projects' && entity !== 'project_statuses' && entity !== 'tasks' && entity !== 'task_assigned' && entity !== 'comments' && _lastBroadcastTimes[entity] && (now - _lastBroadcastTimes[entity] < _BROADCAST_THROTTLE_MS)) {
       return;
     }
     _lastBroadcastTimes[entity] = now;
@@ -1151,6 +1186,8 @@ var PortalRealtime = (function() {
       _seenRealtimeMsgIds.delete(firstKey);
     }
 
+    var hasOpenWs = Boolean(_ws && _ws.readyState === WebSocket.OPEN);
+
     // 1. Cross-Tab Local BroadcastChannel (Same Device, 0ms)
     if (_broadcastChannel) {
       try {
@@ -1160,7 +1197,8 @@ var PortalRealtime = (function() {
           msgId: msgId,
           entity: entity,
           action: action || 'update',
-          data: data || null
+          data: data || null,
+          relayToWs: !hasOpenWs
         });
       } catch (_) {}
     }
@@ -1338,6 +1376,7 @@ var PortalRealtime = (function() {
                 triggerEntityUpdate('announcements', 'update', record, true);
               } else if (key === 'bb_admin_roles') {
                 triggerEntityUpdate('roles', 'update', record, true);
+                forwardToFollowerTabs('roles', 'update', record);
               } else if (key === 'bb_blocked_emails' || key === 'bb_deleted_members') {
                 triggerEntityUpdate('blocklist', 'update', null, true);
               } else if (key === 'bb_master_attendance') {
@@ -1426,13 +1465,16 @@ var PortalRealtime = (function() {
 
     _deltaSyncInFlight = true;
     try {
-      var rows = await client.get('bb_config?key=in.(bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_project_statuses,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights,bb_member_presence,bb_member_pfps)&select=key,updated_at', { cache: false });
+      var rows = await client.get('bb_config?key=in.(bb_admin_roles,bb_company_calendar,bb_forum_posts,bb_announcements,bb_announcements_pinned,bb_announcements_allowed_reactions,bb_announcements_images,bb_projects,bb_project_statuses,bb_master_attendance,bb_member_cosmetics,bb_custom_avatar_outlines,bb_custom_forms,bb_resources,bb_badges,bb_story_highlights,bb_member_presence,bb_member_pfps)&select=key,updated_at', { cache: false });
       if (Array.isArray(rows)) {
         rows.forEach(function(r) {
           if (!r?.key) return;
           var ts = r.updated_at || '';
           if (_lastEntityTimestamps[r.key] && _lastEntityTimestamps[r.key] !== ts) {
-            if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update', null, true);
+            if (r.key === 'bb_admin_roles') {
+              triggerEntityUpdate('roles', 'update', null, true);
+              forwardToFollowerTabs('roles', 'update', null);
+            } else if (r.key === 'bb_company_calendar') triggerEntityUpdate('calendar', 'update', null, true);
             else if (r.key === 'bb_forum_posts') triggerEntityUpdate('forum', 'update', null, true);
             else if (r.key === 'bb_announcements' || r.key.startsWith('bb_announcements_')) triggerEntityUpdate('announcements', 'update', null, true);
             else if (r.key === 'bb_projects' || r.key === 'bb_project_statuses') triggerEntityUpdate('projects', 'update', null, true);
@@ -1599,6 +1641,40 @@ var PortalRealtime = (function() {
   function triggerEntityUpdate(entity, action, data, fromBroadcast) {
     if (!fromBroadcast) {
       broadcastLocalChange(entity, action, data);
+    }
+
+    if (entity === 'roles') {
+      invalidateCache('bb_config');
+      var rbacObj = (typeof window !== 'undefined' && window.RBAC)
+        ? window.RBAC
+        : (typeof global !== 'undefined' && global.RBAC)
+          ? global.RBAC
+          : (typeof RBAC !== 'undefined' ? RBAC : null);
+      if (rbacObj) {
+        var incomingRolesCfg = null;
+        if (data && typeof data === 'object') {
+          if (data.rolesConfig && typeof data.rolesConfig === 'object') {
+            incomingRolesCfg = data.rolesConfig;
+          } else if (data.value !== undefined) {
+            incomingRolesCfg = data.value;
+          } else if (data.record && data.record.value !== undefined) {
+            incomingRolesCfg = data.record.value;
+          } else if (Array.isArray(data.super_admins) || (data.admins && typeof data.admins === 'object')) {
+            incomingRolesCfg = data;
+          }
+        } else if (typeof data === 'string') {
+          incomingRolesCfg = data;
+        }
+
+        if (incomingRolesCfg && typeof rbacObj.applyRolesConfigUpdate === 'function') {
+          try {
+            rbacObj.applyRolesConfigUpdate(incomingRolesCfg, { fromRealtime: true });
+          } catch (_) {}
+        } else if (typeof rbacObj.loadRolesConfig === 'function') {
+          rbacObj.loadRolesConfig(true, { fromRealtime: true }).catch(function() {});
+        }
+      }
+      return;
     }
 
     if (entity === 'presence') {
