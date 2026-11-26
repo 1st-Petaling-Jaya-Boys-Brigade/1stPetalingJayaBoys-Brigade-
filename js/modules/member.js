@@ -50,15 +50,6 @@ function showAuthMode(mode) {
   if (mode === 'forgot' && typeof showForgotStep === 'function') {
     showForgotStep(1);
   }
-  if (typeof renderTurnstileWidget === 'function') {
-    setTimeout(function() {
-      var container = document.querySelector('#auth-' + mode + ' .cf-turnstile-container');
-      if (container) {
-        var actionName = (mode === 'forgot') ? 'forgot_password' : mode;
-        renderTurnstileWidget(container, actionName);
-      }
-    }, 50);
-  }
 }
 
 function togglePassVis(inputId, btnId) {
@@ -1155,37 +1146,6 @@ async function registerMember() {
       return;
     }
 
-  // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('register')
-    : '';
-  if (!captchaToken) {
-    var regContainer = document.querySelector('#auth-register .cf-turnstile-container');
-    if (regContainer && typeof renderTurnstileWidget === 'function') {
-      renderTurnstileWidget(regContainer, 'register');
-    }
-    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('register') : '';
-  }
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
-    if (typeof showToast === 'function') {
-      showToast('Please complete the security check box above before registering.', 'warning');
-    }
-    return;
-  }
-  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
-    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'register');
-    if (!captchaResult || !captchaResult.success) {
-      if (typeof resetTurnstileWidget === 'function') {
-        resetTurnstileWidget('register');
-      }
-      if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
-      }
-      return;
-    }
-  }
-
-
     var newMemberData = {
       ic: email,
       email: email,
@@ -1820,36 +1780,6 @@ async function loginMember() {
 
   var loginBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-login button[type="submit"]') : null;
 
-  // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('login')
-    : '';
-  if (!captchaToken) {
-    var loginContainer = document.querySelector('#auth-login .cf-turnstile-container');
-    if (loginContainer && typeof renderTurnstileWidget === 'function') {
-      renderTurnstileWidget(loginContainer, 'login');
-    }
-    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('login') : '';
-  }
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
-    if (typeof showToast === 'function') {
-      showToast('Please complete the security check box above before logging in.', 'warning');
-    }
-    return;
-  }
-  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
-    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'login');
-    if (!captchaResult || !captchaResult.success) {
-      if (typeof resetTurnstileWidget === 'function') {
-        resetTurnstileWidget('login');
-      }
-      if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
-      }
-      return;
-    }
-  }
-
   if (_isLoggingInMember) return;
   _isLoggingInMember = true;
   if (typeof setButtonLoading === 'function' && loginBtn) {
@@ -2056,9 +1986,6 @@ async function loginMember() {
     }
   } finally {
     _isLoggingInMember = false;
-    if (typeof resetTurnstileWidget === 'function') {
-      resetTurnstileWidget('login');
-    }
     if (typeof setButtonLoading === 'function' && loginBtn) {
       setButtonLoading(loginBtn, false);
     }
@@ -5797,36 +5724,6 @@ async function sendPasswordResetEmail() {
   var btn = document.getElementById('btn-send-reset');
   var origText = btn ? btn.textContent : '';
 
-  // Cloudflare Turnstile CAPTCHA Verification
-  var captchaToken = (typeof getTurnstileToken === 'function')
-    ? getTurnstileToken('forgot_password')
-    : '';
-  if (!captchaToken) {
-    var forgotContainer = document.querySelector('#auth-forgot .cf-turnstile-container');
-    if (forgotContainer && typeof renderTurnstileWidget === 'function') {
-      renderTurnstileWidget(forgotContainer, 'forgot_password');
-    }
-    captchaToken = (typeof getTurnstileToken === 'function') ? getTurnstileToken('forgot_password') : '';
-  }
-  if (!captchaToken && typeof window !== 'undefined' && !window.__SKIP_CAPTCHA__ && !window.__IS_TEST__) {
-    if (typeof showToast === 'function') {
-      showToast('Please complete the security check box above before requesting a reset code.', 'warning');
-    }
-    return;
-  }
-  if (captchaToken && typeof verifyTurnstileTokenServerSide === 'function') {
-    var captchaResult = await verifyTurnstileTokenServerSide(captchaToken, 'forgot_password');
-    if (!captchaResult || !captchaResult.success) {
-      if (typeof resetTurnstileWidget === 'function') {
-        resetTurnstileWidget('forgot_password');
-      }
-      if (typeof showToast === 'function') {
-        showToast(captchaResult && captchaResult.error ? captchaResult.error : 'Security verification failed. Please try again.', 'error');
-      }
-      return;
-    }
-  }
-
   if (btn) {
     btn.disabled = true;
     btn.textContent = '⏳ Sending Reset Code...';
@@ -7863,10 +7760,6 @@ if (typeof module !== 'undefined' && module.exports) {
 
 if (typeof document !== 'undefined') {
   var initMemberFormHooks = function () {
-    var c = document.querySelector('#auth-login .cf-turnstile-container');
-    if (c && typeof renderTurnstileWidget === 'function') {
-      renderTurnstileWidget(c, 'login');
-    }
     var regSec = document.getElementById('reg-section');
     if (regSec) {
       regSec.addEventListener('change', handleSectionChange);

@@ -793,7 +793,7 @@ body.auth-screen-active #page-member.page.active > div {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin: 0 0 12px;
+  margin: 4px 0 18px;
 }
 
 .auth-remember-label {
@@ -892,15 +892,6 @@ body.auth-screen-active #page-member.page.active > div {
 .auth-inline-link:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: 2px;
-}
-
-.auth-shell-card .cf-turnstile-container {
-  margin: 0 0 12px;
-  min-height: 65px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
 }
 
 .auth-shell-card .submit-btn.gold {
@@ -1041,11 +1032,7 @@ body.auth-screen-active #page-member.page.active > div {
   }
 
   .auth-meta-row {
-    margin: 0 0 8px;
-  }
-
-  .auth-shell-card .cf-turnstile-container {
-    margin: 0 0 8px;
+    margin: 2px 0 12px;
   }
 
   .auth-shell-card .submit-btn.gold {

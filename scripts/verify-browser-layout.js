@@ -3789,46 +3789,31 @@ async function getJson(url) {
     assert.deepStrictEqual(shellAvatars.fallback, [['none', false], ['none', false]], 'Both icons show initials when there is no profile photo');
     console.log('  ✔ Header and sidebar display the uploaded photo and retain their initials fallback');
 
-    // ── Cloudflare Turnstile CAPTCHA Integration ──
-    console.log('\n[Privacy-First Bot Protection (Cloudflare Turnstile CAPTCHA)]');
+    // ── Privacy-First Auth Forms (Cloudflare Turnstile Removed) ──
+    console.log('\n[Privacy-First Auth Forms & Zero Third-Party CAPTCHA Scripts]');
     const turnstileDiag = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
         const containers = document.querySelectorAll('.cf-turnstile-container');
-        const loginContainer = document.querySelector('#auth-login .cf-turnstile-container');
-        const regContainer = document.querySelector('#auth-register .cf-turnstile-container');
-        const forgotContainer = document.querySelector('#auth-forgot .cf-turnstile-container');
         const scriptEl = document.querySelector('script[src*="turnstile/v0/api.js"]');
-        const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
-        const cspContent = cspMeta ? cspMeta.getAttribute('content') : '';
-
+        const authDescEl = document.querySelector('#m-auth .page-desc');
         return {
           containerCount: containers.length,
-          loginFound: !!loginContainer,
-          loginAction: loginContainer ? loginContainer.getAttribute('data-action') : null,
-          regFound: !!regContainer,
-          regAction: regContainer ? regContainer.getAttribute('data-action') : null,
-          forgotFound: !!forgotContainer,
-          forgotAction: forgotContainer ? forgotContainer.getAttribute('data-action') : null,
           scriptFound: !!scriptEl,
-          scriptSrc: scriptEl ? scriptEl.getAttribute('src') : null,
-          cspAllowsTurnstile: cspContent.includes('https://challenges.cloudflare.com'),
+          authDescText: authDescEl ? authDescEl.textContent.trim() : '',
+          hasHoneypot: !!document.getElementById('reg-honeypot'),
           hasNoRecaptcha: !document.querySelector('script[src*="recaptcha"]')
         };
       })()`,
       returnByValue: true
     });
     const cfDiag = turnstileDiag.result.value;
-    assert.ok(cfDiag.scriptFound, 'Cloudflare Turnstile script must be present in DOM');
-    assert.strictEqual(cfDiag.cspAllowsTurnstile, true, 'CSP meta tag must permit challenges.cloudflare.com');
-    assert.strictEqual(cfDiag.loginFound, true, 'Login form must include Turnstile container');
-    assert.strictEqual(cfDiag.loginAction, 'login', 'Login container action must be login');
-    assert.strictEqual(cfDiag.regFound, true, 'Register form must include Turnstile container');
-    assert.strictEqual(cfDiag.regAction, 'register', 'Register container action must be register');
-    assert.strictEqual(cfDiag.forgotFound, true, 'Forgot password form must include Turnstile container');
-    assert.strictEqual(cfDiag.forgotAction, 'forgot_password', 'Forgot container action must be forgot_password');
+    assert.strictEqual(cfDiag.scriptFound, false, 'Cloudflare Turnstile script must be removed from DOM');
+    assert.strictEqual(cfDiag.containerCount, 0, 'Login, Register, and Forgot Password must have zero Turnstile containers');
+    assert.strictEqual(cfDiag.authDescText, 'Register or log in to access the portal', 'Auth subtitle must read Register or log in to access the portal');
+    assert.strictEqual(cfDiag.hasHoneypot, true, 'Registration honeypot field must remain present');
     assert.strictEqual(cfDiag.hasNoRecaptcha, true, 'Zero Google reCAPTCHA scripts in DOM (privacy compliance)');
-    console.log('  ✔ Cloudflare Turnstile explicit script loader & privacy-first CSP headers verified in browser');
-    console.log('  ✔ Turnstile widget containers and data actions verified across Login, Register, and Forgot Password in browser');
+    console.log('  ✔ Cloudflare Turnstile widget & script removed across Login, Register, and Forgot Password');
+    console.log('  ✔ Auth subtitle updated to "Register or log in to access the portal" with zero CAPTCHA scripts');
 
     // Verify  Member Logout & Re-Lock in Browser
     const logoutDiag = await sendCmd('Runtime.evaluate', {
