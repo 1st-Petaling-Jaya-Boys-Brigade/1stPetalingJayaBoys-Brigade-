@@ -275,8 +275,9 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --header-row-height: 60px;
   --header-height: calc(var(--header-row-height) + var(--safe-area-top));
-  --dock-offset: max(18px, calc(12px + var(--safe-area-bottom)));
-  --dock-clearance: calc(var(--dock-offset) + 86px);
+  --mobile-nav-height: 60px;
+  --mobile-nav-bottom: calc(var(--mobile-nav-height) + var(--safe-area-bottom));
+  --dock-clearance: calc(var(--mobile-nav-bottom) + 16px);
   --dialog-inset-top: max(16px, var(--safe-area-top));
   --dialog-inset-bottom: max(16px, var(--safe-area-bottom));
   --dialog-inset-left: max(16px, var(--safe-area-left));

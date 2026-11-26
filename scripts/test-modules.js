@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261126d',
-    'sw.js CACHE_VERSION must be 20261126d'
+    '20261126e',
+    'sw.js CACHE_VERSION must be 20261126e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126d',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126e',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -4779,7 +4779,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     'base.css must enforce 16px font size on mobile inputs to prevent iOS auto-zoom'
   );
   assert.ok(
-    baseCss.includes('var(--dock-clearance)') && varCss.includes('var(--dock-offset)'),
+    baseCss.includes('var(--dock-clearance)') && varCss.includes('var(--mobile-nav-bottom)'),
     'base.css must pad .page bottom for safe area'
   );
   assert.ok(
@@ -4797,7 +4797,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.ok(navCss.includes('.bottom-nav'), 'nav.css must style .bottom-nav');
   assert.ok(
-    navCss.includes('bottom: var(--dock-offset)') && varCss.includes('var(--safe-area-bottom)'),
+    navCss.includes('inset: auto 0 0') && navCss.includes('var(--safe-area-bottom)') && varCss.includes('--mobile-nav-bottom'),
     'nav.css must use safe-area-bottom for bottom dock'
   );
   assert.ok(
@@ -4973,12 +4973,21 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       'window.renderNotifications must be defined'
     );
     const notificationList = { innerHTML: '', querySelectorAll: () => [] };
+    const inboxBadge = { hidden: true, textContent: '' };
+    const inboxAttributes = {};
+    const inboxButton = {
+      querySelector: () => inboxBadge,
+      setAttribute: (name, value) => { inboxAttributes[name] = value; }
+    };
     const notificationContext = {
-      document: { getElementById: id => id === 'notif-items-list' ? notificationList : null },
+      document: {
+        getElementById: id => id === 'notif-items-list' ? notificationList : null,
+        querySelector: selector => selector === '[data-bnav-inbox]' ? inboxButton : null
+      },
       getDismissedNotifIds: () => [],
       _activeNotifFilter: 'all',
       _allPortalNotifications: [
-        { id: 'overdue-task', dailyOverdue: true, title: 'Overdue task' },
+        { id: 'overdue-task', dailyOverdue: true, title: 'Overdue task', unread: true },
         { id: 'missing-icon', title: 'General update', icon: null },
         { id: 'existing-icon', title: 'Existing icon', icon: '<svg class="original-icon"></svg>' },
         { id: 'avatar', title: 'Member update', avatarInitials: 'PM' }
@@ -4995,6 +5004,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.match(notificationList.innerHTML, /<svg class="original-icon"><\/svg>/);
     assert.match(notificationList.innerHTML, /<div class="notif-avatar-circle">PM<\/div>/);
     assert.doesNotMatch(notificationList.innerHTML, />\s*(?:undefined|null)\s*</);
+    assert.strictEqual(inboxBadge.hidden, false, 'Inbox shows a badge when there are unread notifications');
+    assert.strictEqual(inboxBadge.textContent, '1');
+    assert.strictEqual(inboxAttributes['aria-label'], 'Inbox, 1 unread');
     console.log('  ✔ Notification rows render fallback icons and retain supplied icons and avatars');
     assert.ok(
       indexHtmlStr.includes('window.updateNavUserHeader'),
@@ -5488,8 +5500,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('.task-col-tab:is(.active, .mobile-active)'), 'css/components.css styles both .active and .mobile-active Kanban column tabs');
     console.log('  ✔ .ui-icon-xs / .ui-icon-md sizing and mobile Kanban tab selectors verified in components.css');
 
-    assert.ok(navCss.includes('.sidebar-overlay.open .sidebar-panel') && navCss.includes('.sidebar-panel.sidebar-open'), 'css/nav.css reveals .sidebar-panel when mobile drawer opens');
-    assert.ok(navCss.includes('height: 100dvh;') && navCss.includes('overscroll-behavior: contain;'), 'css/nav.css applies 100dvh and overscroll-behavior: contain on mobile drawer');
+    assert.ok(navCss.includes('.sidebar-overlay.open .sidebar-panel') && navCss.includes('.mobile-menu-heading'), 'css/nav.css reveals .sidebar-panel when mobile drawer opens');
+    assert.ok(navCss.includes('inset: 0 0 var(--mobile-nav-bottom)') && navCss.includes('overscroll-behavior-y: contain;'), 'The full-screen mobile menu ends above the bottom bar and contains its scroll');
     console.log('  ✔ Mobile More / hamburger sidebar drawer visibility and 100dvh scroll containment verified in nav.css');
 
     assert.ok(htmlSrc.includes('id="bnav-more"') && htmlSrc.includes('aria-controls="sidebar-overlay"'), '#bnav-more exposes aria-controls="sidebar-overlay"');
@@ -5516,9 +5528,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(htmlSrc.includes('<meta name="color-scheme" content="light dark">'), 'index.html includes <meta name="color-scheme" content="light dark">');
     assert.ok(varCss.includes('color-scheme: light dark;'), 'css/variables.css root declares color-scheme: light dark');
     assert.ok(varCss.includes('--btn-on-accent: #121418;') && varCss.includes('--btn-on-accent: #ffffff;'), 'css/variables.css defines contrast-guaranteed --btn-on-accent in both dark & light modes');
-    assert.ok(varCss.includes('--dock-active-bg: #ffffff;') && varCss.includes('--dock-active-bg: #0f172a;'), 'css/variables.css defines mobile floating dock active pill tokens');
+    assert.ok(varCss.includes('--bg-card: #ffffff;') && varCss.includes('--bg-card: #1b1e25;'), 'Both themes define a solid tab bar surface');
     assert.ok(varCss.includes('--surface-tint:') && varCss.includes('--surface-glass:'), 'css/variables.css defines semantic tonal surface tokens');
-    assert.ok(navCss.includes('var(--dock-active-bg') && navCss.includes('var(--dock-btn-color'), 'nav.css uses theme-aware mobile floating dock tokens');
+    assert.ok(navCss.includes('.bnav-btn.active') && navCss.includes('color: var(--accent)'), 'Mobile active tabs use the current theme accent');
 
     // 2. Base Typography & Accessibility
     assert.ok(baseCss.includes('accent-color: var(--accent);'), 'css/base.css defines accent-color');
@@ -7598,7 +7610,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126d'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126e'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9085,12 +9097,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126d', 'Service Worker cache version must be 20261126d');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126e', 'Service Worker cache version must be 20261126e');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261126d and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261126e and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10386,25 +10398,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126d', 'sw.js CACHE_VERSION must be 20261126d');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126d', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126d', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126e', 'sw.js CACHE_VERSION must be 20261126e');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126e', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126e', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261126d cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261126e cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261126d'), 'config.js must use v=20261126d');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126d'), 'forum.js must use v=20261126d');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261126d'), 'variables.css must use v=20261126d');
-    assert.ok(indexRaw.includes('css/base.css?v=20261126d'), 'base.css must use v=20261126d');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126d');
+    assert.ok(indexRaw.includes('js/config.js?v=20261126e'), 'config.js must use v=20261126e');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126e'), 'forum.js must use v=20261126e');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261126e'), 'variables.css must use v=20261126e');
+    assert.ok(indexRaw.includes('css/base.css?v=20261126e'), 'base.css must use v=20261126e');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126e');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -10441,10 +10453,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss.includes('min-height: 44px;'), 'components.css must specify min-height: 44px for touch targets');
     assert.ok(compCss.includes('touch-action: manipulation;'), 'components.css must optimize mentions dropdown for touch manipulation');
 
-    // 4. Mobile Stedfast AI Navigation Dock Integration
+    // 4. Mobile Stedfast menu entry
     const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
-    assert.ok(indexHtml.includes('bnav-ai-btn'), 'index.html must include bnav-ai-btn in mobile bottom dock');
-    assert.ok(indexHtml.includes('toggleHelperAgent()'), 'bnav-ai-btn must invoke toggleHelperAgent()');
+    assert.ok(indexHtml.includes('mobile-menu-assistant'), 'Mobile More menu includes Ask Stedfast');
+    assert.ok(indexHtml.includes('closeSidebar();toggleHelperAgent()'), 'Mobile More menu launches Ask Stedfast');
     assert.ok(compCss.includes('.helper-agent-btn') && compCss.includes('display: none !important;'), 'components.css must hide floating helper-agent-btn on mobile');
 
     // 5. Bug Forum Screenshot Uploads
@@ -13134,9 +13146,9 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 1. Bottom Nav Reorganization (Vertical column, no truncation)
     assert.ok(navCss.includes('flex-direction: column;'), 'Bottom nav buttons use vertical icon + label layout');
-    assert.ok(navCss.includes('max-width: 420px;'), 'Bottom nav dock expands up to 420px for breathing room');
+    assert.match(navCss, /\.bottom-nav \{[^}]*inset: auto 0 0;/, 'Bottom nav background spans the full width and reaches the bottom edge');
     assert.ok(navCss.includes('text-align: center;'), 'Bottom nav labels are horizontally centered');
-    console.log('  ✔ Bottom nav bar reorganized as neat vertical icon+label dock with zero truncation');
+    console.log('  ✔ Full-width bottom navigation with centered icon and label');
 
     // 2. Circular Modal Close Buttons Protection & Geometry
     assert.ok(compCss.includes('aspect-ratio: 1 / 1 !important;'), 'Modal close buttons enforce 1:1 circular aspect ratio');

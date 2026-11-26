@@ -2951,6 +2951,9 @@ async function getJson(url) {
 
     // ── Mobile Top Header Bar Alignment & Scaling Verification ──
     console.log('\n[Mobile Top Header Bar Alignment & Scaling Verification]');
+    await sendCmd('Runtime.evaluate', {
+      expression: "window.__SKIP_ONBOARDING__ = true; closeOnboardingWizard();"
+    });
     await sendCmd('Emulation.setDeviceMetricsOverride', {
       width: 390,
       height: 844,
@@ -3045,7 +3048,8 @@ async function getJson(url) {
         const forumPillsFit = layoutFits('.forum-filter-pill');
         switchTabNav('resources', true);
         const resourcePillsFit = layoutFits('.resource-pill');
-        const trigger = document.querySelector('.bottom-nav button[aria-label="Ask Stedfast"]');
+        document.getElementById('bnav-more').click();
+        const trigger = document.querySelector('.mobile-menu-assistant');
         trigger.focus();
         trigger.click();
         await pause(150);
@@ -3185,8 +3189,11 @@ async function getJson(url) {
           pointerEvents: cs ? cs.pointerEvents : 'none',
           panelWidth: rect ? rect.width : 0,
           panelRight: rect ? rect.right : 0,
-          focusOnFirstLink: document.activeElement === (panel?.querySelector('.sidebar-item:not([hidden])') ||
-            panel?.querySelector('.sidebar-user-card')),
+          dockTop: document.getElementById('bottom-nav').getBoundingClientRect().top,
+          panelBottom: rect ? rect.bottom : 0,
+          hasProfile: Boolean(panel?.querySelector('.mobile-menu-profile .sidebar-user-card')),
+          contentInert: document.getElementById('app-main').inert && document.getElementById('site-header').inert,
+          focusInMenu: panel?.contains(document.activeElement),
           focusedElement: document.activeElement.id || document.activeElement.tagName,
           footerTouchTarget: panel?.querySelector('.sidebar-settings-btn').getBoundingClientRect().height >= 44,
           ariaExpanded: moreBtn ? moreBtn.getAttribute('aria-expanded') : null
@@ -3199,8 +3206,11 @@ async function getJson(url) {
     assert.strictEqual(mdo.panelOpenClass, true, 'Sidebar panel must have .sidebar-open class when More is tapped');
     assert.strictEqual(mdo.visibility, 'visible', 'Sidebar panel must be visible on mobile when More is tapped');
     assert.strictEqual(mdo.pointerEvents, 'auto', 'Sidebar panel must receive pointer events when open on mobile');
-    assert.ok(mdo.panelWidth >= 240 && mdo.panelRight <= 390.5, 'Sidebar panel must slide fully into the 390px mobile viewport');
-    assert.strictEqual(mdo.focusOnFirstLink, true, 'Opening More places focus on the first visible page link, focused ' + mdo.focusedElement);
+    assert.ok(Math.abs(mdo.panelWidth - 390) < 1 && Math.abs(mdo.panelRight - 390) < 1, 'The More screen spans the viewport');
+    assert.ok(Math.abs(mdo.panelBottom - mdo.dockTop) < 1, 'The More screen ends at the persistent mobile bar');
+    assert.strictEqual(mdo.hasProfile, true, 'The shared member card appears at the top of the More screen');
+    assert.strictEqual(mdo.contentInert, true, 'More excludes covered content from interaction and keyboard focus');
+    assert.strictEqual(mdo.focusInMenu, true, 'Opening More focuses its menu screen, focused ' + mdo.focusedElement);
     assert.strictEqual(mdo.footerTouchTarget, true, 'Sidebar footer rows must have a 44px touch target');
     assert.strictEqual(mdo.ariaExpanded, 'true', '#bnav-more aria-expanded must be "true" when drawer is open');
 
@@ -3218,6 +3228,7 @@ async function getJson(url) {
           overlayOpen: overlay ? overlay.classList.contains('open') : true,
           visibility: panel ? getComputedStyle(panel).visibility : 'visible',
           focusRestored: document.activeElement === moreBtn,
+          contentRestored: !document.getElementById('app-main').inert && !document.getElementById('site-header').inert,
           ariaExpanded: moreBtn ? moreBtn.getAttribute('aria-expanded') : null
         };
       })()`,
@@ -3228,7 +3239,52 @@ async function getJson(url) {
     assert.strictEqual(mdc.visibility, 'hidden', 'Closed mobile sidebar panel must return to visibility: hidden');
     assert.strictEqual(mdc.focusRestored, true, 'Escape returns focus to the More button');
     assert.strictEqual(mdc.ariaExpanded, 'false', '#bnav-more aria-expanded must reset to "false" when closed');
-    console.log('  ✔ Mobile More drawer opens visibly into viewport and dismisses cleanly on Escape');
+    assert.strictEqual(mdc.contentRestored, true, 'Dismissal releases the covered content');
+    console.log('  ✔ Full-width mobile More screen retains the tab bar and dismisses cleanly on Escape');
+
+    const mobileNavPolicy = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const originalRole = window.hasDepartmentRole;
+        const originalBridge = window.PortalNavigation;
+        const originalTheme = document.documentElement.getAttribute('data-theme');
+        const visibleRoutes = () => [...document.querySelectorAll('[data-bnav-route]:not([hidden])')]
+          .map(button => button.dataset.bnavRoute);
+        const themeEvents = [];
+        try {
+          window.hasDepartmentRole = () => true;
+          syncSidebarAccess();
+          const taskRoutes = visibleRoutes();
+          window.hasDepartmentRole = () => false;
+          syncSidebarAccess();
+          const memberRoutes = visibleRoutes();
+          window.PortalNavigation = { setDarkMode: dark => themeEvents.push(dark) };
+          const surface = () => getComputedStyle(document.getElementById('bottom-nav')).backgroundColor;
+          const meta = () => document.querySelector('meta[name="theme-color"]').content;
+          const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          themeApply('light', false);
+          await paint();
+          const light = [surface(), meta()];
+          themeApply('dark', false);
+          await paint();
+          const dark = [surface(), meta()];
+          return { taskRoutes, memberRoutes, light, dark, themeEvents };
+        } finally {
+          window.hasDepartmentRole = originalRole;
+          window.PortalNavigation = originalBridge;
+          syncSidebarAccess();
+          themeApply(originalTheme, false);
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const mobileNav = mobileNavPolicy.result.value;
+    assert.deepStrictEqual(mobileNav.taskRoutes, ['home', 'parade', 'order', 'tasks']);
+    assert.deepStrictEqual(mobileNav.memberRoutes, ['home', 'parade', 'order', 'member']);
+    assert.deepStrictEqual(mobileNav.light, ['rgb(255, 255, 255)', '#ffffff']);
+    assert.deepStrictEqual(mobileNav.dark, ['rgb(27, 30, 37)', '#1b1e25']);
+    assert.deepStrictEqual(mobileNav.themeEvents, [false, true], 'Live theme changes reach the Android bridge');
+    console.log('  ✔ Mobile tabs respect task access and both themes match the bar and system theme color');
 
     // Test Create Task Brief folder SVG icon sizing & mobile modal bounds at 390x844
     const createTaskModalDiag = await sendCmd('Runtime.evaluate', {
@@ -3361,6 +3417,7 @@ async function getJson(url) {
           const injectedInsets = { top: 48, bottom: 34, left: 16, right: 24 };
           for (const [side, size] of Object.entries(injectedInsets)) root.style.setProperty('--safe-area-' + side, size + 'px');
           const frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          await frame();
           const rect = element => element.getBoundingClientRect();
           const sizes = selectors => selectors.flatMap(selector => {
             const elements = document.querySelectorAll(selector);
@@ -3386,7 +3443,12 @@ async function getJson(url) {
               problems.push('header safe area: ' + JSON.stringify({ top: actions.top, right: actions.right,
                 bottom: actions.bottom, headerBottom: rect(header).bottom, controls }));
             }
-            if (dockBox.left < 16 || dockBox.right > viewport - 24 || dockBox.bottom > innerHeight - 34) problems.push('dock safe area');
+            const tabs = [...dock.querySelectorAll('.bnav-btn:not([hidden])')];
+            if (Math.abs(dockBox.left) > 1 || Math.abs(dockBox.right - viewport) > 1 ||
+                Math.abs(dockBox.bottom - innerHeight) > 1) problems.push('dock does not fill the bottom edge');
+            if (tabs.some(tab => rect(tab).left < 15.5 || rect(tab).right > viewport - 23.5 || rect(tab).bottom > innerHeight - 33.5)) {
+              problems.push('tab touch targets overlap the system safe area: ' + JSON.stringify(tabs.map(tab => rect(tab).toJSON())));
+            }
             problems.push(...sizes(['.bnav-btn']));
           }
 
@@ -3459,14 +3521,30 @@ async function getJson(url) {
             toggleSidebar();
             await frame();
             await Promise.allSettled(drawer.getAnimations().map(animation => animation.finished));
-            const footer = rect(drawer.querySelector('.sidebar-footer'));
-            const firstItem = rect(drawer.querySelector('.sidebar-item:not([hidden])') || drawer.querySelector('.sidebar-user-card'));
-            if (firstItem.top < 48 || footer.right > viewport - 24 || footer.bottom > innerHeight - 34 ||
-                document.elementFromPoint(rect(dock).left + 3, rect(dock).top + 3)?.closest('#bottom-nav')) {
-              problems.push('drawer safe area or stacking: ' + JSON.stringify({ top: firstItem.top, right: footer.right, bottom: footer.bottom, height: innerHeight }));
+            const footer = drawer.querySelector('.sidebar-footer');
+            const profile = rect(drawer.querySelector('.sidebar-user-card'));
+            const panel = rect(drawer);
+            const more = document.getElementById('bnav-more');
+            const moreRect = rect(more);
+            if (profile.top < 48 || panel.left !== 0 || Math.abs(panel.right - viewport) > 1 ||
+                Math.abs(panel.bottom - rect(dock).top) > 1 ||
+                document.elementFromPoint(moreRect.left + moreRect.width / 2, moreRect.top + moreRect.height / 2)?.closest('.bnav-btn') !== more) {
+              problems.push('full-screen menu safe area or stacking');
             }
-            drawer.parentElement.querySelector('.sidebar-backdrop').click();
-            if (drawer.parentElement.classList.contains('open')) problems.push('drawer backdrop dismissal');
+            drawer.scrollTop = drawer.scrollHeight;
+            if (rect(footer).bottom > panel.bottom + 1) problems.push('menu actions are unreachable');
+            more.click();
+            if (drawer.parentElement.classList.contains('open')) problems.push('More button dismissal');
+            const calendar = dock.querySelector('[data-bnav-route="parade"]');
+            calendar.click();
+            if (!calendar.matches('[aria-current="page"]')) problems.push('Calendar bottom tab not active');
+            const inbox = dock.querySelector('[data-bnav-inbox]');
+            inbox.click();
+            if (inbox.getAttribute('aria-expanded') !== 'true' || getComputedStyle(document.getElementById('notif-dropdown-card')).display === 'none') {
+              problems.push('Inbox tap fails to open notifications');
+            }
+            inbox.click();
+            if (inbox.getAttribute('aria-expanded') !== 'false') problems.push('Inbox tap fails to dismiss notifications');
           }
           return { viewport, visitedRoutes, routeCount: document.querySelectorAll('main > .page[id]').length, problems: [...new Set(problems)] };
         })()`,

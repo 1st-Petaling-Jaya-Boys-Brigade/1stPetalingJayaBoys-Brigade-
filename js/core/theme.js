@@ -30,8 +30,11 @@
     }
     var themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-      themeColorMeta.setAttribute('content', theme === 'light' ? '#eef1f6' : '#121418');
+      var mobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1023px)').matches;
+      var color = theme === 'light' ? (mobile ? '#ffffff' : '#eef1f6') : (mobile ? '#1b1e25' : '#121418');
+      themeColorMeta.setAttribute('content', color);
     }
+    if (typeof window !== 'undefined') window.PortalNavigation?.setDarkMode?.(theme === 'dark');
   }
 
   function applyTheme(theme, persist) {
