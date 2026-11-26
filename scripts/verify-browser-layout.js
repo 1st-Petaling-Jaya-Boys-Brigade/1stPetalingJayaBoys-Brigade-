@@ -146,8 +146,23 @@ async function getJson(url) {
       expression: `(() => {
         const memberPage = document.getElementById('page-member');
         const homePage = document.getElementById('page-home');
+        const dashBox = document.getElementById('m-dashboard');
         const isMemberActive = memberPage ? memberPage.classList.contains('active') : false;
         const isHomeActive = homePage ? homePage.classList.contains('active') : false;
+        const rootHasAuthClass = document.documentElement.classList.contains('auth-screen-active');
+        const bodyHasAuthClass = document.body.classList.contains('auth-screen-active');
+        const homeComputedHidden = homePage ? getComputedStyle(homePage).display === 'none' : false;
+        const dashComputedHidden = dashBox ? getComputedStyle(dashBox).display === 'none' : false;
+        const memberComputedFlex = memberPage ? getComputedStyle(memberPage).display === 'flex' : false;
+
+        // Pre-paint flash regression guard: even if raw HTML has .active on #page-home and not on #page-member
+        // before body scripts run, :root.auth-screen-active must keep #page-home hidden and #page-member visible.
+        if (homePage) homePage.classList.add('active');
+        if (memberPage) memberPage.classList.remove('active');
+        const prePaintHomeStillHidden = homePage ? getComputedStyle(homePage).display === 'none' : false;
+        const prePaintMemberStillVisible = memberPage ? getComputedStyle(memberPage).display === 'flex' : false;
+        if (homePage) homePage.classList.remove('active');
+        if (memberPage) memberPage.classList.add('active');
         const canActivateHome = (typeof AuthGuard !== 'undefined') ? AuthGuard.canActivate('home') : false;
         const canActivateTasks = (typeof AuthGuard !== 'undefined') ? AuthGuard.canActivate('tasks') : false;
         const canActivateMember = (typeof AuthGuard !== 'undefined') ? AuthGuard.canActivate('member') : false;
@@ -160,6 +175,13 @@ async function getJson(url) {
         return {
           isMemberActive,
           isHomeActive,
+          rootHasAuthClass,
+          bodyHasAuthClass,
+          homeComputedHidden,
+          dashComputedHidden,
+          memberComputedFlex,
+          prePaintHomeStillHidden,
+          prePaintMemberStillVisible,
           canActivateHome,
           canActivateTasks,
           canActivateMember,
@@ -175,6 +197,13 @@ async function getJson(url) {
     const gDiag = unauthedGatekeeper.result.value;
     assert.strictEqual(gDiag.isMemberActive, true, 'Unauthenticated visitor must be redirected to Member Login/Register');
     assert.strictEqual(gDiag.isHomeActive, false, 'Internal Home view must not be active for unauthenticated users');
+    assert.strictEqual(gDiag.rootHasAuthClass, true, '<html> must carry auth-screen-active synchronously while signed out');
+    assert.strictEqual(gDiag.bodyHasAuthClass, true, '<body> must carry auth-screen-active while signed out');
+    assert.strictEqual(gDiag.homeComputedHidden, true, '#page-home must have computed display:none while signed out');
+    assert.strictEqual(gDiag.dashComputedHidden, true, '#m-dashboard must have computed display:none while signed out');
+    assert.strictEqual(gDiag.memberComputedFlex, true, '#page-member must display as centered flex container while signed out');
+    assert.strictEqual(gDiag.prePaintHomeStillHidden, true, 'Pre-paint :root.auth-screen-active shield must hide #page-home even when raw HTML has .active');
+    assert.strictEqual(gDiag.prePaintMemberStillVisible, true, 'Pre-paint :root.auth-screen-active shield must display #page-member before body scripts run');
     assert.strictEqual(gDiag.canActivateHome, false, 'AuthGuard must block unauthenticated access to Home');
     assert.strictEqual(gDiag.canActivateTasks, false, 'AuthGuard must block unauthenticated access to Tasks');
     assert.strictEqual(gDiag.canActivateMember, true, 'AuthGuard must allow public access to Member tab');
@@ -5122,10 +5151,12 @@ async function getJson(url) {
         const headerEl = document.getElementById('site-header');
         const sidebarEl = document.getElementById('sidebar-overlay');
         const bottomNavEl = document.getElementById('bottom-nav');
-        const authChromeHidden = document.body.classList.contains('auth-screen-active') &&
+        const authChromeHidden = document.documentElement.classList.contains('auth-screen-active') &&
+          document.body.classList.contains('auth-screen-active') &&
           getComputedStyle(headerEl).display === 'none' &&
           getComputedStyle(sidebarEl).display === 'none' &&
-          getComputedStyle(bottomNavEl).display === 'none';
+          getComputedStyle(bottomNavEl).display === 'none' &&
+          getComputedStyle(document.getElementById('page-home')).display === 'none';
 
         const authCard = document.getElementById('m-auth');
         const cardRect = authCard.getBoundingClientRect();
@@ -5171,7 +5202,8 @@ async function getJson(url) {
         if (origEmail) sessionSet('email', origEmail, { localOnly: true });
         if (origIc) sessionSet('ic', origIc, { localOnly: true });
         if (typeof syncSidebarAccess === 'function') syncSidebarAccess();
-        const chromeRestoredAfterLogin = !document.body.classList.contains('auth-screen-active') &&
+        const chromeRestoredAfterLogin = !document.documentElement.classList.contains('auth-screen-active') &&
+          !document.body.classList.contains('auth-screen-active') &&
           getComputedStyle(headerEl).display !== 'none' &&
           getComputedStyle(sidebarEl).display !== 'none';
         return {
