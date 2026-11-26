@@ -1643,7 +1643,17 @@ async function loadMemberProfilePictures() {
         };
         var saved = readOwnPhoto(photos);
         var current = readOwnPhoto(_memberPfpsMap);
-        var removed = hasDirectory && !saved && !current && !!readOwnPhoto(previous);
+        // Older devices can retain a session photo after its directory entry and object were removed.
+        var hostedAvatar = false;
+        if (activePhoto && typeof window !== 'undefined' && window.APP_CONFIG?.MEMBER_PHOTO_URL_COLUMN === false) {
+          try {
+            var avatar = new URL(activePhoto);
+            var project = new URL(window.APP_CONFIG.SUPABASE_URL);
+            hostedAvatar = avatar.origin === project.origin && avatar.pathname.startsWith('/storage/v1/') &&
+              avatar.pathname.includes('/avatars/');
+          } catch (_) {}
+        }
+        var removed = hasDirectory && !saved && !current && (hostedAvatar || !!readOwnPhoto(previous));
         if (removed || (saved && saved === current)) {
           sessionSet('photo_url', saved, { localOnly: true });
           changed = changed || activePhoto !== saved;

@@ -398,6 +398,94 @@ const supaApi = require('../js/api/supabase.js');
   assert.ok(!migScript.includes('/rest/v1/bb_members') && !migScript.includes('/object/avatars') && !migScript.includes('bb_member_pfps'), 'Migration script never touches user profile photos');
   console.log('  ✔ Gallery Drive-only guide, public CDN resources, and profile-photo-safe migration script verified');
 
+
+  // Exercise the actual lifecycle listeners with one separate JS realm per member.
+  const vm = require('node:vm');
+  const apiSource = fs.readFileSync(path.join(__dirname, '..', 'js', 'api', 'supabase.js'), 'utf8');
+  const listenersStart = indexHtmlSrc.indexOf('// Session Verification Listeners:');
+  const listenersEnd = indexHtmlSrc.indexOf("window.addEventListener('load', function()", listenersStart);
+  assert.ok(listenersStart >= 0 && listenersEnd > listenersStart, 'Portal session lifecycle fixture must remain available');
+  const shellListeners = indexHtmlSrc.slice(listenersStart, listenersEnd);
+  const simulatedMembers = 64;
+  let simulatedNow = 100000;
+  let apiRequests = 0;
+
+  class SimulationClock extends Date {
+    static now() { return simulatedNow; }
+  }
+
+  const clients = Array.from({ length: simulatedMembers }, (_, index) => {
+    const events = new Map();
+    const addEvent = (type, listener) => {
+      const listeners = events.get(type) || [];
+      listeners.push(listener);
+      events.set(type, listeners);
+    };
+    let signedIn = false;
+    const realm = vm.createContext({
+      window: { addEventListener: addEvent },
+      document: { addEventListener: addEvent, visibilityState: 'visible' },
+      navigator: { onLine: true },
+      Date: SimulationClock,
+      AbortController,
+      setTimeout: () => 1,
+      clearTimeout: () => {},
+      sessionGet: key => signedIn && (key === 'ic' || key === 'email') ? 'fixture-' + index : null,
+      fetch: async () => {
+        apiRequests++;
+        return { ok: true, status: 200, json: async () => [] };
+      }
+    });
+    vm.runInContext(apiSource, realm);
+    vm.runInContext(shellListeners, realm);
+    return {
+      signIn: () => { signedIn = true; },
+      emit: type => { (events.get(type) || []).forEach(listener => listener()); }
+    };
+  });
+
+  clients.forEach(client => { client.emit('focus'); client.emit('visibilitychange'); client.emit('online'); });
+  await new Promise(setImmediate);
+  assert.strictEqual(apiRequests, 0, 'Guests returning to the login screen must not start background database polling');
+
+  clients.forEach(client => { client.signIn(); client.emit('focus'); });
+  await new Promise(setImmediate);
+  const readsPerRound = apiRequests;
+  assert.strictEqual(readsPerRound, 384, '64 signed-in customers receive one six-read fallback refresh each');
+
+  for (let repeat = 0; repeat < 8; repeat++) {
+    simulatedNow += 1000;
+    clients.forEach(client => { client.emit('focus'); client.emit('visibilitychange'); });
+    await new Promise(setImmediate);
+  }
+  assert.strictEqual(apiRequests, readsPerRound, 'Focus and visibility churn must respect the fallback refresh cooldown');
+  simulatedNow += 15000;
+  clients.forEach(client => client.emit('focus'));
+  await new Promise(setImmediate);
+  assert.strictEqual(apiRequests, readsPerRound * 2, 'Member refresh still runs when the cooldown ends');
+  console.log('  ✔ 64 isolated clients: 0 guest fallback reads and 384 reads across nine signed-in focus rounds');
+
+  const gallerySource = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'gallery.js'), 'utf8');
+  const galleryBase = 'https://fixture.supabase.invalid';
+  const objectUrl = galleryBase + '/storage/v1/object/sign/gallery/fixture.jpg';
+  const expiredUrl = objectUrl + '?token=header.' + Buffer.from(JSON.stringify({ exp: 1 })).toString('base64url') + '.signature';
+  const freshUrl = objectUrl + '?token=fresh';
+  const requestedImages = [];
+  const testImage = { isConnected: true, set src(value) { requestedImages.push(value); } };
+  const galleryRealm = vm.createContext({
+    URL, atob,
+    SUPA_URL: galleryBase,
+    Date: SimulationClock,
+    escapeHtml: value => value,
+    window: { supa: { createSignedUrl: async () => ({ signedUrl: freshUrl }) } }
+  });
+  vm.runInContext(gallerySource, galleryRealm);
+  assert.ok(!galleryRealm.storyCoverSource(expiredUrl).includes('src="' + expiredUrl), 'Old storage credentials must stay out of rendered preview image sources');
+  galleryRealm.loadStoryCover(testImage, expiredUrl);
+  await new Promise(setImmediate);
+  assert.deepStrictEqual(requestedImages, [freshUrl], 'A legacy story cover refreshes its signature before making a media request');
+  console.log('  ✔ Story cover refreshes an expired signed URL before loading');
+
   console.log('\n🎉 ALL MULTI-TAB CONCURRENCY & 60-USER SCALE STRESS TESTS PASSED 100%!\n');
   process.exit(0);
 })();

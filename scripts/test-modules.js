@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261126c',
-    'sw.js CACHE_VERSION must be 20261126c'
+    '20261126d',
+    'sw.js CACHE_VERSION must be 20261126d'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126c',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126d',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7598,7 +7598,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126c'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126d'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9085,12 +9085,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126c', 'Service Worker cache version must be 20261126c');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126d', 'Service Worker cache version must be 20261126d');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261126c and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261126d and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10386,25 +10386,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126c', 'sw.js CACHE_VERSION must be 20261126c');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126c', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126c', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126d', 'sw.js CACHE_VERSION must be 20261126d');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126d', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126d', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261126c cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261126d cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261126c'), 'config.js must use v=20261126c');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126c'), 'forum.js must use v=20261126c');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261126c'), 'variables.css must use v=20261126c');
-    assert.ok(indexRaw.includes('css/base.css?v=20261126c'), 'base.css must use v=20261126c');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126c');
+    assert.ok(indexRaw.includes('js/config.js?v=20261126d'), 'config.js must use v=20261126d');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126d'), 'forum.js must use v=20261126d');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261126d'), 'variables.css must use v=20261126d');
+    assert.ok(indexRaw.includes('css/base.css?v=20261126d'), 'base.css must use v=20261126d');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126d');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -17545,7 +17545,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const originalConfig = global.window.APP_CONFIG;
     const photoDirectory = { 'jeshuakoh2008@gmail.com': testPhotoUrl };
     const photoRequests = [];
-    global.window.APP_CONFIG = { MEMBER_PHOTO_URL_COLUMN: false };
+    global.window.APP_CONFIG = { MEMBER_PHOTO_URL_COLUMN: false, SUPABASE_URL: new URL(testPhotoUrl).origin };
     global.supa = {
       get: async endpoint => {
         photoRequests.push(endpoint);
@@ -17561,9 +17561,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       delete photoDirectory['jeshuakoh2008@gmail.com'];
       await utilsMod.loadMemberProfilePictures();
       assert.strictEqual(utilsMod.getMemberAvatarUrl('Jeshua Koh', 'jeshuakoh2008@gmail.com'), null);
+      global.sessionSet('photo_url', testPhotoUrl + '?stale', { localOnly: true });
+      await utilsMod.loadMemberProfilePictures();
+      assert.strictEqual(utilsMod.getMemberAvatarUrl('Jeshua Koh', 'jeshuakoh2008@gmail.com'), null,
+        'A stale session-only hosted avatar is cleared once the directory confirms its removal');
       photoDirectory['jeshuakoh2008@gmail.com'] = testPhotoUrl;
       await utilsMod.loadMemberProfilePictures();
-      assert.strictEqual(photoRequests.length, 4);
+      assert.strictEqual(photoRequests.length, 5);
       assert.ok(photoRequests.every(endpoint => endpoint.startsWith('bb_config?')), 'Hosted refresh must never query the missing member photo column');
     } finally {
       global.supa = originalSupa;
