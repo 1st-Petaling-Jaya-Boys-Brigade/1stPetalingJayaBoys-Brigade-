@@ -2000,6 +2000,10 @@ var PortalRealtime = (function() {
   var _lastDeltaSyncFinishedAt = 0;
   var _DELTA_SYNC_FOCUS_COOLDOWN_MS = 15000;
 
+  function hasRealtimeSession() {
+    return typeof sessionGet === 'function' && Boolean(sessionGet('ic') || sessionGet('email'));
+  }
+
   function maybeCheckDeltaSyncOnResume() {
     if (Date.now() - _lastDeltaSyncFinishedAt < _DELTA_SYNC_FOCUS_COOLDOWN_MS) return;
     checkDeltaSync();
@@ -2019,7 +2023,7 @@ var PortalRealtime = (function() {
 
   if (typeof document !== 'undefined' && document.addEventListener) {
     document.addEventListener('visibilitychange', function() {
-      if (document.visibilityState === 'visible') {
+      if (hasRealtimeSession() && document.visibilityState === 'visible') {
         if (!_ws || _ws.readyState !== 1) {
           connectWebSocket();
         }
@@ -2028,6 +2032,7 @@ var PortalRealtime = (function() {
       }
     });
     document.addEventListener('resume', function() {
+      if (!hasRealtimeSession()) return;
       if (!_ws || _ws.readyState !== 1) {
         connectWebSocket();
       }
@@ -2036,11 +2041,13 @@ var PortalRealtime = (function() {
     });
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('focus', function() {
+        if (!hasRealtimeSession()) return;
         maybeCheckDeltaSyncOnResume();
         window.refreshVisibleTaskBrief?.();
       });
       window.addEventListener('online', function() {
         resetCircuitBreaker();
+        if (!hasRealtimeSession()) return;
         connectWebSocket();
         checkDeltaSync();
       });

@@ -129,20 +129,23 @@ function isExpiredGallerySignature(url) {
   }
 }
 
-function loadGalleryMedia(image, rawUrl, initialUrl, failed) {
+function loadGalleryMedia(image, rawUrl, initialUrl, failed, isCurrent, onSource) {
   initialUrl = parseGalleryUrl(initialUrl) ? initialUrl : '';
   var storage = galleryStorageObject(rawUrl);
   var source = parseGalleryUrl(rawUrl);
   var drive = source && galleryMediaSource(source);
   var triedFallback = false;
-  function finish() { if (image.isConnected) failed(); }
+  function canApply() { return image.isConnected && (!isCurrent || isCurrent()); }
+  function finish() { if (canApply()) failed(); }
   function load(url) {
-    if (!image.isConnected) return;
-    if (url) image.src = url;
-    else finish();
+    if (!canApply()) return;
+    if (url) {
+      image.src = url;
+      if (onSource) onSource();
+    } else finish();
   }
   image.onerror = function() {
-    if (!image.isConnected) return;
+    if (!canApply()) return;
     if (triedFallback) { finish(); return; }
     triedFallback = true;
     if (storage) {
@@ -1356,6 +1359,7 @@ var _currentStoryHighlightIdx = -1;
 var _currentStorySlideIdx = 0;
 var _storyTimer = null;
 var _storySlideStartTime = 0;
+var _storyMediaGeneration = 0;
 var _storySlideDuration = 5000;
 var _storyRemainingTime = 5000;
 var _isStoryPaused = false;
@@ -1498,6 +1502,35 @@ async function saveStoryHighlights(newList) {
 /**
  * Renders the circular Instagram-style Story Highlights Reel across all story containers
  */
+function storyCoverSource(rawUrl) {
+  var storage = galleryStorageObject(rawUrl);
+  if (storage && storage.mode !== 'public') {
+    return 'src="assets/logo.png" data-story-cover="' + escapeHtml(rawUrl) + '"';
+  }
+  var source = (typeof safeUrl === 'function') ? safeUrl(rawUrl, 'assets/logo.png') : rawUrl;
+  return 'src="' + escapeHtml(source) + '"';
+}
+
+function loadStoryCover(image, rawUrl, isCurrent) {
+  var object = galleryStorageObject(rawUrl);
+  var fallback = function() {
+    image.onerror = null;
+    image.src = 'assets/logo.png';
+  };
+  if (object && object.mode !== 'public') {
+    loadGalleryMedia(image, rawUrl, rawUrl, fallback, isCurrent);
+  } else {
+    image.onerror = fallback;
+    image.src = (typeof safeUrl === 'function') ? safeUrl(rawUrl, 'assets/logo.png') : rawUrl;
+  }
+}
+
+function loadStoryCovers(container) {
+  container.querySelectorAll('img[data-story-cover]').forEach(function(image) {
+    loadStoryCover(image, image.dataset.storyCover);
+  });
+}
+
 function renderStoryHighlightsReel() {
   if (typeof document === 'undefined') return;
   var containers = document.querySelectorAll('#gallery-story-highlights-reel, .story-highlights-reel');
@@ -1517,13 +1550,13 @@ function renderStoryHighlightsReel() {
 
     activeHighlights.forEach(function(sh, idx) {
       var coverUrl = sh.cover || (sh.items && sh.items[0] ? sh.items[0].url : 'assets/logo.png');
-      var safeCover = (typeof safeUrl === 'function') ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
+      var coverSource = storyCoverSource(coverUrl);
       var title = (typeof escapeHtml === 'function') ? escapeHtml(sh.title) : sh.title;
 
       html += '<button type="button" class="story-highlight-item" data-sh-idx="' + idx + '" title="Watch ' + title + ' Highlight" aria-label="Watch ' + title + ' Highlight">'
         + '<div class="story-highlight-ring">'
           + '<div class="story-highlight-avatar">'
-            + '<img src="' + safeCover + '" alt="' + title + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
+            + '<img ' + coverSource + ' alt="' + title + '" loading="lazy" onerror="this.src=\'assets/logo.png\'" />'
           + '</div>'
         + '</div>'
         + '<span class="story-highlight-label">' + title + '</span>'
@@ -1531,6 +1564,8 @@ function renderStoryHighlightsReel() {
     });
 
     container.innerHTML = html;
+
+    if (container.getClientRects?.().length) loadStoryCovers(container);
 
     // Attach click listeners to launch story viewer
     container.querySelectorAll('[data-sh-idx]').forEach(function(el) {
@@ -1695,6 +1730,8 @@ function updateStorySlideView() {
   }
 
   var curSlide = curHighlight.items[_currentStorySlideIdx];
+  var mediaGeneration = ++_storyMediaGeneration;
+  function isCurrentMedia() { return mediaGeneration === _storyMediaGeneration; }
   var rawUrl = (curSlide.url || '').trim();
   var normUrl = normalizeMediaUrl(rawUrl, curSlide.type);
   var driveMatch = rawUrl.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=)|docs\.google\.com\/file\/d\/|lh3\.googleusercontent\.com\/d\/)([a-zA-Z0-9_-]+)/i);
@@ -1730,9 +1767,7 @@ function updateStorySlideView() {
   var titleEl = document.getElementById('story-viewer-title');
   var dateEl = document.getElementById('story-viewer-date');
   var coverUrl = curHighlight.cover || (curHighlight.items[0] ? curHighlight.items[0].url : 'assets/logo.png');
-  var safeCover = (typeof safeUrl === 'function') ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
-
-  if (avatarEl) avatarEl.src = safeCover;
+  if (avatarEl) loadStoryCover(avatarEl, coverUrl, isCurrentMedia);
   if (titleEl) titleEl.textContent = curHighlight.title;
   if (dateEl) {
     var headerDateText = curSlide.date || '';
@@ -1811,7 +1846,14 @@ function updateStorySlideView() {
         videoEl.muted = _isStoryMuted;
         videoEl.volume = _isStoryMuted ? 0 : 1;
         videoEl.onclick = toggleStoryPause;
-        if (videoEl.src !== safeMediaUrl) {
+        var storageVideo = galleryStorageObject(rawUrl);
+        if (storageVideo && storageVideo.mode !== 'public') {
+          videoEl.removeAttribute('src');
+          loadGalleryMedia(videoEl, rawUrl, safeMediaUrl, function() {
+            videoEl.onerror = null;
+            videoEl.removeAttribute('src');
+          }, isCurrentMedia, playStoryVideo);
+        } else if (videoEl.src !== safeMediaUrl) {
           videoEl.src = safeMediaUrl;
           try { videoEl.load(); } catch (_) {}
         }
@@ -1839,23 +1881,20 @@ function updateStorySlideView() {
           nextStorySlide();
         };
 
-        videoEl.onerror = function() {
-          console.warn('Video failed to load:', safeMediaUrl);
-        };
+        if (!storageVideo || storageVideo.mode === 'public') videoEl.onerror = null;
 
-        var playPromise = (typeof videoEl.play === 'function') ? videoEl.play() : undefined;
-        if (playPromise !== undefined && typeof playPromise.catch === 'function') {
-          playPromise.catch(function(err) {
-            console.warn('Browser autoplay unmuted restricted; falling back to muted:', err);
+        function playStoryVideo() {
+          if (typeof videoEl.play !== 'function') return;
+          videoEl.play()?.catch(function() {
+            if (!isCurrentMedia()) return;
             videoEl.muted = true;
             videoEl.volume = 0;
             _isStoryMuted = true;
             updateSoundIcon(true);
-            if (typeof videoEl.play === 'function') {
-              videoEl.play().catch(function() {});
-            }
+            videoEl.play()?.catch(function() {});
           });
         }
+        if (!storageVideo || storageVideo.mode === 'public') playStoryVideo();
       }
       _startStoryProgressTick();
     }
@@ -1875,7 +1914,15 @@ function updateStorySlideView() {
     if (soundBtn) soundBtn.style.display = 'none';
     if (imgEl) {
       imgEl.style.display = 'block';
-      if (driveFileId) {
+      var storagePhoto = galleryStorageObject(rawUrl);
+      imgEl.onerror = null;
+      if (storagePhoto && storagePhoto.mode !== 'public') {
+        imgEl.removeAttribute('src');
+        loadGalleryMedia(imgEl, rawUrl, safeMediaUrl, function() {
+          imgEl.onerror = null;
+          imgEl.src = 'assets/logo.png';
+        }, isCurrentMedia);
+      } else if (driveFileId) {
         imgEl.src = 'https://lh3.googleusercontent.com/d/' + driveFileId;
         imgEl.onerror = function() {
           imgEl.src = 'https://drive.google.com/thumbnail?id=' + driveFileId + '&sz=w1600';
@@ -1891,7 +1938,7 @@ function updateStorySlideView() {
   // Preload next slide if available
   if (_currentStorySlideIdx + 1 < curHighlight.items.length) {
     var nextSlide = curHighlight.items[_currentStorySlideIdx + 1];
-    if (nextSlide && !isVideoMedia(nextSlide.url, nextSlide.type) && typeof Image !== 'undefined') {
+    if (nextSlide && !galleryStorageObject(nextSlide.url) && !isVideoMedia(nextSlide.url, nextSlide.type) && typeof Image !== 'undefined') {
       var preImg = new Image();
       preImg.src = (typeof safeUrl === 'function') ? safeUrl(nextSlide.url, '') : nextSlide.url;
     }
@@ -2184,6 +2231,7 @@ function toggleStoryPause(e) {
 }
 
 function closeStoryViewer() {
+  _storyMediaGeneration++;
   _cancelStoryTicker();
   _currentStoryHighlightIdx = -1;
   _currentStorySlideIdx = 0;
@@ -2508,12 +2556,12 @@ function renderAdminStoryHighlights() {
   var html = '';
   storyHighlights.forEach(function(sh) {
     var coverUrl = sh.cover || (sh.items && sh.items[0] ? sh.items[0].url : 'assets/logo.png');
-    var safeCover = (typeof safeUrl === 'function') ? safeUrl(coverUrl, 'assets/logo.png') : coverUrl;
+    var coverSource = storyCoverSource(coverUrl);
     var slideCount = sh.items ? sh.items.length : 0;
     var title = (typeof escapeHtml === 'function') ? escapeHtml(sh.title) : sh.title;
 
     html += '<div class="story-admin-item">'
-      + '<div class="story-admin-cover"><img src="' + safeCover + '" alt="' + title + '" onerror="this.src=\'assets/logo.png\'" /></div>'
+      + '<div class="story-admin-cover"><img ' + coverSource + ' alt="' + title + '" onerror="this.src=\'assets/logo.png\'" /></div>'
       + '<div style="flex:1;min-width:0;">'
         + '<div style="font-family:var(--font-headline);font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</div>'
         + '<div style="font-size:11px;color:var(--text-muted);">' + slideCount + ' slide' + (slideCount === 1 ? '' : 's') + '</div>'
@@ -2526,6 +2574,7 @@ function renderAdminStoryHighlights() {
   });
 
   list.innerHTML = html;
+  if (list.getClientRects?.().length) loadStoryCovers(list);
 }
 
 /**
