@@ -525,6 +525,15 @@ async function updateMemberMediaConsent(newConsent) {
 
 // ── Registration & Login (Privacy-First & Multi-Account) ─────────────────────
 
+var LOGIN_UNAVAILABLE_MESSAGE = 'Sign-in is temporarily unavailable. Please try again shortly.';
+var LOGIN_LOOKUP_OPTIONS = { cache: false, maxRetries: 0 };
+
+function loginUnavailableError() {
+  var error = new Error(LOGIN_UNAVAILABLE_MESSAGE);
+  error.code = 'LOGIN_UNAVAILABLE';
+  return error;
+}
+
 var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Auth lockout and OTP cooldown state
@@ -545,13 +554,18 @@ try { sessionStorage.removeItem('bb_staged_reg'); } catch (_) {}
  * Searches for all active member accounts associated with an email address.
  * Looks up by email column, by ic = email, by ic like email__*, and in bb_config family registry.
  * @param {string} rawEmail
+ * @param {boolean} requireComplete Fail the login lookup if any necessary read is unavailable
  * @returns {Promise<Array>} List of active member objects
  */
-async function findMembersByEmail(rawEmail) {
+async function findMembersByEmail(rawEmail, requireComplete) {
   if (!rawEmail) return [];
   var email = String(rawEmail).trim().toLowerCase();
   var client = getSupa();
-  if (!client || typeof client.get !== 'function') return [];
+  if (!client || typeof client.get !== 'function') {
+    if (requireComplete) throw loginUnavailableError();
+    return [];
+  }
+  var options = requireComplete ? LOGIN_LOOKUP_OPTIONS : undefined;
 
   var memberMap = new Map();
 
@@ -560,11 +574,14 @@ async function findMembersByEmail(rawEmail) {
   // Parallelize member discovery queries (exact ic, email column, prefix wildcard, and family config)
   try {
     var results = await Promise.allSettled([
-      client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*'),
-      client.get('bb_members?email=eq.' + encodeURIComponent(email) + '&select=*'),
-      client.get('bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=*'),
-      client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value')
+      client.get('bb_members?ic=eq.' + encodeURIComponent(email) + '&select=*', options),
+      client.get('bb_members?email=eq.' + encodeURIComponent(email) + '&select=*', options),
+      client.get('bb_members?ic=like.' + encodeURIComponent(email + '__*') + '&select=*', options),
+      client.get('bb_config?key=eq.' + encodeURIComponent(cfgKey) + '&select=value', options)
     ]);
+    if (requireComplete && results.some(function(result) {
+      return result.status !== 'fulfilled' || !Array.isArray(result.value);
+    })) throw loginUnavailableError();
 
     if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) {
       results[0].value.forEach(function(r) { if (r && r.ic) memberMap.set(r.ic, r); });
@@ -589,8 +606,11 @@ async function findMembersByEmail(rawEmail) {
           }
           if (missingIcs.length > 0) {
             var famResults = await Promise.allSettled(missingIcs.map(function(id) {
-              return client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*');
+              return client.get('bb_members?ic=eq.' + encodeURIComponent(id) + '&select=*', options);
             }));
+            if (requireComplete && famResults.some(function(result) {
+              return result.status !== 'fulfilled' || !Array.isArray(result.value);
+            })) throw loginUnavailableError();
             famResults.forEach(function(res, idx) {
               if (res.status === 'fulfilled' && Array.isArray(res.value) && res.value.length > 0) {
                 memberMap.set(missingIcs[idx], res.value[0]);
@@ -600,7 +620,9 @@ async function findMembersByEmail(rawEmail) {
         }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    if (requireComplete) throw loginUnavailableError();
+  }
 
   // Filter out deleted members
   var active = [];
@@ -1751,14 +1773,18 @@ async function loginMember() {
   var clientSupa = (typeof supa !== 'undefined' ? supa : (typeof getSupabaseClient === 'function' ? getSupabaseClient() : null));
   if (clientSupa && typeof clientSupa.get === 'function') {
     try {
-      var blkLoginRows = await clientSupa.get('bb_config?key=eq.bb_blocked_emails&select=value');
-      if (Array.isArray(blkLoginRows) && blkLoginRows.length > 0 && blkLoginRows[0].value) {
+      var blkLoginRows = await clientSupa.get('bb_config?key=eq.bb_blocked_emails&select=value', LOGIN_LOOKUP_OPTIONS);
+      if (!Array.isArray(blkLoginRows)) throw loginUnavailableError();
+      if (blkLoginRows.length > 0 && blkLoginRows[0].value) {
         var blkLogList = typeof blkLoginRows[0].value === 'string' ? JSON.parse(blkLoginRows[0].value) : blkLoginRows[0].value;
         if (Array.isArray(blkLogList) && blkLogList.map(function(x) { return (x && typeof x === 'object' && x.email ? String(x.email) : String(x)).toLowerCase().trim(); }).includes(cleanIdent)) {
           isLoginBlocked = true;
         }
       }
-    } catch (_) {}
+    } catch (_) {
+      if (typeof showToast === 'function') showToast(LOGIN_UNAVAILABLE_MESSAGE, 'error');
+      return;
+    }
   }
   if (!isLoginBlocked && typeof localStorage !== 'undefined') {
     try {
@@ -1873,17 +1899,17 @@ async function loginMember() {
           }
         }
       } catch (rpcErr) {
+        if (rpcErr instanceof TypeError || rpcErr?.name === 'TimeoutError' ||
+            rpcErr?.code === 'offline' || rpcErr?.status === 429 || rpcErr?.status >= 500) {
+          throw loginUnavailableError();
+        }
         console.warn('RPC auth fallback to direct verification:', rpcErr);
       }
     }
 
     if (!loginSuccess) {
       // Query all active accounts linked to this email (supports single or multi-child family accounts)
-      accounts = await findMembersByEmail(queryEmail);
-      if (!accounts || !accounts.length) {
-        // Fallback: exact case query for legacy accounts
-        accounts = await findMembersByEmail(identifier);
-      }
+      accounts = await findMembersByEmail(queryEmail, true);
 
       if (!accounts || !accounts.length) {
         if (typeof showToast === 'function') showToast('No account found with this email address.', 'warning');
@@ -2011,7 +2037,9 @@ async function loginMember() {
       }
     }
   } catch (e) {
-    if (typeof showToast === 'function') showToast('Login failed: ' + e.message, 'error');
+    if (typeof showToast === 'function') {
+      showToast(e.code === 'LOGIN_UNAVAILABLE' ? LOGIN_UNAVAILABLE_MESSAGE : 'Login failed: ' + e.message, 'error');
+    }
   } finally {
     _isLoggingInMember = false;
     if (typeof resetTurnstileWidget === 'function') {
