@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261126f',
-    'sw.js CACHE_VERSION must be 20261126f'
+    '20261126g',
+    'sw.js CACHE_VERSION must be 20261126g'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126f',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126g',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126f'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126g'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126f', 'Service Worker cache version must be 20261126f');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126g', 'Service Worker cache version must be 20261126g');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261126f and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261126g and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126f', 'sw.js CACHE_VERSION must be 20261126f');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126f', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126f', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126g', 'sw.js CACHE_VERSION must be 20261126g');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126g', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126g', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261126f cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261126g cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261126f'), 'config.js must use v=20261126f');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126f'), 'forum.js must use v=20261126f');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261126f'), 'variables.css must use v=20261126f');
-    assert.ok(indexRaw.includes('css/base.css?v=20261126f'), 'base.css must use v=20261126f');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126f');
+    assert.ok(indexRaw.includes('js/config.js?v=20261126g'), 'config.js must use v=20261126g');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126g'), 'forum.js must use v=20261126g');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261126g'), 'variables.css must use v=20261126g');
+    assert.ok(indexRaw.includes('css/base.css?v=20261126g'), 'base.css must use v=20261126g');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126g');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -18671,6 +18671,154 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const uniqueIds97 = Array.from(new Set([...indexHtml97.matchAll(/id=["']([^"']+)["']/g)].map(m => m[1])));
     assert.strictEqual(uniqueIds97.length, 385, `Strict 385 unique DOM IDs invariant preserved (found ${uniqueIds97.length})`);
     console.log('  ✔ Desktop sidebar Ask Stedfast suppression, Login card UI/UX, and 385 unique DOM IDs verified');
+  }
+
+  // ── Suite 98: Uniform Orders Receipt Previews (Table & Cards), Enlarged Viewer & Private Drive Folder Sync ──
+  console.log('\nSuite 98: Uniform Orders Receipt Previews, Enlarged Image/PDF Viewer & Private Drive Sync...');
+  {
+    const ordersMod98 = require('../js/modules/orders.js');
+    const compCss98 = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+
+    // 1. Google Drive folder link / ID parser
+    assert.strictEqual(typeof ordersMod98.extractGoogleDriveFolderId, 'function', 'extractGoogleDriveFolderId must be exported');
+    assert.strictEqual(
+      ordersMod98.extractGoogleDriveFolderId('https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz'),
+      '1AbCdEfGhIjKlMnOpQrStUvWxYz',
+      'Must parse standard /drive/folders/<id> link'
+    );
+    assert.strictEqual(
+      ordersMod98.extractGoogleDriveFolderId('https://drive.google.com/drive/u/0/folders/1XyZ_9876543210-abcDEF?usp=sharing'),
+      '1XyZ_9876543210-abcDEF',
+      'Must parse multi-account /drive/u/0/folders/<id>?usp=sharing link'
+    );
+    assert.strictEqual(
+      ordersMod98.extractGoogleDriveFolderId('https://drive.google.com/open?id=1OpenParamFolderId12345'),
+      '1OpenParamFolderId12345',
+      'Must parse /open?id=<id> link'
+    );
+    assert.strictEqual(
+      ordersMod98.extractGoogleDriveFolderId('1BareFolderId_9876543210'),
+      '1BareFolderId_9876543210',
+      'Must accept bare Google Drive folder ID'
+    );
+    assert.strictEqual(
+      ordersMod98.extractGoogleDriveFolderId('https://evil.example.com/drive/folders/1FakeFolderId123456'),
+      '',
+      'Must reject non-Google-Drive hostnames'
+    );
+    assert.strictEqual(ordersMod98.extractGoogleDriveFolderId(''), '', 'Must return empty string for blank input');
+
+    // 2. Apps Script generator with Private Drive Folder & RichText Proof Links
+    assert.strictEqual(typeof ordersMod98.buildUniformOrdersAppsScriptCode, 'function', 'buildUniformOrdersAppsScriptCode must be exported');
+    const scriptWithFolder = ordersMod98.buildUniformOrdersAppsScriptCode('https://drive.google.com/drive/folders/1PrivateReceiptFolder99');
+    assert.ok(scriptWithFolder.includes('var DEFAULT_RECEIPTS_DRIVE_FOLDER_ID = "1PrivateReceiptFolder99";'), 'Apps Script must embed configured private Drive folder ID');
+    assert.ok(scriptWithFolder.includes('"Proof of Payment"'), 'Apps Script must include Proof of Payment column in both sheets');
+    assert.ok(scriptWithFolder.includes('DriveApp.getFolderById(driveFolderId)'), 'Apps Script must save receipts into configured private Drive folder');
+    assert.ok(scriptWithFolder.includes('SpreadsheetApp.newRichTextValue()'), 'Apps Script must write clickable RichText Drive links into Sheets cells');
+    assert.ok(scriptWithFolder.includes('folder.getFilesByName(fileName)'), 'Apps Script must deduplicate receipt files in Drive on repeated syncs');
+    assert.ok(!scriptWithFolder.includes('ANYONE_WITH_LINK'), 'Apps Script must never publicly share private payment receipts');
+
+    // 3. Base64 payload encoder for both JPEG & PDF receipts
+    assert.strictEqual(typeof ordersMod98.blobToBase64Payload, 'function', 'blobToBase64Payload must be exported');
+    const jpgPayload = await ordersMod98.blobToBase64Payload(new Blob([Uint8Array.of(0xff, 0xd8, 0xff, 0xd9)], { type: 'image/jpeg' }), 'BB-1122334455667788', 'Jeshua Koh');
+    assert.ok(jpgPayload && jpgPayload.base64 && jpgPayload.mimeType === 'image/jpeg' && jpgPayload.fileName === 'BB-1122334455667788_Jeshua_Koh.jpg', 'Must encode JPEG receipt to base64 with sanitized filename');
+    const pdfPayload = await ordersMod98.blobToBase64Payload(new Blob(['%PDF-1.7\n%%EOF'], { type: 'application/pdf' }), 'BB-AABBCCDDEEFF0011', 'Oliver Ling');
+    assert.ok(pdfPayload && pdfPayload.base64 && pdfPayload.mimeType === 'application/pdf' && pdfPayload.fileName === 'BB-AABBCCDDEEFF0011_Oliver_Ling.pdf', 'Must encode PDF receipt to base64 with .pdf extension');
+
+    // 4. Schema-resilient renderAdminOrders fallback keeps has_payment_proof when total_amount column is missing
+    const origGet98 = global.supa.get;
+    const origUpsert98 = global.supa.upsert;
+    const origHasAccess98 = global.window.hasAdminModuleAccess;
+    const origAuthMut98 = global.window.authorizeAdminMutation;
+    const origGetEl98 = global.document.getElementById;
+    const queriedPaths98 = [];
+    const savedConfigs98 = {};
+    const mockOrdersListEl98 = {
+      innerHTML: '',
+      querySelector: () => null,
+      querySelectorAll: () => []
+    };
+    const mockOrderRows98 = [
+      {
+        order_number: 'BB-13E68757C1E144DB',
+        member_name: 'Jeshua Koh',
+        ic: 'jeshua@1stpjbb.org.my',
+        rank: 'Sergeant',
+        squad: 'Hotel',
+        created_at: '2026-11-26T04:00:00Z',
+        status: 'pending',
+        items: JSON.stringify([{ key: 'belt', name: 'Belt', qty: 1, price: 4 }]),
+        notes: '',
+        has_payment_proof: true
+      },
+      {
+        order_number: 'BB-MW28DCZI',
+        member_name: 'Oliver Ling',
+        ic: 'oliver@1stpjbb.org.my',
+        rank: 'Lance Corporal',
+        squad: 'Alpha',
+        created_at: '2026-11-04T04:00:00Z',
+        status: 'cancelled',
+        items: JSON.stringify([{ key: 'belt', name: 'Belt', qty: 2, price: 4 }]),
+        notes: '',
+        has_payment_proof: false
+      }
+    ];
+    global.window.hasAdminModuleAccess = () => true;
+    global.window.authorizeAdminMutation = async () => true;
+    global.supa.get = async path => {
+      queriedPaths98.push(path);
+      if (path.includes('total_amount')) {
+        throw new Error('42703 column bb_orders.total_amount does not exist');
+      }
+      if (path.includes('bb_orders?')) {
+        assert.ok(path.includes('has_payment_proof'), 'Fallback query when total_amount is missing must keep has_payment_proof');
+        return mockOrderRows98;
+      }
+      if (path.includes('bb_orders_receipts_drive_folder')) {
+        return savedConfigs98.bb_orders_receipts_drive_folder ? [{ value: savedConfigs98.bb_orders_receipts_drive_folder }] : [];
+      }
+      return [];
+    };
+    global.supa.upsert = async (table, row) => {
+      if (table === 'bb_config' && row && row.key) savedConfigs98[row.key] = row.value;
+      return [row];
+    };
+    global.document.getElementById = id => {
+      if (id === 'admin-orders-list') return mockOrdersListEl98;
+      if (id === 'admin-order-search' || id === 'admin-order-form-filter') return { value: '' };
+      return origGetEl98.call(global.document, id);
+    };
+    try {
+      await ordersMod98.renderAdminOrders(true);
+      assert.ok(mockOrdersListEl98.innerHTML.includes('<th scope="col">Receipt</th>'), 'Table view must render dedicated Receipt column');
+      assert.ok(mockOrdersListEl98.innerHTML.includes('data-uniform-proof="BB-13E68757C1E144DB"'), 'Table view must render clickable proof preview when total_amount is absent');
+      assert.ok(mockOrdersListEl98.innerHTML.includes('class="uniform-proof-empty">—</span>'), 'Table view must render clean dash for orders without proof');
+
+      const cardBtnHtml = ordersMod98.paymentProofButton(mockOrderRows98[0], 'card', 'RM 4.00');
+      assert.ok(cardBtnHtml.includes('uniform-proof-card-btn') && cardBtnHtml.includes('Proof of Payment') && cardBtnHtml.includes('Enlarge'), 'Cards view must render dedicated Proof of Payment preview strip');
+      assert.strictEqual(ordersMod98.paymentProofButton(mockOrderRows98[1], 'card', 'RM 8.00'), '', 'Cards view must omit preview strip for orders without proof');
+
+      // 5. Private Drive folder persistence & validation
+      const invalidSaved = await ordersMod98.saveOrdersReceiptsDriveFolder('https://not-google.com/folder/123456789012');
+      assert.strictEqual(invalidSaved, false, 'saveOrdersReceiptsDriveFolder must reject invalid non-Drive URLs');
+      const validSaved = await ordersMod98.saveOrdersReceiptsDriveFolder('https://drive.google.com/drive/u/1/folders/1SavedFolderId_ABC123?usp=sharing');
+      assert.strictEqual(validSaved, true, 'saveOrdersReceiptsDriveFolder must persist valid Drive folder URL');
+      assert.strictEqual(savedConfigs98.bb_orders_receipts_drive_folder, 'https://drive.google.com/drive/folders/1SavedFolderId_ABC123', 'Drive folder link must be stored in canonical Drive folder format');
+      assert.strictEqual(await ordersMod98.loadOrdersReceiptsDriveFolder(), 'https://drive.google.com/drive/folders/1SavedFolderId_ABC123');
+    } finally {
+      global.supa.get = origGet98;
+      global.supa.upsert = origUpsert98;
+      global.window.hasAdminModuleAccess = origHasAccess98;
+      global.window.authorizeAdminMutation = origAuthMut98;
+      global.document.getElementById = origGetEl98;
+    }
+
+    // 6. Modern dialog & thumbnail CSS assertions
+    assert.ok(compCss98.includes('.uniform-proof-dialog[open]') && compCss98.includes('.uniform-proof-dialog:modal'), 'components.css must scope dialog display to [open] and set scroll containment on :modal');
+    assert.ok(compCss98.includes('.uniform-proof-dialog::backdrop') && compCss98.includes('overscroll-behavior: contain;'), 'components.css must prevent background page scroll under modal dialog');
+    assert.ok(compCss98.includes('.uniform-proof-thumb-btn') && compCss98.includes('.uniform-proof-card-btn') && compCss98.includes('.uniform-proof-pdf-frame'), 'components.css must style table thumbnail, card preview strip, and enlarged PDF viewer');
+    console.log('  ✔ Uniform Orders receipt previews (Table & Cards), enlarged Image/PDF viewer CSS, and Private Google Drive sync verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

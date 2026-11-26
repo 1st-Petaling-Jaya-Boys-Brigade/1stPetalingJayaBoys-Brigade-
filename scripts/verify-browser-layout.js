@@ -5283,6 +5283,191 @@ async function getJson(url) {
     assert.strictEqual(mAuthRes.regOverflow, 0, 'Register card must have 0px overflow on 360px mobile');
     console.log('  ✔ Fullscreen centered Login/Register (header & sidebar hidden, zero vertical scroll on 1440x900 & 1280x720) verified');
 
+    // ── Uniform Orders Proof of Payment Previews (Table & Cards), Enlarged Image/PDF Viewer & Drive Folder Settings ──
+    await sendCmd('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    const uniformReceiptsDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origGet = supa.get;
+        const origGetAdminToken = window.getAdminSessionToken;
+        const origHasAccess = window.hasAdminModuleAccess;
+        const origViewProof = window.PortalWebPush ? window.PortalWebPush.viewPaymentProof : null;
+        const origFetch = window.fetch;
+        const adminOverlay = document.getElementById('admin-overlay');
+        const adminPanel = document.getElementById('admin-panel');
+        const adminLogin = document.getElementById('admin-login');
+        const origOverlayDisplay = adminOverlay ? adminOverlay.style.display : '';
+        const origPanelDisplay = adminPanel ? adminPanel.style.display : '';
+        const origLoginDisplay = adminLogin ? adminLogin.style.display : '';
+        try {
+          window.getAdminSessionToken = () => 'test-admin-receipt-token';
+          window.hasAdminModuleAccess = () => true;
+          const imgDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+          const pdfBytes = new TextEncoder().encode('%PDF-1.4\\n1 0 obj<<>>endobj\\ntrailer<<>>\\n%%EOF');
+          const fakePdfUrl = 'https://example.invalid/signed/BB-PDF0000000000002.pdf?download=payment-proof.pdf';
+          if (window.PortalWebPush) {
+            window.PortalWebPush.viewPaymentProof = async (order) => {
+              if (order === 'BB-PDF0000000000002') {
+                return { url: fakePdfUrl, contentType: 'application/pdf' };
+              }
+              return { url: imgDataUrl, contentType: 'image/jpeg' };
+            };
+          }
+          window.fetch = async (url, opts) => {
+            if (url === fakePdfUrl) {
+              return new Response(pdfBytes, { status: 200, headers: { 'Content-Type': 'application/pdf' } });
+            }
+            return origFetch(url, opts);
+          };
+          supa.get = async (path, opts) => {
+            if (path.includes('bb_orders?') && path.includes('total_amount')) {
+              throw new Error('42703 column bb_orders.total_amount does not exist');
+            }
+            if (path.includes('bb_orders?')) {
+              return [
+                {
+                  order_number: 'BB-IMG0000000000001',
+                  member_name: 'Jeshua Koh',
+                  ic: 'jeshua@1stpjbb.org.my',
+                  rank: 'Sergeant',
+                  squad: 'Hotel',
+                  created_at: '2026-11-26T04:00:00Z',
+                  status: 'pending',
+                  items: JSON.stringify([{ key: 'belt', name: 'Belt', qty: 1, price: 4 }]),
+                  notes: '',
+                  has_payment_proof: true
+                },
+                {
+                  order_number: 'BB-PDF0000000000002',
+                  member_name: 'Oliver Ling',
+                  ic: 'oliver@1stpjbb.org.my',
+                  rank: 'Corporal',
+                  squad: 'Alpha',
+                  created_at: '2026-11-25T04:00:00Z',
+                  status: 'pending',
+                  items: JSON.stringify([{ key: 'cap', name: 'Cap', qty: 1, size: 'L', price: 10 }]),
+                  notes: '',
+                  has_payment_proof: true
+                },
+                {
+                  order_number: 'BB-NOPROOF000000003',
+                  member_name: 'Legacy Order',
+                  ic: 'legacy@1stpjbb.org.my',
+                  rank: 'Private',
+                  squad: 'Papa',
+                  created_at: '2026-11-01T04:00:00Z',
+                  status: 'cancelled',
+                  items: JSON.stringify([{ key: 'belt', name: 'Belt', qty: 1, price: 4 }]),
+                  notes: '',
+                  has_payment_proof: false
+                }
+              ];
+            }
+            if (path.includes('bb_orders_sheets_url') || path.includes('bb_orders_receipts_drive_folder')) {
+              return [];
+            }
+            return origGet.call(supa, path, opts);
+          };
+
+          if (adminOverlay) adminOverlay.style.display = 'block';
+          if (adminLogin) adminLogin.style.display = 'none';
+          if (adminPanel) adminPanel.style.display = 'block';
+          if (typeof switchAdminSection === 'function') switchAdminSection('uniform');
+          if (typeof switchUniformSubtab === 'function') switchUniformSubtab('orders');
+          await renderAdminOrders(true);
+          await new Promise(r => setTimeout(r, 250));
+
+          const listEl = document.getElementById('admin-orders-list');
+          const hasReceiptHeader = Array.from(listEl.querySelectorAll('.orders-spreadsheet-table thead th')).some(th => th.textContent.trim() === 'Receipt');
+          const imgBtnTable = listEl.querySelector('[data-uniform-proof="BB-IMG0000000000001"]');
+          const pdfBtnTable = listEl.querySelector('[data-uniform-proof="BB-PDF0000000000002"]');
+          const tableImgHydrated = Boolean(imgBtnTable && imgBtnTable.querySelector('img.uniform-proof-thumb-img'));
+          const tablePdfHydrated = Boolean(pdfBtnTable && pdfBtnTable.querySelector('.uniform-proof-thumb-frame.is-pdf'));
+          const tableEmptyDash = listEl.querySelectorAll('.uniform-proof-empty').length === 1;
+
+          // Click Image receipt to verify enlarged modal + zoom controls
+          imgBtnTable.click();
+          await new Promise(r => setTimeout(r, 150));
+          const imgDlg = document.querySelector('dialog.uniform-proof-dialog');
+          const imgModalOpen = Boolean(imgDlg && imgDlg.open && imgDlg.getAttribute('closedby') === 'any' && imgDlg.querySelector('img.uniform-proof-full-img'));
+          const zoomInBtn = imgDlg ? imgDlg.querySelector('[data-proof-zoom-in]') : null;
+          const zoomLbl = imgDlg ? imgDlg.querySelector('[data-proof-zoom-label]') : null;
+          if (zoomInBtn) zoomInBtn.click();
+          const zoomedTo150 = Boolean(zoomLbl && zoomLbl.textContent.trim() === '150%');
+          if (imgDlg) imgDlg.close();
+
+          // Click PDF receipt to verify enlarged inline PDF iframe modal
+          pdfBtnTable.click();
+          await new Promise(r => setTimeout(r, 200));
+          const pdfDlg = document.querySelector('dialog.uniform-proof-dialog');
+          const pdfIframe = pdfDlg ? pdfDlg.querySelector('iframe.uniform-proof-pdf-frame') : null;
+          const pdfModalOpen = Boolean(pdfDlg && pdfDlg.open && pdfIframe && String(pdfIframe.src || '').startsWith('blob:'));
+          if (pdfDlg) pdfDlg.close();
+
+          // Switch to Cards View and verify receipt preview cards
+          const cardsBtn = listEl.querySelector('[data-set-view="cards"]');
+          if (cardsBtn) cardsBtn.click();
+          await new Promise(r => setTimeout(r, 200));
+          const cardProofBtns = listEl.querySelectorAll('.uniform-proof-card-btn');
+          const cardsHaveTwoProofs = cardProofBtns.length === 2;
+          const cardsImgThumb = Boolean(listEl.querySelector('[data-uniform-proof="BB-IMG0000000000001"] img.uniform-proof-thumb-img'));
+          const cardsPdfTile = Boolean(listEl.querySelector('[data-uniform-proof="BB-PDF0000000000002"] .uniform-proof-thumb-frame.is-pdf'));
+          const cardsOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+
+          // Switch back to Table View
+          const tableBtn = listEl.querySelector('[data-set-view="table"]');
+          if (tableBtn) tableBtn.click();
+          await new Promise(r => setTimeout(r, 120));
+
+          // Open Settings modal and verify Private Google Drive Folder Link input & live script update
+          await configureAdminOrdersSheetUrl();
+          const driveInput = document.getElementById('admin-orders-drive-folder-input');
+          const scriptBox = document.getElementById('admin-orders-script-code-box');
+          let driveLiveUpdated = false;
+          if (driveInput && scriptBox) {
+            driveInput.value = 'https://drive.google.com/drive/folders/1TestPrivateDriveFolder88?usp=sharing';
+            driveInput.dispatchEvent(new Event('input', { bubbles: true }));
+            const statusText = (document.getElementById('admin-orders-drive-status') || {}).textContent || '';
+            driveLiveUpdated = statusText.includes('1TestPrivateDriveFolder88') &&
+              scriptBox.textContent.includes('var DEFAULT_RECEIPTS_DRIVE_FOLDER_ID = "1TestPrivateDriveFolder88";');
+          }
+          const closeSettingsBtn = document.getElementById('admin-orders-close-modal-btn');
+          if (closeSettingsBtn) closeSettingsBtn.click();
+
+          return {
+            hasReceiptHeader, tableImgHydrated, tablePdfHydrated, tableEmptyDash,
+            imgModalOpen, zoomedTo150, pdfModalOpen,
+            cardsHaveTwoProofs, cardsImgThumb, cardsPdfTile, cardsOverflow,
+            driveLiveUpdated
+          };
+        } finally {
+          supa.get = origGet;
+          window.getAdminSessionToken = origGetAdminToken;
+          window.hasAdminModuleAccess = origHasAccess;
+          if (window.PortalWebPush && origViewProof) window.PortalWebPush.viewPaymentProof = origViewProof;
+          window.fetch = origFetch;
+          if (adminOverlay) adminOverlay.style.display = origOverlayDisplay;
+          if (adminPanel) adminPanel.style.display = origPanelDisplay;
+          if (adminLogin) adminLogin.style.display = origLoginDisplay;
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const uRec = (uniformReceiptsDiag.result && uniformReceiptsDiag.result.value) || {};
+    assert.strictEqual(uRec.hasReceiptHeader, true, 'Uniform Orders Table View must include a dedicated Receipt column');
+    assert.strictEqual(uRec.tableImgHydrated, true, 'Image receipt must render thumbnail preview in Table View');
+    assert.strictEqual(uRec.tablePdfHydrated, true, 'PDF receipt must render PDF preview tile in Table View');
+    assert.strictEqual(uRec.tableEmptyDash, true, 'Orders without proof must show clean dash in Receipt column');
+    assert.strictEqual(uRec.imgModalOpen, true, 'Clicking image receipt must open enlarged native modal lightbox with closedby=any');
+    assert.strictEqual(uRec.zoomedTo150, true, 'Enlarged image receipt modal zoom controls must scale image to 150%');
+    assert.strictEqual(uRec.pdfModalOpen, true, 'Clicking PDF receipt must open enlarged inline PDF viewer modal');
+    assert.strictEqual(uRec.cardsHaveTwoProofs, true, 'Uniform Orders Cards View must render receipt preview strip on orders with proof');
+    assert.strictEqual(uRec.cardsImgThumb, true, 'Image receipt must render thumbnail preview in Cards View');
+    assert.strictEqual(uRec.cardsPdfTile, true, 'PDF receipt must render PDF preview tile in Cards View');
+    assert.strictEqual(uRec.cardsOverflow, 0, 'Uniform Orders Cards View with receipt previews must have 0px horizontal overflow');
+    assert.strictEqual(uRec.driveLiveUpdated, true, 'Uniform Orders Settings must accept private Google Drive folder link and live-update Apps Script');
+    console.log('  ✔ Uniform Orders Table & Cards receipt previews, enlarged Image/PDF viewer modal, and Private Drive folder Settings verified');
+
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
     ws.close();
