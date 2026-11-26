@@ -18540,12 +18540,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(navCss97.includes('.sidebar-item.mobile-menu-assistant') && navCss97.includes('body.sidebar-collapsed .sidebar-item.mobile-menu-assistant'), 'css/nav.css must explicitly hide .mobile-menu-assistant on desktop expanded and collapsed sidebar');
     assert.ok(navCss97.includes('.sidebar-item.mobile-menu-assistant:not([hidden])'), 'css/nav.css must keep Ask Stedfast available inside the mobile More menu');
 
-    // 2. Modern Login card CSS & preserved text/features
-    assert.ok(compCss97.includes('#m-auth.auth-shell-card') && compCss97.includes('max-width: 460px;'), 'components.css must constrain #m-auth into a focused centered 460px auth card');
-    assert.ok(compCss97.includes('#m-auth.auth-shell-card.auth-mode-register') && compCss97.includes('max-width: 540px;'), 'components.css must allow Register mode card width of 540px');
+    // 2. Modern fullscreen centered Login/Register card CSS & preserved text/features
+    assert.ok(compCss97.includes('body.auth-screen-active #site-header') && compCss97.includes('body.auth-screen-active #sidebar-overlay') && compCss97.includes('body.auth-screen-active #bottom-nav'), 'components.css must hide top header, sidebar, and bottom nav when auth-screen-active');
+    assert.ok(compCss97.includes('min-height: 100dvh !important;'), 'components.css must use dynamic viewport height (100dvh) for centered auth screen');
+    assert.ok(compCss97.includes('#m-auth.auth-shell-card') && compCss97.includes('max-width: 430px;'), 'components.css must constrain #m-auth into a focused centered 430px auth card');
+    assert.ok(compCss97.includes('#m-auth.auth-shell-card.auth-mode-register') && compCss97.includes('max-width: 600px;'), 'components.css must allow Register mode 2-column card width of 600px');
     assert.ok(compCss97.includes('.auth-meta-row') && compCss97.includes('justify-content: space-between;'), 'components.css must align Remember me and Forgot Password on one row');
     assert.ok(compCss97.includes('@supports not (accent-color: auto)'), 'components.css must include accessible accent-color fallback for auth checkboxes');
     assert.ok(compCss97.includes('#m-auth.auth-shell-card .form-input:user-invalid'), 'components.css must style invalid fields non-intrusively with :user-invalid');
+    assert.ok(indexHtml97.includes("document.body.classList.toggle('auth-screen-active', !signedIn)"), 'syncSidebarAccess must toggle body.auth-screen-active based on auth state');
 
     [
       'Member',
