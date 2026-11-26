@@ -1912,7 +1912,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const bankPdf = '%PDF-1.7\n% Bank payment receipt\n%%EOF\n';
   window.PortalWebPush = {
     async uploadPaymentProof(order, member, blob) {
-      assert.match(order, /^BB-[0-9A-F]{16}$/);
+      assert.match(order, /^BB-[0-9]{4}(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[A-Z][0-9]{2}$/);
       assert.strictEqual(member, global.sessionGet('ic') || global.sessionGet('email'));
       assert.strictEqual(blob.type, expectedProofType);
       if (expectedProofType === 'application/pdf') {
@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261126g',
-    'sw.js CACHE_VERSION must be 20261126g'
+    '20261126h',
+    'sw.js CACHE_VERSION must be 20261126h'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126g',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126h',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126g'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126h'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126g', 'Service Worker cache version must be 20261126g');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126h', 'Service Worker cache version must be 20261126h');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261126g and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261126h and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126g', 'sw.js CACHE_VERSION must be 20261126g');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126g', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126g', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126h', 'sw.js CACHE_VERSION must be 20261126h');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126h', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126h', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261126g cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261126h cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261126g'), 'config.js must use v=20261126g');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126g'), 'forum.js must use v=20261126g');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261126g'), 'variables.css must use v=20261126g');
-    assert.ok(indexRaw.includes('css/base.css?v=20261126g'), 'base.css must use v=20261126g');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126g');
+    assert.ok(indexRaw.includes('js/config.js?v=20261126h'), 'config.js must use v=20261126h');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126h'), 'forum.js must use v=20261126h');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261126h'), 'variables.css must use v=20261126h');
+    assert.ok(indexRaw.includes('css/base.css?v=20261126h'), 'base.css must use v=20261126h');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126h');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -18795,8 +18795,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       assert.ok(mockOrdersListEl98.innerHTML.includes('data-uniform-proof="BB-13E68757C1E144DB"'), 'Table view must render clickable proof preview when total_amount is absent');
       assert.ok(mockOrdersListEl98.innerHTML.includes('class="uniform-proof-empty">—</span>'), 'Table view must render clean dash for orders without proof');
 
+      const tableBtnHtml = ordersMod98.paymentProofButton(mockOrderRows98[0], 'table', 'RM 4.00');
+      assert.ok(tableBtnHtml.includes('uniform-proof-thumb-btn') && !tableBtnHtml.includes('Enlarge'), 'Table view receipt button must omit the word Enlarge');
       const cardBtnHtml = ordersMod98.paymentProofButton(mockOrderRows98[0], 'card', 'RM 4.00');
-      assert.ok(cardBtnHtml.includes('uniform-proof-card-btn') && cardBtnHtml.includes('Proof of Payment') && cardBtnHtml.includes('Enlarge'), 'Cards view must render dedicated Proof of Payment preview strip');
+      assert.ok(cardBtnHtml.includes('uniform-proof-card-btn') && cardBtnHtml.includes('Proof of Payment') && !cardBtnHtml.includes('Enlarge'), 'Cards view must render dedicated Proof of Payment preview strip without the word Enlarge');
       assert.strictEqual(ordersMod98.paymentProofButton(mockOrderRows98[1], 'card', 'RM 8.00'), '', 'Cards view must omit preview strip for orders without proof');
 
       // 5. Private Drive folder persistence & validation
@@ -18814,11 +18816,110 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
       global.document.getElementById = origGetEl98;
     }
 
-    // 6. Modern dialog & thumbnail CSS assertions
+    // 6. Readable monthly Order ID format (BB-2026NovG53), Apps Script v2, CORS health checks & Settings warning badge
+    assert.strictEqual(typeof ordersMod98.generateUniformOrderCode, 'function', 'generateUniformOrderCode must be exported');
+    const novCode = ordersMod98.generateUniformOrderCode(new Date('2026-11-15T06:00:00Z'));
+    assert.match(novCode, /^BB-2026Nov[A-Z][0-9]{2}$/, 'Order code for Nov 2026 must match BB-2026Nov<Letter><2-Digits>');
+    const janCode = ordersMod98.generateUniformOrderCode(new Date('2027-01-05T06:00:00Z'));
+    assert.match(janCode, /^BB-2027Jan[A-Z][0-9]{2}$/, 'Order code for Jan 2027 must match BB-2027Jan<Letter><2-Digits>');
+    assert.ok(ordersMod98.UNIFORM_ORDER_CODE_PATTERN.test('BB-2026NovG53'), 'Order code pattern must accept BB-2026NovG53');
+    assert.ok(ordersMod98.UNIFORM_ORDER_CODE_PATTERN.test('BB-13E68757C1E144DB'), 'Order code pattern must remain backward-compatible with legacy 16-hex IDs');
+
+    assert.strictEqual(ordersMod98.isValidAppsScriptWebAppUrl('https://script.google.com/macros/s/AKfycb1234567890_abc/exec'), true, 'Must accept consumer Apps Script /exec URL');
+    assert.strictEqual(ordersMod98.isValidAppsScriptWebAppUrl('https://script.google.com/a/macros/1stpjbb.org.my/s/AKfycb1234567890_abc/exec'), true, 'Must accept Google Workspace Apps Script /exec URL');
+    assert.strictEqual(ordersMod98.isValidAppsScriptWebAppUrl('https://script.google.com/macros/s/AKfycb1234567890_abc/dev'), false, 'Must reject /dev test URLs');
+    assert.strictEqual(ordersMod98.isValidAppsScriptWebAppUrl('https://docs.google.com/spreadsheets/d/12345/edit'), false, 'Must reject raw Google Sheet URLs');
+
+    assert.ok(scriptWithFolder.includes('var SCRIPT_VERSION = 2;'), 'Apps Script must declare SCRIPT_VERSION = 2');
+    assert.ok(scriptWithFolder.includes('function authorizeDriveAndSheets()'), 'Apps Script v2 must include authorizeDriveAndSheets helper');
+    assert.ok(scriptWithFolder.includes('action === "health_check"'), 'Apps Script v2 must support health_check diagnostics');
+    assert.ok(scriptWithFolder.includes('["Platoon", "Squad"]'), 'Apps Script v2 must map existing Platoon headers without adding duplicate Squad column');
+    assert.ok(scriptWithFolder.includes('buildAlignedRowValues'), 'Apps Script v2 must align columns dynamically by header name');
+
+    const origFetch98 = global.fetch;
+    try {
+      const capturedFetchOpts98 = [];
+      global.fetch = async (url, opts) => {
+        capturedFetchOpts98.push({ url, opts });
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            status: 'ok',
+            scriptVersion: 2,
+            sheetsOk: true,
+            spreadsheetName: 'Uniform Orders 2026',
+            driveOk: true,
+            driveFolderName: 'Uniform Order Proof of Payment',
+            driveError: ''
+          })
+        };
+      };
+      const healthyProbe = await ordersMod98.checkUniformOrdersSyncHealth(true, {
+        url: 'https://script.google.com/macros/s/AKfycb_test_healthy/exec',
+        driveFolder: 'https://drive.google.com/drive/folders/1HealthyFolderId12345'
+      });
+      assert.strictEqual(healthyProbe.healthy, true, 'Health check must pass when Sheets and Drive both succeed');
+      assert.strictEqual(healthyProbe.driveFolderName, 'Uniform Order Proof of Payment');
+      assert.strictEqual(capturedFetchOpts98[0].opts.headers['Content-Type'], 'text/plain;charset=utf-8', 'Apps Script POST must use text/plain;charset=utf-8 for CORS');
+      assert.strictEqual(capturedFetchOpts98[0].opts.mode, undefined, 'Apps Script POST must not use opaque mode:no-cors');
+
+      global.fetch = async () => ({
+        ok: true,
+        status: 200,
+        text: async () => '<!DOCTYPE html><html><title>Sign in - Google Accounts</title></html>'
+      });
+      const authProbe = await ordersMod98.checkUniformOrdersSyncHealth(true, {
+        url: 'https://script.google.com/macros/s/AKfycb_test_auth/exec',
+        driveFolder: 'https://drive.google.com/drive/folders/1HealthyFolderId12345'
+      });
+      assert.strictEqual(authProbe.healthy, false, 'Health check must fail when Apps Script redirects to Google login');
+      assert.strictEqual(authProbe.severity, 'error');
+
+      global.fetch = async () => ({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ status: 'ok', scriptVersion: 2, sheetsOk: true, driveOk: false, driveError: 'Need Editor access' })
+      });
+      const driveErrProbe = await ordersMod98.checkUniformOrdersSyncHealth(true, {
+        url: 'https://script.google.com/macros/s/AKfycb_test_drive_err/exec',
+        driveFolder: 'https://drive.google.com/drive/folders/1HealthyFolderId12345'
+      });
+      assert.strictEqual(driveErrProbe.healthy, false, 'Health check must fail when Drive access fails');
+      assert.ok(driveErrProbe.driveError.includes('Need Editor access'));
+
+      const missingProbe = await ordersMod98.checkUniformOrdersSyncHealth(true, { url: '', driveFolder: '' });
+      assert.strictEqual(missingProbe.healthy, false, 'Health check must flag missing Sheets & Drive links');
+
+      // Warning badge DOM toggle check
+      const mockBadgeEl98 = { hidden: true, classList: { classes: new Set(), toggle(c, v) { if (v) this.classes.add(c); else this.classes.delete(c); } } };
+      const mockBtnAttrs98 = {};
+      const mockSettingsBtn98 = {
+        querySelector: sel => sel === '[data-settings-warn-badge]' ? mockBadgeEl98 : null,
+        setAttribute: (k, v) => { mockBtnAttrs98[k] = v; }
+      };
+      const mockScope98 = { querySelectorAll: sel => sel === '[data-config-sheets]' ? [mockSettingsBtn98] : [] };
+      ordersMod98.applyUniformSettingsWarningBadge(mockScope98, driveErrProbe);
+      assert.strictEqual(mockBadgeEl98.hidden, false, 'Settings warning badge must be visible when sync is unhealthy');
+      assert.strictEqual(mockBadgeEl98.classList.classes.has('is-error'), true, 'Settings warning badge must apply is-error class on errors');
+      ordersMod98.applyUniformSettingsWarningBadge(mockScope98, healthyProbe);
+      assert.strictEqual(mockBadgeEl98.hidden, true, 'Settings warning badge must hide once both Sheets and Drive are healthy');
+    } finally {
+      global.fetch = origFetch98;
+    }
+
+    // 7. Database migration 038 & Edge Function Order ID regex parity
+    const migration038 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '038_uniform_order_id_format.sql'), 'utf8');
+    const edgePushTs = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'portal-web-push', 'index.ts'), 'utf8');
+    assert.ok(migration038.includes('Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec') && migration038.includes('[A-F0-9]{16}'), 'Migration 038 must accept both monthly readable and legacy order IDs');
+    assert.ok(edgePushTs.includes('Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec') && edgePushTs.includes('[A-F0-9]{16}'), 'portal-web-push Edge Function must accept both monthly readable and legacy order IDs');
+
+    // 8. Modern dialog, thumbnail & Settings warning badge CSS assertions
     assert.ok(compCss98.includes('.uniform-proof-dialog[open]') && compCss98.includes('.uniform-proof-dialog:modal'), 'components.css must scope dialog display to [open] and set scroll containment on :modal');
     assert.ok(compCss98.includes('.uniform-proof-dialog::backdrop') && compCss98.includes('overscroll-behavior: contain;'), 'components.css must prevent background page scroll under modal dialog');
     assert.ok(compCss98.includes('.uniform-proof-thumb-btn') && compCss98.includes('.uniform-proof-card-btn') && compCss98.includes('.uniform-proof-pdf-frame'), 'components.css must style table thumbnail, card preview strip, and enlarged PDF viewer');
-    console.log('  ✔ Uniform Orders receipt previews (Table & Cards), enlarged Image/PDF viewer CSS, and Private Google Drive sync verified');
+    assert.ok(compCss98.includes('.admin-orders-settings-btn') && compCss98.includes('.orders-settings-warn-badge') && compCss98.includes('.orders-sync-health-card'), 'components.css must style Settings top-right warning badge and sync health diagnostics card');
+    console.log('  ✔ Uniform Orders receipt previews, readable Order IDs (BB-2026NovG53), Settings warning badge, and CORS Sheets/Drive sync verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

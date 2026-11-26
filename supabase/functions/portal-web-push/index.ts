@@ -18,7 +18,7 @@ const REMINDER_WORKFLOW = '1st-Petaling-Jaya-Boys-Brigade/1stPetalingJayaBoys-Br
 const PROOF_IMAGE_MAX_BYTES = 256 * 1024;
 const PROOF_PDF_MAX_BYTES = 10 * 1024 * 1024;
 const PROOF_BUCKET = 'uniform-payment-proofs';
-const proofOrderPattern = /^BB-[A-F0-9]{16}$/;
+const proofOrderPattern = /^BB-(?:[0-9]{4}(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[A-Z][0-9]{2}|[A-F0-9]{16})$/;
 const MESSAGES: Record<string, [string, string, string]> = {
   announcement: ['Company announcement', 'A new announcement is available in the portal.', 'home'],
   task_assigned: ['Task assigned', 'Open the portal to view your task.', 'tasks'],

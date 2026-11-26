@@ -1851,6 +1851,55 @@ async function stageUniformPaymentProof(file) {
   }
 }
 
+var UNIFORM_ORDER_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+var UNIFORM_ORDER_CODE_PATTERN = /^BB-(?:[0-9]{4}(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[A-Z][0-9]{2}|[A-F0-9]{16})$/;
+
+/**
+ * Generates a readable monthly uniform order code: BB-<Year><Mon><Letter><2-Digit>
+ * Example for November 2026: BB-2026NovG53
+ * @param {Date|string|number} [dateInput]
+ * @returns {string}
+ */
+function generateUniformOrderCode(dateInput) {
+  var d = dateInput instanceof Date ? dateInput : (dateInput ? new Date(dateInput) : new Date());
+  var year = '';
+  var monthAbbr = '';
+  try {
+    if (typeof Intl !== 'undefined' && typeof Intl.DateTimeFormat === 'function') {
+      var parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Kuala_Lumpur',
+        year: 'numeric',
+        month: 'numeric'
+      }).formatToParts(d);
+      var yPart = parts.find(function(p) { return p.type === 'year'; });
+      var mPart = parts.find(function(p) { return p.type === 'month'; });
+      if (yPart && mPart) {
+        year = yPart.value;
+        var mIdx = parseInt(mPart.value, 10) - 1;
+        if (mIdx >= 0 && mIdx < 12) monthAbbr = UNIFORM_ORDER_MONTHS[mIdx];
+      }
+    }
+  } catch (_) {}
+  if (!year || !monthAbbr) {
+    year = String(d.getFullYear());
+    monthAbbr = UNIFORM_ORDER_MONTHS[d.getMonth()] || 'Jan';
+  }
+  var randLetter = 0;
+  var randNum = 0;
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    var buf = new Uint32Array(2);
+    crypto.getRandomValues(buf);
+    randLetter = buf[0] % 26;
+    randNum = buf[1] % 100;
+  } else {
+    randLetter = Math.floor(Math.random() * 26);
+    randNum = Math.floor(Math.random() * 100);
+  }
+  var letter = String.fromCharCode(65 + randLetter);
+  var digits = String(randNum).padStart(2, '0');
+  return 'BB-' + year + monthAbbr + letter + digits;
+}
+
 /**
  * Submits finalized uniform order to Supabase bb_orders table
  */
@@ -1938,7 +1987,7 @@ async function submitOrder() {
       var wasPending = !!_pendingUniformOrder;
       var orderCode = wasPending && _pendingUniformOrder.order_number
         ? _pendingUniformOrder.order_number
-        : 'BB-' + crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase();
+        : generateUniformOrderCode();
       var orderRecord = _pendingUniformOrder || {
         order_number: orderCode,
         ic: memberId,
@@ -1996,7 +2045,9 @@ async function submitOrder() {
         if (!Array.isArray(saved) || !saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
           throw new Error('Order could not be confirmed');
         }
-        syncOrderToGoogleSheetsArchive(orderRecord, proof && proof.blob ? proof.blob : null);
+        try {
+          await syncOrderToGoogleSheetsArchive(orderRecord, proof && proof.blob ? proof.blob : null);
+        } catch (_) {}
       }
       _pendingUniformOrder = null;
       _pendingUniformProof = null;
@@ -2229,9 +2280,9 @@ function paymentProofButton(order, variant, totalFormatted) {
             '<span class="uniform-proof-card-title">Proof of Payment</span>' +
             '<span class="uniform-proof-type-pill' + (isPdf ? ' is-pdf' : '') + '" data-proof-type-label>' + typeLabel + '</span>' +
           '</span>' +
-          '<span class="uniform-proof-card-sub" data-proof-hint>' + (isPdf ? 'Click to open enlarged PDF viewer' : 'Click to enlarge and inspect receipt') + '</span>' +
+          '<span class="uniform-proof-card-sub" data-proof-hint>' + (isPdf ? 'Click to open PDF receipt' : 'Click to inspect receipt') + '</span>' +
         '</span>' +
-        '<span class="uniform-proof-card-expand">' + getZoomOverlayIconSvg() + '<span>Enlarge</span></span>' +
+        '<span class="uniform-proof-card-expand" aria-hidden="true">' + getZoomOverlayIconSvg() + '</span>' +
       '</button>'
     );
   }
@@ -2243,7 +2294,6 @@ function paymentProofButton(order, variant, totalFormatted) {
       '<span class="' + frameClass + '" data-proof-preview-slot>' + frameInner + '</span>' +
       '<span class="uniform-proof-thumb-meta">' +
         '<span class="uniform-proof-thumb-label" data-proof-type-label>' + typeLabel + '</span>' +
-        '<span class="uniform-proof-thumb-hint" data-proof-hint>' + (isPdf ? 'View PDF' : 'Enlarge') + '</span>' +
       '</span>' +
     '</button>'
   );
@@ -2280,12 +2330,8 @@ function applyProofPreviewToButton(button, proofResult) {
     typeLabelEl.textContent = isPdf ? 'PDF' : 'Image';
     if (typeLabelEl.classList) typeLabelEl.classList.toggle('is-pdf', isPdf);
   }
-  if (hintEl) {
-    if (variant === 'card') {
-      hintEl.textContent = isPdf ? 'Click to open enlarged PDF viewer' : 'Click to enlarge and inspect receipt';
-    } else {
-      hintEl.textContent = isPdf ? 'View PDF' : 'Enlarge';
-    }
+  if (hintEl && variant === 'card') {
+    hintEl.textContent = isPdf ? 'Click to open PDF receipt' : 'Click to inspect receipt';
   }
 }
 
@@ -2592,6 +2638,11 @@ var _cachedAdminOrdersList = [];
 var _ordersSheetsArchiveUrl = '';
 var _ordersReceiptsDriveFolder = '';
 var ORDERS_RECEIPTS_DRIVE_FOLDER_KEY = 'bb_orders_receipts_drive_folder';
+var _uniformSyncHealthCache = null;
+var _uniformSyncHealthCheckedAt = 0;
+var _lastOrdersSyncError = '';
+var UNIFORM_SYNC_HEALTH_TTL_MS = 45000;
+var UNIFORM_ORDERS_SCRIPT_VERSION = 2;
 
 function parseUniformOrderItems(value) {
   return (typeof value === 'string' ? JSON.parse(value || '{}') : value) || {};
@@ -2643,30 +2694,53 @@ function getUniformStatusOptions(status) {
 }
 
 /**
- * Loads configured Google Sheets permanent archive webhook URL from Supabase bb_config
+ * Validates that a URL is a deployed Google Apps Script Web App (/exec) URL
+ * @param {string} rawUrl
+ * @returns {boolean}
  */
-async function loadOrdersSheetsArchiveUrl() {
-  if (_ordersSheetsArchiveUrl) return _ordersSheetsArchiveUrl;
-  var client = getSupa();
-  if (!client || !client.get) return '';
+function isValidAppsScriptWebAppUrl(rawUrl) {
+  var val = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+  if (!val) return false;
   try {
-    var snap = (typeof client.getConfigSnapshot === 'function') ? client.getConfigSnapshot('bb_orders_sheets_url') : null;
-    if (snap && typeof snap === 'string') {
-      _ordersSheetsArchiveUrl = snap;
-      return snap;
+    var parsed = new URL(val);
+    return parsed.protocol === 'https:' &&
+      parsed.hostname === 'script.google.com' &&
+      !parsed.port && !parsed.username && !parsed.password &&
+      /^(?:\/a\/macros\/[A-Za-z0-9.-]+\/s\/|\/macros\/s\/)[\w-]+\/exec$/.test(parsed.pathname);
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * Loads configured Google Sheets permanent archive webhook URL from Supabase bb_config
+ * @param {boolean} [forceRefresh]
+ */
+async function loadOrdersSheetsArchiveUrl(forceRefresh) {
+  if (!forceRefresh && _ordersSheetsArchiveUrl) return _ordersSheetsArchiveUrl;
+  var client = getSupa();
+  if (!client || !client.get) return _ordersSheetsArchiveUrl || '';
+  try {
+    if (!forceRefresh) {
+      var snap = (typeof client.getConfigSnapshot === 'function') ? client.getConfigSnapshot('bb_orders_sheets_url') : null;
+      if (snap && typeof snap === 'string') {
+        _ordersSheetsArchiveUrl = snap.trim();
+        return _ordersSheetsArchiveUrl;
+      }
     }
-    var rows = await client.get('bb_config?key=eq.bb_orders_sheets_url&select=value');
-    if (Array.isArray(rows) && rows[0] && rows[0].value) {
+    var rows = await client.get('bb_config?key=eq.bb_orders_sheets_url&select=value', { cache: !forceRefresh });
+    if (Array.isArray(rows) && rows[0] && rows[0].value !== undefined && rows[0].value !== null) {
       _ordersSheetsArchiveUrl = String(rows[0].value).trim();
       if (typeof client.recordConfigSnapshot === 'function') {
         client.recordConfigSnapshot('bb_orders_sheets_url', _ordersSheetsArchiveUrl);
       }
       return _ordersSheetsArchiveUrl;
     }
+    if (forceRefresh) _ordersSheetsArchiveUrl = '';
   } catch (e) {
     console.warn('loadOrdersSheetsArchiveUrl error:', e.message);
   }
-  return '';
+  return _ordersSheetsArchiveUrl || '';
 }
 
 /**
@@ -2676,8 +2750,16 @@ async function loadOrdersSheetsArchiveUrl() {
 async function saveOrdersSheetsArchiveUrl(url) {
   if (!await canWriteUniformAdmin()) return false;
   var cleanUrl = typeof url === 'string' ? url.trim() : '';
+  if (cleanUrl && !isValidAppsScriptWebAppUrl(cleanUrl)) {
+    if (typeof showToast === 'function') {
+      showToast('Use a deployed Google Apps Script Web App URL ending in /exec (https://script.google.com/macros/s/.../exec).', 'warning');
+    }
+    return false;
+  }
   if (!await saveUniformSetting('bb_orders_sheets_url', cleanUrl)) return false;
   _ordersSheetsArchiveUrl = cleanUrl;
+  _uniformSyncHealthCache = null;
+  _uniformSyncHealthCheckedAt = 0;
   var client = getSupa();
   if (client && client.recordConfigSnapshot) client.recordConfigSnapshot('bb_orders_sheets_url', cleanUrl);
   return true;
@@ -2706,30 +2788,34 @@ function extractGoogleDriveFolderId(rawInput) {
 
 /**
  * Loads configured private Google Drive folder link/ID for uniform payment receipts from Supabase bb_config
+ * @param {boolean} [forceRefresh]
  * @returns {Promise<string>}
  */
-async function loadOrdersReceiptsDriveFolder() {
-  if (_ordersReceiptsDriveFolder) return _ordersReceiptsDriveFolder;
+async function loadOrdersReceiptsDriveFolder(forceRefresh) {
+  if (!forceRefresh && _ordersReceiptsDriveFolder) return _ordersReceiptsDriveFolder;
   var client = getSupa();
-  if (!client || !client.get) return '';
+  if (!client || !client.get) return _ordersReceiptsDriveFolder || '';
   try {
-    var snap = (typeof client.getConfigSnapshot === 'function') ? client.getConfigSnapshot(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY) : null;
-    if (snap && typeof snap === 'string') {
-      _ordersReceiptsDriveFolder = snap.trim();
-      return _ordersReceiptsDriveFolder;
+    if (!forceRefresh) {
+      var snap = (typeof client.getConfigSnapshot === 'function') ? client.getConfigSnapshot(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY) : null;
+      if (snap && typeof snap === 'string') {
+        _ordersReceiptsDriveFolder = snap.trim();
+        return _ordersReceiptsDriveFolder;
+      }
     }
-    var rows = await client.get('bb_config?key=eq.' + ORDERS_RECEIPTS_DRIVE_FOLDER_KEY + '&select=value');
-    if (Array.isArray(rows) && rows[0] && rows[0].value) {
+    var rows = await client.get('bb_config?key=eq.' + ORDERS_RECEIPTS_DRIVE_FOLDER_KEY + '&select=value', { cache: !forceRefresh });
+    if (Array.isArray(rows) && rows[0] && rows[0].value !== undefined && rows[0].value !== null) {
       _ordersReceiptsDriveFolder = String(rows[0].value).trim();
       if (typeof client.recordConfigSnapshot === 'function') {
         client.recordConfigSnapshot(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY, _ordersReceiptsDriveFolder);
       }
       return _ordersReceiptsDriveFolder;
     }
+    if (forceRefresh) _ordersReceiptsDriveFolder = '';
   } catch (e) {
     console.warn('loadOrdersReceiptsDriveFolder error:', e.message);
   }
-  return '';
+  return _ordersReceiptsDriveFolder || '';
 }
 
 /**
@@ -2753,9 +2839,261 @@ async function saveOrdersReceiptsDriveFolder(folderUrlOrId) {
   }
   if (!await saveUniformSetting(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY, normalized)) return false;
   _ordersReceiptsDriveFolder = normalized;
+  _uniformSyncHealthCache = null;
+  _uniformSyncHealthCheckedAt = 0;
   var client = getSupa();
   if (client && client.recordConfigSnapshot) client.recordConfigSnapshot(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY, normalized);
   return true;
+}
+
+/**
+ * Sends a CORS-compliant text/plain POST to a Google Apps Script Web App and parses the JSON response.
+ * Avoids mode:'no-cors' so authentication, deployment, and Google Drive errors are surfaced instead of swallowed.
+ * @param {string} url
+ * @param {Object} payload
+ * @param {number} [timeoutMs=25000]
+ * @returns {Promise<{ok: boolean, code?: string, error?: string, data?: Object}>}
+ */
+async function postUniformOrdersAppsScript(url, payload, timeoutMs) {
+  var cleanUrl = typeof url === 'string' ? url.trim() : '';
+  if (!isValidAppsScriptWebAppUrl(cleanUrl)) {
+    return {
+      ok: false,
+      code: 'invalid_url',
+      error: 'Google Sheets Web App URL must end with /exec (https://script.google.com/macros/s/.../exec).'
+    };
+  }
+  if (typeof fetch !== 'function') {
+    return { ok: false, code: 'network_error', error: 'Fetch API is unavailable.' };
+  }
+  try {
+    var fetchOpts = {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      referrerPolicy: 'no-referrer'
+    };
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      fetchOpts.signal = AbortSignal.timeout(timeoutMs || 25000);
+    }
+    var res = await fetch(cleanUrl, fetchOpts);
+    var rawText = '';
+    try { rawText = await res.text(); } catch (_) {}
+    if (/^\s*<!doctype|\s*<html|accounts\.google\.com|ServiceLogin/i.test(rawText)) {
+      return {
+        ok: false,
+        code: 'auth_required',
+        error: 'Apps Script returned a Google login page. Redeploy as Web App with "Execute as: Me" and "Who has access: Anyone".'
+      };
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        code: 'http_error',
+        error: 'Apps Script Web App returned HTTP ' + res.status + '. Check your deployment URL and access settings.'
+      };
+    }
+    var parsed = null;
+    try { parsed = rawText ? JSON.parse(rawText) : null; } catch (_) {}
+    if (!parsed || typeof parsed !== 'object') {
+      return {
+        ok: false,
+        code: 'invalid_response',
+        error: 'Apps Script returned an unreadable response. Make sure you deployed the latest Uniform Orders script as a Web App.'
+      };
+    }
+    if (parsed.status === 'error') {
+      return {
+        ok: false,
+        code: 'script_error',
+        error: String(parsed.message || 'Google Apps Script reported an error.'),
+        data: parsed
+      };
+    }
+    return { ok: true, data: parsed };
+  } catch (err) {
+    var msg = err && err.name === 'TimeoutError'
+      ? 'Google Sheets Web App timed out. Please check your deployment URL and internet connection.'
+      : 'Could not reach Google Sheets Web App (CORS or network error). Ensure Web App access is set to "Anyone" and the URL ends with /exec.';
+    return { ok: false, code: 'network_error', error: msg };
+  }
+}
+
+function recordUniformSyncFailure(message) {
+  var nextMsg = message ? String(message) : '';
+  if (nextMsg !== _lastOrdersSyncError) {
+    _uniformSyncHealthCache = null;
+    _uniformSyncHealthCheckedAt = 0;
+  }
+  _lastOrdersSyncError = nextMsg;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (_lastOrdersSyncError) localStorage.setItem('bb_orders_last_sync_error', _lastOrdersSyncError);
+      else localStorage.removeItem('bb_orders_last_sync_error');
+    }
+  } catch (_) {}
+}
+
+function readStoredUniformSyncError() {
+  if (_lastOrdersSyncError) return _lastOrdersSyncError;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem('bb_orders_last_sync_error') || '';
+    }
+  } catch (_) {}
+  return '';
+}
+
+/**
+ * Evaluates live health of Google Sheets + Private Google Drive receipt syncing.
+ * @param {boolean} [forceRefresh]
+ * @param {{url?: string, driveFolder?: string}} [overrides]
+ * @returns {Promise<{healthy: boolean, severity: 'ok'|'warn'|'error', sheetsOk: boolean, driveOk: boolean, outdatedScript: boolean, driveFolderId: string, driveFolderName: string, sheetsError: string, driveError: string, reason: string}>}
+ */
+async function checkUniformOrdersSyncHealth(forceRefresh, overrides) {
+  var now = Date.now();
+  if (!forceRefresh && !overrides && _uniformSyncHealthCache && (now - _uniformSyncHealthCheckedAt < UNIFORM_SYNC_HEALTH_TTL_MS)) {
+    return _uniformSyncHealthCache;
+  }
+
+  var url = overrides && overrides.url !== undefined ? String(overrides.url || '').trim() : await loadOrdersSheetsArchiveUrl(!!forceRefresh);
+  var driveFolder = overrides && overrides.driveFolder !== undefined ? String(overrides.driveFolder || '').trim() : await loadOrdersReceiptsDriveFolder(!!forceRefresh);
+  var driveFolderId = extractGoogleDriveFolderId(driveFolder);
+  var hasUrl = Boolean(url);
+  var validUrl = isValidAppsScriptWebAppUrl(url);
+  var hasDriveInput = Boolean(driveFolder);
+  var validDrive = Boolean(driveFolderId);
+
+  var result = {
+    healthy: false,
+    severity: 'warn',
+    sheetsOk: false,
+    driveOk: false,
+    outdatedScript: false,
+    spreadsheetName: '',
+    driveFolderId: driveFolderId,
+    driveFolderName: '',
+    sheetsError: '',
+    driveError: '',
+    reason: ''
+  };
+
+  if (!hasUrl) {
+    result.sheetsError = 'Google Sheets Web App URL is not configured.';
+  } else if (!validUrl) {
+    result.severity = 'error';
+    result.sheetsError = 'Google Sheets URL must end with /exec (https://script.google.com/macros/s/.../exec).';
+  }
+
+  if (!hasDriveInput) {
+    result.driveError = 'Private Google Drive folder link is not configured.';
+  } else if (!validDrive) {
+    result.severity = 'error';
+    result.driveError = 'Private Google Drive folder link is invalid.';
+  }
+
+  if (validUrl && typeof fetch === 'function') {
+    var ping = await postUniformOrdersAppsScript(url, {
+      action: 'health_check',
+      driveFolderId: driveFolderId || '',
+      timestamp: new Date().toISOString()
+    }, 12000);
+
+    if (!ping.ok) {
+      result.severity = 'error';
+      result.sheetsOk = false;
+      result.sheetsError = ping.error || 'Could not reach Google Sheets Web App.';
+    } else {
+      var data = ping.data || {};
+      var scriptVersion = Number(data.scriptVersion || 0);
+      result.sheetsOk = data.sheetsOk !== false;
+      result.spreadsheetName = String(data.spreadsheetName || '');
+      if (!result.sheetsOk) {
+        result.severity = 'error';
+        result.sheetsError = data.sheetsError || 'Apps Script could not open the active Google Sheet.';
+      }
+      if (scriptVersion < UNIFORM_ORDERS_SCRIPT_VERSION) {
+        result.outdatedScript = true;
+        result.severity = 'warn';
+        result.driveOk = false;
+        result.driveError = 'Your deployed Google Apps Script is outdated (missing private Drive receipt upload). Paste the latest script, deploy a New deployment, and authorize Google Drive.';
+      } else if (!hasDriveInput) {
+        result.driveOk = false;
+        result.driveError = 'Private Google Drive folder link is not configured.';
+      } else if (!validDrive) {
+        result.driveOk = false;
+        result.driveError = 'Private Google Drive folder link is invalid.';
+      } else if (data.driveOk === true) {
+        result.driveOk = true;
+        result.driveFolderName = String(data.driveFolderName || '');
+        result.driveError = '';
+      } else {
+        result.severity = 'error';
+        result.driveOk = false;
+        result.driveError = String(data.driveError || 'Apps Script could not access the private Google Drive folder. Check Editor permissions and authorize Drive.');
+      }
+    }
+  }
+
+  var storedSyncErr = !overrides ? readStoredUniformSyncError() : '';
+  if (result.sheetsOk && result.driveOk && !result.outdatedScript) {
+    if (storedSyncErr && !forceRefresh) {
+      result.healthy = false;
+      result.severity = 'error';
+      result.reason = 'Last sync failed: ' + storedSyncErr;
+    } else {
+      if (forceRefresh) recordUniformSyncFailure('');
+      result.healthy = true;
+      result.severity = 'ok';
+      result.reason = '';
+    }
+  } else {
+    var issues = [];
+    if (result.sheetsError) issues.push(result.sheetsError);
+    if (result.driveError) issues.push(result.driveError);
+    result.reason = issues.join(' ');
+    if (result.severity !== 'error' && (result.sheetsError.includes('invalid') || result.driveError.includes('invalid'))) {
+      result.severity = 'error';
+    }
+  }
+
+  if (!overrides) {
+    _uniformSyncHealthCache = result;
+    _uniformSyncHealthCheckedAt = now;
+  }
+  return result;
+}
+
+/**
+ * Updates the warning indicator badge on the top-right corner of the Uniform Orders Settings button.
+ * @param {Element|Document} [rootEl]
+ * @param {Object} [health]
+ */
+function applyUniformSettingsWarningBadge(rootEl, health) {
+  if (typeof document === 'undefined') return;
+  var scope = rootEl && typeof rootEl.querySelectorAll === 'function' ? rootEl : document;
+  var buttons = scope.querySelectorAll('[data-config-sheets]');
+  if (!buttons || !buttons.length) return;
+  var isHealthy = Boolean(health && health.healthy === true);
+  var isError = Boolean(health && health.severity === 'error');
+  var reason = (health && health.reason) || 'Google Sheets or Private Google Drive sync is not configured or needs attention.';
+
+  buttons.forEach(function(btn) {
+    var badge = btn.querySelector('[data-settings-warn-badge]');
+    if (badge) {
+      badge.hidden = isHealthy;
+      if (badge.classList) badge.classList.toggle('is-error', !isHealthy && isError);
+    }
+    if (isHealthy) {
+      var label = 'Google Sheets & Private Drive Connected' + (health.driveFolderName ? ' (' + health.driveFolderName + ')' : '');
+      btn.setAttribute('title', label);
+      btn.setAttribute('aria-label', 'Settings — ' + label);
+    } else {
+      btn.setAttribute('title', 'Settings — Warning: ' + reason);
+      btn.setAttribute('aria-label', 'Settings — Warning: ' + reason);
+    }
+  });
 }
 
 /**
@@ -2816,7 +3154,7 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
   var defaultFolderId = extractGoogleDriveFolderId(folderUrlOrId || '');
   return [
     '/**',
-    ' * 1st Petaling Jaya Boys\' Brigade - Uniform Orders Google Sheets Sync & Private Drive Receipts',
+    ' * 1st Petaling Jaya Boys\' Brigade - Uniform Orders Google Sheets Sync & Private Drive Receipts (v2)',
     ' *',
     ' * Manages two sheets automatically and saves all proof-of-payment files (Images & PDFs)',
     ' * into your configured private Google Drive folder with clickable links in both sheets:',
@@ -2825,56 +3163,147 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     ' *',
     ' * Setup Instructions:',
     ' * 1. In your Google Sheet, click Extensions > Apps Script.',
-    ' * 2. Delete any code in the editor and paste this entire script.',
-    ' * 3. Click "Deploy" > "New deployment".',
-    ' * 4. Select type: "Web app".',
-    ' * 5. Configuration:',
-    ' *    - Description: "1st PJ BB Uniform Orders Sync"',
-    ' *    - Execute as: "Me (your email)"',
-    ' *    - Who has access: "Anyone"',
-    ' * 6. Click "Deploy", authorize both Google Sheets and Google Drive permissions, and copy the Web App URL.',
-    ' * 7. In the portal Admin Console > Uniform Orders > Settings, paste your Web App URL and Private Google Drive Folder link.',
+    ' * 2. Delete any old code and paste this entire script, then Save (Ctrl+S).',
+    ' * 3. Select "authorizeDriveAndSheets" in the top toolbar and click Run once to grant both Google Sheets and Google Drive permissions.',
+    ' * 4. Click "Deploy" > "New deployment" (type: "Web app").',
+    ' * 5. Set Execute as: "Me (your email)" and Who has access: "Anyone".',
+    ' * 6. Copy the Web App URL (ending in /exec) and paste it + your Private Google Drive Folder link in Portal > Uniform Orders > Settings.',
+    ' * 7. Make sure your Google account has Editor access to that Google Drive folder, then click "Save Settings" & "Test Connection".',
     ' */',
     '',
+    'var SCRIPT_VERSION = 2;',
     'var DEFAULT_RECEIPTS_DRIVE_FOLDER_ID = "' + defaultFolderId + '";',
     'var FALLBACK_RECEIPTS_FOLDER_NAME = "1st PJ BB Uniform Payment Receipts";',
+    '',
+    'function authorizeDriveAndSheets() {',
+    '  var ss = SpreadsheetApp.getActiveSpreadsheet();',
+    '  var folderId = extractDriveFolderId(DEFAULT_RECEIPTS_DRIVE_FOLDER_ID);',
+    '  var info = { spreadsheet: ss ? ss.getName() : "none", driveFolder: "default" };',
+    '  if (folderId) {',
+    '    var f = DriveApp.getFolderById(folderId);',
+    '    info.driveFolder = f.getName();',
+    '  } else {',
+    '    info.driveRoot = DriveApp.getRootFolder().getName();',
+    '  }',
+    '  Logger.log("Authorized successfully: " + JSON.stringify(info));',
+    '  return info;',
+    '}',
+    '',
+    'function jsonResponse(obj) {',
+    '  return ContentService.createTextOutput(JSON.stringify(obj))',
+    '    .setMimeType(ContentService.MimeType.JSON);',
+    '}',
+    '',
+    'function doGet() {',
+    '  return jsonResponse({',
+    '    status: "ok",',
+    '    scriptVersion: SCRIPT_VERSION,',
+    '    message: "1st PJ BB Uniform Orders Sync Web App is active."',
+    '  });',
+    '}',
+    '',
+    'function checkDriveFolderHealth(driveFolderId) {',
+    '  if (!driveFolderId) {',
+    '    return { driveOk: false, driveFolderName: "", driveError: "No private Google Drive folder link configured." };',
+    '  }',
+    '  try {',
+    '    var folder = DriveApp.getFolderById(driveFolderId);',
+    '    if (folder.isTrashed && folder.isTrashed()) {',
+    '      return { driveOk: false, driveFolderName: "", driveError: "The configured Google Drive folder is in Trash." };',
+    '    }',
+    '    var folderName = folder.getName();',
+    '    try {',
+    '      var me = Session.getEffectiveUser();',
+    '      if (me && me.getEmail && me.getEmail()) {',
+    '        var access = folder.getAccess(me);',
+    '        if (access === DriveApp.Permission.VIEW || access === DriveApp.Permission.COMMENT || access === DriveApp.Permission.NONE) {',
+    '          return {',
+    '            driveOk: false,',
+    '            driveFolderName: folderName,',
+    '            driveError: "Account " + me.getEmail() + " only has View/Comment access to \\"" + folderName + "\\". Grant Editor permission on that Google Drive folder."',
+    '          };',
+    '        }',
+    '      }',
+    '    } catch (_) {}',
+    '    return { driveOk: true, driveFolderName: folderName, driveError: "" };',
+    '  } catch (err) {',
+    '    return {',
+    '      driveOk: false,',
+    '      driveFolderName: "",',
+    '      driveError: "Drive folder error: " + err.toString() + ". Ensure you ran authorizeDriveAndSheets(), deployed a New deployment, and have Editor access to the folder."',
+    '    };',
+    '  }',
+    '}',
     '',
     'function doPost(e) {',
     '  var lock = LockService.getScriptLock();',
     '  try {',
     '    lock.waitLock(30000);',
     '    var raw = e && e.postData ? e.postData.contents : "";',
-    '    var data = JSON.parse(raw);',
+    '    var data = raw ? JSON.parse(raw) : {};',
     '    var ss = SpreadsheetApp.getActiveSpreadsheet();',
+    '    var action = data.action || "archive_order";',
+    '    var driveFolderId = extractDriveFolderId(data.driveFolderId || data.driveFolderUrl || DEFAULT_RECEIPTS_DRIVE_FOLDER_ID);',
+    '',
+    '    if (action === "health_check") {',
+    '      var driveHealth = checkDriveFolderHealth(driveFolderId);',
+    '      return jsonResponse({',
+    '        status: "ok",',
+    '        scriptVersion: SCRIPT_VERSION,',
+    '        sheetsOk: Boolean(ss),',
+    '        spreadsheetName: ss ? ss.getName() : "",',
+    '        driveOk: driveHealth.driveOk,',
+    '        driveFolderName: driveHealth.driveFolderName,',
+    '        driveError: driveHealth.driveError',
+    '      });',
+    '    }',
     '',
     '    var trackerHeaders = [',
-    '      "Order Number", "Member Name", "Rank", "Squad", "Items Ordered", "Total Price (RM)", "Status", "Order Date", "Notes", "Proof of Payment"',
+    '      "Order Number", "Member Name", "Rank", "Platoon", "Items Ordered", "Total Price (RM)", "Status", "Order Date", "Notes", "Proof of Payment"',
     '    ];',
     '    var archiveHeaders = [',
-    '      "Order Number", "Member Name", "Rank", "Squad", "Items Ordered", "Total Price (RM)", "Order Date", "Notes", "Proof of Payment"',
+    '      "Order Number", "Member Name", "Rank", "Platoon", "Items Ordered", "Total Price (RM)", "Order Date", "Notes", "Proof of Payment"',
     '    ];',
     '',
     '    var trackerSheet = getOrCreateSheet(ss, "Order Tracker", trackerHeaders);',
     '    var archiveSheet = getOrCreateSheet(ss, "Order Archives", archiveHeaders);',
     '',
-    '    var action = data.action || "archive_order";',
-    '    var driveFolderId = extractDriveFolderId(data.driveFolderId || data.driveFolderUrl || DEFAULT_RECEIPTS_DRIVE_FOLDER_ID);',
+    '    var driveSavedCount = 0;',
+    '    var driveErrors = [];',
+    '    var proofUrls = {};',
     '',
     '    if (action === "update_status" && data.orderNumber) {',
     '      updateOrderStatusInTracker(trackerSheet, data.orderNumber, data.status || "CANCELLED");',
     '    } else if (action === "archive_order" && data.order) {',
-    '      recordSingleOrder(trackerSheet, archiveSheet, data.order, driveFolderId);',
+    '      var singleRes = recordSingleOrder(trackerSheet, archiveSheet, data.order, driveFolderId);',
+    '      if (singleRes && singleRes.proofUrl) {',
+    '        driveSavedCount++;',
+    '        proofUrls[data.order.order_number] = singleRes.proofUrl;',
+    '      }',
+    '      if (singleRes && singleRes.driveError) driveErrors.push(singleRes.driveError);',
     '    } else if (action === "sync_all_orders" && Array.isArray(data.orders)) {',
     '      data.orders.forEach(function(order) {',
-    '        recordSingleOrder(trackerSheet, archiveSheet, order, driveFolderId);',
+    '        var recRes = recordSingleOrder(trackerSheet, archiveSheet, order, driveFolderId);',
+    '        if (recRes && recRes.proofUrl) {',
+    '          driveSavedCount++;',
+    '          proofUrls[order.order_number] = recRes.proofUrl;',
+    '        }',
+    '        if (recRes && recRes.driveError) driveErrors.push(order.order_number + ": " + recRes.driveError);',
     '      });',
     '    }',
     '',
-    '    return ContentService.createTextOutput(JSON.stringify({ status: "success", action: action }))',
-    '      .setMimeType(ContentService.MimeType.JSON);',
+    '    return jsonResponse({',
+    '      status: "success",',
+    '      scriptVersion: SCRIPT_VERSION,',
+    '      action: action,',
+    '      sheetsOk: true,',
+    '      driveOk: driveErrors.length === 0,',
+    '      driveSavedCount: driveSavedCount,',
+    '      driveErrors: driveErrors,',
+    '      proofUrls: proofUrls',
+    '    });',
     '  } catch (err) {',
-    '    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))',
-    '      .setMimeType(ContentService.MimeType.JSON);',
+    '    return jsonResponse({ status: "error", scriptVersion: SCRIPT_VERSION, message: err.toString() });',
     '  } finally {',
     '    try { lock.releaseLock(); } catch (_) {}',
     '  }',
@@ -2892,10 +3321,16 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '  }',
     '  var lastCol = Math.max(sheet.getLastColumn(), 1);',
     '  var existing = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h || "").trim(); });',
+    '  var existingLower = existing.map(function(h) { return h.toLowerCase(); });',
     '  headers.forEach(function(h) {',
-    '    if (existing.indexOf(h) === -1) {',
+    '    var targetLower = h.toLowerCase();',
+    '    if (targetLower === "platoon" || targetLower === "squad") {',
+    '      if (existingLower.indexOf("platoon") !== -1 || existingLower.indexOf("squad") !== -1) return;',
+    '    }',
+    '    if (existingLower.indexOf(targetLower) === -1) {',
     '      var nextCol = existing.length + 1;',
     '      existing.push(h);',
+    '      existingLower.push(targetLower);',
     '      var cell = sheet.getRange(1, nextCol);',
     '      cell.setValue(h).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");',
     '    }',
@@ -2903,11 +3338,14 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '  return sheet;',
     '}',
     '',
-    'function findColumnIndex(sheet, headerName, fallbackIndex) {',
+    'function findColumnIndex(sheet, headerNames, fallbackIndex) {',
+    '  var targets = Array.isArray(headerNames) ? headerNames : [headerNames];',
+    '  var lowerTargets = targets.map(function(t) { return String(t).toLowerCase(); });',
     '  var lastCol = Math.max(sheet.getLastColumn(), 1);',
     '  var row1 = sheet.getRange(1, 1, 1, lastCol).getValues()[0];',
     '  for (var c = 0; c < row1.length; c++) {',
-    '    if (String(row1[c] || "").trim().toLowerCase() === headerName.toLowerCase()) {',
+    '    var val = String(row1[c] || "").trim().toLowerCase();',
+    '    if (lowerTargets.indexOf(val) !== -1) {',
     '      return c + 1;',
     '    }',
     '  }',
@@ -2924,9 +3362,11 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '',
     'function getOrCreateReceiptsFolder(driveFolderId) {',
     '  if (driveFolderId) {',
-    '    try {',
-    '      return DriveApp.getFolderById(driveFolderId);',
-    '    } catch (_) {}',
+    '    var configured = DriveApp.getFolderById(driveFolderId);',
+    '    if (configured.isTrashed && configured.isTrashed()) {',
+    '      throw new Error("Configured Google Drive folder is in Trash.");',
+    '    }',
+    '    return configured;',
     '  }',
     '  var it = DriveApp.getFoldersByName(FALLBACK_RECEIPTS_FOLDER_NAME);',
     '  if (it.hasNext()) return it.next();',
@@ -2935,12 +3375,12 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '',
     'function savePaymentProofToDrive(order, driveFolderId) {',
     '  var orderNum = String(order.order_number || "").trim();',
-    '  if (!orderNum) return null;',
+    '  if (!orderNum) return { url: "", label: "", error: "" };',
     '  if (order.payment_proof_url && /^https:\\/\\/drive\\.google\\.com\\//i.test(String(order.payment_proof_url))) {',
-    '    return { url: String(order.payment_proof_url), label: "View Receipt" };',
+    '    return { url: String(order.payment_proof_url), label: "View Receipt", error: "" };',
     '  }',
     '  var proof = order.payment_proof;',
-    '  if (!proof || !proof.base64) return null;',
+    '  if (!proof || !proof.base64) return { url: "", label: "", error: "" };',
     '  try {',
     '    var folder = getOrCreateReceiptsFolder(driveFolderId);',
     '    var mimeType = String(proof.mimeType || "image/jpeg").toLowerCase();',
@@ -2951,15 +3391,15 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '    var existingFiles = folder.getFilesByName(fileName);',
     '    if (existingFiles.hasNext()) {',
     '      var existing = existingFiles.next();',
-    '      return { url: existing.getUrl(), label: isPdf ? "View PDF Receipt" : "View Image Receipt" };',
+    '      return { url: existing.getUrl(), label: isPdf ? "View PDF Receipt" : "View Image Receipt", error: "" };',
     '    }',
     '    var bytes = Utilities.base64Decode(String(proof.base64));',
     '    var blob = Utilities.newBlob(bytes, mimeType, fileName);',
     '    var savedFile = folder.createFile(blob);',
     '    // Keeps file private — inherits the private Google Drive folder permissions (never public).',
-    '    return { url: savedFile.getUrl(), label: isPdf ? "View PDF Receipt" : "View Image Receipt" };',
-    '  } catch (_) {',
-    '    return null;',
+    '    return { url: savedFile.getUrl(), label: isPdf ? "View PDF Receipt" : "View Image Receipt", error: "" };',
+    '  } catch (err) {',
+    '    return { url: "", label: "", error: err.toString() };',
     '  }',
     '}',
     '',
@@ -2970,6 +3410,19 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '    .setLinkUrl(proofLink.url)',
     '    .build();',
     '  sheet.getRange(rowIndex, colIndex).setRichTextValue(rich);',
+    '}',
+    '',
+    'function buildAlignedRowValues(sheet, fieldMap) {',
+    '  var totalCols = Math.max(sheet.getLastColumn(), 1);',
+    '  var row = [];',
+    '  for (var i = 0; i < totalCols; i++) row.push("");',
+    '  Object.keys(fieldMap).forEach(function(colKey) {',
+    '    var colIdx = Number(colKey);',
+    '    if (colIdx >= 1 && colIdx <= totalCols) {',
+    '      row[colIdx - 1] = fieldMap[colKey];',
+    '    }',
+    '  });',
+    '  return row;',
     '}',
     '',
     'function formatItemsForSheet(rawItems) {',
@@ -3009,7 +3462,7 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '',
     'function recordSingleOrder(trackerSheet, archiveSheet, order, driveFolderId) {',
     '  var orderNum = String(order.order_number || "").trim();',
-    '  if (!orderNum) return;',
+    '  if (!orderNum) return { proofUrl: "", driveError: "" };',
     '  var member = order.member_name || order.ic || "";',
     '  var rank = order.rank || "";',
     '  var squad = order.squad ? (order.squad + " Platoon") : "";',
@@ -3020,29 +3473,59 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '    ? new Date(order.created_at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" })',
     '    : new Date().toLocaleString("en-MY");',
     '  var notes = order.notes || "";',
-    '  var proofLink = savePaymentProofToDrive(order, driveFolderId);',
+    '  var proofRes = savePaymentProofToDrive(order, driveFolderId);',
+    '  var proofLink = proofRes && proofRes.url ? proofRes : null;',
     '',
-    '  var archiveProofCol = findColumnIndex(archiveSheet, "Proof of Payment", 9);',
-    '  var trackerStatusCol = findColumnIndex(trackerSheet, "Status", 7);',
-    '  var trackerProofCol = findColumnIndex(trackerSheet, "Proof of Payment", 10);',
+    '  var archCols = {',
+    '    order: findColumnIndex(archiveSheet, "Order Number", 1),',
+    '    member: findColumnIndex(archiveSheet, "Member Name", 2),',
+    '    rank: findColumnIndex(archiveSheet, "Rank", 3),',
+    '    platoon: findColumnIndex(archiveSheet, ["Platoon", "Squad"], 4),',
+    '    items: findColumnIndex(archiveSheet, "Items Ordered", 5),',
+    '    price: findColumnIndex(archiveSheet, "Total Price (RM)", 6),',
+    '    date: findColumnIndex(archiveSheet, "Order Date", 7),',
+    '    notes: findColumnIndex(archiveSheet, "Notes", 8),',
+    '    proof: findColumnIndex(archiveSheet, "Proof of Payment", 9)',
+    '  };',
+    '  var trkCols = {',
+    '    order: findColumnIndex(trackerSheet, "Order Number", 1),',
+    '    member: findColumnIndex(trackerSheet, "Member Name", 2),',
+    '    rank: findColumnIndex(trackerSheet, "Rank", 3),',
+    '    platoon: findColumnIndex(trackerSheet, ["Platoon", "Squad"], 4),',
+    '    items: findColumnIndex(trackerSheet, "Items Ordered", 5),',
+    '    price: findColumnIndex(trackerSheet, "Total Price (RM)", 6),',
+    '    status: findColumnIndex(trackerSheet, "Status", 7),',
+    '    date: findColumnIndex(trackerSheet, "Order Date", 8),',
+    '    notes: findColumnIndex(trackerSheet, "Notes", 9),',
+    '    proof: findColumnIndex(trackerSheet, "Proof of Payment", 10)',
+    '  };',
     '',
     '  // 1. Permanent Archive (Order Archives) - Append if new, backfill Drive link if previously empty',
     '  var archData = archiveSheet.getDataRange().getValues();',
     '  var archiveRow = -1;',
     '  for (var j = 1; j < archData.length; j++) {',
-    '    if (String(archData[j][0]).trim().toUpperCase() === orderNum.toUpperCase()) {',
+    '    if (String(archData[j][archCols.order - 1] || "").trim().toUpperCase() === orderNum.toUpperCase()) {',
     '      archiveRow = j + 1;',
     '      break;',
     '    }',
     '  }',
     '  if (archiveRow < 0) {',
-    '    archiveSheet.appendRow([orderNum, member, rank, squad, itemsStr, priceStr, dateStr, notes, ""]);',
+    '    var archMap = {};',
+    '    archMap[archCols.order] = orderNum;',
+    '    archMap[archCols.member] = member;',
+    '    archMap[archCols.rank] = rank;',
+    '    archMap[archCols.platoon] = squad;',
+    '    archMap[archCols.items] = itemsStr;',
+    '    archMap[archCols.price] = priceStr;',
+    '    archMap[archCols.date] = dateStr;',
+    '    archMap[archCols.notes] = notes;',
+    '    archiveSheet.appendRow(buildAlignedRowValues(archiveSheet, archMap));',
     '    archiveRow = archiveSheet.getLastRow();',
     '  }',
     '  if (proofLink) {',
-    '    var existingArchVal = String(archiveSheet.getRange(archiveRow, archiveProofCol).getValue() || "").trim();',
+    '    var existingArchVal = String(archiveSheet.getRange(archiveRow, archCols.proof).getValue() || "").trim();',
     '    if (!existingArchVal || existingArchVal === "—") {',
-    '      writeProofLinkCell(archiveSheet, archiveRow, archiveProofCol, proofLink);',
+    '      writeProofLinkCell(archiveSheet, archiveRow, archCols.proof, proofLink);',
     '    }',
     '  }',
     '',
@@ -3050,31 +3533,43 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
     '  var trackerData = trackerSheet.getDataRange().getValues();',
     '  var trackerRow = -1;',
     '  for (var i = 1; i < trackerData.length; i++) {',
-    '    if (String(trackerData[i][0]).trim().toUpperCase() === orderNum.toUpperCase()) {',
+    '    if (String(trackerData[i][trkCols.order - 1] || "").trim().toUpperCase() === orderNum.toUpperCase()) {',
     '      trackerRow = i + 1;',
     '      break;',
     '    }',
     '  }',
     '  if (trackerRow > 0) {',
-    '    trackerSheet.getRange(trackerRow, trackerStatusCol).setValue(status);',
+    '    trackerSheet.getRange(trackerRow, trkCols.status).setValue(status);',
     '  } else {',
-    '    trackerSheet.appendRow([orderNum, member, rank, squad, itemsStr, priceStr, status, dateStr, notes, ""]);',
+    '    var trkMap = {};',
+    '    trkMap[trkCols.order] = orderNum;',
+    '    trkMap[trkCols.member] = member;',
+    '    trkMap[trkCols.rank] = rank;',
+    '    trkMap[trkCols.platoon] = squad;',
+    '    trkMap[trkCols.items] = itemsStr;',
+    '    trkMap[trkCols.price] = priceStr;',
+    '    trkMap[trkCols.status] = status;',
+    '    trkMap[trkCols.date] = dateStr;',
+    '    trkMap[trkCols.notes] = notes;',
+    '    trackerSheet.appendRow(buildAlignedRowValues(trackerSheet, trkMap));',
     '    trackerRow = trackerSheet.getLastRow();',
     '  }',
     '  if (proofLink) {',
-    '    var existingTrackerVal = String(trackerSheet.getRange(trackerRow, trackerProofCol).getValue() || "").trim();',
+    '    var existingTrackerVal = String(trackerSheet.getRange(trackerRow, trkCols.proof).getValue() || "").trim();',
     '    if (!existingTrackerVal || existingTrackerVal === "—") {',
-    '      writeProofLinkCell(trackerSheet, trackerRow, trackerProofCol, proofLink);',
+    '      writeProofLinkCell(trackerSheet, trackerRow, trkCols.proof, proofLink);',
     '    }',
     '  }',
+    '  return { proofUrl: proofLink ? proofLink.url : "", driveError: proofRes && proofRes.error ? proofRes.error : "" };',
     '}',
     '',
     'function updateOrderStatusInTracker(trackerSheet, orderNumber, newStatus) {',
     '  var targetNum = String(orderNumber).trim().toUpperCase();',
+    '  var orderCol = findColumnIndex(trackerSheet, "Order Number", 1);',
     '  var statusCol = findColumnIndex(trackerSheet, "Status", 7);',
     '  var data = trackerSheet.getDataRange().getValues();',
     '  for (var i = 1; i < data.length; i++) {',
-    '    if (String(data[i][0]).trim().toUpperCase() === targetNum) {',
+    '    if (String(data[i][orderCol - 1] || "").trim().toUpperCase() === targetNum) {',
     '      trackerSheet.getRange(i + 1, statusCol).setValue(String(newStatus).toUpperCase());',
     '      return true;',
     '    }',
@@ -3090,16 +3585,20 @@ function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
 var UNIFORM_ORDERS_APPS_SCRIPT_CODE = buildUniformOrdersAppsScriptCode('');
 
 /**
- * Asynchronously synchronizes an individual order (and optional payment proof file) to Google Sheets + private Drive
+ * Synchronizes an individual order (and optional payment proof file) to Google Sheets + private Drive
+ * using CORS-compliant text/plain POST so real errors are caught and surfaced.
  * @param {Object} orderRecord
  * @param {Blob} [proofBlob]
  */
 async function syncOrderToGoogleSheetsArchive(orderRecord, proofBlob) {
   try {
-    var url = await loadOrdersSheetsArchiveUrl();
-    if (!url || !/^https?:\/\//i.test(url)) return;
+    var url = await loadOrdersSheetsArchiveUrl(true);
+    if (!url || !isValidAppsScriptWebAppUrl(url)) {
+      if (url) recordUniformSyncFailure('Google Sheets Web App URL must end with /exec.');
+      return { ok: false, skipped: !url };
+    }
 
-    var driveFolderUrl = await loadOrdersReceiptsDriveFolder();
+    var driveFolderUrl = await loadOrdersReceiptsDriveFolder(true);
     var driveFolderId = extractGoogleDriveFolderId(driveFolderUrl);
     var archivedOrder = orderArchiveRecord(orderRecord);
     if (proofBlob) {
@@ -3116,18 +3615,29 @@ async function syncOrderToGoogleSheetsArchive(orderRecord, proofBlob) {
       order: archivedOrder
     };
 
-    if (typeof fetch !== 'undefined') {
-      fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(function(err) {
-        console.warn('Google Sheets archive sync fetch warning:', err);
-      });
+    var res = await postUniformOrdersAppsScript(url, payload, proofBlob ? 18000 : 12000);
+    if (!res.ok) {
+      recordUniformSyncFailure(res.error || 'Order sync to Google Sheets failed.');
+      console.warn('Google Sheets archive sync error:', res.error);
+      return res;
     }
+    var data = res.data || {};
+    if (proofBlob && data.driveOk === false) {
+      var dErr = (Array.isArray(data.driveErrors) && data.driveErrors[0]) || data.driveError || 'Receipt could not be saved to Google Drive.';
+      recordUniformSyncFailure(dErr);
+      console.warn('Google Drive receipt upload error:', dErr);
+      return { ok: false, code: 'drive_error', error: dErr, data: data };
+    }
+    if (proofBlob && Number(data.scriptVersion || 0) < UNIFORM_ORDERS_SCRIPT_VERSION) {
+      recordUniformSyncFailure('Deployed Apps Script is outdated — redeploy the latest script to upload receipts to Google Drive.');
+      return { ok: false, code: 'outdated_script', data: data };
+    }
+    recordUniformSyncFailure('');
+    return res;
   } catch (err) {
+    recordUniformSyncFailure(err && err.message ? err.message : 'Google Sheets sync error');
     console.warn('syncOrderToGoogleSheetsArchive error:', err);
+    return { ok: false, error: err && err.message ? err.message : 'Sync failed' };
   }
 }
 
@@ -3139,7 +3649,7 @@ async function syncOrderToGoogleSheetsArchive(orderRecord, proofBlob) {
 async function syncOrderStatusToGoogleSheet(orderNum, status) {
   try {
     var url = await loadOrdersSheetsArchiveUrl();
-    if (!url || !/^https?:\/\//i.test(url)) return;
+    if (!url || !isValidAppsScriptWebAppUrl(url)) return;
 
     var payload = {
       action: 'update_status',
@@ -3148,15 +3658,10 @@ async function syncOrderStatusToGoogleSheet(orderNum, status) {
       timestamp: new Date().toISOString()
     };
 
-    if (typeof fetch !== 'undefined') {
-      fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(function(err) {
-        console.warn('Google Sheets status sync network warning:', err);
-      });
+    var res = await postUniformOrdersAppsScript(url, payload, 15000);
+    if (!res.ok) {
+      recordUniformSyncFailure(res.error || 'Status update failed to sync to Google Sheets.');
+      console.warn('Google Sheets status sync warning:', res.error);
     }
   } catch (err) {
     console.warn('syncOrderStatusToGoogleSheet error:', err);
@@ -3164,12 +3669,12 @@ async function syncOrderStatusToGoogleSheet(orderNum, status) {
 }
 
 /**
- * Opens rich modal with setup instructions, Webhook URL & Private Google Drive Folder inputs, manual sync, and copyable Apps Script code
+ * Opens rich modal with live connection health diagnostics, Webhook URL & Private Google Drive Folder inputs, manual sync, and copyable Apps Script code
  */
 async function configureAdminOrdersSheetUrl() {
   if (typeof document === 'undefined') return;
-  var currentUrl = await loadOrdersSheetsArchiveUrl();
-  var currentDriveFolder = await loadOrdersReceiptsDriveFolder();
+  var currentUrl = await loadOrdersSheetsArchiveUrl(true);
+  var currentDriveFolder = await loadOrdersReceiptsDriveFolder(true);
   var currentDriveFolderId = extractGoogleDriveFolderId(currentDriveFolder);
   var generatedScriptCode = buildUniformOrdersAppsScriptCode(currentDriveFolderId);
 
@@ -3179,14 +3684,22 @@ async function configureAdminOrdersSheetUrl() {
   overlay.setAttribute('aria-modal', 'true');
   overlay.style.zIndex = '9999';
 
-  var isConfigured = Boolean(currentUrl && /^https?:\/\//i.test(currentUrl));
-  var statusBadge = isConfigured
-    ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(16,185,129,0.15);color:var(--green,#10b981);border:1px solid rgba(16,185,129,0.3);"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Connected & Active</span>'
-    : '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(234,179,8,0.15);color:var(--brand-gold,#eab308);border:1px solid rgba(234,179,8,0.3);"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Not Configured</span>';
+  var isUrlValid = isValidAppsScriptWebAppUrl(currentUrl);
+  var initialBadgeHtml = isUrlValid && currentDriveFolderId
+    ? '<span id="admin-orders-sync-status-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(59,130,246,0.14);color:#3b82f6;border:1px solid rgba(59,130,246,0.3);"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Checking…</span>'
+    : '<span id="admin-orders-sync-status-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(245,158,11,0.16);color:#d97706;border:1px solid rgba(245,158,11,0.35);"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Needs Setup</span>';
+
+  var urlStatusHtml = !currentUrl
+    ? '<span id="admin-orders-url-status" style="font-size:11px;color:var(--text-muted);">Paste the deployed Apps Script Web App URL ending in <code>/exec</code>.</span>'
+    : (isUrlValid
+      ? '<span id="admin-orders-url-status" style="font-size:11px;font-weight:600;color:var(--green,#10b981);">✓ Valid Web App URL format</span>'
+      : '<span id="admin-orders-url-status" style="font-size:11px;font-weight:600;color:var(--red,#ef4444);">Invalid URL — must be a Google Apps Script Web App URL ending in <code>/exec</code>.</span>');
 
   var driveFolderStatusHtml = currentDriveFolderId
     ? '<span id="admin-orders-drive-status" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--green,#10b981);">✓ Private Drive Folder ID: <code>' + escapeHtml(currentDriveFolderId) + '</code></span>'
-    : '<span id="admin-orders-drive-status" style="font-size:11px;color:var(--text-muted);">Using auto-created private folder: <strong>1st PJ BB Uniform Payment Receipts</strong></span>';
+    : (currentDriveFolder
+      ? '<span id="admin-orders-drive-status" style="font-size:11px;font-weight:600;color:var(--red,#ef4444);">Enter a valid Google Drive folder link (https://drive.google.com/drive/folders/...) or Folder ID.</span>'
+      : '<span id="admin-orders-drive-status" style="font-size:11px;color:#d97706;font-weight:600;">⚠ Not configured — paste your private Google Drive folder link so receipts upload automatically.</span>');
 
   var modal = document.createElement('div');
   modal.className = 'portal-modal-card';
@@ -3196,9 +3709,9 @@ async function configureAdminOrdersSheetUrl() {
   modal.style.overflowY = 'auto';
 
   modal.innerHTML =
-    '<div class="portal-modal-header" style="display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--border-subtle);">' +
+    '<div class="portal-modal-header" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--border-subtle);">' +
       '<div style="display:flex;align-items:center;gap:10px;">' +
-        '<div style="width:36px;height:36px;border-radius:8px;background:var(--accent-soft, rgba(217,119,6,0.15));border:1px solid var(--accent-border, rgba(217,119,6,0.3));display:flex;align-items:center;justify-content:center;color:var(--brand-gold);">' +
+        '<div style="width:36px;height:36px;border-radius:8px;background:var(--accent-soft, rgba(217,119,6,0.15));border:1px solid var(--accent-border, rgba(217,119,6,0.3));display:flex;align-items:center;justify-content:center;color:var(--brand-gold);flex-shrink:0;">' +
           '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
         '</div>' +
         '<div>' +
@@ -3206,13 +3719,25 @@ async function configureAdminOrdersSheetUrl() {
           '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Live sync for Order Tracker, Order Archives, and private Google Drive receipt links</div>' +
         '</div>' +
       '</div>' +
-      statusBadge +
+      initialBadgeHtml +
     '</div>' +
-    '<div class="portal-modal-body" style="padding:14px 0;display:flex;flex-direction:column;gap:16px;">' +
+    '<div class="portal-modal-body" style="padding:14px 0;display:flex;flex-direction:column;gap:14px;">' +
+      '<div id="admin-orders-sync-health-card" class="orders-sync-health-card">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">' +
+          '<strong style="font-size:12px;color:var(--text-primary);">Live Connection Diagnostics</strong>' +
+          '<button type="button" id="admin-orders-test-connection-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:4px 10px;height:28px;display:inline-flex;align-items:center;gap:5px;">' +
+            '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Test Connection' +
+          '</button>' +
+        '</div>' +
+        '<div id="admin-orders-sync-health-rows" style="display:flex;flex-direction:column;gap:5px;">' +
+          '<div class="orders-sync-health-row" style="color:var(--text-secondary);">Verifying Google Sheets Web App &amp; Private Google Drive folder permissions…</div>' +
+        '</div>' +
+      '</div>' +
+
       '<div>' +
         '<label for="admin-orders-sheet-url-input" style="display:block;font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Google Sheets Web App URL (Webhook)</label>' +
         '<input type="url" id="admin-orders-sheet-url-input" class="form-input" value="' + (typeof escapeHtml === 'function' ? escapeHtml(currentUrl || '') : (currentUrl || '')) + '" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;font-size:12px;padding:8px 10px;height:38px;box-sizing:border-box;">' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">When configured, new orders, proof-of-payment links, status updates, and cancellations sync automatically to your Google Sheet.</div>' +
+        '<div style="margin-top:5px;">' + urlStatusHtml + '</div>' +
       '</div>' +
 
       '<div>' +
@@ -3222,7 +3747,7 @@ async function configureAdminOrdersSheetUrl() {
           '<button type="button" id="admin-orders-save-url-btn" class="portal-btn portal-btn-primary" style="font-size:12px;padding:8px 14px;height:38px;white-space:nowrap;">Save Settings</button>' +
         '</div>' +
         '<div style="margin-top:5px;">' + driveFolderStatusHtml + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Paste the link (or Folder ID) of the private Google Drive folder where image &amp; PDF proofs of payment will be saved. Receipts inherit your folder&rsquo;s private permissions (never shared publicly) and are linked in the <strong>Proof of Payment</strong> column of Google Sheets.</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Paste the link (or Folder ID) of the private Google Drive folder where image &amp; PDF proofs of payment will be saved. The Google account deploying Apps Script must have <strong>Editor</strong> access to this folder.</div>' +
       '</div>' +
 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;">' +
@@ -3239,7 +3764,7 @@ async function configureAdminOrdersSheetUrl() {
 
       '<div>' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-          '<label style="font-size:12px;font-weight:700;color:var(--text-primary);">Google Apps Script Code</label>' +
+          '<label style="font-size:12px;font-weight:700;color:var(--text-primary);">Google Apps Script Code (v2)</label>' +
           '<button type="button" id="admin-orders-copy-script-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:4px 10px;height:28px;display:inline-flex;align-items:center;gap:4px;">' +
             '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Script Code' +
           '</button>' +
@@ -3251,13 +3776,12 @@ async function configureAdminOrdersSheetUrl() {
 
       '<div style="font-size:11px;color:var(--text-secondary);line-height:1.6;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;">' +
         '<strong style="color:var(--text-primary);">Setup Instructions:</strong><br>' +
-        '1. Open your target Google Sheet.<br>' +
-        '2. In the menu, go to <strong>Extensions &gt; Apps Script</strong>.<br>' +
-        '3. Replace the existing code with the script above (includes private Google Drive receipt upload).<br>' +
-        '4. Click <strong>Deploy &gt; New deployment</strong> (or Manage deployments &rarr; New version), select <strong>Web app</strong>.<br>' +
-        '5. Set <em>Execute as:</em> <strong>Me</strong> and <em>Who has access:</em> <strong>Anyone</strong>.<br>' +
-        '6. Authorize both <strong>Google Sheets</strong> and <strong>Google Drive</strong> permissions when prompted.<br>' +
-        '7. Paste the Web App URL and your Private Google Drive Folder link above, then click <strong>Save Settings</strong>.' +
+        '1. Open your target Google Sheet and click <strong>Extensions &gt; Apps Script</strong>.<br>' +
+        '2. Replace all existing code with the <strong>v2</strong> script above and save (<code>Ctrl+S</code>).<br>' +
+        '3. In the Apps Script toolbar, select <strong>authorizeDriveAndSheets</strong> and click <strong>Run</strong> once to approve both Google Sheets and Google Drive access.<br>' +
+        '4. Click <strong>Deploy &gt; New deployment</strong> (type: <strong>Web app</strong>), set <em>Execute as:</em> <strong>Me</strong> and <em>Who has access:</em> <strong>Anyone</strong>.<br>' +
+        '5. Confirm your Google account has <strong>Editor</strong> access on the target private Google Drive folder (important for <em>Shared with me</em> folders).<br>' +
+        '6. Paste the new <code>/exec</code> Web App URL and your Private Google Drive Folder link above, click <strong>Save Settings</strong>, and verify both checks turn green.' +
       '</div>' +
     '</div>' +
     '<div class="portal-modal-actions" style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid var(--border-subtle);">' +
@@ -3277,14 +3801,110 @@ async function configureAdminOrdersSheetUrl() {
   });
 
   var saveBtn = modal.querySelector('#admin-orders-save-url-btn');
+  var testBtn = modal.querySelector('#admin-orders-test-connection-btn');
   var urlInput = modal.querySelector('#admin-orders-sheet-url-input');
+  var urlStatusEl = modal.querySelector('#admin-orders-url-status');
   var driveInput = modal.querySelector('#admin-orders-drive-folder-input');
   var driveStatusEl = modal.querySelector('#admin-orders-drive-status');
   var codeBox = modal.querySelector('#admin-orders-script-code-box');
+  var healthCard = modal.querySelector('#admin-orders-sync-health-card');
+  var healthRowsEl = modal.querySelector('#admin-orders-sync-health-rows');
+  var headerBadge = modal.querySelector('#admin-orders-sync-status-badge');
 
   function getActiveScriptCode() {
     var folderVal = driveInput ? driveInput.value.trim() : currentDriveFolder;
     return buildUniformOrdersAppsScriptCode(folderVal);
+  }
+
+  function renderHealthState(health) {
+    if (!healthCard || !healthRowsEl) return;
+    healthCard.classList.remove('is-ok', 'is-warn', 'is-error');
+    if (health.healthy) {
+      healthCard.classList.add('is-ok');
+    } else if (health.severity === 'error') {
+      healthCard.classList.add('is-error');
+    } else {
+      healthCard.classList.add('is-warn');
+    }
+
+    if (headerBadge) {
+      if (health.healthy) {
+        headerBadge.style.background = 'rgba(16,185,129,0.15)';
+        headerBadge.style.color = 'var(--green,#10b981)';
+        headerBadge.style.borderColor = 'rgba(16,185,129,0.3)';
+        headerBadge.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Connected &amp; Verified';
+      } else if (health.severity === 'error') {
+        headerBadge.style.background = 'rgba(239,68,68,0.14)';
+        headerBadge.style.color = 'var(--red,#ef4444)';
+        headerBadge.style.borderColor = 'rgba(239,68,68,0.35)';
+        headerBadge.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Sync Error';
+      } else {
+        headerBadge.style.background = 'rgba(245,158,11,0.16)';
+        headerBadge.style.color = '#d97706';
+        headerBadge.style.borderColor = 'rgba(245,158,11,0.35)';
+        headerBadge.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Needs Setup';
+      }
+    }
+
+    var sheetsIcon = health.sheetsOk
+      ? '<span style="color:var(--green,#10b981);font-weight:700;flex-shrink:0;">✓</span>'
+      : '<span style="color:' + (health.severity === 'error' ? 'var(--red,#ef4444)' : '#d97706') + ';font-weight:700;flex-shrink:0;">!</span>';
+    var sheetsText = health.sheetsOk
+      ? '<strong>Google Sheets:</strong> Connected' + (health.spreadsheetName ? ' (' + escapeHtml(health.spreadsheetName) + ')' : '')
+      : '<strong>Google Sheets:</strong> ' + escapeHtml(health.sheetsError || 'Not connected.');
+
+    var driveIcon = health.driveOk
+      ? '<span style="color:var(--green,#10b981);font-weight:700;flex-shrink:0;">✓</span>'
+      : '<span style="color:' + (health.severity === 'error' && !health.outdatedScript ? 'var(--red,#ef4444)' : '#d97706') + ';font-weight:700;flex-shrink:0;">!</span>';
+    var driveText = health.driveOk
+      ? '<strong>Private Google Drive:</strong> Connected' + (health.driveFolderName ? ' (' + escapeHtml(health.driveFolderName) + ')' : '')
+      : '<strong>Private Google Drive:</strong> ' + escapeHtml(health.driveError || 'Not connected.');
+
+    var extraRow = (!health.healthy && health.sheetsOk && health.driveOk && health.reason)
+      ? '<div class="orders-sync-health-row"><span style="color:var(--red,#ef4444);font-weight:700;flex-shrink:0;">!</span><span>' + escapeHtml(health.reason) + '</span></div>'
+      : '';
+
+    healthRowsEl.innerHTML =
+      '<div class="orders-sync-health-row">' + sheetsIcon + '<span>' + sheetsText + '</span></div>' +
+      '<div class="orders-sync-health-row">' + driveIcon + '<span>' + driveText + '</span></div>' +
+      extraRow;
+  }
+
+  async function runConnectionDiagnostics(useInputs) {
+    if (healthRowsEl) {
+      healthRowsEl.innerHTML = '<div class="orders-sync-health-row" style="color:var(--text-secondary);">Testing live connection to Google Sheets &amp; Private Google Drive…</div>';
+    }
+    var typedUrl = urlInput ? (urlInput.value || '').trim() : currentUrl;
+    var typedDrive = driveInput ? (driveInput.value || '').trim() : currentDriveFolder;
+    var matchesSaved = typedUrl === (currentUrl || '') && typedDrive === (currentDriveFolder || '');
+    var health = useInputs && !matchesSaved
+      ? await checkUniformOrdersSyncHealth(true, { url: typedUrl, driveFolder: typedDrive })
+      : await checkUniformOrdersSyncHealth(true);
+    renderHealthState(health);
+    if (!useInputs || matchesSaved) {
+      applyUniformSettingsWarningBadge(document, health);
+    }
+    return health;
+  }
+
+  if (urlInput) {
+    urlInput.addEventListener('input', function() {
+      var val = urlInput.value.trim();
+      if (!urlStatusEl) return;
+      if (!val) {
+        urlStatusEl.style.color = 'var(--text-muted)';
+        urlStatusEl.style.fontWeight = '400';
+        urlStatusEl.innerHTML = 'Paste the deployed Apps Script Web App URL ending in <code>/exec</code>.';
+      } else if (isValidAppsScriptWebAppUrl(val)) {
+        urlStatusEl.style.color = 'var(--green,#10b981)';
+        urlStatusEl.style.fontWeight = '600';
+        urlStatusEl.textContent = '✓ Valid Web App URL format';
+      } else {
+        urlStatusEl.style.color = 'var(--red,#ef4444)';
+        urlStatusEl.style.fontWeight = '600';
+        urlStatusEl.innerHTML = 'Invalid URL — must be a Google Apps Script Web App URL ending in <code>/exec</code>.';
+      }
+    });
   }
 
   if (driveInput) {
@@ -3293,13 +3913,16 @@ async function configureAdminOrdersSheetUrl() {
       var parsedId = extractGoogleDriveFolderId(val);
       if (driveStatusEl) {
         if (!val) {
-          driveStatusEl.style.color = 'var(--text-muted)';
-          driveStatusEl.innerHTML = 'Using auto-created private folder: <strong>1st PJ BB Uniform Payment Receipts</strong>';
+          driveStatusEl.style.color = '#d97706';
+          driveStatusEl.style.fontWeight = '600';
+          driveStatusEl.textContent = '⚠ Not configured — paste your private Google Drive folder link so receipts upload automatically.';
         } else if (parsedId) {
           driveStatusEl.style.color = 'var(--green,#10b981)';
+          driveStatusEl.style.fontWeight = '600';
           driveStatusEl.innerHTML = '✓ Private Drive Folder ID: <code>' + escapeHtml(parsedId) + '</code>';
         } else {
           driveStatusEl.style.color = 'var(--red,#ef4444)';
+          driveStatusEl.style.fontWeight = '600';
           driveStatusEl.textContent = 'Enter a valid Google Drive folder link (https://drive.google.com/drive/folders/...) or Folder ID.';
         }
       }
@@ -3309,11 +3932,32 @@ async function configureAdminOrdersSheetUrl() {
     });
   }
 
+  if (testBtn) {
+    testBtn.addEventListener('click', function() {
+      withSmartButtonLock(testBtn, async function() {
+        var health = await runConnectionDiagnostics(true);
+        if (typeof showToast === 'function') {
+          if (health.healthy) {
+            showToast('Google Sheets & Private Google Drive connection verified!', 'success');
+          } else {
+            showToast(health.reason || 'Connection check found issues — review the diagnostics panel.', 'warning');
+          }
+        }
+      }, { loadingText: 'Testing…' });
+    });
+  }
+
   if (saveBtn && urlInput) {
     saveBtn.addEventListener('click', async function() {
       await withSmartButtonLock(saveBtn, async function() {
         var val = (urlInput.value || '').trim();
         var driveVal = driveInput ? (driveInput.value || '').trim() : '';
+        if (val && !isValidAppsScriptWebAppUrl(val)) {
+          if (typeof showToast === 'function') {
+            showToast('Enter a valid Google Apps Script Web App URL ending in /exec.', 'warning');
+          }
+          return;
+        }
         if (driveVal && !extractGoogleDriveFolderId(driveVal)) {
           if (typeof showToast === 'function') {
             showToast('Please enter a valid Google Drive folder link (https://drive.google.com/drive/folders/...) or Folder ID.', 'warning');
@@ -3327,10 +3971,18 @@ async function configureAdminOrdersSheetUrl() {
         }
         var okDrive = await saveOrdersReceiptsDriveFolder(driveVal);
         if (!okDrive) return;
-        if (typeof showToast === 'function') {
-          showToast('Google Sheets & private Google Drive receipt folder settings saved!', 'success');
+        currentUrl = val;
+        currentDriveFolder = await loadOrdersReceiptsDriveFolder();
+        recordUniformSyncFailure('');
+        var health = await runConnectionDiagnostics(false);
+        if (health.healthy) {
+          if (typeof showToast === 'function') {
+            showToast('Google Sheets & private Google Drive connected and verified!', 'success');
+          }
+          closeModal();
+        } else if (typeof showToast === 'function') {
+          showToast('Settings saved, but connection check needs attention — see diagnostics above.', 'warning');
         }
-        closeModal();
       }, { loadingText: 'Saving…' });
     });
   }
@@ -3356,22 +4008,26 @@ async function configureAdminOrdersSheetUrl() {
   var manualSyncBtn = modal.querySelector('#admin-orders-manual-sync-btn');
   if (manualSyncBtn) {
     manualSyncBtn.addEventListener('click', function() {
-      withSmartButtonLock(manualSyncBtn, function() {
-        return syncAdminOrdersToGoogleSheet();
+      withSmartButtonLock(manualSyncBtn, async function() {
+        await syncAdminOrdersToGoogleSheet();
+        await runConnectionDiagnostics(false);
       }, { loadingText: 'Syncing…' });
     });
   }
+
+  // Trigger live health probe immediately on modal open
+  runConnectionDiagnostics(false).catch(function() {});
 }
 
 /**
  * Synchronizes all currently loaded uniform orders (and their payment proof files) to Google Sheets + private Drive
  */
 async function syncAdminOrdersToGoogleSheet() {
-  var url = await loadOrdersSheetsArchiveUrl();
-  if (!url || !/^https?:\/\//i.test(url)) {
+  var url = await loadOrdersSheetsArchiveUrl(true);
+  if (!url || !isValidAppsScriptWebAppUrl(url)) {
     await configureAdminOrdersSheetUrl();
-    url = await loadOrdersSheetsArchiveUrl();
-    if (!url || !/^https?:\/\//i.test(url)) return;
+    url = await loadOrdersSheetsArchiveUrl(true);
+    if (!url || !isValidAppsScriptWebAppUrl(url)) return;
   }
 
   if (!_cachedAdminOrdersList || !_cachedAdminOrdersList.length) {
@@ -3379,7 +4035,7 @@ async function syncAdminOrdersToGoogleSheet() {
     return;
   }
 
-  var driveFolderUrl = await loadOrdersReceiptsDriveFolder();
+  var driveFolderUrl = await loadOrdersReceiptsDriveFolder(true);
   var driveFolderId = extractGoogleDriveFolderId(driveFolderUrl);
 
   if (typeof showToast === 'function') showToast('Syncing orders and payment proofs to Google Sheets & Drive...', 'info');
@@ -3419,6 +4075,9 @@ async function syncAdminOrdersToGoogleSheet() {
     var MAX_BATCH_ORDERS = 5;
     var currentBatch = [];
     var currentBatchBytes = 0;
+    var totalDriveSaved = 0;
+    var totalDriveErrors = [];
+    var detectedOutdatedScript = false;
 
     async function flushBatch() {
       if (!currentBatch.length) return;
@@ -3428,12 +4087,20 @@ async function syncAdminOrdersToGoogleSheet() {
         timestamp: new Date().toISOString(),
         orders: currentBatch
       };
-      await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      var res = await postUniformOrdersAppsScript(url, payload, 60000);
+      if (!res.ok) {
+        throw new Error(res.error || 'Apps Script sync request failed.');
+      }
+      var data = res.data || {};
+      if (Number(data.scriptVersion || 0) < UNIFORM_ORDERS_SCRIPT_VERSION) {
+        detectedOutdatedScript = true;
+      }
+      if (typeof data.driveSavedCount === 'number') {
+        totalDriveSaved += data.driveSavedCount;
+      }
+      if (Array.isArray(data.driveErrors) && data.driveErrors.length) {
+        totalDriveErrors = totalDriveErrors.concat(data.driveErrors);
+      }
       currentBatch = [];
       currentBatchBytes = 0;
     }
@@ -3449,14 +4116,35 @@ async function syncAdminOrdersToGoogleSheet() {
     }
     await flushBatch();
 
-    if (typeof showToast === 'function') {
-      var proofSuffix = proofAttachedCount > 0 ? (' (' + proofAttachedCount + ' receipt' + (proofAttachedCount === 1 ? '' : 's') + ' sent to Google Drive)') : '';
-      showToast('Sync request sent for ' + enrichedOrders.length + ' order' + (enrichedOrders.length === 1 ? '' : 's') + proofSuffix + '. Confirm the result in Google Sheets.', 'success');
+    if (detectedOutdatedScript && proofAttachedCount > 0) {
+      var outdatedMsg = 'Orders synced to Google Sheets, but your deployed Apps Script is outdated — redeploy the v2 script so receipts upload to Google Drive.';
+      recordUniformSyncFailure(outdatedMsg);
+      if (typeof showToast === 'function') showToast(outdatedMsg, 'warning');
+    } else if (totalDriveErrors.length > 0) {
+      var driveErrMsg = 'Orders synced to Google Sheets, but ' + totalDriveErrors.length + ' receipt(s) failed to upload to Google Drive: ' + totalDriveErrors[0];
+      recordUniformSyncFailure(totalDriveErrors[0]);
+      if (typeof showToast === 'function') showToast(driveErrMsg, 'warning');
+    } else {
+      recordUniformSyncFailure('');
+      if (typeof showToast === 'function') {
+        var proofSuffix = totalDriveSaved > 0
+          ? (' and saved ' + totalDriveSaved + ' receipt' + (totalDriveSaved === 1 ? '' : 's') + ' to Google Drive')
+          : '';
+        showToast('Synced ' + enrichedOrders.length + ' order' + (enrichedOrders.length === 1 ? '' : 's') + ' to Google Sheets' + proofSuffix + '.', 'success');
+      }
     }
+    checkUniformOrdersSyncHealth(true).then(function(health) {
+      applyUniformSettingsWarningBadge(document, health);
+    }).catch(function() {});
   } catch (err) {
     console.error('syncAdminOrdersToGoogleSheet error:', err);
+    var errMsg = (err && err.message) ? err.message : 'The Google Sheets sync request failed. Open Settings to test the connection.';
+    recordUniformSyncFailure(errMsg);
+    checkUniformOrdersSyncHealth(true).then(function(health) {
+      applyUniformSettingsWarningBadge(document, health);
+    }).catch(function() {});
     if (typeof showToast === 'function') {
-      showToast('The Google Sheets sync request could not be sent. Try again.', 'error');
+      showToast(errMsg, 'error');
     }
   }
 }
@@ -3895,8 +4583,11 @@ async function renderAdminOrders(forceRefresh) {
       '<button type="button" class="portal-btn portal-btn-secondary" data-export-csv title="Export current orders to Google Sheets / Excel" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;height:34px;">' +
       '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export to Sheets / CSV' +
       '</button>' +
-      '<button type="button" class="portal-btn portal-btn-secondary" data-config-sheets title="Google Sheets Auto-Sync Settings & Apps Script Code" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;height:34px;">' +
+      '<button type="button" class="portal-btn portal-btn-secondary admin-orders-settings-btn" data-config-sheets title="Google Sheets &amp; Private Drive Sync Settings" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;height:34px;">' +
       '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Settings' +
+      '<span class="orders-settings-warn-badge" data-settings-warn-badge hidden aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="6.5" x2="12" y2="13.5"/><circle cx="12" cy="17.5" r="1.5" fill="currentColor" stroke="none"/></svg>' +
+      '</span>' +
       '</button>' +
       '</div>' +
       '</div>';
@@ -4237,6 +4928,12 @@ function attachToolbarEvents(container) {
     configBtn.addEventListener('click', function() {
       configureAdminOrdersSheetUrl();
     });
+    if (_uniformSyncHealthCache) {
+      applyUniformSettingsWarningBadge(container, _uniformSyncHealthCache);
+    }
+    checkUniformOrdersSyncHealth(false).then(function(health) {
+      applyUniformSettingsWarningBadge(container, health);
+    }).catch(function() {});
   }
 }
 
@@ -5024,6 +5721,12 @@ if (typeof window !== 'undefined') {
   window.UNIFORM_ORDERS_APPS_SCRIPT_CODE = UNIFORM_ORDERS_APPS_SCRIPT_CODE;
   window.buildUniformOrdersAppsScriptCode = buildUniformOrdersAppsScriptCode;
   window.extractGoogleDriveFolderId = extractGoogleDriveFolderId;
+  window.generateUniformOrderCode = generateUniformOrderCode;
+  window.UNIFORM_ORDER_CODE_PATTERN = UNIFORM_ORDER_CODE_PATTERN;
+  window.isValidAppsScriptWebAppUrl = isValidAppsScriptWebAppUrl;
+  window.postUniformOrdersAppsScript = postUniformOrdersAppsScript;
+  window.checkUniformOrdersSyncHealth = checkUniformOrdersSyncHealth;
+  window.applyUniformSettingsWarningBadge = applyUniformSettingsWarningBadge;
   window.loadOrdersSheetsArchiveUrl = loadOrdersSheetsArchiveUrl;
   window.saveOrdersSheetsArchiveUrl = saveOrdersSheetsArchiveUrl;
   window.loadOrdersReceiptsDriveFolder = loadOrdersReceiptsDriveFolder;
@@ -5125,6 +5828,12 @@ if (typeof module !== 'undefined' && module.exports) {
     UNIFORM_ORDERS_APPS_SCRIPT_CODE: UNIFORM_ORDERS_APPS_SCRIPT_CODE,
     buildUniformOrdersAppsScriptCode: buildUniformOrdersAppsScriptCode,
     extractGoogleDriveFolderId: extractGoogleDriveFolderId,
+    generateUniformOrderCode: generateUniformOrderCode,
+    UNIFORM_ORDER_CODE_PATTERN: UNIFORM_ORDER_CODE_PATTERN,
+    isValidAppsScriptWebAppUrl: isValidAppsScriptWebAppUrl,
+    postUniformOrdersAppsScript: postUniformOrdersAppsScript,
+    checkUniformOrdersSyncHealth: checkUniformOrdersSyncHealth,
+    applyUniformSettingsWarningBadge: applyUniformSettingsWarningBadge,
     blobToBase64Payload: blobToBase64Payload,
     loadOrdersSheetsArchiveUrl: loadOrdersSheetsArchiveUrl,
     saveOrdersSheetsArchiveUrl: saveOrdersSheetsArchiveUrl,
