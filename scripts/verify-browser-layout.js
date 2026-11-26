@@ -5129,19 +5129,28 @@ async function getJson(url) {
         const headerRect = headerStedfast ? headerStedfast.getBoundingClientRect() : { width: 0 };
         const headerVisible = Boolean(headerStedfast && getComputedStyle(headerStedfast).display !== 'none' && headerRect.width > 0);
 
-        // 2. Signed-out Login UI/UX geometry & alignment on desktop (Light Mode)
+        // 2. Signed-out Login/Register fullscreen centered layout (no header/sidebar/bottom-nav, zero vertical scroll)
         if (typeof themeApply === 'function') themeApply('light');
         if (typeof logoutMember === 'function') logoutMember();
         showAuthMode('login');
         await new Promise(r => setTimeout(r, 320));
+        const headerEl = document.getElementById('site-header');
+        const sidebarEl = document.getElementById('sidebar-overlay');
+        const bottomNavEl = document.getElementById('bottom-nav');
+        const authChromeHidden = document.body.classList.contains('auth-screen-active') &&
+          getComputedStyle(headerEl).display === 'none' &&
+          getComputedStyle(sidebarEl).display === 'none' &&
+          getComputedStyle(bottomNavEl).display === 'none';
+
         const authCard = document.getElementById('m-auth');
-        const mainEl = document.getElementById('app-main');
         const cardRect = authCard.getBoundingClientRect();
-        const mainRect = mainEl.getBoundingClientRect();
-        const leftGap = cardRect.left - mainRect.left;
-        const rightGap = mainRect.right - cardRect.right;
-        const loginCardCentered = Math.abs(leftGap - rightGap) <= 24;
-        const loginCardCompact = cardRect.width >= 360 && cardRect.width <= 465;
+        const leftGap = cardRect.left;
+        const rightGap = window.innerWidth - cardRect.right;
+        const topGap = cardRect.top;
+        const bottomGap = window.innerHeight - cardRect.bottom;
+        const loginCardCentered = Math.abs(leftGap - rightGap) <= 16 && Math.abs(topGap - bottomGap) <= 24;
+        const loginCardCompact = cardRect.width >= 360 && cardRect.width <= 435;
+        const loginNoVerticalScroll = document.documentElement.scrollHeight <= window.innerHeight;
 
         const rememberLbl = document.querySelector('.auth-remember-label');
         const forgotLink = document.querySelector('#auth-login .auth-meta-row .auth-inline-link');
@@ -5157,11 +5166,17 @@ async function getJson(url) {
         togglePassVis('login-pass', 'login-eye');
         const eyeMasked = passInp.type === 'password' && eyeBtn.getAttribute('aria-pressed') === 'false';
 
-        // Register mode width expansion (wait for 250ms transition)
+        // Register mode 2-column compact width expansion + zero vertical scroll
         showAuthMode('register');
         await new Promise(r => setTimeout(r, 320));
         const regCardRect = authCard.getBoundingClientRect();
-        const registerCardWider = regCardRect.width > cardRect.width && regCardRect.width <= 545;
+        const regLeftGap = regCardRect.left;
+        const regRightGap = window.innerWidth - regCardRect.right;
+        const regTopGap = regCardRect.top;
+        const regBottomGap = window.innerHeight - regCardRect.bottom;
+        const registerCardWider = regCardRect.width > cardRect.width && regCardRect.width <= 605;
+        const registerCardCentered = Math.abs(regLeftGap - regRightGap) <= 16 && Math.abs(regTopGap - regBottomGap) <= 24;
+        const registerNoVerticalScroll = document.documentElement.scrollHeight <= window.innerHeight;
         showAuthMode('login');
 
         const desktopOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
@@ -5170,7 +5185,17 @@ async function getJson(url) {
         if (origCollapsed) document.body.classList.add('sidebar-collapsed');
         if (origEmail) sessionSet('email', origEmail, { localOnly: true });
         if (origIc) sessionSet('ic', origIc, { localOnly: true });
-        return { hiddenExpanded, hiddenCollapsed, headerVisible, loginCardCentered, loginCardCompact, metaRowInline, eyeRevealed, eyeMasked, registerCardWider, desktopOverflow };
+        if (typeof syncSidebarAccess === 'function') syncSidebarAccess();
+        const chromeRestoredAfterLogin = !document.body.classList.contains('auth-screen-active') &&
+          getComputedStyle(headerEl).display !== 'none' &&
+          getComputedStyle(sidebarEl).display !== 'none';
+        return {
+          hiddenExpanded, hiddenCollapsed, headerVisible, authChromeHidden,
+          loginCardCentered, loginCardCompact, loginNoVerticalScroll,
+          metaRowInline, eyeRevealed, eyeMasked,
+          registerCardWider, registerCardCentered, registerNoVerticalScroll,
+          desktopOverflow, chromeRestoredAfterLogin
+        };
       })()`,
       awaitPromise: true,
       returnByValue: true
@@ -5179,22 +5204,59 @@ async function getJson(url) {
     assert.strictEqual(dAuthRes.hiddenExpanded, true, 'Ask Stedfast must be hidden in desktop expanded sidebar');
     assert.strictEqual(dAuthRes.hiddenCollapsed, true, 'Ask Stedfast must be hidden in desktop collapsed sidebar');
     assert.strictEqual(dAuthRes.headerVisible, true, 'Ask Stedfast must remain visible in desktop top header bar');
-    assert.strictEqual(dAuthRes.loginCardCentered, true, 'Login auth card must be horizontally centered on desktop');
-    assert.strictEqual(dAuthRes.loginCardCompact, true, 'Login auth card must stay compact (<= 465px) instead of stretching full-width');
+    assert.strictEqual(dAuthRes.authChromeHidden, true, 'Top header, side nav bar, and bottom nav must be hidden on Login/Register screen');
+    assert.strictEqual(dAuthRes.loginCardCentered, true, 'Login auth card must be horizontally and vertically centered on the viewport');
+    assert.strictEqual(dAuthRes.loginCardCompact, true, 'Login auth card must stay compact (<= 435px)');
+    assert.strictEqual(dAuthRes.loginNoVerticalScroll, true, 'Login screen must fit in viewport with zero vertical scroll');
     assert.strictEqual(dAuthRes.metaRowInline, true, 'Remember me and Forgot Password must align on the same horizontal row');
     assert.strictEqual(dAuthRes.eyeRevealed && dAuthRes.eyeMasked, true, 'Password visibility toggle must update input type and aria-pressed');
-    assert.strictEqual(dAuthRes.registerCardWider, true, 'Register mode auth card must comfortably expand up to 540px');
+    assert.strictEqual(dAuthRes.registerCardWider, true, 'Register mode auth card must comfortably expand up to 600px');
+    assert.strictEqual(dAuthRes.registerCardCentered, true, 'Register auth card must be horizontally and vertically centered on the viewport');
+    assert.strictEqual(dAuthRes.registerNoVerticalScroll, true, 'Register screen must fit in desktop viewport with zero vertical scroll');
     assert.strictEqual(dAuthRes.desktopOverflow, 0, 'Auth page must have 0px horizontal overflow on desktop');
+    assert.strictEqual(dAuthRes.chromeRestoredAfterLogin, true, 'Top header and side nav bar must immediately reappear after signing in');
+
+    // Also verify 1280x720 compact laptop viewport fits BOTH Login & Register with ZERO vertical scroll
+    await sendCmd('Emulation.setDeviceMetricsOverride', { width: 1280, height: 720, deviceScaleFactor: 1, mobile: false });
+    const laptopAuthDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origEmail = sessionGet('email');
+        const origIc = sessionGet('ic');
+        if (typeof logoutMember === 'function') logoutMember();
+        showAuthMode('login');
+        await new Promise(r => setTimeout(r, 300));
+        const loginFits720 = document.documentElement.scrollHeight <= window.innerHeight;
+        showAuthMode('register');
+        await new Promise(r => setTimeout(r, 300));
+        const regFits720 = document.documentElement.scrollHeight <= window.innerHeight;
+        showAuthMode('login');
+        if (origEmail) sessionSet('email', origEmail, { localOnly: true });
+        if (origIc) sessionSet('ic', origIc, { localOnly: true });
+        if (typeof syncSidebarAccess === 'function') syncSidebarAccess();
+        return { loginFits720, regFits720 };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const l720Res = (laptopAuthDiag.result && laptopAuthDiag.result.value) || {};
+    assert.strictEqual(l720Res.loginFits720, true, 'Login card must fit in 1280x720 laptop viewport without vertical scroll');
+    assert.strictEqual(l720Res.regFits720, true, 'Register card must fit in 1280x720 laptop viewport without vertical scroll');
 
     // Verify 360px mobile overflow on Login & Register
     await sendCmd('Emulation.setDeviceMetricsOverride', { width: 360, height: 780, deviceScaleFactor: 2, mobile: true });
     const mobileAuthDiag = await sendCmd('Runtime.evaluate', {
       expression: `(() => {
+        const origEmail = sessionGet('email');
+        const origIc = sessionGet('ic');
+        if (typeof logoutMember === 'function') logoutMember();
         showAuthMode('login');
         const loginOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
         showAuthMode('register');
         const regOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
         showAuthMode('login');
+        if (origEmail) sessionSet('email', origEmail, { localOnly: true });
+        if (origIc) sessionSet('ic', origIc, { localOnly: true });
+        if (typeof syncSidebarAccess === 'function') syncSidebarAccess();
         return { loginOverflow, regOverflow };
       })()`,
       returnByValue: true
@@ -5202,7 +5264,7 @@ async function getJson(url) {
     const mAuthRes = (mobileAuthDiag.result && mobileAuthDiag.result.value) || {};
     assert.strictEqual(mAuthRes.loginOverflow, 0, 'Login card must have 0px overflow on 360px mobile');
     assert.strictEqual(mAuthRes.regOverflow, 0, 'Register card must have 0px overflow on 360px mobile');
-    console.log('  ✔ Desktop sidebar Ask Stedfast hidden, top header preserved, and centered modern Login/Register UI verified across desktop and 360px mobile');
+    console.log('  ✔ Fullscreen centered Login/Register (header & sidebar hidden, zero vertical scroll on 1440x900 & 1280x720) verified');
 
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 

@@ -632,12 +632,16 @@
     <!-- AUTH -->
     <div class="card stripe-bg auth-shell-card" id="m-auth">
       <div class="auth-card-header">
-        <div class="auth-header-top">
+        <div class="auth-header-brand">
           <img class="auth-brand-crest" src="assets/logo.png" alt="1st PJ Boys' Brigade" width="38" height="38"/>
-          <div class="page-subtitle">Portal</div>
+          <div class="auth-header-titles">
+            <div class="auth-title-inline">
+              <div class="page-title">Member</div>
+              <div class="page-subtitle">Portal</div>
+            </div>
+            <div class="page-desc">Register or log in to access your member card</div>
+          </div>
         </div>
-        <div class="page-title">Member</div>
-        <div class="page-desc">Register or log in to access your member card</div>
       </div>
       <div class="auth-toggle" role="group" aria-label="Authentication mode">
         <button type="button" class="auth-toggle-btn active" id="btn-login" aria-pressed="true" onclick="showAuthMode('login')">Login</button>
@@ -729,13 +733,15 @@
           <label for="reg-honeypot">Leave blank</label>
           <input type="text" id="reg-honeypot" name="hp_field" tabindex="-1" autocomplete="off" />
         </div>
-        <div class="form-group">
-          <label class="form-label" for="reg-fullname">Full Name</label>
-          <input class="form-input" id="reg-fullname" name="name" type="text" placeholder="e.g. Lee Chong Wei" autocomplete="name" enterkeyhint="next"/>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="reg-email">Email Address</label>
-          <input class="form-input" id="reg-email" name="email" type="email" placeholder="e.g. member@1stpjbb.org.my" autocomplete="email" spellcheck="false" autocapitalize="none" autocorrect="off" enterkeyhint="next" oninput="handleRegEmailInput()" onblur="handleRegEmailInput()"/>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="reg-fullname">Full Name</label>
+            <input class="form-input" id="reg-fullname" name="name" type="text" placeholder="e.g. Lee Chong Wei" autocomplete="name" enterkeyhint="next"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Email Address</label>
+            <input class="form-input" id="reg-email" name="email" type="email" placeholder="e.g. member@1stpjbb.org.my" autocomplete="email" spellcheck="false" autocapitalize="none" autocorrect="off" enterkeyhint="next" oninput="handleRegEmailInput()" onblur="handleRegEmailInput()"/>
+          </div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -803,18 +809,20 @@
             </a>
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="reg-pass">Password</label>
-          <div class="auth-pass-wrap">
-            <input class="form-input" id="reg-pass" name="new-password" type="password" placeholder="Create password (min 6 chars)" autocomplete="new-password" enterkeyhint="next"/>
-            <button type="button" class="auth-pass-toggle" onclick="togglePassVis('reg-pass','reg-eye')" id="reg-eye" aria-label="Toggle password visibility" aria-pressed="false" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="reg-pass">Password</label>
+            <div class="auth-pass-wrap">
+              <input class="form-input" id="reg-pass" name="new-password" type="password" placeholder="Create password (min 6 chars)" autocomplete="new-password" enterkeyhint="next"/>
+              <button type="button" class="auth-pass-toggle" onclick="togglePassVis('reg-pass','reg-eye')" id="reg-eye" aria-label="Toggle password visibility" aria-pressed="false" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
           </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="reg-pass2">Confirm Password</label>
-          <div class="auth-pass-wrap">
-            <input class="form-input" id="reg-pass2" name="confirm-password" type="password" placeholder="Repeat password" autocomplete="new-password" enterkeyhint="done"/>
-            <button type="button" class="auth-pass-toggle" onclick="togglePassVis('reg-pass2','reg-eye2')" id="reg-eye2" aria-label="Toggle password visibility" aria-pressed="false" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <div class="form-group">
+            <label class="form-label" for="reg-pass2">Confirm Password</label>
+            <div class="auth-pass-wrap">
+              <input class="form-input" id="reg-pass2" name="confirm-password" type="password" placeholder="Repeat password" autocomplete="new-password" enterkeyhint="done"/>
+              <button type="button" class="auth-pass-toggle" onclick="togglePassVis('reg-pass2','reg-eye2')" id="reg-eye2" aria-label="Toggle password visibility" aria-pressed="false" title="Toggle password visibility"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            </div>
           </div>
         </div>
         <div class="auth-meta-row">
@@ -3676,6 +3684,16 @@ function orderSidebarLinks() {
 
 function syncSidebarAccess() {
   var signedIn = typeof AuthGuard !== 'undefined' && AuthGuard.isUserAuthenticated();
+  if (typeof document !== 'undefined' && document.body) {
+    document.body.classList.toggle('auth-screen-active', !signedIn);
+  }
+  if (!signedIn) {
+    if (document.getElementById('sidebar-overlay')?.classList.contains('open') && typeof closeSidebar === 'function') {
+      closeSidebar();
+    }
+    var helperDrawer = document.getElementById('helper-agent-drawer');
+    if (helperDrawer) helperDrawer.classList.remove('open');
+  }
   var installButton = document.querySelector('[data-install-app]');
   if (installButton) installButton.hidden = !signedIn || Boolean(window.Capacitor?.isNativePlatform?.());
   if (!signedIn) document.querySelector('.install-app-dialog[open]')?.close();
@@ -3686,7 +3704,7 @@ function syncSidebarAccess() {
     item.hidden = route === 'member' ? canUseTasks : !signedIn || (route === 'tasks' && !canUseTasks);
     if (item.hidden && item === focused) document.getElementById('bnav-more')?.focus();
   });
-  if (!signedIn) closeNotificationDropdown();
+  if (!signedIn && typeof closeNotificationDropdown === 'function') closeNotificationDropdown();
   syncBottomNavState(document.querySelector('.page.active')?.id.slice(5));
   document.querySelectorAll('.sidebar-nav .sidebar-item, .sidebar-nav .sidebar-divider').forEach(function(item) {
     item.hidden = !signedIn || item.id === 'snav-member' || (item.id === 'snav-tasks' && !canUseTasks);
@@ -3695,11 +3713,12 @@ function syncSidebarAccess() {
   var taskCard = document.querySelector('.hq-card[data-quick-route="tasks"]');
   if (taskCard && taskCard.hidden === canUseTasks) {
     taskCard.hidden = !canUseTasks;
-    updateQuickCardsCarousel();
+    if (typeof updateQuickCardsCarousel === 'function') updateQuickCardsCarousel();
   }
 }
 
 orderSidebarLinks();
+syncSidebarAccess();
 
 function syncBottomNavState(tab) {
   var menuOpen = document.getElementById('sidebar-overlay')?.classList.contains('open');
