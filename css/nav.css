@@ -878,7 +878,8 @@
 
 .mobile-menu-heading,
 .mobile-menu-profile,
-.mobile-menu-assistant {
+.mobile-menu-assistant,
+.sidebar-item.mobile-menu-assistant {
   display: none;
 }
 
@@ -1360,7 +1361,12 @@
   }
 
   .sidebar-header,
-  .sidebar-brand {
+  .sidebar-brand,
+  .mobile-menu-heading,
+  .mobile-menu-profile,
+  .mobile-menu-assistant,
+  .sidebar-item.mobile-menu-assistant,
+  body.sidebar-collapsed .sidebar-item.mobile-menu-assistant {
     display: none !important;
   }
 
@@ -2277,8 +2283,12 @@
     max-width: none;
   }
 
-  .mobile-menu-assistant:not([hidden]) {
+  .sidebar-item.mobile-menu-assistant:not([hidden]) {
     display: flex;
+  }
+
+  .sidebar-item.mobile-menu-assistant[hidden] {
+    display: none !important;
   }
 
   .sidebar-nav {

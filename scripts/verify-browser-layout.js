@@ -5108,6 +5108,104 @@ async function getJson(url) {
     // Reset device metrics back to desktop
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
+    // ── Verify Desktop Sidebar Ask Stedfast Removal & Modern Login UI/UX ──
+    console.log('\nChecking Desktop Sidebar Ask Stedfast Removal & Modern Login UI/UX...');
+    await sendCmd('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    const desktopAuthDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origEmail = sessionGet('email');
+        const origIc = sessionGet('ic');
+        const origCollapsed = document.body.classList.contains('sidebar-collapsed');
+        const origTheme = document.documentElement.getAttribute('data-theme');
+
+        // 1. Signed-in desktop: Ask Stedfast hidden in sidebar (expanded & collapsed), visible in top header
+        const sideStedfast = document.querySelector('.mobile-menu-assistant');
+        const headerStedfast = document.getElementById('helper-agent-trigger');
+        document.body.classList.remove('sidebar-collapsed');
+        const hiddenExpanded = sideStedfast ? getComputedStyle(sideStedfast).display === 'none' : true;
+        document.body.classList.add('sidebar-collapsed');
+        const hiddenCollapsed = sideStedfast ? getComputedStyle(sideStedfast).display === 'none' : true;
+        document.body.classList.remove('sidebar-collapsed');
+        const headerRect = headerStedfast ? headerStedfast.getBoundingClientRect() : { width: 0 };
+        const headerVisible = Boolean(headerStedfast && getComputedStyle(headerStedfast).display !== 'none' && headerRect.width > 0);
+
+        // 2. Signed-out Login UI/UX geometry & alignment on desktop (Light Mode)
+        if (typeof themeApply === 'function') themeApply('light');
+        if (typeof logoutMember === 'function') logoutMember();
+        showAuthMode('login');
+        await new Promise(r => setTimeout(r, 320));
+        const authCard = document.getElementById('m-auth');
+        const mainEl = document.getElementById('app-main');
+        const cardRect = authCard.getBoundingClientRect();
+        const mainRect = mainEl.getBoundingClientRect();
+        const leftGap = cardRect.left - mainRect.left;
+        const rightGap = mainRect.right - cardRect.right;
+        const loginCardCentered = Math.abs(leftGap - rightGap) <= 24;
+        const loginCardCompact = cardRect.width >= 360 && cardRect.width <= 465;
+
+        const rememberLbl = document.querySelector('.auth-remember-label');
+        const forgotLink = document.querySelector('#auth-login .auth-meta-row .auth-inline-link');
+        const remRect = rememberLbl ? rememberLbl.getBoundingClientRect() : null;
+        const fgtRect = forgotLink ? forgotLink.getBoundingClientRect() : null;
+        const metaRowInline = Boolean(remRect && fgtRect && Math.abs(remRect.top - fgtRect.top) < 12 && fgtRect.left > remRect.right);
+
+        // Verify password eye toggle aria-pressed
+        const eyeBtn = document.getElementById('login-eye');
+        const passInp = document.getElementById('login-pass');
+        togglePassVis('login-pass', 'login-eye');
+        const eyeRevealed = passInp.type === 'text' && eyeBtn.getAttribute('aria-pressed') === 'true';
+        togglePassVis('login-pass', 'login-eye');
+        const eyeMasked = passInp.type === 'password' && eyeBtn.getAttribute('aria-pressed') === 'false';
+
+        // Register mode width expansion (wait for 250ms transition)
+        showAuthMode('register');
+        await new Promise(r => setTimeout(r, 320));
+        const regCardRect = authCard.getBoundingClientRect();
+        const registerCardWider = regCardRect.width > cardRect.width && regCardRect.width <= 545;
+        showAuthMode('login');
+
+        const desktopOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+
+        if (origTheme && typeof themeApply === 'function') themeApply(origTheme);
+        if (origCollapsed) document.body.classList.add('sidebar-collapsed');
+        if (origEmail) sessionSet('email', origEmail, { localOnly: true });
+        if (origIc) sessionSet('ic', origIc, { localOnly: true });
+        return { hiddenExpanded, hiddenCollapsed, headerVisible, loginCardCentered, loginCardCompact, metaRowInline, eyeRevealed, eyeMasked, registerCardWider, desktopOverflow };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const dAuthRes = (desktopAuthDiag.result && desktopAuthDiag.result.value) || {};
+    assert.strictEqual(dAuthRes.hiddenExpanded, true, 'Ask Stedfast must be hidden in desktop expanded sidebar');
+    assert.strictEqual(dAuthRes.hiddenCollapsed, true, 'Ask Stedfast must be hidden in desktop collapsed sidebar');
+    assert.strictEqual(dAuthRes.headerVisible, true, 'Ask Stedfast must remain visible in desktop top header bar');
+    assert.strictEqual(dAuthRes.loginCardCentered, true, 'Login auth card must be horizontally centered on desktop');
+    assert.strictEqual(dAuthRes.loginCardCompact, true, 'Login auth card must stay compact (<= 465px) instead of stretching full-width');
+    assert.strictEqual(dAuthRes.metaRowInline, true, 'Remember me and Forgot Password must align on the same horizontal row');
+    assert.strictEqual(dAuthRes.eyeRevealed && dAuthRes.eyeMasked, true, 'Password visibility toggle must update input type and aria-pressed');
+    assert.strictEqual(dAuthRes.registerCardWider, true, 'Register mode auth card must comfortably expand up to 540px');
+    assert.strictEqual(dAuthRes.desktopOverflow, 0, 'Auth page must have 0px horizontal overflow on desktop');
+
+    // Verify 360px mobile overflow on Login & Register
+    await sendCmd('Emulation.setDeviceMetricsOverride', { width: 360, height: 780, deviceScaleFactor: 2, mobile: true });
+    const mobileAuthDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        showAuthMode('login');
+        const loginOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+        showAuthMode('register');
+        const regOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
+        showAuthMode('login');
+        return { loginOverflow, regOverflow };
+      })()`,
+      returnByValue: true
+    });
+    const mAuthRes = (mobileAuthDiag.result && mobileAuthDiag.result.value) || {};
+    assert.strictEqual(mAuthRes.loginOverflow, 0, 'Login card must have 0px overflow on 360px mobile');
+    assert.strictEqual(mAuthRes.regOverflow, 0, 'Register card must have 0px overflow on 360px mobile');
+    console.log('  ✔ Desktop sidebar Ask Stedfast hidden, top header preserved, and centered modern Login/Register UI verified across desktop and 360px mobile');
+
+    await sendCmd('Emulation.clearDeviceMetricsOverride');
+
     ws.close();
     console.log('\n🎉 HEADLESS EDGE BROWSER VERIFICATION PASSED 100%!\n');
   } catch (err) {

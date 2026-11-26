@@ -18528,6 +18528,98 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ Real-time admin/super-admin revocation, live scope downgrade, promotion, and broadcast verified');
   }
 
+  // ── Suite 97: Desktop Sidebar Stedfast Removal & Modern Login Auth UI/UX ──
+  console.log('\nSuite 97: Desktop Sidebar Stedfast Removal & Modern Login Auth UI/UX...');
+  {
+    const navCss97 = fs.readFileSync(path.join(__dirname, '../css/nav.css'), 'utf8');
+    const compCss97 = fs.readFileSync(path.join(__dirname, '../css/components.css'), 'utf8');
+    const indexHtml97 = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+    const memberMod97 = require('../js/modules/member.js');
+
+    // 1. Desktop sidebar Ask Stedfast hidden while mobile More menu retains it
+    assert.ok(navCss97.includes('.sidebar-item.mobile-menu-assistant') && navCss97.includes('body.sidebar-collapsed .sidebar-item.mobile-menu-assistant'), 'css/nav.css must explicitly hide .mobile-menu-assistant on desktop expanded and collapsed sidebar');
+    assert.ok(navCss97.includes('.sidebar-item.mobile-menu-assistant:not([hidden])'), 'css/nav.css must keep Ask Stedfast available inside the mobile More menu');
+
+    // 2. Modern Login card CSS & preserved text/features
+    assert.ok(compCss97.includes('#m-auth.auth-shell-card') && compCss97.includes('max-width: 460px;'), 'components.css must constrain #m-auth into a focused centered 460px auth card');
+    assert.ok(compCss97.includes('#m-auth.auth-shell-card.auth-mode-register') && compCss97.includes('max-width: 540px;'), 'components.css must allow Register mode card width of 540px');
+    assert.ok(compCss97.includes('.auth-meta-row') && compCss97.includes('justify-content: space-between;'), 'components.css must align Remember me and Forgot Password on one row');
+    assert.ok(compCss97.includes('@supports not (accent-color: auto)'), 'components.css must include accessible accent-color fallback for auth checkboxes');
+    assert.ok(compCss97.includes('#m-auth.auth-shell-card .form-input:user-invalid'), 'components.css must style invalid fields non-intrusively with :user-invalid');
+
+    [
+      'Member',
+      'Portal',
+      'Register or log in to access your member card',
+      'Email Address',
+      'Password',
+      'Remember me on this device',
+      'Forgot Password?',
+      'No account?',
+      'Register here',
+      'Create Account',
+      'Already a member?',
+      'Login here'
+    ].forEach(phrase => {
+      assert.ok(indexHtml97.includes(phrase), `index.html must preserve existing auth copy: "${phrase}"`);
+    });
+
+    assert.ok(indexHtml97.includes('id="login-email"') && indexHtml97.includes('autocomplete="username"') && indexHtml97.includes('spellcheck="false"') && indexHtml97.includes('autocapitalize="none"'), 'Login email input must declare modern autofill and identifier attributes');
+    assert.ok(indexHtml97.includes('id="forgot-code"') && indexHtml97.includes('inputmode="numeric"'), 'Reset code input must declare numeric inputmode');
+
+    // 3. showAuthMode & togglePassVis accessibility state updates
+    const origGetEl97 = global.document.getElementById;
+    const authClasses97 = new Set(['card', 'stripe-bg', 'auth-shell-card']);
+    const mockAuthCard97 = {
+      classList: {
+        toggle(cls, force) { if (force) authClasses97.add(cls); else authClasses97.delete(cls); },
+        contains(cls) { return authClasses97.has(cls); }
+      }
+    };
+    const mockBtnLogin97 = { classList: { toggle() {} }, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } };
+    const mockBtnReg97 = { classList: { toggle() {} }, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } };
+    const mockLoginForm97 = { style: { display: 'block' } };
+    const mockRegForm97 = { style: { display: 'none' } };
+    const mockForgotForm97 = { style: { display: 'none' } };
+    const mockPassInp97 = { type: 'password' };
+    const mockPassBtn97 = { innerHTML: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } };
+    global.document.getElementById = id => ({
+      'm-auth': mockAuthCard97,
+      'btn-login': mockBtnLogin97,
+      'btn-register': mockBtnReg97,
+      'auth-login': mockLoginForm97,
+      'auth-register': mockRegForm97,
+      'auth-forgot': mockForgotForm97,
+      'login-pass': mockPassInp97,
+      'login-eye': mockPassBtn97
+    })[id] || null;
+
+    try {
+      memberMod97.showAuthMode('register');
+      assert.strictEqual(authClasses97.has('auth-mode-register'), true, 'showAuthMode(register) must toggle auth-mode-register class');
+      assert.strictEqual(mockBtnReg97.attrs['aria-pressed'], 'true');
+      assert.strictEqual(mockBtnLogin97.attrs['aria-pressed'], 'false');
+
+      memberMod97.showAuthMode('login');
+      assert.strictEqual(authClasses97.has('auth-mode-register'), false, 'showAuthMode(login) must clear auth-mode-register class');
+      assert.strictEqual(mockBtnLogin97.attrs['aria-pressed'], 'true');
+
+      memberMod97.togglePassVis('login-pass', 'login-eye');
+      assert.strictEqual(mockPassInp97.type, 'text');
+      assert.strictEqual(mockPassBtn97.attrs['aria-pressed'], 'true', 'togglePassVis must set aria-pressed=true when revealing password');
+      memberMod97.togglePassVis('login-pass', 'login-eye');
+      assert.strictEqual(mockPassInp97.type, 'password');
+      assert.strictEqual(mockPassBtn97.attrs['aria-pressed'], 'false', 'togglePassVis must set aria-pressed=false when masking password');
+    } finally {
+      global.document.getElementById = origGetEl97;
+    }
+
+    // 4. Strict 385 unique DOM IDs invariant
+    const uniqueIds97 = Array.from(new Set([...indexHtml97.matchAll(/id=["']([^"']+)["']/g)].map(m => m[1])));
+    assert.strictEqual(uniqueIds97.length, 385, `Strict 385 unique DOM IDs invariant preserved (found ${uniqueIds97.length})`);
+    console.log('  ✔ Desktop sidebar Ask Stedfast suppression, Login card UI/UX, and 385 unique DOM IDs verified');
+  }
+
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
   await new Promise(resolve => setTimeout(resolve, 50));
   process.exit(0);
