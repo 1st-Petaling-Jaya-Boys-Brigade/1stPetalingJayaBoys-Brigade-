@@ -5288,19 +5288,49 @@ async function getJson(url) {
     const uniformReceiptsDiag = await sendCmd('Runtime.evaluate', {
       expression: `(async () => {
         const origGet = supa.get;
-        const origGetAdminToken = window.getAdminSessionToken;
-        const origHasAccess = window.hasAdminModuleAccess;
+        const origRpc = supa.rpc;
+        const origGetSnapshot = supa.getConfigSnapshot;
         const origViewProof = window.PortalWebPush ? window.PortalWebPush.viewPaymentProof : null;
         const origFetch = window.fetch;
-        const adminOverlay = document.getElementById('admin-overlay');
-        const adminPanel = document.getElementById('admin-panel');
-        const adminLogin = document.getElementById('admin-login');
-        const origOverlayDisplay = adminOverlay ? adminOverlay.style.display : '';
-        const origPanelDisplay = adminPanel ? adminPanel.style.display : '';
-        const origLoginDisplay = adminLogin ? adminLogin.style.display : '';
+        const origEmail = sessionGet('email');
+        const origIc = sessionGet('ic');
+        const origRole = sessionGet('role');
+        const origRoles = JSON.parse(JSON.stringify(RBAC._getRolesConfig()));
+        const origSignIn = sessionStorage.getItem('bb_admin_member_signin');
+        const testAdmin = 'uniform.orders.test@pjbb.org';
         try {
-          window.getAdminSessionToken = () => 'test-admin-receipt-token';
-          window.hasAdminModuleAccess = () => true;
+          sessionSet('email', testAdmin, { localOnly: true });
+          sessionSet('ic', testAdmin, { localOnly: true });
+          sessionSet('role', 'super_admin', { localOnly: true });
+          sessionStorage.setItem('bb_admin_member_signin', JSON.stringify({
+            email: testAdmin,
+            token: 'd'.repeat(64),
+            expires_at: new Date(Date.now() + 3600000).toISOString()
+          }));
+          RBAC.applyRolesConfigUpdate({
+            super_admins: ['jeshuakoh2008@gmail.com', testAdmin],
+            admins: {}
+          }, { fromSelf: true });
+          supa.rpc = async (route) => {
+            if (route === 'rpc_open_member_admin_session') {
+              return {
+                valid: true,
+                token: 'test-admin-receipt-token',
+                officer_email: testAdmin,
+                scope: 'super_admin',
+                permissions: ['members', 'orders', 'uniform', 'roles'],
+                expires_at: new Date(Date.now() + 3600000).toISOString()
+              };
+            }
+            if (route === 'rpc_verify_admin_session') {
+              return { valid: true, officer_email: testAdmin, scope: 'super_admin', permissions: ['members', 'orders', 'uniform', 'roles'] };
+            }
+            return origRpc ? origRpc.call(supa, route) : { success: true };
+          };
+          supa.getConfigSnapshot = (key) => {
+            if (key === 'bb_orders_sheets_url' || key === 'bb_orders_receipts_drive_folder') return null;
+            return origGetSnapshot ? origGetSnapshot.call(supa, key) : null;
+          };
           const imgDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
           const pdfBytes = new TextEncoder().encode('%PDF-1.4\\n1 0 obj<<>>endobj\\ntrailer<<>>\\n%%EOF');
           const fakePdfUrl = 'https://example.invalid/signed/BB-PDF0000000000002.pdf?download=payment-proof.pdf';
@@ -5362,17 +5392,19 @@ async function getJson(url) {
                 }
               ];
             }
+            if (path.includes('bb_admin_roles')) {
+              return [{ value: JSON.stringify(RBAC._getRolesConfig()) }];
+            }
             if (path.includes('bb_orders_sheets_url') || path.includes('bb_orders_receipts_drive_folder')) {
               return [];
             }
             return origGet.call(supa, path, opts);
           };
 
-          if (adminOverlay) adminOverlay.style.display = 'block';
-          if (adminLogin) adminLogin.style.display = 'none';
-          if (adminPanel) adminPanel.style.display = 'block';
+          if (typeof openAdmin === 'function') await openAdmin();
           if (typeof switchAdminSection === 'function') switchAdminSection('uniform');
           if (typeof switchUniformSubtab === 'function') switchUniformSubtab('orders');
+          if (typeof checkUniformOrdersSyncHealth === 'function') await checkUniformOrdersSyncHealth(true);
           await renderAdminOrders(true);
           await new Promise(r => setTimeout(r, 250));
 
@@ -5383,6 +5415,27 @@ async function getJson(url) {
           const tableImgHydrated = Boolean(imgBtnTable && imgBtnTable.querySelector('img.uniform-proof-thumb-img'));
           const tablePdfHydrated = Boolean(pdfBtnTable && pdfBtnTable.querySelector('.uniform-proof-thumb-frame.is-pdf'));
           const tableEmptyDash = listEl.querySelectorAll('.uniform-proof-empty').length === 1;
+          const tableNoEnlargeText = Boolean(imgBtnTable && pdfBtnTable && !imgBtnTable.textContent.includes('Enlarge') && !pdfBtnTable.textContent.includes('Enlarge'));
+
+          // Verify Settings top-right warning badge is visible when Sheets/Drive config is missing
+          const settingsBtn = listEl.querySelector('[data-config-sheets]');
+          const warnBadge = settingsBtn ? settingsBtn.querySelector('[data-settings-warn-badge]') : null;
+          const btnRect = settingsBtn ? settingsBtn.getBoundingClientRect() : null;
+          const badgeRect = warnBadge ? warnBadge.getBoundingClientRect() : null;
+          const warnDebug = {
+            hasBtn: Boolean(settingsBtn),
+            hasBadge: Boolean(warnBadge),
+            badgeHidden: warnBadge ? warnBadge.hidden : null,
+            btnRect: btnRect ? { top: btnRect.top, right: btnRect.right, width: btnRect.width, height: btnRect.height } : null,
+            badgeRect: badgeRect ? { top: badgeRect.top, right: badgeRect.right, width: badgeRect.width, height: badgeRect.height } : null,
+            btnStylePos: settingsBtn ? getComputedStyle(settingsBtn).position : null,
+            badgeStyleDisp: warnBadge ? getComputedStyle(warnBadge).display : null
+          };
+          const warnBadgeVisibleOnTopRight = Boolean(
+            warnBadge && !warnBadge.hidden && badgeRect && btnRect &&
+            badgeRect.width >= 14 && badgeRect.height >= 14 &&
+            badgeRect.right >= btnRect.right - 2 && badgeRect.top <= btnRect.top + 4
+          );
 
           // Click Image receipt to verify enlarged modal + zoom controls
           imgBtnTable.click();
@@ -5409,6 +5462,7 @@ async function getJson(url) {
           await new Promise(r => setTimeout(r, 200));
           const cardProofBtns = listEl.querySelectorAll('.uniform-proof-card-btn');
           const cardsHaveTwoProofs = cardProofBtns.length === 2;
+          const cardsNoEnlargeText = Array.from(cardProofBtns).every(btn => !btn.textContent.includes('Enlarge'));
           const cardsImgThumb = Boolean(listEl.querySelector('[data-uniform-proof="BB-IMG0000000000001"] img.uniform-proof-thumb-img'));
           const cardsPdfTile = Boolean(listEl.querySelector('[data-uniform-proof="BB-PDF0000000000002"] .uniform-proof-thumb-frame.is-pdf'));
           const cardsOverflow = Math.max(0, document.documentElement.scrollWidth - window.innerWidth);
@@ -5418,8 +5472,10 @@ async function getJson(url) {
           if (tableBtn) tableBtn.click();
           await new Promise(r => setTimeout(r, 120));
 
-          // Open Settings modal and verify Private Google Drive Folder Link input & live script update
+          // Open Settings modal and verify live Connection Diagnostics + Private Google Drive Folder Link input
           await configureAdminOrdersSheetUrl();
+          await new Promise(r => setTimeout(r, 120));
+          const hasDiagnosticsCard = Boolean(document.getElementById('admin-orders-sync-health-card') && document.getElementById('admin-orders-test-connection-btn'));
           const driveInput = document.getElementById('admin-orders-drive-folder-input');
           const scriptBox = document.getElementById('admin-orders-script-code-box');
           let driveLiveUpdated = false;
@@ -5433,21 +5489,32 @@ async function getJson(url) {
           const closeSettingsBtn = document.getElementById('admin-orders-close-modal-btn');
           if (closeSettingsBtn) closeSettingsBtn.click();
 
+          // Verify warning badge clears when health check reports healthy
+          applyUniformSettingsWarningBadge(listEl, { healthy: true, severity: 'ok', driveFolderName: 'Uniform Order Proof of Payment' });
+          const warnBadgeAfterHealthy = listEl.querySelector('[data-settings-warn-badge]');
+          const warnBadgeClearsWhenHealthy = Boolean(warnBadgeAfterHealthy && warnBadgeAfterHealthy.hidden === true);
+
           return {
             hasReceiptHeader, tableImgHydrated, tablePdfHydrated, tableEmptyDash,
+            tableNoEnlargeText, warnBadgeVisibleOnTopRight, warnDebug,
             imgModalOpen, zoomedTo150, pdfModalOpen,
-            cardsHaveTwoProofs, cardsImgThumb, cardsPdfTile, cardsOverflow,
-            driveLiveUpdated
+            cardsHaveTwoProofs, cardsNoEnlargeText, cardsImgThumb, cardsPdfTile, cardsOverflow,
+            hasDiagnosticsCard, driveLiveUpdated, warnBadgeClearsWhenHealthy
           };
         } finally {
+          if (typeof closeAdmin === 'function') closeAdmin();
           supa.get = origGet;
-          window.getAdminSessionToken = origGetAdminToken;
-          window.hasAdminModuleAccess = origHasAccess;
+          supa.rpc = origRpc;
+          supa.getConfigSnapshot = origGetSnapshot;
           if (window.PortalWebPush && origViewProof) window.PortalWebPush.viewPaymentProof = origViewProof;
           window.fetch = origFetch;
-          if (adminOverlay) adminOverlay.style.display = origOverlayDisplay;
-          if (adminPanel) adminPanel.style.display = origPanelDisplay;
-          if (adminLogin) adminLogin.style.display = origLoginDisplay;
+          RBAC.applyRolesConfigUpdate(origRoles, { fromSelf: true });
+          if (origSignIn !== null) sessionStorage.setItem('bb_admin_member_signin', origSignIn);
+          else sessionStorage.removeItem('bb_admin_member_signin');
+          if (origEmail) sessionSet('email', origEmail, { localOnly: true });
+          if (origIc) sessionSet('ic', origIc, { localOnly: true });
+          if (origRole) sessionSet('role', origRole, { localOnly: true });
+          if (typeof syncSidebarAccess === 'function') syncSidebarAccess();
         }
       })()`,
       awaitPromise: true,
@@ -5458,15 +5525,20 @@ async function getJson(url) {
     assert.strictEqual(uRec.tableImgHydrated, true, 'Image receipt must render thumbnail preview in Table View');
     assert.strictEqual(uRec.tablePdfHydrated, true, 'PDF receipt must render PDF preview tile in Table View');
     assert.strictEqual(uRec.tableEmptyDash, true, 'Orders without proof must show clean dash in Receipt column');
+    assert.strictEqual(uRec.tableNoEnlargeText, true, 'Table View receipt buttons must omit the word Enlarge');
+    assert.strictEqual(uRec.warnBadgeVisibleOnTopRight, true, 'Settings button must display top-right warning badge when Sheets/Drive sync is unconfigured or failing: ' + JSON.stringify(uRec.warnDebug));
     assert.strictEqual(uRec.imgModalOpen, true, 'Clicking image receipt must open enlarged native modal lightbox with closedby=any');
     assert.strictEqual(uRec.zoomedTo150, true, 'Enlarged image receipt modal zoom controls must scale image to 150%');
     assert.strictEqual(uRec.pdfModalOpen, true, 'Clicking PDF receipt must open enlarged inline PDF viewer modal');
     assert.strictEqual(uRec.cardsHaveTwoProofs, true, 'Uniform Orders Cards View must render receipt preview strip on orders with proof');
+    assert.strictEqual(uRec.cardsNoEnlargeText, true, 'Cards View receipt buttons must omit the word Enlarge');
     assert.strictEqual(uRec.cardsImgThumb, true, 'Image receipt must render thumbnail preview in Cards View');
     assert.strictEqual(uRec.cardsPdfTile, true, 'PDF receipt must render PDF preview tile in Cards View');
     assert.strictEqual(uRec.cardsOverflow, 0, 'Uniform Orders Cards View with receipt previews must have 0px horizontal overflow');
+    assert.strictEqual(uRec.hasDiagnosticsCard, true, 'Settings modal must include Live Connection Diagnostics panel and Test Connection button');
     assert.strictEqual(uRec.driveLiveUpdated, true, 'Uniform Orders Settings must accept private Google Drive folder link and live-update Apps Script');
-    console.log('  ✔ Uniform Orders Table & Cards receipt previews, enlarged Image/PDF viewer modal, and Private Drive folder Settings verified');
+    assert.strictEqual(uRec.warnBadgeClearsWhenHealthy, true, 'Settings top-right warning badge must hide when Sheets and Drive sync are healthy');
+    console.log('  ✔ Uniform Orders receipt previews (without Enlarge), Settings top-right warning badge, and live Sheets/Drive diagnostics verified');
 
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 

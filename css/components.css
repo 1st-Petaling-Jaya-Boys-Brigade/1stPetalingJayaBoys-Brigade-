@@ -10854,6 +10854,79 @@ body.light-theme .tb-mention-pill,
   margin-inline-end: 6px;
 }
 
+/* ── Admin Uniform Orders: Settings Sync Warning Badge ── */
+.admin-orders-settings-btn {
+  position: relative;
+  overflow: visible !important;
+}
+
+.orders-settings-warn-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #ffffff;
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.45);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.orders-settings-warn-badge.is-error {
+  background: #ef4444;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
+}
+
+.orders-settings-warn-badge[hidden] {
+  display: none !important;
+}
+
+.orders-settings-warn-badge svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+.orders-sync-health-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card-subtle);
+  font-size: 11.5px;
+}
+
+.orders-sync-health-card.is-warn {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.orders-sync-health-card.is-error {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.orders-sync-health-card.is-ok {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.orders-sync-health-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
 /* ── Admin Uniform Orders: Receipt Previews (Table & Cards View) ── */
 .uniform-proof-empty {
   color: var(--text-muted);
