@@ -2244,6 +2244,7 @@
 
     if (section === 'gallery') {
       if (typeof renderGallery === 'function') renderGallery();
+      if (typeof global.loadGallery === 'function') global.loadGallery();
     }
 
     if (section === 'attendance') {

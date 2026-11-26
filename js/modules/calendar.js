@@ -2185,6 +2185,7 @@
     _upcomingEventIndex = getClosestUpcomingEventIndex(allEvents);
     renderCalendarWidget();
     renderCalendarTab('upcoming');
+    if (typeof sessionGet !== 'function' || !(sessionGet('ic') || sessionGet('email'))) return;
     await loadCalendarEvents();
     loadMemberEvents();
     fetchRemoteMemberEvents().catch(function() {});

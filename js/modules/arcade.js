@@ -2262,12 +2262,8 @@
       }
     });
 
-    // Auto-update header and sync game states on DOM load
     document.addEventListener('DOMContentLoaded', function() {
       updateArcadeHeaderBadge();
-      fetchRemoteArcadeStats();
-      fetchRemoteWordleState();
-      fetchRemoteTriviaState();
     });
   }
 
