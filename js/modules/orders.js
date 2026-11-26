@@ -1996,7 +1996,7 @@ async function submitOrder() {
         if (!Array.isArray(saved) || !saved.some(function(row) { return row.order_number === orderRecord.order_number; })) {
           throw new Error('Order could not be confirmed');
         }
-        syncOrderToGoogleSheetsArchive(orderRecord);
+        syncOrderToGoogleSheetsArchive(orderRecord, proof && proof.blob ? proof.blob : null);
       }
       _pendingUniformOrder = null;
       _pendingUniformProof = null;
@@ -2151,44 +2151,380 @@ function renderUniformOrderInline() {
   renderOrderItems();
 }
 
-function paymentProofButton(order) {
-  if (order.has_payment_proof !== true) return '';
-  return '<button type="button" class="portal-btn portal-btn-secondary uniform-proof-view" data-uniform-proof="' +
-    escapeHtml(order.order_number) + '">View proof</button>';
+var _uniformProofPreviewCache = new Map();
+var UNIFORM_PROOF_CACHE_TTL_MS = 95000;
+
+function getCachedUniformProof(orderNumber, token) {
+  if (!orderNumber || !token) return null;
+  var entry = _uniformProofPreviewCache.get(orderNumber);
+  if (!entry) return null;
+  if (entry.token !== token || entry.expiresAt <= Date.now()) {
+    _uniformProofPreviewCache.delete(orderNumber);
+    return null;
+  }
+  return entry;
+}
+
+async function fetchUniformProofSigned(orderNumber, forceFresh) {
+  if (!orderNumber || typeof window === 'undefined' || !window.PortalWebPush || typeof window.PortalWebPush.viewPaymentProof !== 'function') {
+    return null;
+  }
+  var token = window.getAdminSessionToken?.();
+  if (!token) return null;
+  if (!forceFresh) {
+    var cached = getCachedUniformProof(orderNumber, token);
+    if (cached) return { url: cached.url, contentType: cached.contentType };
+  }
+  var result = await window.PortalWebPush.viewPaymentProof(orderNumber, token);
+  if (result && typeof result.url === 'string') {
+    _uniformProofPreviewCache.set(orderNumber, {
+      url: result.url,
+      contentType: result.contentType || 'image/jpeg',
+      token: token,
+      expiresAt: Date.now() + UNIFORM_PROOF_CACHE_TTL_MS
+    });
+    return result;
+  }
+  return null;
+}
+
+function getReceiptIconSvg() {
+  return '<svg class="ui-icon-sm" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+}
+
+function getZoomOverlayIconSvg() {
+  return '<svg class="ui-icon-xs" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
+}
+
+function paymentProofButton(order, variant, totalFormatted) {
+  var mode = variant === 'card' ? 'card' : 'table';
+  if (!order || order.has_payment_proof !== true) {
+    return mode === 'table' ? '<span class="uniform-proof-empty">—</span>' : '';
+  }
+  var orderNum = escapeHtml(order.order_number || '');
+  var memberName = escapeHtml(order.member_name || order.ic || '');
+  var totalStr = escapeHtml(totalFormatted || '');
+  var cached = (typeof window !== 'undefined' && typeof window.getAdminSessionToken === 'function')
+    ? getCachedUniformProof(order.order_number, window.getAdminSessionToken())
+    : null;
+  var isPdf = cached && cached.contentType === 'application/pdf';
+  var isImg = cached && !isPdf && cached.url;
+  var frameClass = 'uniform-proof-thumb-frame' + (isPdf ? ' is-pdf' : '');
+  var frameInner = isImg
+    ? '<img class="uniform-proof-thumb-img" src="' + escapeHtml(cached.url) + '" alt="Payment receipt for ' + orderNum + '" referrerpolicy="no-referrer" loading="lazy">' +
+      '<span class="uniform-proof-thumb-zoom">' + getZoomOverlayIconSvg() + '</span>'
+    : (isPdf
+      ? getReceiptIconSvg() + '<span class="uniform-proof-pdf-tag">PDF</span>'
+      : getReceiptIconSvg());
+  var typeLabel = isPdf ? 'PDF' : (isImg ? 'Image' : 'Receipt');
+
+  if (mode === 'card') {
+    return (
+      '<button type="button" class="uniform-proof-view uniform-proof-card-btn" data-uniform-proof="' + orderNum + '"' +
+      ' data-proof-member="' + memberName + '" data-proof-total="' + totalStr + '" data-proof-variant="card"' +
+      ' aria-label="View proof of payment for ' + orderNum + '">' +
+        '<span class="' + frameClass + '" data-proof-preview-slot>' + frameInner + '</span>' +
+        '<span class="uniform-proof-card-info">' +
+          '<span class="uniform-proof-card-title-row">' +
+            '<span class="uniform-proof-card-title">Proof of Payment</span>' +
+            '<span class="uniform-proof-type-pill' + (isPdf ? ' is-pdf' : '') + '" data-proof-type-label>' + typeLabel + '</span>' +
+          '</span>' +
+          '<span class="uniform-proof-card-sub" data-proof-hint>' + (isPdf ? 'Click to open enlarged PDF viewer' : 'Click to enlarge and inspect receipt') + '</span>' +
+        '</span>' +
+        '<span class="uniform-proof-card-expand">' + getZoomOverlayIconSvg() + '<span>Enlarge</span></span>' +
+      '</button>'
+    );
+  }
+
+  return (
+    '<button type="button" class="uniform-proof-view uniform-proof-thumb-btn" data-uniform-proof="' + orderNum + '"' +
+    ' data-proof-member="' + memberName + '" data-proof-total="' + totalStr + '" data-proof-variant="table"' +
+    ' aria-label="View proof of payment for ' + orderNum + '">' +
+      '<span class="' + frameClass + '" data-proof-preview-slot>' + frameInner + '</span>' +
+      '<span class="uniform-proof-thumb-meta">' +
+        '<span class="uniform-proof-thumb-label" data-proof-type-label>' + typeLabel + '</span>' +
+        '<span class="uniform-proof-thumb-hint" data-proof-hint>' + (isPdf ? 'View PDF' : 'Enlarge') + '</span>' +
+      '</span>' +
+    '</button>'
+  );
+}
+
+function applyProofPreviewToButton(button, proofResult) {
+  if (!button || !proofResult || !proofResult.url) return;
+  var slot = button.querySelector('[data-proof-preview-slot]');
+  var typeLabelEl = button.querySelector('[data-proof-type-label]');
+  var hintEl = button.querySelector('[data-proof-hint]');
+  var orderNum = button.getAttribute('data-uniform-proof') || '';
+  var variant = button.getAttribute('data-proof-variant') || 'table';
+  var isPdf = proofResult.contentType === 'application/pdf';
+  button.setAttribute('data-proof-type', isPdf ? 'pdf' : 'image');
+
+  if (slot) {
+    slot.classList.toggle('is-pdf', isPdf);
+    if (isPdf) {
+      slot.innerHTML = getReceiptIconSvg() + '<span class="uniform-proof-pdf-tag">PDF</span>';
+    } else {
+      slot.innerHTML =
+        '<img class="uniform-proof-thumb-img" alt="Payment receipt for ' + escapeHtml(orderNum) + '" referrerpolicy="no-referrer" loading="lazy">' +
+        '<span class="uniform-proof-thumb-zoom">' + getZoomOverlayIconSvg() + '</span>';
+      var img = slot.querySelector('img');
+      if (img) {
+        img.src = proofResult.url;
+        img.addEventListener('error', function() {
+          slot.innerHTML = getReceiptIconSvg();
+        }, { once: true });
+      }
+    }
+  }
+  if (typeLabelEl) {
+    typeLabelEl.textContent = isPdf ? 'PDF' : 'Image';
+    if (typeLabelEl.classList) typeLabelEl.classList.toggle('is-pdf', isPdf);
+  }
+  if (hintEl) {
+    if (variant === 'card') {
+      hintEl.textContent = isPdf ? 'Click to open enlarged PDF viewer' : 'Click to enlarge and inspect receipt';
+    } else {
+      hintEl.textContent = isPdf ? 'View PDF' : 'Enlarge';
+    }
+  }
+}
+
+function hydrateUniformProofPreviews(container) {
+  if (!container || typeof window === 'undefined' || !window.PortalWebPush || typeof window.PortalWebPush.viewPaymentProof !== 'function') {
+    return;
+  }
+  var token = window.getAdminSessionToken?.();
+  if (!token) return;
+  var buttons = Array.from(container.querySelectorAll('[data-uniform-proof]'));
+  if (!buttons.length) return;
+
+  var pendingQueue = [];
+  var activeCount = 0;
+  var MAX_CONCURRENT = 3;
+  var queuedButtons = new Set();
+
+  function drainQueue() {
+    while (activeCount < MAX_CONCURRENT && pendingQueue.length > 0) {
+      var nextBtn = pendingQueue.shift();
+      if (!nextBtn || !nextBtn.isConnected) continue;
+      if (window.getAdminSessionToken?.() !== token) return;
+      var orderNum = nextBtn.getAttribute('data-uniform-proof');
+      if (!orderNum) continue;
+      activeCount++;
+      fetchUniformProofSigned(orderNum, false)
+        .then(function(res) {
+          if (res && nextBtn.isConnected && window.getAdminSessionToken?.() === token) {
+            applyProofPreviewToButton(nextBtn, res);
+          }
+        })
+        .catch(function() {})
+        .finally(function() {
+          activeCount--;
+          drainQueue();
+        });
+    }
+  }
+
+  function enqueue(btn) {
+    if (!btn || queuedButtons.has(btn)) return;
+    queuedButtons.add(btn);
+    var orderNum = btn.getAttribute('data-uniform-proof');
+    var cached = getCachedUniformProof(orderNum, token);
+    if (cached) {
+      applyProofPreviewToButton(btn, cached);
+      return;
+    }
+    pendingQueue.push(btn);
+    drainQueue();
+  }
+
+  if (typeof IntersectionObserver === 'function' && buttons.length > 6) {
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          io.unobserve(entry.target);
+          enqueue(entry.target);
+        }
+      });
+    }, { rootMargin: '120px' });
+    buttons.forEach(function(btn, idx) {
+      var cached = getCachedUniformProof(btn.getAttribute('data-uniform-proof'), token);
+      if (cached) applyProofPreviewToButton(btn, cached);
+      else if (idx < 6) enqueue(btn);
+      else io.observe(btn);
+    });
+  } else {
+    buttons.forEach(enqueue);
+  }
+}
+
+function attachDialogBackdropFallback(dialog) {
+  if (!dialog || typeof HTMLDialogElement === 'undefined' || ('closedBy' in HTMLDialogElement.prototype)) return;
+  var isOutside = function(e) {
+    var r = dialog.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
+  var pressedOutside = false;
+  dialog.addEventListener('pointerdown', function(e) { pressedOutside = isOutside(e); });
+  dialog.addEventListener('pointerup', function(e) {
+    if (pressedOutside && isOutside(e)) dialog.close();
+  });
 }
 
 async function viewUniformPaymentProof(button) {
+  var loadedResult = null;
   try {
     await withSmartButtonLock(button, async function() {
       var order = button.getAttribute('data-uniform-proof');
+      var memberName = button.getAttribute('data-proof-member') || '';
+      var totalLabel = button.getAttribute('data-proof-total') || '';
       var token = window.getAdminSessionToken?.();
-      var result = await window.PortalWebPush.viewPaymentProof(order, token);
-      if (window.getAdminSessionToken?.() !== token || !button.isConnected) return;
-      if (result.contentType === 'application/pdf') {
-        var link = document.createElement('a');
-        link.href = result.url;
-        link.download = 'payment-proof.pdf';
-        link.referrerPolicy = 'no-referrer';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        return;
+      var result = await fetchUniformProofSigned(order, false);
+      if (!result || !result.url) {
+        result = await window.PortalWebPush.viewPaymentProof(order, token);
       }
+      if (window.getAdminSessionToken?.() !== token || !button.isConnected) return;
+      loadedResult = result;
+
+      var isPdf = result.contentType === 'application/pdf';
+      var safeFileName = String(order || 'payment-proof').replace(/[^A-Za-z0-9_-]/g, '_') + (isPdf ? '_receipt.pdf' : '_receipt.jpg');
+      var pdfBlobUrl = null;
+      var revokeDelayTimer = null;
+
+      if (isPdf && typeof fetch === 'function' && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+        try {
+          var pdfResp = await fetch(result.url, { referrerPolicy: 'no-referrer' });
+          if (pdfResp && pdfResp.ok) {
+            var pdfBuf = await pdfResp.arrayBuffer();
+            pdfBlobUrl = URL.createObjectURL(new Blob([pdfBuf], { type: 'application/pdf' }));
+          }
+        } catch (_) {
+          pdfBlobUrl = null;
+        }
+      }
+
+      var openUrl = pdfBlobUrl || result.url;
+      var subParts = [];
+      if (memberName) subParts.push(memberName);
+      if (totalLabel) subParts.push(totalLabel);
+      subParts.push(isPdf ? 'PDF Receipt' : 'Image Receipt');
+
       var dialog = document.createElement('dialog');
       dialog.className = 'uniform-proof-dialog';
-      dialog.setAttribute('aria-label', 'Payment screenshot');
-      dialog.innerHTML = '<form method="dialog"><button type="submit" class="portal-btn portal-btn-secondary">Close</button></form>' +
-        '<img alt="Payment screenshot" referrerpolicy="no-referrer">';
-      var image = dialog.querySelector('img');
-      image.src = result.url;
-      image.addEventListener('error', function() {
-        dialog.close();
-        showToast('The payment screenshot could not be opened.', 'error');
+      dialog.setAttribute('closedby', 'any');
+      dialog.setAttribute('aria-labelledby', 'uniform-proof-dialog-title');
+
+      var zoomControlsHtml = isPdf
+        ? ''
+        : '<button type="button" class="uniform-proof-tool-btn" data-proof-zoom-out aria-label="Zoom out">−</button>' +
+          '<span class="uniform-proof-zoom-readout" data-proof-zoom-label>100%</span>' +
+          '<button type="button" class="uniform-proof-tool-btn" data-proof-zoom-in aria-label="Zoom in">+</button>' +
+          '<button type="button" class="uniform-proof-tool-btn" data-proof-zoom-reset aria-label="Reset zoom">Fit</button>';
+
+      dialog.innerHTML =
+        '<div class="uniform-proof-dialog-header">' +
+          '<div class="uniform-proof-dialog-heading">' +
+            '<h1 id="uniform-proof-dialog-title">Proof of Payment · ' + escapeHtml(order || '') + '</h1>' +
+            '<div class="uniform-proof-dialog-sub">' + escapeHtml(subParts.join(' · ')) + '</div>' +
+          '</div>' +
+          '<div class="uniform-proof-dialog-actions">' +
+            zoomControlsHtml +
+            '<a class="uniform-proof-tool-btn" data-proof-open-tab target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">Open Tab</a>' +
+            '<a class="uniform-proof-tool-btn" data-proof-download referrerpolicy="no-referrer">Download</a>' +
+            '<form method="dialog"><button type="submit" class="portal-btn portal-btn-secondary" autofocus>Close</button></form>' +
+          '</div>' +
+        '</div>' +
+        '<div class="uniform-proof-dialog-body">' +
+          (isPdf
+            ? (pdfBlobUrl
+              ? '<iframe class="uniform-proof-pdf-frame" title="Payment receipt PDF for ' + escapeHtml(order || '') + '"></iframe>'
+              : '<div class="uniform-proof-pdf-fallback">' +
+                  getReceiptIconSvg() +
+                  '<div><strong>PDF Receipt Ready</strong></div>' +
+                  '<div>Click <strong>Download</strong> or <strong>Open Tab</strong> above to view this PDF receipt in full screen.</div>' +
+                '</div>')
+            : '<div class="uniform-proof-image-stage"><img class="uniform-proof-full-img" alt="Payment screenshot for ' + escapeHtml(order || '') + '" referrerpolicy="no-referrer"></div>') +
+        '</div>' +
+        '<div class="uniform-proof-dialog-footer">' +
+          '<span>' + (isPdf ? 'Scroll or use the PDF toolbar to zoom and inspect transaction details.' : 'Click image or use + / − controls to zoom in on transaction details.') + '</span>' +
+          '<span>Press Esc or click outside to close</span>' +
+        '</div>';
+
+      var openTabLink = dialog.querySelector('[data-proof-open-tab]');
+      if (openTabLink) {
+        openTabLink.href = openUrl;
+        if (pdfBlobUrl) {
+          openTabLink.addEventListener('click', function() {
+            if (revokeDelayTimer) clearTimeout(revokeDelayTimer);
+            revokeDelayTimer = setTimeout(function() {
+              try { URL.revokeObjectURL(pdfBlobUrl); } catch (_) {}
+              pdfBlobUrl = null;
+            }, 60000);
+          });
+        }
+      }
+      var dlLink = dialog.querySelector('[data-proof-download]');
+      if (dlLink) {
+        dlLink.href = pdfBlobUrl || result.url;
+        dlLink.download = safeFileName;
+      }
+
+      if (isPdf) {
+        var iframe = dialog.querySelector('.uniform-proof-pdf-frame');
+        if (iframe && pdfBlobUrl) {
+          iframe.src = pdfBlobUrl;
+        }
+      } else {
+        var image = dialog.querySelector('.uniform-proof-full-img');
+        var zoomLabel = dialog.querySelector('[data-proof-zoom-label]');
+        var zoomScale = 100;
+        var applyZoom = function(nextZoom) {
+          zoomScale = Math.max(100, Math.min(300, nextZoom));
+          if (zoomLabel) zoomLabel.textContent = zoomScale + '%';
+          if (image) {
+            if (zoomScale === 100) {
+              image.classList.remove('is-zoomed');
+              image.style.width = '';
+            } else {
+              image.classList.add('is-zoomed');
+              image.style.width = zoomScale + '%';
+            }
+          }
+        };
+        if (image) {
+          image.src = result.url;
+          image.addEventListener('click', function() {
+            applyZoom(zoomScale > 100 ? 100 : 200);
+          });
+          image.addEventListener('error', function() {
+            _uniformProofPreviewCache.delete(order);
+            dialog.close();
+            showToast('The payment screenshot could not be opened.', 'error');
+          }, { once: true });
+        }
+        var zIn = dialog.querySelector('[data-proof-zoom-in]');
+        var zOut = dialog.querySelector('[data-proof-zoom-out]');
+        var zReset = dialog.querySelector('[data-proof-zoom-reset]');
+        if (zIn) zIn.addEventListener('click', function() { applyZoom(zoomScale + 50); });
+        if (zOut) zOut.addEventListener('click', function() { applyZoom(zoomScale - 50); });
+        if (zReset) zReset.addEventListener('click', function() { applyZoom(100); });
+      }
+
+      attachDialogBackdropFallback(dialog);
+      dialog.addEventListener('close', function() {
+        dialog.returnValue = '';
+        if (pdfBlobUrl && !revokeDelayTimer) {
+          try { URL.revokeObjectURL(pdfBlobUrl); } catch (_) {}
+          pdfBlobUrl = null;
+        }
+        dialog.remove();
       }, { once: true });
-      dialog.addEventListener('close', function() { dialog.remove(); }, { once: true });
       document.body.appendChild(dialog);
       dialog.showModal();
     }, { loadingText: 'Opening…' });
+    if (loadedResult && button && button.isConnected) {
+      applyProofPreviewToButton(button, loadedResult);
+    }
   } catch (_) {
     showToast('The proof of payment could not be opened. Check your admin session and try again.', 'error');
   }
@@ -2254,6 +2590,8 @@ var _adminOrdersViewMode = 'table';
 var _adminOrdersMonthFilter = '';
 var _cachedAdminOrdersList = [];
 var _ordersSheetsArchiveUrl = '';
+var _ordersReceiptsDriveFolder = '';
+var ORDERS_RECEIPTS_DRIVE_FOLDER_KEY = 'bb_orders_receipts_drive_folder';
 
 function parseUniformOrderItems(value) {
   return (typeof value === 'string' ? JSON.parse(value || '{}') : value) || {};
@@ -2346,185 +2684,436 @@ async function saveOrdersSheetsArchiveUrl(url) {
 }
 
 /**
- * Production-ready Google Apps Script template for uniform orders synchronization
+ * Extracts a Google Drive folder ID from a Drive folder URL or bare folder ID.
+ * Supports /drive/folders/<id>, /drive/u/0/folders/<id>, /open?id=<id>, or bare IDs.
+ * @param {string} rawInput
+ * @returns {string}
  */
-var UNIFORM_ORDERS_APPS_SCRIPT_CODE = [
-  '/**',
-  ' * 1st Petaling Jaya Boys\' Brigade - Uniform Orders Google Sheets Sync & Archive',
-  ' *',
-  ' * Manages two sheets automatically:',
-  ' * 1. "Order Tracker": Live tracking sheet updated on status updates and cancellations.',
-  ' * 2. "Order Archives": Permanent record of every order placed (all fields except Status).',
-  ' *',
-  ' * Setup Instructions:',
-  ' * 1. In your Google Sheet, click Extensions > Apps Script.',
-  ' * 2. Delete any code in the editor and paste this entire script.',
-  ' * 3. Click "Deploy" > "New deployment".',
-  ' * 4. Select type: "Web app".',
-  ' * 5. Configuration:',
-  ' *    - Description: "1st PJ BB Uniform Orders Sync"',
-  ' *    - Execute as: "Me (your email)"',
-  ' *    - Who has access: "Anyone"',
-  ' * 6. Click "Deploy", grant permissions, and copy the Web App URL.',
-  ' * 7. In the portal Admin Console > Uniform Orders, click the Settings button and paste your Web App URL.',
-  ' */',
-  '',
-  'function doPost(e) {',
-  '  var lock = LockService.getScriptLock();',
-  '  try {',
-  '    lock.waitLock(30000);',
-  '    var raw = e && e.postData ? e.postData.contents : "";',
-  '    var data = JSON.parse(raw);',
-  '    var ss = SpreadsheetApp.getActiveSpreadsheet();',
-  '',
-  '    var trackerHeaders = [',
-  '      "Order Number", "Member Name", "Rank", "Squad", "Items Ordered", "Total Price (RM)", "Status", "Order Date", "Notes"',
-  '    ];',
-  '    var archiveHeaders = [',
-  '      "Order Number", "Member Name", "Rank", "Squad", "Items Ordered", "Total Price (RM)", "Order Date", "Notes"',
-  '    ];',
-  '',
-  '    var trackerSheet = getOrCreateSheet(ss, "Order Tracker", trackerHeaders);',
-  '    var archiveSheet = getOrCreateSheet(ss, "Order Archives", archiveHeaders);',
-  '',
-  '    var action = data.action || "archive_order";',
-  '',
-  '    if (action === "update_status" && data.orderNumber) {',
-  '      updateOrderStatusInTracker(trackerSheet, data.orderNumber, data.status || "CANCELLED");',
-  '    } else if (action === "archive_order" && data.order) {',
-  '      recordSingleOrder(trackerSheet, archiveSheet, data.order);',
-  '    } else if (action === "sync_all_orders" && Array.isArray(data.orders)) {',
-  '      data.orders.forEach(function(order) {',
-  '        recordSingleOrder(trackerSheet, archiveSheet, order);',
-  '      });',
-  '    }',
-  '',
-  '    return ContentService.createTextOutput(JSON.stringify({ status: "success", action: action }))',
-  '      .setMimeType(ContentService.MimeType.JSON);',
-  '  } catch (err) {',
-  '    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))',
-  '      .setMimeType(ContentService.MimeType.JSON);',
-  '  } finally {',
-  '    try { lock.releaseLock(); } catch (_) {}',
-  '  }',
-  '}',
-  '',
-  'function getOrCreateSheet(ss, name, headers) {',
-  '  var sheet = ss.getSheetByName(name);',
-  '  if (!sheet) {',
-  '    sheet = ss.insertSheet(name);',
-  '    sheet.appendRow(headers);',
-  '    var range = sheet.getRange(1, 1, 1, headers.length);',
-  '    range.setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");',
-  '    sheet.setFrozenRows(1);',
-  '  }',
-  '  return sheet;',
-  '}',
-  '',
-  'function formatItemsForSheet(rawItems) {',
-  '  if (!rawItems) return "";',
-  '  try {',
-  '    var items = typeof rawItems === "string" ? JSON.parse(rawItems) : rawItems;',
-  '    var list = [];',
-  '    for (var k in items) {',
-  '      var it = items[k];',
-  '      var name = it.name || k.split("__")[0];',
-  '      var qty = it.qty || 1;',
-  '      var sz = it.size ? " (" + it.size + ")" : "";',
-  '      list.push(name + " x" + qty + sz);',
-  '    }',
-  '    return list.join("; ");',
-  '  } catch (_) {',
-  '    return String(rawItems);',
-  '  }',
-  '}',
-  '',
-  'function formatPriceForSheet(order) {',
-  '  if (order.total_price !== undefined && order.total_price !== null) {',
-  '    return Number(order.total_price).toFixed(2);',
-  '  }',
-  '  var sum = 0;',
-  '  try {',
-  '    var items = typeof order.items === "string" ? JSON.parse(order.items) : (order.items || {});',
-  '    for (var k in items) {',
-  '      var it = items[k];',
-  '      var qty = Number(it.qty) || 1;',
-  '      var p = Number(it.price) || 0;',
-  '      sum += qty * p;',
-  '    }',
-  '  } catch (_) {}',
-  '  return sum.toFixed(2);',
-  '}',
-  '',
-  'function recordSingleOrder(trackerSheet, archiveSheet, order) {',
-  '  var orderNum = String(order.order_number || "").trim();',
-  '  if (!orderNum) return;',
-  '  var member = order.member_name || order.ic || "";',
-  '  var rank = order.rank || "";',
-  '  var squad = order.squad ? (order.squad + " Platoon") : "";',
-  '  var itemsStr = formatItemsForSheet(order.items);',
-  '  var priceStr = formatPriceForSheet(order);',
-  '  var status = String(order.status || "PENDING").toUpperCase();',
-  '  var dateStr = order.created_at',
-  '    ? new Date(order.created_at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" })',
-  '    : new Date().toLocaleString("en-MY");',
-  '  var notes = order.notes || "";',
-  '',
-  '  // 1. Permanent Archive (Order Archives) - Only append if not already archived',
-  '  var archData = archiveSheet.getDataRange().getValues();',
-  '  var alreadyArchived = false;',
-  '  for (var j = 1; j < archData.length; j++) {',
-  '    if (String(archData[j][0]).trim().toUpperCase() === orderNum.toUpperCase()) {',
-  '      alreadyArchived = true;',
-  '      break;',
-  '    }',
-  '  }',
-  '  if (!alreadyArchived) {',
-  '    archiveSheet.appendRow([orderNum, member, rank, squad, itemsStr, priceStr, dateStr, notes]);',
-  '  }',
-  '',
-  '  // 2. Live Tracker (Order Tracker) - Update if existing, append if new',
-  '  var trackerData = trackerSheet.getDataRange().getValues();',
-  '  var trackerRow = -1;',
-  '  for (var i = 1; i < trackerData.length; i++) {',
-  '    if (String(trackerData[i][0]).trim().toUpperCase() === orderNum.toUpperCase()) {',
-  '      trackerRow = i + 1;',
-  '      break;',
-  '    }',
-  '  }',
-  '  if (trackerRow > 0) {',
-  '    trackerSheet.getRange(trackerRow, 7).setValue(status);',
-  '  } else {',
-  '    trackerSheet.appendRow([orderNum, member, rank, squad, itemsStr, priceStr, status, dateStr, notes]);',
-  '  }',
-  '}',
-  '',
-  'function updateOrderStatusInTracker(trackerSheet, orderNumber, newStatus) {',
-  '  var targetNum = String(orderNumber).trim().toUpperCase();',
-  '  var data = trackerSheet.getDataRange().getValues();',
-  '  for (var i = 1; i < data.length; i++) {',
-  '    if (String(data[i][0]).trim().toUpperCase() === targetNum) {',
-  '      trackerSheet.getRange(i + 1, 7).setValue(String(newStatus).toUpperCase());',
-  '      return true;',
-  '    }',
-  '  }',
-  '  return false;',
-  '}'
-].join('\n');
+function extractGoogleDriveFolderId(rawInput) {
+  var val = typeof rawInput === 'string' ? rawInput.trim() : '';
+  if (!val) return '';
+  if (/^[A-Za-z0-9_-]{10,80}$/.test(val)) return val;
+  try {
+    var parsed = new URL(val);
+    if (!/(^|\.)drive\.google\.com$/i.test(parsed.hostname)) return '';
+    var folderMatch = parsed.pathname.match(/\/folders\/([A-Za-z0-9_-]{10,80})/);
+    if (folderMatch && folderMatch[1]) return folderMatch[1];
+    var idParam = parsed.searchParams.get('id');
+    if (idParam && /^[A-Za-z0-9_-]{10,80}$/.test(idParam)) return idParam;
+  } catch (_) {}
+  return '';
+}
 
 /**
- * Asynchronously synchronizes an individual order to the secondary Google Sheets archive
- * @param {Object} orderRecord
+ * Loads configured private Google Drive folder link/ID for uniform payment receipts from Supabase bb_config
+ * @returns {Promise<string>}
  */
-async function syncOrderToGoogleSheetsArchive(orderRecord) {
+async function loadOrdersReceiptsDriveFolder() {
+  if (_ordersReceiptsDriveFolder) return _ordersReceiptsDriveFolder;
+  var client = getSupa();
+  if (!client || !client.get) return '';
+  try {
+    var snap = (typeof client.getConfigSnapshot === 'function') ? client.getConfigSnapshot(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY) : null;
+    if (snap && typeof snap === 'string') {
+      _ordersReceiptsDriveFolder = snap.trim();
+      return _ordersReceiptsDriveFolder;
+    }
+    var rows = await client.get('bb_config?key=eq.' + ORDERS_RECEIPTS_DRIVE_FOLDER_KEY + '&select=value');
+    if (Array.isArray(rows) && rows[0] && rows[0].value) {
+      _ordersReceiptsDriveFolder = String(rows[0].value).trim();
+      if (typeof client.recordConfigSnapshot === 'function') {
+        client.recordConfigSnapshot(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY, _ordersReceiptsDriveFolder);
+      }
+      return _ordersReceiptsDriveFolder;
+    }
+  } catch (e) {
+    console.warn('loadOrdersReceiptsDriveFolder error:', e.message);
+  }
+  return '';
+}
+
+/**
+ * Persists the private Google Drive folder link for uniform payment receipts to Supabase bb_config
+ * @param {string} folderUrlOrId
+ * @returns {Promise<boolean>}
+ */
+async function saveOrdersReceiptsDriveFolder(folderUrlOrId) {
+  if (!await canWriteUniformAdmin()) return false;
+  var raw = typeof folderUrlOrId === 'string' ? folderUrlOrId.trim() : '';
+  var normalized = '';
+  if (raw) {
+    var folderId = extractGoogleDriveFolderId(raw);
+    if (!folderId) {
+      if (typeof showToast === 'function') {
+        showToast('Please enter a valid Google Drive folder link (https://drive.google.com/drive/folders/...) or Folder ID.', 'warning');
+      }
+      return false;
+    }
+    normalized = 'https://drive.google.com/drive/folders/' + folderId;
+  }
+  if (!await saveUniformSetting(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY, normalized)) return false;
+  _ordersReceiptsDriveFolder = normalized;
+  var client = getSupa();
+  if (client && client.recordConfigSnapshot) client.recordConfigSnapshot(ORDERS_RECEIPTS_DRIVE_FOLDER_KEY, normalized);
+  return true;
+}
+
+/**
+ * Converts a payment proof Blob/File to a base64 JSON payload suitable for Apps Script Drive upload
+ * @param {Blob} blob
+ * @param {string} orderNum
+ * @param {string} memberName
+ * @returns {Promise<{base64: string, mimeType: string, fileName: string}|null>}
+ */
+async function blobToBase64Payload(blob, orderNum, memberName) {
+  if (!blob) return null;
+  var mimeType = (blob.type || 'image/jpeg').toLowerCase();
+  var ext = mimeType === 'application/pdf' ? 'pdf' : (mimeType === 'image/png' ? 'png' : (mimeType === 'image/webp' ? 'webp' : 'jpg'));
+  var safeOrder = String(orderNum || 'ORDER').replace(/[^A-Za-z0-9_-]/g, '_');
+  var safeMember = String(memberName || 'Member').replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'Member';
+  var fileName = safeOrder + '_' + safeMember + '.' + ext;
+
+  try {
+    if (typeof FileReader !== 'undefined') {
+      var dataUrl = await new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(String(reader.result || '')); };
+        reader.onerror = function() { reject(new Error('Failed to encode proof file')); };
+        reader.readAsDataURL(blob);
+      });
+      var commaIdx = dataUrl.indexOf(',');
+      if (commaIdx !== -1) {
+        return { base64: dataUrl.slice(commaIdx + 1), mimeType: mimeType, fileName: fileName };
+      }
+    }
+    if (typeof blob.arrayBuffer === 'function') {
+      var bytes = new Uint8Array(await blob.arrayBuffer());
+      var base64 = '';
+      if (typeof Buffer !== 'undefined') {
+        base64 = Buffer.from(bytes).toString('base64');
+      } else if (typeof btoa === 'function') {
+        var chunkSize = 0x8000;
+        var chunks = [];
+        for (var i = 0; i < bytes.length; i += chunkSize) {
+          chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize)));
+        }
+        base64 = btoa(chunks.join(''));
+      }
+      if (base64) return { base64: base64, mimeType: mimeType, fileName: fileName };
+    }
+  } catch (e) {
+    console.warn('blobToBase64Payload error:', e);
+  }
+  return null;
+}
+
+/**
+ * Builds the production-ready Google Apps Script code with optional pre-filled private Drive folder ID
+ * @param {string} [folderUrlOrId]
+ * @returns {string}
+ */
+function buildUniformOrdersAppsScriptCode(folderUrlOrId) {
+  var defaultFolderId = extractGoogleDriveFolderId(folderUrlOrId || '');
+  return [
+    '/**',
+    ' * 1st Petaling Jaya Boys\' Brigade - Uniform Orders Google Sheets Sync & Private Drive Receipts',
+    ' *',
+    ' * Manages two sheets automatically and saves all proof-of-payment files (Images & PDFs)',
+    ' * into your configured private Google Drive folder with clickable links in both sheets:',
+    ' * 1. "Order Tracker": Live tracking sheet updated on status updates and cancellations.',
+    ' * 2. "Order Archives": Permanent record of every order placed (all fields except Status).',
+    ' *',
+    ' * Setup Instructions:',
+    ' * 1. In your Google Sheet, click Extensions > Apps Script.',
+    ' * 2. Delete any code in the editor and paste this entire script.',
+    ' * 3. Click "Deploy" > "New deployment".',
+    ' * 4. Select type: "Web app".',
+    ' * 5. Configuration:',
+    ' *    - Description: "1st PJ BB Uniform Orders Sync"',
+    ' *    - Execute as: "Me (your email)"',
+    ' *    - Who has access: "Anyone"',
+    ' * 6. Click "Deploy", authorize both Google Sheets and Google Drive permissions, and copy the Web App URL.',
+    ' * 7. In the portal Admin Console > Uniform Orders > Settings, paste your Web App URL and Private Google Drive Folder link.',
+    ' */',
+    '',
+    'var DEFAULT_RECEIPTS_DRIVE_FOLDER_ID = "' + defaultFolderId + '";',
+    'var FALLBACK_RECEIPTS_FOLDER_NAME = "1st PJ BB Uniform Payment Receipts";',
+    '',
+    'function doPost(e) {',
+    '  var lock = LockService.getScriptLock();',
+    '  try {',
+    '    lock.waitLock(30000);',
+    '    var raw = e && e.postData ? e.postData.contents : "";',
+    '    var data = JSON.parse(raw);',
+    '    var ss = SpreadsheetApp.getActiveSpreadsheet();',
+    '',
+    '    var trackerHeaders = [',
+    '      "Order Number", "Member Name", "Rank", "Squad", "Items Ordered", "Total Price (RM)", "Status", "Order Date", "Notes", "Proof of Payment"',
+    '    ];',
+    '    var archiveHeaders = [',
+    '      "Order Number", "Member Name", "Rank", "Squad", "Items Ordered", "Total Price (RM)", "Order Date", "Notes", "Proof of Payment"',
+    '    ];',
+    '',
+    '    var trackerSheet = getOrCreateSheet(ss, "Order Tracker", trackerHeaders);',
+    '    var archiveSheet = getOrCreateSheet(ss, "Order Archives", archiveHeaders);',
+    '',
+    '    var action = data.action || "archive_order";',
+    '    var driveFolderId = extractDriveFolderId(data.driveFolderId || data.driveFolderUrl || DEFAULT_RECEIPTS_DRIVE_FOLDER_ID);',
+    '',
+    '    if (action === "update_status" && data.orderNumber) {',
+    '      updateOrderStatusInTracker(trackerSheet, data.orderNumber, data.status || "CANCELLED");',
+    '    } else if (action === "archive_order" && data.order) {',
+    '      recordSingleOrder(trackerSheet, archiveSheet, data.order, driveFolderId);',
+    '    } else if (action === "sync_all_orders" && Array.isArray(data.orders)) {',
+    '      data.orders.forEach(function(order) {',
+    '        recordSingleOrder(trackerSheet, archiveSheet, order, driveFolderId);',
+    '      });',
+    '    }',
+    '',
+    '    return ContentService.createTextOutput(JSON.stringify({ status: "success", action: action }))',
+    '      .setMimeType(ContentService.MimeType.JSON);',
+    '  } catch (err) {',
+    '    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))',
+    '      .setMimeType(ContentService.MimeType.JSON);',
+    '  } finally {',
+    '    try { lock.releaseLock(); } catch (_) {}',
+    '  }',
+    '}',
+    '',
+    'function getOrCreateSheet(ss, name, headers) {',
+    '  var sheet = ss.getSheetByName(name);',
+    '  if (!sheet) {',
+    '    sheet = ss.insertSheet(name);',
+    '    sheet.appendRow(headers);',
+    '    var range = sheet.getRange(1, 1, 1, headers.length);',
+    '    range.setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");',
+    '    sheet.setFrozenRows(1);',
+    '    return sheet;',
+    '  }',
+    '  var lastCol = Math.max(sheet.getLastColumn(), 1);',
+    '  var existing = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function(h) { return String(h || "").trim(); });',
+    '  headers.forEach(function(h) {',
+    '    if (existing.indexOf(h) === -1) {',
+    '      var nextCol = existing.length + 1;',
+    '      existing.push(h);',
+    '      var cell = sheet.getRange(1, nextCol);',
+    '      cell.setValue(h).setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");',
+    '    }',
+    '  });',
+    '  return sheet;',
+    '}',
+    '',
+    'function findColumnIndex(sheet, headerName, fallbackIndex) {',
+    '  var lastCol = Math.max(sheet.getLastColumn(), 1);',
+    '  var row1 = sheet.getRange(1, 1, 1, lastCol).getValues()[0];',
+    '  for (var c = 0; c < row1.length; c++) {',
+    '    if (String(row1[c] || "").trim().toLowerCase() === headerName.toLowerCase()) {',
+    '      return c + 1;',
+    '    }',
+    '  }',
+    '  return fallbackIndex;',
+    '}',
+    '',
+    'function extractDriveFolderId(input) {',
+    '  var val = String(input || "").trim();',
+    '  if (!val) return "";',
+    '  if (/^[A-Za-z0-9_-]{10,80}$/.test(val)) return val;',
+    '  var m = val.match(/\\/folders\\/([A-Za-z0-9_-]{10,80})/) || val.match(/[?&]id=([A-Za-z0-9_-]{10,80})/);',
+    '  return m ? m[1] : "";',
+    '}',
+    '',
+    'function getOrCreateReceiptsFolder(driveFolderId) {',
+    '  if (driveFolderId) {',
+    '    try {',
+    '      return DriveApp.getFolderById(driveFolderId);',
+    '    } catch (_) {}',
+    '  }',
+    '  var it = DriveApp.getFoldersByName(FALLBACK_RECEIPTS_FOLDER_NAME);',
+    '  if (it.hasNext()) return it.next();',
+    '  return DriveApp.createFolder(FALLBACK_RECEIPTS_FOLDER_NAME);',
+    '}',
+    '',
+    'function savePaymentProofToDrive(order, driveFolderId) {',
+    '  var orderNum = String(order.order_number || "").trim();',
+    '  if (!orderNum) return null;',
+    '  if (order.payment_proof_url && /^https:\\/\\/drive\\.google\\.com\\//i.test(String(order.payment_proof_url))) {',
+    '    return { url: String(order.payment_proof_url), label: "View Receipt" };',
+    '  }',
+    '  var proof = order.payment_proof;',
+    '  if (!proof || !proof.base64) return null;',
+    '  try {',
+    '    var folder = getOrCreateReceiptsFolder(driveFolderId);',
+    '    var mimeType = String(proof.mimeType || "image/jpeg").toLowerCase();',
+    '    var isPdf = mimeType === "application/pdf";',
+    '    var ext = isPdf ? "pdf" : (mimeType === "image/png" ? "png" : (mimeType === "image/webp" ? "webp" : "jpg"));',
+    '    var safeMember = String(order.member_name || "Member").replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "Member";',
+    '    var fileName = String(proof.fileName || (orderNum + "_" + safeMember + "." + ext)).replace(/[^A-Za-z0-9._-]/g, "_");',
+    '    var existingFiles = folder.getFilesByName(fileName);',
+    '    if (existingFiles.hasNext()) {',
+    '      var existing = existingFiles.next();',
+    '      return { url: existing.getUrl(), label: isPdf ? "View PDF Receipt" : "View Image Receipt" };',
+    '    }',
+    '    var bytes = Utilities.base64Decode(String(proof.base64));',
+    '    var blob = Utilities.newBlob(bytes, mimeType, fileName);',
+    '    var savedFile = folder.createFile(blob);',
+    '    // Keeps file private — inherits the private Google Drive folder permissions (never public).',
+    '    return { url: savedFile.getUrl(), label: isPdf ? "View PDF Receipt" : "View Image Receipt" };',
+    '  } catch (_) {',
+    '    return null;',
+    '  }',
+    '}',
+    '',
+    'function writeProofLinkCell(sheet, rowIndex, colIndex, proofLink) {',
+    '  if (!proofLink || !proofLink.url || !rowIndex || !colIndex) return;',
+    '  var rich = SpreadsheetApp.newRichTextValue()',
+    '    .setText(proofLink.label || "View Receipt")',
+    '    .setLinkUrl(proofLink.url)',
+    '    .build();',
+    '  sheet.getRange(rowIndex, colIndex).setRichTextValue(rich);',
+    '}',
+    '',
+    'function formatItemsForSheet(rawItems) {',
+    '  if (!rawItems) return "";',
+    '  try {',
+    '    var items = typeof rawItems === "string" ? JSON.parse(rawItems) : rawItems;',
+    '    var list = [];',
+    '    for (var k in items) {',
+    '      var it = items[k];',
+    '      var name = it.name || k.split("__")[0];',
+    '      var qty = it.qty || 1;',
+    '      var sz = it.size ? " (" + it.size + ")" : "";',
+    '      list.push(name + " x" + qty + sz);',
+    '    }',
+    '    return list.join("; ");',
+    '  } catch (_) {',
+    '    return String(rawItems);',
+    '  }',
+    '}',
+    '',
+    'function formatPriceForSheet(order) {',
+    '  if (order.total_price !== undefined && order.total_price !== null) {',
+    '    return Number(order.total_price).toFixed(2);',
+    '  }',
+    '  var sum = 0;',
+    '  try {',
+    '    var items = typeof order.items === "string" ? JSON.parse(order.items) : (order.items || {});',
+    '    for (var k in items) {',
+    '      var it = items[k];',
+    '      var qty = Number(it.qty) || 1;',
+    '      var p = Number(it.price) || 0;',
+    '      sum += qty * p;',
+    '    }',
+    '  } catch (_) {}',
+    '  return sum.toFixed(2);',
+    '}',
+    '',
+    'function recordSingleOrder(trackerSheet, archiveSheet, order, driveFolderId) {',
+    '  var orderNum = String(order.order_number || "").trim();',
+    '  if (!orderNum) return;',
+    '  var member = order.member_name || order.ic || "";',
+    '  var rank = order.rank || "";',
+    '  var squad = order.squad ? (order.squad + " Platoon") : "";',
+    '  var itemsStr = formatItemsForSheet(order.items);',
+    '  var priceStr = formatPriceForSheet(order);',
+    '  var status = String(order.status || "PENDING").toUpperCase();',
+    '  var dateStr = order.created_at',
+    '    ? new Date(order.created_at).toLocaleString("en-MY", { timeZone: "Asia/Kuala_Lumpur" })',
+    '    : new Date().toLocaleString("en-MY");',
+    '  var notes = order.notes || "";',
+    '  var proofLink = savePaymentProofToDrive(order, driveFolderId);',
+    '',
+    '  var archiveProofCol = findColumnIndex(archiveSheet, "Proof of Payment", 9);',
+    '  var trackerStatusCol = findColumnIndex(trackerSheet, "Status", 7);',
+    '  var trackerProofCol = findColumnIndex(trackerSheet, "Proof of Payment", 10);',
+    '',
+    '  // 1. Permanent Archive (Order Archives) - Append if new, backfill Drive link if previously empty',
+    '  var archData = archiveSheet.getDataRange().getValues();',
+    '  var archiveRow = -1;',
+    '  for (var j = 1; j < archData.length; j++) {',
+    '    if (String(archData[j][0]).trim().toUpperCase() === orderNum.toUpperCase()) {',
+    '      archiveRow = j + 1;',
+    '      break;',
+    '    }',
+    '  }',
+    '  if (archiveRow < 0) {',
+    '    archiveSheet.appendRow([orderNum, member, rank, squad, itemsStr, priceStr, dateStr, notes, ""]);',
+    '    archiveRow = archiveSheet.getLastRow();',
+    '  }',
+    '  if (proofLink) {',
+    '    var existingArchVal = String(archiveSheet.getRange(archiveRow, archiveProofCol).getValue() || "").trim();',
+    '    if (!existingArchVal || existingArchVal === "—") {',
+    '      writeProofLinkCell(archiveSheet, archiveRow, archiveProofCol, proofLink);',
+    '    }',
+    '  }',
+    '',
+    '  // 2. Live Tracker (Order Tracker) - Update status if existing, append if new, backfill Drive link',
+    '  var trackerData = trackerSheet.getDataRange().getValues();',
+    '  var trackerRow = -1;',
+    '  for (var i = 1; i < trackerData.length; i++) {',
+    '    if (String(trackerData[i][0]).trim().toUpperCase() === orderNum.toUpperCase()) {',
+    '      trackerRow = i + 1;',
+    '      break;',
+    '    }',
+    '  }',
+    '  if (trackerRow > 0) {',
+    '    trackerSheet.getRange(trackerRow, trackerStatusCol).setValue(status);',
+    '  } else {',
+    '    trackerSheet.appendRow([orderNum, member, rank, squad, itemsStr, priceStr, status, dateStr, notes, ""]);',
+    '    trackerRow = trackerSheet.getLastRow();',
+    '  }',
+    '  if (proofLink) {',
+    '    var existingTrackerVal = String(trackerSheet.getRange(trackerRow, trackerProofCol).getValue() || "").trim();',
+    '    if (!existingTrackerVal || existingTrackerVal === "—") {',
+    '      writeProofLinkCell(trackerSheet, trackerRow, trackerProofCol, proofLink);',
+    '    }',
+    '  }',
+    '}',
+    '',
+    'function updateOrderStatusInTracker(trackerSheet, orderNumber, newStatus) {',
+    '  var targetNum = String(orderNumber).trim().toUpperCase();',
+    '  var statusCol = findColumnIndex(trackerSheet, "Status", 7);',
+    '  var data = trackerSheet.getDataRange().getValues();',
+    '  for (var i = 1; i < data.length; i++) {',
+    '    if (String(data[i][0]).trim().toUpperCase() === targetNum) {',
+    '      trackerSheet.getRange(i + 1, statusCol).setValue(String(newStatus).toUpperCase());',
+    '      return true;',
+    '    }',
+    '  }',
+    '  return false;',
+    '}'
+  ].join('\n');
+}
+
+/**
+ * Production-ready Google Apps Script template for uniform orders synchronization
+ */
+var UNIFORM_ORDERS_APPS_SCRIPT_CODE = buildUniformOrdersAppsScriptCode('');
+
+/**
+ * Asynchronously synchronizes an individual order (and optional payment proof file) to Google Sheets + private Drive
+ * @param {Object} orderRecord
+ * @param {Blob} [proofBlob]
+ */
+async function syncOrderToGoogleSheetsArchive(orderRecord, proofBlob) {
   try {
     var url = await loadOrdersSheetsArchiveUrl();
     if (!url || !/^https?:\/\//i.test(url)) return;
 
+    var driveFolderUrl = await loadOrdersReceiptsDriveFolder();
+    var driveFolderId = extractGoogleDriveFolderId(driveFolderUrl);
+    var archivedOrder = orderArchiveRecord(orderRecord);
+    if (proofBlob) {
+      var encodedProof = await blobToBase64Payload(proofBlob, orderRecord.order_number, orderRecord.member_name || orderRecord.ic);
+      if (encodedProof) {
+        archivedOrder.payment_proof = encodedProof;
+      }
+    }
+
     var payload = {
       action: 'archive_order',
+      driveFolderId: driveFolderId || '',
       timestamp: new Date().toISOString(),
-      order: orderArchiveRecord(orderRecord)
+      order: archivedOrder
     };
 
     if (typeof fetch !== 'undefined') {
@@ -2575,11 +3164,14 @@ async function syncOrderStatusToGoogleSheet(orderNum, status) {
 }
 
 /**
- * Opens rich modal with setup instructions, Webhook URL input, manual sync, and copyable Apps Script code
+ * Opens rich modal with setup instructions, Webhook URL & Private Google Drive Folder inputs, manual sync, and copyable Apps Script code
  */
 async function configureAdminOrdersSheetUrl() {
   if (typeof document === 'undefined') return;
   var currentUrl = await loadOrdersSheetsArchiveUrl();
+  var currentDriveFolder = await loadOrdersReceiptsDriveFolder();
+  var currentDriveFolderId = extractGoogleDriveFolderId(currentDriveFolder);
+  var generatedScriptCode = buildUniformOrdersAppsScriptCode(currentDriveFolderId);
 
   var overlay = document.createElement('div');
   overlay.className = 'portal-modal-overlay';
@@ -2591,6 +3183,10 @@ async function configureAdminOrdersSheetUrl() {
   var statusBadge = isConfigured
     ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(16,185,129,0.15);color:var(--green,#10b981);border:1px solid rgba(16,185,129,0.3);"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Connected & Active</span>'
     : '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(234,179,8,0.15);color:var(--brand-gold,#eab308);border:1px solid rgba(234,179,8,0.3);"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;"></span> Not Configured</span>';
+
+  var driveFolderStatusHtml = currentDriveFolderId
+    ? '<span id="admin-orders-drive-status" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--green,#10b981);">✓ Private Drive Folder ID: <code>' + escapeHtml(currentDriveFolderId) + '</code></span>'
+    : '<span id="admin-orders-drive-status" style="font-size:11px;color:var(--text-muted);">Using auto-created private folder: <strong>1st PJ BB Uniform Payment Receipts</strong></span>';
 
   var modal = document.createElement('div');
   modal.className = 'portal-modal-card';
@@ -2606,54 +3202,62 @@ async function configureAdminOrdersSheetUrl() {
           '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
         '</div>' +
         '<div>' +
-          '<h3 style="font-family:var(--font-headline);font-size:16px;margin:0;color:var(--text-primary);">Uniform Orders Google Sheets Sync & Backup</h3>' +
-          '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Automatic live synchronization for Order Tracker and Order Archives</div>' +
+          '<h3 style="font-family:var(--font-headline);font-size:16px;margin:0;color:var(--text-primary);">Uniform Orders Google Sheets Sync &amp; Drive Receipts</h3>' +
+          '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Live sync for Order Tracker, Order Archives, and private Google Drive receipt links</div>' +
         '</div>' +
       '</div>' +
       statusBadge +
     '</div>' +
     '<div class="portal-modal-body" style="padding:14px 0;display:flex;flex-direction:column;gap:16px;">' +
       '<div>' +
-        '<label style="display:block;font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Google Sheets Web App URL (Webhook)</label>' +
+        '<label for="admin-orders-sheet-url-input" style="display:block;font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Google Sheets Web App URL (Webhook)</label>' +
+        '<input type="url" id="admin-orders-sheet-url-input" class="form-input" value="' + (typeof escapeHtml === 'function' ? escapeHtml(currentUrl || '') : (currentUrl || '')) + '" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%;font-size:12px;padding:8px 10px;height:38px;box-sizing:border-box;">' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">When configured, new orders, proof-of-payment links, status updates, and cancellations sync automatically to your Google Sheet.</div>' +
+      '</div>' +
+
+      '<div>' +
+        '<label for="admin-orders-drive-folder-input" style="display:block;font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">Private Google Drive Folder Link (for Payment Receipts)</label>' +
         '<div style="display:flex;gap:8px;">' +
-          '<input type="url" id="admin-orders-sheet-url-input" class="form-input" value="' + (typeof escapeHtml === 'function' ? escapeHtml(currentUrl || '') : (currentUrl || '')) + '" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;font-size:12px;padding:8px 10px;height:38px;">' +
-          '<button type="button" id="admin-orders-save-url-btn" class="portal-btn portal-btn-primary" style="font-size:12px;padding:8px 14px;height:38px;white-space:nowrap;">Save</button>' +
+          '<input type="url" id="admin-orders-drive-folder-input" class="form-input" value="' + (typeof escapeHtml === 'function' ? escapeHtml(currentDriveFolder || '') : (currentDriveFolder || '')) + '" placeholder="https://drive.google.com/drive/folders/..." style="flex:1;font-size:12px;padding:8px 10px;height:38px;">' +
+          '<button type="button" id="admin-orders-save-url-btn" class="portal-btn portal-btn-primary" style="font-size:12px;padding:8px 14px;height:38px;white-space:nowrap;">Save Settings</button>' +
         '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">When configured, any order status updates or deletions in the portal will sync automatically to your Google Sheet in real time.</div>' +
+        '<div style="margin-top:5px;">' + driveFolderStatusHtml + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Paste the link (or Folder ID) of the private Google Drive folder where image &amp; PDF proofs of payment will be saved. Receipts inherit your folder&rsquo;s private permissions (never shared publicly) and are linked in the <strong>Proof of Payment</strong> column of Google Sheets.</div>' +
       '</div>' +
 
       '<div style="background:var(--bg-card-subtle);border:1px solid var(--border-card);border-radius:10px;padding:12px 14px;">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">' +
-          '<div style="font-weight:700;font-size:12px;color:var(--text-primary);">Manual Sync Test</div>' +
+          '<div style="font-weight:700;font-size:12px;color:var(--text-primary);">Manual Sync &amp; Receipt Backfill</div>' +
           '<button type="button" id="admin-orders-manual-sync-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:5px 10px;height:30px;display:inline-flex;align-items:center;gap:5px;">' +
             '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg> Sync All Current Records Now' +
           '</button>' +
         '</div>' +
         '<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;">' +
-          'Automatically populates both sheets: <strong>Order Tracker</strong> (live status changes) and <strong>Order Archives</strong> (permanent append-only backup without status).' +
+          'Populates both <strong>Order Tracker</strong> and <strong>Order Archives</strong>, uploads any missing image/PDF proofs to your private Google Drive folder, and writes permanent clickable Drive links into the <strong>Proof of Payment</strong> column.' +
         '</div>' +
       '</div>' +
 
       '<div>' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">' +
-          '<label style="font-size:12px;font-weight:700;color:var(--text-primary);">📋 Google Apps Script Code</label>' +
+          '<label style="font-size:12px;font-weight:700;color:var(--text-primary);">Google Apps Script Code</label>' +
           '<button type="button" id="admin-orders-copy-script-btn" class="portal-btn portal-btn-secondary" style="font-size:11px;padding:4px 10px;height:28px;display:inline-flex;align-items:center;gap:4px;">' +
             '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy Script Code' +
           '</button>' +
         '</div>' +
-        '<div style="background:#0f172a;color:#f8fafc;border:1px solid var(--border-card);border-radius:8px;padding:12px;font-family:var(--font-body);font-variant-numeric:tabular-nums;font-size:11px;max-height:180px;overflow-y:auto;white-space:pre;line-height:1.4;">' +
-          (typeof escapeHtml === 'function' ? escapeHtml(UNIFORM_ORDERS_APPS_SCRIPT_CODE) : UNIFORM_ORDERS_APPS_SCRIPT_CODE) +
+        '<div id="admin-orders-script-code-box" style="background:#0f172a;color:#f8fafc;border:1px solid var(--border-card);border-radius:8px;padding:12px;font-family:var(--font-body);font-variant-numeric:tabular-nums;font-size:11px;max-height:180px;overflow-y:auto;white-space:pre;line-height:1.4;">' +
+          (typeof escapeHtml === 'function' ? escapeHtml(generatedScriptCode) : generatedScriptCode) +
         '</div>' +
       '</div>' +
 
       '<div style="font-size:11px;color:var(--text-secondary);line-height:1.6;background:var(--bg-card);border:1px solid var(--border-card);border-radius:8px;padding:10px 12px;">' +
         '<strong style="color:var(--text-primary);">Setup Instructions:</strong><br>' +
         '1. Open your target Google Sheet.<br>' +
-        '2. In the menu, go to <strong>Extensions > Apps Script</strong>.<br>' +
-        '3. Delete any placeholder code and paste the code above.<br>' +
-        '4. Click <strong>Deploy > New deployment</strong>, select type <strong>Web app</strong>.<br>' +
+        '2. In the menu, go to <strong>Extensions &gt; Apps Script</strong>.<br>' +
+        '3. Replace the existing code with the script above (includes private Google Drive receipt upload).<br>' +
+        '4. Click <strong>Deploy &gt; New deployment</strong> (or Manage deployments &rarr; New version), select <strong>Web app</strong>.<br>' +
         '5. Set <em>Execute as:</em> <strong>Me</strong> and <em>Who has access:</em> <strong>Anyone</strong>.<br>' +
-        '6. Click Deploy, authorize access, copy the <strong>Web App URL</strong> and paste it into the field above.' +
+        '6. Authorize both <strong>Google Sheets</strong> and <strong>Google Drive</strong> permissions when prompted.<br>' +
+        '7. Paste the Web App URL and your Private Google Drive Folder link above, then click <strong>Save Settings</strong>.' +
       '</div>' +
     '</div>' +
     '<div class="portal-modal-actions" style="display:flex;justify-content:flex-end;gap:8px;padding-top:12px;border-top:1px solid var(--border-subtle);">' +
@@ -2674,24 +3278,69 @@ async function configureAdminOrdersSheetUrl() {
 
   var saveBtn = modal.querySelector('#admin-orders-save-url-btn');
   var urlInput = modal.querySelector('#admin-orders-sheet-url-input');
+  var driveInput = modal.querySelector('#admin-orders-drive-folder-input');
+  var driveStatusEl = modal.querySelector('#admin-orders-drive-status');
+  var codeBox = modal.querySelector('#admin-orders-script-code-box');
+
+  function getActiveScriptCode() {
+    var folderVal = driveInput ? driveInput.value.trim() : currentDriveFolder;
+    return buildUniformOrdersAppsScriptCode(folderVal);
+  }
+
+  if (driveInput) {
+    driveInput.addEventListener('input', function() {
+      var val = driveInput.value.trim();
+      var parsedId = extractGoogleDriveFolderId(val);
+      if (driveStatusEl) {
+        if (!val) {
+          driveStatusEl.style.color = 'var(--text-muted)';
+          driveStatusEl.innerHTML = 'Using auto-created private folder: <strong>1st PJ BB Uniform Payment Receipts</strong>';
+        } else if (parsedId) {
+          driveStatusEl.style.color = 'var(--green,#10b981)';
+          driveStatusEl.innerHTML = '✓ Private Drive Folder ID: <code>' + escapeHtml(parsedId) + '</code>';
+        } else {
+          driveStatusEl.style.color = 'var(--red,#ef4444)';
+          driveStatusEl.textContent = 'Enter a valid Google Drive folder link (https://drive.google.com/drive/folders/...) or Folder ID.';
+        }
+      }
+      if (codeBox) {
+        codeBox.textContent = getActiveScriptCode();
+      }
+    });
+  }
+
   if (saveBtn && urlInput) {
     saveBtn.addEventListener('click', async function() {
-      var val = (urlInput.value || '').trim();
-      var ok = await saveOrdersSheetsArchiveUrl(val);
-      if (ok) {
-        if (typeof showToast === 'function') showToast('Google Sheets sync URL saved successfully!', 'success');
+      await withSmartButtonLock(saveBtn, async function() {
+        var val = (urlInput.value || '').trim();
+        var driveVal = driveInput ? (driveInput.value || '').trim() : '';
+        if (driveVal && !extractGoogleDriveFolderId(driveVal)) {
+          if (typeof showToast === 'function') {
+            showToast('Please enter a valid Google Drive folder link (https://drive.google.com/drive/folders/...) or Folder ID.', 'warning');
+          }
+          return;
+        }
+        var okUrl = await saveOrdersSheetsArchiveUrl(val);
+        if (!okUrl) {
+          if (typeof showToast === 'function') showToast('Failed to save Google Sheets URL to database.', 'error');
+          return;
+        }
+        var okDrive = await saveOrdersReceiptsDriveFolder(driveVal);
+        if (!okDrive) return;
+        if (typeof showToast === 'function') {
+          showToast('Google Sheets & private Google Drive receipt folder settings saved!', 'success');
+        }
         closeModal();
-      } else {
-        if (typeof showToast === 'function') showToast('Failed to save URL to database.', 'error');
-      }
+      }, { loadingText: 'Saving…' });
     });
   }
 
   var copyBtn = modal.querySelector('#admin-orders-copy-script-btn');
   if (copyBtn) {
     copyBtn.addEventListener('click', function() {
+      var scriptText = getActiveScriptCode();
       if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(UNIFORM_ORDERS_APPS_SCRIPT_CODE).then(function() {
+        navigator.clipboard.writeText(scriptText).then(function() {
           copyBtn.innerHTML = '✓ Copied!';
           if (typeof showToast === 'function') showToast('Google Apps Script code copied to clipboard!', 'success');
           setTimeout(function() {
@@ -2707,13 +3356,15 @@ async function configureAdminOrdersSheetUrl() {
   var manualSyncBtn = modal.querySelector('#admin-orders-manual-sync-btn');
   if (manualSyncBtn) {
     manualSyncBtn.addEventListener('click', function() {
-      syncAdminOrdersToGoogleSheet();
+      withSmartButtonLock(manualSyncBtn, function() {
+        return syncAdminOrdersToGoogleSheet();
+      }, { loadingText: 'Syncing…' });
     });
   }
 }
 
 /**
- * Synchronizes all currently loaded uniform orders to the permanent Google Sheet
+ * Synchronizes all currently loaded uniform orders (and their payment proof files) to Google Sheets + private Drive
  */
 async function syncAdminOrdersToGoogleSheet() {
   var url = await loadOrdersSheetsArchiveUrl();
@@ -2728,24 +3379,79 @@ async function syncAdminOrdersToGoogleSheet() {
     return;
   }
 
-  if (typeof showToast === 'function') showToast('Syncing orders to Google Sheet...', 'info');
+  var driveFolderUrl = await loadOrdersReceiptsDriveFolder();
+  var driveFolderId = extractGoogleDriveFolderId(driveFolderUrl);
+
+  if (typeof showToast === 'function') showToast('Syncing orders and payment proofs to Google Sheets & Drive...', 'info');
 
   try {
-    var payload = {
-      action: 'sync_all_orders',
-      timestamp: new Date().toISOString(),
-      orders: _cachedAdminOrdersList.map(orderArchiveRecord)
-    };
+    var enrichedOrders = [];
+    var proofAttachedCount = 0;
+    for (var idx = 0; idx < _cachedAdminOrdersList.length; idx++) {
+      var rawOrder = _cachedAdminOrdersList[idx];
+      var record = orderArchiveRecord(rawOrder);
+      if (rawOrder && rawOrder.has_payment_proof === true) {
+        try {
+          var signed = await fetchUniformProofSigned(rawOrder.order_number, false);
+          if (signed && signed.url && typeof fetch === 'function') {
+            var proofRes = await fetch(signed.url, { referrerPolicy: 'no-referrer' });
+            if (proofRes && proofRes.ok) {
+              var proofBlob = await proofRes.blob();
+              var typedBlob = signed.contentType && proofBlob.type !== signed.contentType
+                ? new Blob([proofBlob], { type: signed.contentType })
+                : proofBlob;
+              var encoded = await blobToBase64Payload(typedBlob, rawOrder.order_number, rawOrder.member_name || rawOrder.ic);
+              if (encoded) {
+                record.payment_proof = encoded;
+                proofAttachedCount++;
+              }
+            }
+          }
+        } catch (proofErr) {
+          console.warn('Could not attach proof for order ' + rawOrder.order_number + ':', proofErr);
+        }
+      }
+      enrichedOrders.push(record);
+    }
 
-    await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    // Batch requests to keep each POST comfortably within Apps Script payload & execution limits
+    var MAX_BATCH_BYTES = 5 * 1024 * 1024;
+    var MAX_BATCH_ORDERS = 5;
+    var currentBatch = [];
+    var currentBatchBytes = 0;
+
+    async function flushBatch() {
+      if (!currentBatch.length) return;
+      var payload = {
+        action: 'sync_all_orders',
+        driveFolderId: driveFolderId || '',
+        timestamp: new Date().toISOString(),
+        orders: currentBatch
+      };
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      currentBatch = [];
+      currentBatchBytes = 0;
+    }
+
+    for (var b = 0; b < enrichedOrders.length; b++) {
+      var item = enrichedOrders[b];
+      var estBytes = item.payment_proof && item.payment_proof.base64 ? item.payment_proof.base64.length + 1024 : 1024;
+      if (currentBatch.length > 0 && (currentBatch.length >= MAX_BATCH_ORDERS || (currentBatchBytes + estBytes) > MAX_BATCH_BYTES)) {
+        await flushBatch();
+      }
+      currentBatch.push(item);
+      currentBatchBytes += estBytes;
+    }
+    await flushBatch();
 
     if (typeof showToast === 'function') {
-      showToast('Sync request sent for ' + _cachedAdminOrdersList.length + ' orders. Confirm the result in Google Sheets.', 'info');
+      var proofSuffix = proofAttachedCount > 0 ? (' (' + proofAttachedCount + ' receipt' + (proofAttachedCount === 1 ? '' : 's') + ' sent to Google Drive)') : '';
+      showToast('Sync request sent for ' + enrichedOrders.length + ' order' + (enrichedOrders.length === 1 ? '' : 's') + proofSuffix + '. Confirm the result in Google Sheets.', 'success');
     }
   } catch (err) {
     console.error('syncAdminOrdersToGoogleSheet error:', err);
@@ -2829,7 +3535,7 @@ function exportAdminOrdersToCsv(ordersToExport) {
   var sheet1Title = ('Items Ordered (' + filterMonthLabel + ')').slice(0, 31).replace(/[:\\\/\?\*\[\]]/g, '');
 
   var sheet1Headers = [
-    'Order Number', 'Member Name', 'Rank', 'Squad', 'Items Ordered', 'Total Price (RM)', 'Status', 'Order Date', 'Notes'
+    'Order Number', 'Member Name', 'Rank', 'Squad', 'Items Ordered', 'Total Price (RM)', 'Status', 'Order Date', 'Notes', 'Proof of Payment'
   ];
 
   var s1RowsXml = '<Row ss:StyleID="Header">' +
@@ -2862,6 +3568,7 @@ function exportAdminOrdersToCsv(ordersToExport) {
       '<Cell><Data ss:Type="String">' + escapeXml((o.status || 'pending').toUpperCase()) + '</Data></Cell>' +
       '<Cell><Data ss:Type="String">' + escapeXml(dateStr) + '</Data></Cell>' +
       '<Cell><Data ss:Type="String">' + escapeXml(o.notes || '') + '</Data></Cell>' +
+      '<Cell><Data ss:Type="String">' + (o.has_payment_proof === true ? 'Uploaded (see Google Drive / Portal)' : '—') + '</Data></Cell>' +
     '</Row>';
   });
 
@@ -3106,7 +3813,16 @@ async function renderAdminOrders(forceRefresh) {
       } catch (getErr) {
         var getErrMsg = String(getErr && (getErr.message || getErr.code) || '');
         if (getErrMsg.includes('42703') || getErrMsg.includes('PGRST204') || getErrMsg.includes('total_amount') || getErrMsg.includes('has_payment_proof')) {
-          orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes&order=created_at.desc', { cache: !forceRefresh });
+          try {
+            orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes,has_payment_proof&order=created_at.desc', { cache: !forceRefresh });
+          } catch (getErr2) {
+            var getErrMsg2 = String(getErr2 && (getErr2.message || getErr2.code) || '');
+            if (getErrMsg2.includes('42703') || getErrMsg2.includes('PGRST204') || getErrMsg2.includes('has_payment_proof')) {
+              orders = await client.get('bb_orders?select=order_number,member_name,ic,rank,squad,created_at,status,items,notes&order=created_at.desc', { cache: !forceRefresh });
+            } else {
+              throw getErr2;
+            }
+          }
         } else {
           throw getErr;
         }
@@ -3265,6 +3981,7 @@ async function renderAdminOrders(forceRefresh) {
           return '<option value="' + s + '"' + (s === status ? ' selected' : '') + '>' + s.toUpperCase() + '</option>';
         }).join('');
 
+        var formattedTotal = 'RM ' + total.toFixed(2);
         rowsHtml +=
           '<tr>' +
           '<td style="font-weight:700;font-family:var(--font-headline);color:var(--brand-gold);white-space:nowrap;">' +
@@ -3275,15 +3992,15 @@ async function renderAdminOrders(forceRefresh) {
           '<div style="font-size:11px;color:var(--text-secondary);">' + escapeHtml(o.rank || '') + (o.squad ? ' · ' + escapeHtml(o.squad) + ' Platoon' : '') + '</div>' +
           '</td>' +
           '<td style="font-size:12px;line-height:1.6;color:var(--text-secondary);">' + (itemsDisplay || '—') + '</td>' +
-          '<td style="font-weight:700;color:var(--brand-gold);white-space:nowrap;">RM ' + total.toFixed(2) + '</td>' +
+          '<td style="font-weight:700;color:var(--brand-gold);white-space:nowrap;">' + formattedTotal + '</td>' +
           '<td style="font-size:12px;color:var(--text-secondary);white-space:nowrap;">' + created + '</td>' +
+          '<td style="white-space:nowrap;">' + paymentProofButton(o, 'table', formattedTotal) + '</td>' +
           '<td>' +
           '<select data-order-num="' + escapeHtml(o.order_number) + '" aria-label="Order status" class="admin-table-status-select"' + (statusOptions.length < 2 ? ' disabled' : '') + ' style="font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;border:1px solid ' + sc + '66;background:' + sc + '22;color:' + sc + ';cursor:pointer;font-family:var(--font-headline);">' +
           statusSelectOptions +
           '</select>' +
           '</td>' +
           '<td style="text-align:right;white-space:nowrap;">' +
-          paymentProofButton(o) +
           '<button data-del-sub="' + escapeHtml(o.order_number) + '" title="Delete this order record" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:var(--red);padding:5px 9px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' +
           '<svg class="ui-icon-xs" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete' +
           '</button>' +
@@ -3297,7 +4014,7 @@ async function renderAdminOrders(forceRefresh) {
         '<td colspan="2" style="color:var(--text-primary);padding:10px 12px;">Total Items to Prepare (' + escapeHtml(filterMonthLabel) + '):</td>' +
         '<td style="color:var(--brand-gold);padding:10px 12px;font-weight:700;">' + totalPreparationItems + ' item' + (totalPreparationItems === 1 ? '' : 's') + '</td>' +
         '<td style="color:var(--brand-gold);padding:10px 12px;white-space:nowrap;font-weight:700;">RM ' + totalOrderRevenue.toFixed(2) + '</td>' +
-        '<td colspan="3" style="color:var(--text-muted);font-size:11px;padding:10px 12px;">Across ' + filtered.length + ' order' + (filtered.length === 1 ? '' : 's') + '</td>' +
+        '<td colspan="4" style="color:var(--text-muted);font-size:11px;padding:10px 12px;">Across ' + filtered.length + ' order' + (filtered.length === 1 ? '' : 's') + '</td>' +
         '</tr>' +
         '</tfoot>';
 
@@ -3306,13 +4023,14 @@ async function renderAdminOrders(forceRefresh) {
         '<table class="orders-spreadsheet-table">' +
         '<thead>' +
         '<tr>' +
-        '<th>Order #</th>' +
-        '<th>Member</th>' +
-        '<th>Items Ordered</th>' +
-        '<th>Total</th>' +
-        '<th>Date</th>' +
-        '<th>Status</th>' +
-        '<th style="text-align:right;">Actions</th>' +
+        '<th scope="col">Order #</th>' +
+        '<th scope="col">Member</th>' +
+        '<th scope="col">Items Ordered</th>' +
+        '<th scope="col">Total</th>' +
+        '<th scope="col">Date</th>' +
+        '<th scope="col">Receipt</th>' +
+        '<th scope="col">Status</th>' +
+        '<th scope="col" style="text-align:right;">Actions</th>' +
         '</tr>' +
         '</thead>' +
         '<tbody>' +
@@ -3371,6 +4089,7 @@ async function renderAdminOrders(forceRefresh) {
           );
         }).join('');
 
+        var cardTotalFormatted = 'RM ' + total.toFixed(2);
         cardsHtml +=
           '<div style="background:var(--bg-card);border-radius:12px;padding:14px 16px;margin-bottom:10px;border:1px solid var(--border-card);">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">' +
@@ -3394,7 +4113,7 @@ async function renderAdminOrders(forceRefresh) {
           "44;font-family:var(--font-headline);margin-bottom:4px;\">" +
           escapeHtml(status.toUpperCase()) +
           '</div>' +
-          '<div style="font-size:12px;font-weight:700;color:var(--brand-gold);">RM ' + total.toFixed(2) + '</div>' +
+          '<div style="font-size:12px;font-weight:700;color:var(--brand-gold);">' + cardTotalFormatted + '</div>' +
           '</div></div>' +
           '<div style="margin-bottom:4px;">' +
           itemsDisplay +
@@ -3404,9 +4123,9 @@ async function renderAdminOrders(forceRefresh) {
               (typeof sanitizeHtml === 'function' ? sanitizeHtml(o.notes) : escapeHtml(o.notes)) +
               '</div>'
             : '') +
+          paymentProofButton(o, 'card', cardTotalFormatted) +
           '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;">' +
           btns +
-          paymentProofButton(o) +
           '<button data-del-sub="' +
           escapeHtml(o.order_number) +
           '" title="Delete submission" style="margin-left:auto;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:var(--red);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>' +
@@ -3420,6 +4139,7 @@ async function renderAdminOrders(forceRefresh) {
     list.querySelectorAll('[data-uniform-proof]').forEach(function(button) {
       button.addEventListener('click', function() { viewUniformPaymentProof(button); });
     });
+    hydrateUniformProofPreviews(list);
 
     // Bind status button clicks
     list.querySelectorAll('[data-order-status]').forEach(function (btn) {
@@ -4302,8 +5022,14 @@ if (typeof window !== 'undefined') {
   window.syncOrderToGoogleSheetsArchive = syncOrderToGoogleSheetsArchive;
   window.syncOrderStatusToGoogleSheet = syncOrderStatusToGoogleSheet;
   window.UNIFORM_ORDERS_APPS_SCRIPT_CODE = UNIFORM_ORDERS_APPS_SCRIPT_CODE;
+  window.buildUniformOrdersAppsScriptCode = buildUniformOrdersAppsScriptCode;
+  window.extractGoogleDriveFolderId = extractGoogleDriveFolderId;
   window.loadOrdersSheetsArchiveUrl = loadOrdersSheetsArchiveUrl;
   window.saveOrdersSheetsArchiveUrl = saveOrdersSheetsArchiveUrl;
+  window.loadOrdersReceiptsDriveFolder = loadOrdersReceiptsDriveFolder;
+  window.saveOrdersReceiptsDriveFolder = saveOrdersReceiptsDriveFolder;
+  window.viewUniformPaymentProof = viewUniformPaymentProof;
+  window.paymentProofButton = paymentProofButton;
   window.renderAdminProducts = renderAdminProducts;
   window.renderOrdersPreparationSummaryHtml = renderOrdersPreparationSummaryHtml;
   window.previewProductImg = previewProductImg;
@@ -4397,8 +5123,17 @@ if (typeof module !== 'undefined' && module.exports) {
     syncOrderToGoogleSheetsArchive: syncOrderToGoogleSheetsArchive,
     syncOrderStatusToGoogleSheet: syncOrderStatusToGoogleSheet,
     UNIFORM_ORDERS_APPS_SCRIPT_CODE: UNIFORM_ORDERS_APPS_SCRIPT_CODE,
+    buildUniformOrdersAppsScriptCode: buildUniformOrdersAppsScriptCode,
+    extractGoogleDriveFolderId: extractGoogleDriveFolderId,
+    blobToBase64Payload: blobToBase64Payload,
     loadOrdersSheetsArchiveUrl: loadOrdersSheetsArchiveUrl,
     saveOrdersSheetsArchiveUrl: saveOrdersSheetsArchiveUrl,
+    loadOrdersReceiptsDriveFolder: loadOrdersReceiptsDriveFolder,
+    saveOrdersReceiptsDriveFolder: saveOrdersReceiptsDriveFolder,
+    paymentProofButton: paymentProofButton,
+    viewUniformPaymentProof: viewUniformPaymentProof,
+    applyProofPreviewToButton: applyProofPreviewToButton,
+    hydrateUniformProofPreviews: hydrateUniformProofPreviews,
     renderAdminProducts: renderAdminProducts,
     renderOrdersPreparationSummaryHtml: renderOrdersPreparationSummaryHtml,
     previewProductImg: previewProductImg,
