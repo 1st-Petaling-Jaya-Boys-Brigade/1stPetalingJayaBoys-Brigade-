@@ -5589,18 +5589,17 @@ async function refreshLoggedInUserProfile() {
       ? ('bb_members?or=(ic.eq.' + encodeURIComponent(curIc) + ',email.eq.' + encodeURIComponent(curEmail) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at')
       : ('bb_members?or=(ic.eq.' + encodeURIComponent(id) + ',email.eq.' + encodeURIComponent(id) + ')&select=ic,email,name,rank,squad,section,department,att_section,joined_at');
     var data = await client.get(query);
-    if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-    if (!data || data.length === 0 || (data[0] && (data[0].department === 'deleted' || (data[0].ic && data[0].ic.indexOf('archived_') === 0)))) {
-      if (typeof forceKickDeletedAccount === 'function') {
-        forceKickDeletedAccount();
+    if (sessionGet('ic') !== curIc || sessionGet('email') !== curEmail) return;
+    // Offline and unavailable lookups can return no rows. Preserve the existing session.
+    var m = window.findSessionMemberRecord(data, curIc, curEmail);
+    if (m) {
+      if (window.isRevokedSessionMember(m)) {
+        if (typeof forceKickDeletedAccount === 'function') forceKickDeletedAccount();
+        return;
       }
-      return;
-    }
-    if (data && data.length > 0) {
-      if ((data[0].created_at || data[0].joined_at) && typeof sessionSet === 'function' && !sessionGet('created_at')) {
-        sessionSet('created_at', data[0].created_at || data[0].joined_at, { localOnly: true });
+      if ((m.created_at || m.joined_at) && typeof sessionSet === 'function' && !sessionGet('created_at')) {
+        sessionSet('created_at', m.created_at || m.joined_at, { localOnly: true });
       }
-      var m = data[0];
       if (m.name && sessionGet('name') !== m.name) {
         sessionSet('name', m.name, { localOnly: true });
         var sn = document.getElementById('sidebar-user-name');

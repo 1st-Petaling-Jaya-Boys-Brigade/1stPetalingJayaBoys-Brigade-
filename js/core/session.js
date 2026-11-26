@@ -696,10 +696,32 @@ var AuthGuard = {
 };
 
 
+function findSessionMemberRecord(rows, ic, email) {
+  if (!Array.isArray(rows)) return null;
+  var normalize = function(value) { return String(value || '').trim().toLowerCase(); };
+  var memberIc = normalize(ic);
+  var memberEmail = normalize(email);
+  if (memberIc) {
+    return rows.find(function(row) { return row && normalize(row.ic) === memberIc; }) || null;
+  }
+  if (!memberEmail) return null;
+
+  // Legacy sessions may have only an email. Shared emails can match multiple member records.
+  var matches = rows.filter(function(row) { return row && normalize(row.email) === memberEmail; });
+  if (matches.length === 1) return matches[0];
+  var activeMatches = matches.filter(function(row) { return !isRevokedSessionMember(row); });
+  return activeMatches.length === 1 ? activeMatches[0] : null;
+}
+
+function isRevokedSessionMember(member) {
+  return Boolean(member && (['deleted', 'archived_deleted'].includes(member.department) ||
+    String(member.ic || '').toLowerCase().startsWith('archived_')));
+}
+
 /**
  * Asynchronously verifies that the active authenticated session still exists in the database
  * and has not been deleted or revoked by an administrator.
- * If revoked or missing, immediately kicks the user out to the login/registration page (#member).
+ * If explicitly revoked, immediately kicks the user out to the login/registration page (#member).
  * @returns {Promise<boolean>} true if session is valid, false if revoked
  */
 var _lastSessionVerifyTime = 0;
@@ -768,7 +790,7 @@ async function verifyActiveMemberSession(force) {
     // 1. Fetch remote bb_deleted_members list to keep local cache synchronized
     try {
       var cfgRes = await client.get('bb_config?key=eq.bb_deleted_members&select=value', { cache: !force });
-      if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
+      if (sessionGet('ic') !== ic || sessionGet('email') !== email) return false;
       if (cfgRes && cfgRes.length && cfgRes[0].value) {
         var delList = typeof cfgRes[0].value === 'string' ? JSON.parse(cfgRes[0].value) : cfgRes[0].value;
         if (Array.isArray(delList)) {
@@ -796,7 +818,7 @@ async function verifyActiveMemberSession(force) {
     // Restrictions are independent of the deleted-member registry.
     try {
       var blkCfg = await client.get('bb_config?key=eq.bb_blocked_emails&select=value', { cache: !force });
-      if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
+      if (sessionGet('ic') !== ic || sessionGet('email') !== email) return false;
       if (Array.isArray(blkCfg) && blkCfg.length && blkCfg[0].value) {
         var blkList = typeof blkCfg[0].value === 'string' ? JSON.parse(blkCfg[0].value) : blkCfg[0].value;
         if (Array.isArray(blkList)) {
@@ -816,15 +838,13 @@ async function verifyActiveMemberSession(force) {
     var query = 'bb_members?select=ic,email,department&or=(ic.eq.' + encodeURIComponent(lookupId) +
       (email ? (',email.ilike.' + encodeURIComponent(cleanEmail)) : '') + ')';
     var rows = await client.get(query);
-    if ((sessionGet('ic') || sessionGet('email')) !== lookupId) return false;
+    if (sessionGet('ic') !== ic || sessionGet('email') !== email) return false;
 
     // Only revoke access if database explicitly returns a record marked as deleted or archived.
     // Transient network timeouts, empty query fallbacks, or offline states must NEVER purge user sessions.
-    if (Array.isArray(rows) && rows.length > 0) {
-      if (['deleted', 'archived_deleted'].includes(rows[0].department) || (rows[0].ic && rows[0].ic.indexOf('archived_') === 0)) {
-        forceKickDeletedAccount();
-        return false;
-      }
+    if (isRevokedSessionMember(findSessionMemberRecord(rows, ic, email))) {
+      forceKickDeletedAccount();
+      return false;
     }
 
     _lastSessionVerifyTime = Date.now();
@@ -1756,6 +1776,8 @@ if (typeof window !== 'undefined') {
   window.refreshLivePresenceDots = refreshLivePresenceDots;
   window.PRESENCE_IDLE_TIMEOUT_MS = PRESENCE_IDLE_TIMEOUT_MS;
   window.PRESENCE_HEARTBEAT_INTERVAL_MS = PRESENCE_HEARTBEAT_INTERVAL_MS;
+  window.findSessionMemberRecord = findSessionMemberRecord;
+  window.isRevokedSessionMember = isRevokedSessionMember;
   window.verifyActiveMemberSession = verifyActiveMemberSession;
   window.forceKickDeletedAccount = forceKickDeletedAccount;
   window.isOnboardingCompleted = isOnboardingCompleted;
