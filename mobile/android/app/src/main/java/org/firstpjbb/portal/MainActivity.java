@@ -6,14 +6,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.view.Window;
 import android.webkit.JavascriptInterface;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
 import com.google.firebase.messaging.FirebaseMessaging;
 import org.json.JSONObject;
@@ -226,6 +229,29 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    @SuppressWarnings("deprecation")
+    private void applyNavigationTheme(boolean dark) {
+        Window window = getWindow();
+        int background = dark ? Color.rgb(27, 30, 37) : Color.WHITE;
+        // Older WebViews draw inside Capacitor's inset padding. Color the surface behind that padding too.
+        window.getDecorView().setBackgroundColor(background);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setNavigationBarContrastEnforced(false);
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            // Android 7 only supports light navigation icons.
+            window.setNavigationBarColor(Build.VERSION.SDK_INT < Build.VERSION_CODES.O ? Color.BLACK : background);
+        }
+        WindowCompat.getInsetsController(window, window.getDecorView()).setAppearanceLightNavigationBars(!dark);
+    }
+
+    public final class PortalNavigationBridge {
+        @JavascriptInterface
+        public void setDarkMode(boolean dark) {
+            runOnUiThread(() -> applyNavigationTheme(dark));
+        }
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -248,6 +274,7 @@ public class MainActivity extends BridgeActivity {
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 getBridge().getWebView().addJavascriptInterface(new AndroidFcmBridge(), "AndroidFCM");
+                getBridge().getWebView().addJavascriptInterface(new PortalNavigationBridge(), "PortalNavigation");
             }
         } catch (Exception ignored) {}
 
