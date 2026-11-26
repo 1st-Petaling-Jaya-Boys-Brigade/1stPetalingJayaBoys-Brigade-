@@ -6348,13 +6348,13 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const vercelCsp = vercelJson.headers[0].headers.find(h => h.key === 'Content-Security-Policy');
     assert.ok(vercelCsp && vercelCsp.value.includes('https://challenges.cloudflare.com'), 'vercel.json CSP includes Cloudflare Turnstile');
 
-    // Verify Turnstile API script tag in index.html
-    assert.ok(indexHtml.includes('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'), 'index.html loads Cloudflare Turnstile explicit script');
+    // Verify Turnstile external script is NOT loaded on auth forms (removed dummy test widget)
+    assert.ok(!indexHtml.includes('challenges.cloudflare.com/turnstile/v0/api.js'), 'index.html must not load dummy Cloudflare Turnstile widget script');
 
     // Verify Zero Google reCAPTCHA tracking cookies or third-party ad scripts (PDPA/COPPA child privacy)
     assert.ok(!indexHtml.includes('google.com/recaptcha'), 'Zero Google reCAPTCHA dependencies (privacy-first compliance)');
     assert.ok(!indexHtml.includes('gstatic.com/recaptcha'), 'Zero Google reCAPTCHA scripts in DOM');
-    console.log('  ✔ Privacy-first CSP allowlists, explicit script loader & zero tracking cookies verified (PDPA/COPPA)');
+    console.log('  ✔ Privacy-first CSP allowlists, removed dummy Turnstile script & zero tracking cookies verified (PDPA/COPPA)');
 
     // 2. Strict DOM ID preservation: exactly 385 unique DOM IDs
     const idMatches = indexHtml.match(/\bid=["']([^"']+)["']/g) || [];
@@ -6417,20 +6417,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(replayRes.replay, true, 'Replay flag is set to true');
     console.log('  ✔ Server-side token validation, rejection keys & one-time replay prevention verified');
 
-    // 7. Form Flow Integration Verifications across all 5 user flows:
-    // (A) Member Registration Form
-    assert.ok(indexHtml.includes('data-action="register"'), 'Member registration includes Turnstile container');
-    // (B) Member Login Form
-    assert.ok(indexHtml.includes('data-action="login"'), 'Member login includes Turnstile container');
-    // (C) Forgot Password OTP Form
-    assert.ok(indexHtml.includes('data-action="forgot_password"'), 'Forgot password includes Turnstile container');
-    // (D) Uniform Orders Checkout Screen
+    // 7. Form Flow Integration Verifications across auth & user flows (Turnstile UI removed):
+    // (A) Member Registration Form (uses honeypot without visible Turnstile box)
+    assert.strictEqual(indexHtml.includes('cf-turnstile-container'), false, 'Auth forms must not render Cloudflare Turnstile containers');
+    assert.ok(indexHtml.includes('id="reg-honeypot"'), 'Member registration retains silent honeypot protection');
+    // (B) Uniform Orders Checkout Screen
     const ordersMod = require('../js/modules/orders.js');
     assert.ok(typeof ordersMod.submitOrder === 'function', 'Uniform orders submitOrder is defined');
-    // (E) Built-in Forms & Camp E-Waiver
+    // (C) Built-in Forms & Camp E-Waiver
     const formsMod = require('../js/modules/forms.js');
     assert.ok(typeof formsMod.submitBuiltinForm === 'function', 'Built-in forms submitBuiltinForm is defined');
-    console.log('  ✔ Form integration verified across Registration, Login, Forgot Password, Orders & Camp Forms');
+    console.log('  ✔ Auth forms cleanly omit Turnstile widgets while retaining honeypot, Orders & Camp Forms');
 
     // 8. Google Apps Script Webhook Verification Action
     const sheetsContent = fs.readFileSync(path.join(__dirname, '..', 'js', 'api', 'sheets.js'), 'utf8');
@@ -15576,7 +15573,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const utilsMod = require('../js/core/utils.js');
 
     // 1. Task Assignment Notification Isolation (Assignee only; Non-assignees in same dept receive 0)
-    const indexJsScript = indexHtmlContent.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)[1];
+    const indexJsScript = (indexHtmlContent.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || []).at(-1) || '';
     assert.ok(indexJsScript.includes('syncTaskNotifications'), 'index.html must define syncTaskNotifications');
     assert.ok(!indexJsScript.includes('t.department && myDept && myDept.toLowerCase() !== \'none\' && t.department.toLowerCase().trim() === myDept.toLowerCase().trim()'),
       'syncTaskNotifications must NEVER assign task notifications based solely on matching department');
@@ -18553,7 +18550,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     [
       'Member',
       'Portal',
-      'Register or log in to access your member card',
+      'Register or log in to access the portal',
       'Email Address',
       'Password',
       'Remember me on this device',
