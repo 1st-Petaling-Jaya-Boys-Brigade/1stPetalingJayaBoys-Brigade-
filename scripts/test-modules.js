@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261126e',
-    'sw.js CACHE_VERSION must be 20261126e'
+    '20261126f',
+    'sw.js CACHE_VERSION must be 20261126f'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126e',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126f',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126e'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126f'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126e', 'Service Worker cache version must be 20261126e');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126f', 'Service Worker cache version must be 20261126f');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261126e and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261126f and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126e', 'sw.js CACHE_VERSION must be 20261126e');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126e', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126e', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261126f', 'sw.js CACHE_VERSION must be 20261126f');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126f', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126f', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261126e cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261126f cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261126e'), 'config.js must use v=20261126e');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126e'), 'forum.js must use v=20261126e');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261126e'), 'variables.css must use v=20261126e');
-    assert.ok(indexRaw.includes('css/base.css?v=20261126e'), 'base.css must use v=20261126e');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126e');
+    assert.ok(indexRaw.includes('js/config.js?v=20261126f'), 'config.js must use v=20261126f');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126f'), 'forum.js must use v=20261126f');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261126f'), 'variables.css must use v=20261126f');
+    assert.ok(indexRaw.includes('css/base.css?v=20261126f'), 'base.css must use v=20261126f');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126f');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -18545,7 +18545,60 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss97.includes('.auth-meta-row') && compCss97.includes('justify-content: space-between;'), 'components.css must align Remember me and Forgot Password on one row');
     assert.ok(compCss97.includes('@supports not (accent-color: auto)'), 'components.css must include accessible accent-color fallback for auth checkboxes');
     assert.ok(compCss97.includes('#m-auth.auth-shell-card .form-input:user-invalid'), 'components.css must style invalid fields non-intrusively with :user-invalid');
+    assert.ok(compCss97.includes(':root.auth-screen-active .page:not(#page-member)') && compCss97.includes(':root.auth-screen-active #m-dashboard'), 'components.css must hide non-member pages and #m-dashboard immediately via :root.auth-screen-active');
+    assert.ok(compCss97.includes(':root.auth-screen-active #page-member.page'), 'components.css must reveal centered #page-member immediately via :root.auth-screen-active');
+    assert.ok(indexHtml97.includes(':root.auth-screen-active .page:not(#page-member)') && indexHtml97.includes(':root.auth-screen-active #page-member.page'), 'index.html inline critical style must shield non-member pages before stylesheets or window.load complete');
+    assert.ok(indexHtml97.includes("document.documentElement.classList.toggle('auth-screen-active', !signedIn)"), 'syncSidebarAccess must toggle documentElement.auth-screen-active based on auth state');
     assert.ok(indexHtml97.includes("document.body.classList.toggle('auth-screen-active', !signedIn)"), 'syncSidebarAccess must toggle body.auth-screen-active based on auth state');
+
+    // 2b. Synchronous pre-paint session detector in js/core/theme.js
+    const themeSrc97 = fs.readFileSync(path.join(__dirname, '../js/core/theme.js'), 'utf8');
+    const themeMod97 = require('../js/core/theme.js');
+    assert.ok(themeSrc97.includes("document.documentElement.classList.toggle('auth-screen-active', !hasStoredPortalSession())"), 'js/core/theme.js must synchronously toggle :root.auth-screen-active in <head> before first paint');
+    assert.strictEqual(typeof themeMod97.hasStoredPortalSession, 'function', 'theme.js must export hasStoredPortalSession');
+    const origSess97 = global.sessionStorage;
+    const origLocal97 = global.localStorage;
+    const makeStore97 = () => {
+      const m = new Map();
+      return {
+        getItem: k => (m.has(k) ? m.get(k) : null),
+        setItem: (k, v) => m.set(k, String(v)),
+        removeItem: k => m.delete(k),
+        clear: () => m.clear()
+      };
+    };
+    global.sessionStorage = makeStore97();
+    global.localStorage = makeStore97();
+    try {
+      assert.strictEqual(themeMod97.hasStoredPortalSession(), false, 'Empty storage must evaluate to unauthenticated');
+
+      global.sessionStorage.setItem('bb_session', JSON.stringify({}));
+      assert.strictEqual(themeMod97.hasStoredPortalSession(), false, 'Empty session object must evaluate to unauthenticated');
+
+      global.sessionStorage.setItem('bb_session', JSON.stringify({ ic: '050101-10-1234', _session_saved_at: Date.now() }));
+      assert.strictEqual(themeMod97.hasStoredPortalSession(), true, 'Fresh sessionStorage session must evaluate to authenticated');
+
+      global.sessionStorage.removeItem('bb_session');
+      global.localStorage.setItem('bb_session', JSON.stringify({
+        email: 'member@1stpjbb.org.my',
+        _session_saved_at: Date.now() - (15 * 24 * 60 * 60 * 1000)
+      }));
+      assert.strictEqual(themeMod97.hasStoredPortalSession(), false, 'Expired >14-day Remember Me session must evaluate to unauthenticated');
+
+      global.localStorage.setItem('bb_session', JSON.stringify({
+        email: 'revoked@1stpjbb.org.my',
+        _session_saved_at: Date.now()
+      }));
+      global.localStorage.setItem('bb_blocked_emails', JSON.stringify(['revoked@1stpjbb.org.my']));
+      assert.strictEqual(themeMod97.hasStoredPortalSession(), false, 'Blocked email session must evaluate to unauthenticated');
+
+      global.localStorage.removeItem('bb_blocked_emails');
+      global.localStorage.setItem('bb_deleted_members', JSON.stringify(['revoked@1stpjbb.org.my']));
+      assert.strictEqual(themeMod97.hasStoredPortalSession(), false, 'Deleted member session must evaluate to unauthenticated');
+    } finally {
+      global.sessionStorage = origSess97;
+      global.localStorage = origLocal97;
+    }
 
     [
       'Member',

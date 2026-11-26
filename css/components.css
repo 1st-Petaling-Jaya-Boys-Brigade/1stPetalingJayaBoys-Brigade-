@@ -466,15 +466,25 @@ select.form-input,
   word-break: break-all;
 }
 
-/* ── FULLSCREEN CENTERED AUTH SHELL (Hides Header, Sidebar & Mobile Dock While Logged Out) ── */
+/* ── FULLSCREEN CENTERED AUTH SHELL (Hides Header, Sidebar, Mobile Dock & Internal Pages While Logged Out) ── */
+:root.auth-screen-active #site-header,
+:root.auth-screen-active #sidebar-overlay,
+:root.auth-screen-active #bottom-nav,
+:root.auth-screen-active #helper-agent-trigger,
+:root.auth-screen-active #helper-agent-drawer,
+:root.auth-screen-active .page:not(#page-member),
+:root.auth-screen-active #m-dashboard,
 body.auth-screen-active #site-header,
 body.auth-screen-active #sidebar-overlay,
 body.auth-screen-active #bottom-nav,
 body.auth-screen-active #helper-agent-trigger,
-body.auth-screen-active #helper-agent-drawer {
+body.auth-screen-active #helper-agent-drawer,
+body.auth-screen-active .page:not(#page-member),
+body.auth-screen-active #m-dashboard {
   display: none !important;
 }
 
+:root.auth-screen-active .app-shell-layout,
 body.auth-screen-active .app-shell-layout {
   display: flex !important;
   width: 100% !important;
@@ -484,6 +494,9 @@ body.auth-screen-active .app-shell-layout {
   padding: 0 !important;
 }
 
+:root.auth-screen-active .app-main,
+:root.auth-screen-active body.sidebar-collapsed .app-main,
+:root.auth-screen-active .sidebar-overlay.collapsed ~ .app-main,
 body.auth-screen-active .app-main,
 body.auth-screen-active.sidebar-collapsed .app-main,
 body.auth-screen-active .sidebar-overlay.collapsed ~ .app-main {
@@ -499,6 +512,8 @@ body.auth-screen-active .sidebar-overlay.collapsed ~ .app-main {
   box-sizing: border-box !important;
 }
 
+:root.auth-screen-active #page-member.page,
+body.auth-screen-active #page-member.page,
 body.auth-screen-active #page-member.page.active {
   width: 100% !important;
   max-width: 100% !important;
@@ -512,6 +527,8 @@ body.auth-screen-active #page-member.page.active {
   box-sizing: border-box !important;
 }
 
+:root.auth-screen-active #page-member.page > div,
+body.auth-screen-active #page-member.page > div,
 body.auth-screen-active #page-member.page.active > div {
   width: 100%;
   flex: 1 0 auto;

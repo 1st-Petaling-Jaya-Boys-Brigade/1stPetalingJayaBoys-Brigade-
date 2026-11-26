@@ -73,10 +73,61 @@
     return next;
   }
 
-  // Apply immediately on script execution to prevent flash of wrong theme
+  function hasStoredPortalSession() {
+    var REMEMBER_ME_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+    try {
+      var raw = null;
+      var fromLocal = false;
+      if (typeof sessionStorage !== 'undefined') {
+        raw = sessionStorage.getItem('bb_session');
+      }
+      if (!raw && typeof localStorage !== 'undefined') {
+        raw = localStorage.getItem('bb_session');
+        fromLocal = !!raw;
+      }
+      if (!raw) return false;
+      var parsed = JSON.parse(raw);
+      if (!parsed || (!parsed.ic && !parsed.email)) return false;
+      var savedAt = parsed._session_saved_at || (fromLocal && parsed.expires_at ? (parsed.expires_at - REMEMBER_ME_TTL_MS) : null);
+      if (savedAt && typeof savedAt === 'number' && (Date.now() - savedAt) > REMEMBER_ME_TTL_MS) {
+        return false;
+      }
+      if (typeof localStorage !== 'undefined') {
+        var currentIds = [parsed.ic, parsed.email]
+          .filter(Boolean)
+          .map(function(id) { return String(id).trim().toLowerCase(); });
+        var blockedRaw = localStorage.getItem('bb_blocked_emails');
+        if (blockedRaw) {
+          var blocked = JSON.parse(blockedRaw);
+          if (Array.isArray(blocked) && blocked.some(function(entry) {
+            return currentIds.includes(String(entry && (entry.email || entry)).trim().toLowerCase());
+          })) {
+            return false;
+          }
+        }
+        var deletedRaw = localStorage.getItem('bb_deleted_members');
+        if (deletedRaw) {
+          var deleted = JSON.parse(deletedRaw);
+          if (Array.isArray(deleted) && deleted.some(function(item) {
+            return currentIds.includes(String(item || '').trim().toLowerCase());
+          })) {
+            return false;
+          }
+        }
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Apply immediately on script execution to prevent flash of wrong theme or logged-out home screen
   var initialTheme = getPreferredTheme();
   if (typeof document !== 'undefined' && document.documentElement) {
     document.documentElement.setAttribute('data-theme', initialTheme);
+    if (document.documentElement.classList && typeof document.documentElement.classList.toggle === 'function') {
+      document.documentElement.classList.toggle('auth-screen-active', !hasStoredPortalSession());
+    }
     syncThemeMetaTags(initialTheme);
     if (typeof document.addEventListener === 'function') {
       document.addEventListener('DOMContentLoaded', function() {
@@ -602,6 +653,7 @@
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
       getPreferredTheme,
+      hasStoredPortalSession,
       applyTheme,
       toggleTheme,
       getAmbientParticlesState,
