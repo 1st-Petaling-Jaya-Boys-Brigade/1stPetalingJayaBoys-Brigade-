@@ -25,17 +25,17 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261126b"></script>
+<script src="js/core/theme.js?v=20261126c"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261126b">
-<link rel="stylesheet" href="css/base.css?v=20261126b">
-<link rel="stylesheet" href="css/nav.css?v=20261126b">
-<link rel="stylesheet" href="css/components.css?v=20261126b">
-<link rel="stylesheet" href="css/admin.css?v=20261126b">
+<link rel="stylesheet" href="css/variables.css?v=20261126c">
+<link rel="stylesheet" href="css/base.css?v=20261126c">
+<link rel="stylesheet" href="css/nav.css?v=20261126c">
+<link rel="stylesheet" href="css/components.css?v=20261126c">
+<link rel="stylesheet" href="css/admin.css?v=20261126c">
 <style>
 /* ── Guaranteed Critical Styles for Quick Access Carousel (Zero-Cache Failure Protection) ── */
 .home-hero-calendar-row {
@@ -3277,31 +3277,31 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261126b"></script>
+<script src="js/config.js?v=20261126c"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261126b" defer></script>
-<script src="js/api/supabase.js?v=20261126b"></script>
-<script src="js/api/web-push.js?v=20261126b"></script>
-<script src="js/api/fcm.js?v=20261126b"></script>
-<script src="js/core/session.js?v=20261126b"></script>
-<script src="js/core/rbac.js?v=20261126b"></script>
-<script src="js/core/utils.js?v=20261126b"></script>
-<script src="js/core/ui.js?v=20261126b"></script>
-<script src="js/core/loading.js?v=20261126b"></script>
-<script src="js/modules/member.js?v=20261126b"></script>
-<script src="js/api/sheets.js?v=20261126b"></script>
-<script src="js/modules/attendance.js?v=20261126b"></script>
-<script src="js/modules/announcements.js?v=20261126b"></script>
-<script src="js/modules/gallery.js?v=20261126b"></script>
-<script src="js/modules/resources.js?v=20261126b"></script>
-<script src="js/modules/calendar.js?v=20261126b"></script>
-<script src="js/modules/orders.js?v=20261126b"></script>
-<script src="js/modules/forms.js?v=20261126b"></script>
-<script src="js/modules/badges.js?v=20261126b"></script>
-<script src="js/modules/tasks.js?v=20261126b"></script>
-<script src="js/modules/admin.js?v=20261126b"></script>
-<script src="js/modules/forum.js?v=20261126b"></script>
-<script src="js/modules/arcade.js?v=20261126b"></script>
+<script src="js/core/install.js?v=20261126c" defer></script>
+<script src="js/api/supabase.js?v=20261126c"></script>
+<script src="js/api/web-push.js?v=20261126c"></script>
+<script src="js/api/fcm.js?v=20261126c"></script>
+<script src="js/core/session.js?v=20261126c"></script>
+<script src="js/core/rbac.js?v=20261126c"></script>
+<script src="js/core/utils.js?v=20261126c"></script>
+<script src="js/core/ui.js?v=20261126c"></script>
+<script src="js/core/loading.js?v=20261126c"></script>
+<script src="js/modules/member.js?v=20261126c"></script>
+<script src="js/api/sheets.js?v=20261126c"></script>
+<script src="js/modules/attendance.js?v=20261126c"></script>
+<script src="js/modules/announcements.js?v=20261126c"></script>
+<script src="js/modules/gallery.js?v=20261126c"></script>
+<script src="js/modules/resources.js?v=20261126c"></script>
+<script src="js/modules/calendar.js?v=20261126c"></script>
+<script src="js/modules/orders.js?v=20261126c"></script>
+<script src="js/modules/forms.js?v=20261126c"></script>
+<script src="js/modules/badges.js?v=20261126c"></script>
+<script src="js/modules/tasks.js?v=20261126c"></script>
+<script src="js/modules/admin.js?v=20261126c"></script>
+<script src="js/modules/forum.js?v=20261126c"></script>
+<script src="js/modules/arcade.js?v=20261126c"></script>
 
 <script>
 
@@ -3416,7 +3416,10 @@ function switchTab(tab, btn, skipPush) {
   if (tab === 'member')     { if (typeof initAllTurnstileWidgets === 'function') initAllTurnstileWidgets(); if (typeof loadMemberOrders === 'function') loadMemberOrders(); }
   if (tab === 'attendance') { if (typeof renderCompanyLeaderboard === 'function') renderCompanyLeaderboard(); }
   if (tab === 'resources')  { if (typeof renderResourcesPage === 'function') renderResourcesPage(); }
-  if (tab === 'gallery')    { if (typeof renderGallery === 'function') renderGallery(); }
+  if (tab === 'gallery')    {
+    if (typeof renderGallery === 'function') renderGallery();
+    if (typeof loadGallery === 'function') loadGallery();
+  }
   if (tab === 'forum')      { if (typeof renderForumPage === 'function') renderForumPage(); if (typeof loadForumPosts === 'function') loadForumPosts(); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (tab === 'arcade')     { if (typeof renderArcadePage === 'function') renderArcadePage(); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (tab === 'parade')     { if (typeof resetCalendarToUpcoming === 'function') resetCalendarToUpcoming(); else if (typeof renderCalendarTab === 'function') renderCalendarTab('upcoming'); }
@@ -3977,21 +3980,26 @@ window.addEventListener('load', function() {
     }
   }
 
-  // 2. Coordinated Single-Flight Data Loading: Single batched bb_config read prevents 6x duplicate boot fetches
-  loadAnnouncements();
   if (typeof initQuickCardsCarousel === 'function') initQuickCardsCarousel();
-  renderOrderItems();
+  if (window.Capacitor?.isNativePlatform?.() && typeof requestNotificationPermission === 'function' && typeof localStorage !== 'undefined' && localStorage.getItem('bb_notif_system_enabled') !== 'false') {
+    requestNotificationPermission().catch(function() {});
+  }
+  if (!ic && !sessionGet('email')) {
+    updateOfflineIndicator();
+    updateNavUserHeader();
+    handleHashNavigation();
+    return;
+  }
 
+  // Load data used by the signed-in shell and notification inbox.
   var runConfigHydrators = function() {
-    loadPrices();
-    loadPaymentInfo();
     loadResources();
     if (typeof loadStoryHighlights === 'function') loadStoryHighlights();
     loadCustomForms();
   };
 
   if (typeof supa !== 'undefined' && typeof supa.batchConfigGet === 'function') {
-    supa.batchConfigGet(['bb_prices', 'bb_uniform_items', 'bb_payment_info', 'bb_resources', 'bb_custom_forms', 'bb_story_highlights', 'bb_custom_avatar_outlines', 'bb_member_cosmetics', 'bb_admin_roles'])
+    supa.batchConfigGet(['bb_resources', 'bb_custom_forms', 'bb_story_highlights', 'bb_custom_avatar_outlines', 'bb_member_cosmetics', 'bb_admin_roles'])
       .then(runConfigHydrators)
       .catch(runConfigHydrators);
   } else {
@@ -4001,7 +4009,6 @@ window.addEventListener('load', function() {
   // Defer non-critical assets to guarantee < 2s initial render
   var deferBackgroundInit = (typeof requestIdleCallback === 'function') ? requestIdleCallback : function(fn) { setTimeout(fn, 150); };
   deferBackgroundInit(function() {
-    loadGallery();
     if (typeof loadCustomAvatarOutlines === 'function') loadCustomAvatarOutlines();
     if (typeof loadMemberCosmetics === 'function') {
       loadMemberCosmetics().then(function() {
@@ -4052,9 +4059,6 @@ window.addEventListener('load', function() {
     else if (typeof renderCalendarTab === 'function') renderCalendarTab('upcoming');
   }
     updateNavUserHeader();
-  if (window.Capacitor?.isNativePlatform?.() && typeof requestNotificationPermission === 'function' && typeof localStorage !== 'undefined' && localStorage.getItem('bb_notif_system_enabled') !== 'false') {
-    requestNotificationPermission().catch(function() {});
-  }
   function completeInitialSync() {
     _initialNotifSyncDone = true;
     _allPortalNotifications.forEach(function(n) {
@@ -5517,6 +5521,7 @@ function syncForumNotifications(postsList, isSilent) {
 }
 
 function syncAllPortalNotifications(isSilent) {
+  if (!sessionGet('ic') && !sessionGet('email')) return Promise.resolve();
   if (typeof isSilent === 'undefined') isSilent = true;
   var promises = [];
   if (typeof fetchRemoteMemberPresence === 'function') {

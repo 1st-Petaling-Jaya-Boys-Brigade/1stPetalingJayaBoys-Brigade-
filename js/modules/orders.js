@@ -1239,6 +1239,8 @@ function checkOrderAccess() {
   if (inline) inline.style.display = 'none';
 
   populateOrderBar(ic);
+  loadPrices();
+  loadPaymentInfo();
 
   if (typeof renderFormsHub === 'function') renderFormsHub();
   if (typeof loadCustomForms === 'function') {
@@ -2210,7 +2212,10 @@ function switchUniformSubtab(sub) {
     if (p) p.style.display = s === sub ? 'block' : 'none';
     if (b) b.classList.toggle('active-subtab', s === sub);
   });
-  if (sub === 'products') renderAdminProducts();
+  if (sub === 'products') {
+    renderAdminProducts();
+    loadPrices().then(renderAdminProducts);
+  }
   if (sub === 'orders') renderAdminOrders();
 }
 

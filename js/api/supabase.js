@@ -525,6 +525,11 @@ const supa = {
    * @returns {Promise<any>}
    */
   rpc(funcName, params, options) {
+    if (typeof window !== 'undefined' && window.APP_CONFIG?.LEGACY_MEMBER_AUTH_RPCS === false &&
+        ['rpc_get_auth_salt', 'rpc_authenticate_member', 'rpc_check_auth_lockout', 'rpc_record_auth_attempt'].includes(funcName)) {
+      // These optional endpoints are absent in production. Their callers already handle null.
+      return Promise.resolve(null);
+    }
     options = options || {};
     var client = this && typeof this.req === 'function' ? this : supa;
     var path = 'rpc/' + encodeURIComponent(funcName);

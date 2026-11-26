@@ -463,7 +463,7 @@ async function loadGallery() {
       try {
         rows = await client.req('GET', 'bb_gallery?order=created_at.asc&select=*');
       } catch (errGet) {
-        rows = [];
+        // Keep the cached gallery when a refresh cannot reach the database.
       }
       if (Array.isArray(rows) && rows.length > 0) {
         galleryImages.length = 0;
@@ -1389,7 +1389,8 @@ async function loadStoryHighlights() {
       } catch (errCfg) {}
 
       // 2. If bb_config has no highlights, query bb_stories table if present
-      if (!storyHighlights || !storyHighlights.length) {
+      if ((typeof window === 'undefined' || window.APP_CONFIG?.LEGACY_STORIES_TABLE !== false) &&
+          (!storyHighlights || !storyHighlights.length)) {
         try {
           var rows = await client.get('bb_stories?order=display_order.asc,created_at.asc');
           if (rows && rows.length) {
@@ -1464,7 +1465,8 @@ async function saveStoryHighlights(newList) {
           }, 'key');
         } catch (e1) {}
       }
-      if (typeof client.post === 'function' && storyHighlights.length) {
+      if ((typeof window === 'undefined' || window.APP_CONFIG?.LEGACY_STORIES_TABLE !== false) &&
+          typeof client.post === 'function' && storyHighlights.length) {
         try {
           await Promise.all(storyHighlights.map(function(sh, i) {
             return client.upsert('bb_stories', {

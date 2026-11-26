@@ -72,9 +72,13 @@ async function getJson(url) {
     let idCounter = 1;
     const callbacks = new Map();
     let fulfillGalleryFixture;
+    let startupRequests;
+    let resolveGuestLoad;
 
     ws.onmessage = event => {
       const msg = JSON.parse(event.data);
+      if (msg.method === 'Network.requestWillBeSent' && startupRequests) startupRequests.push(msg.params.request.url);
+      if (msg.method === 'Page.loadEventFired') resolveGuestLoad?.();
       if (msg.method === 'Fetch.requestPaused') fulfillGalleryFixture?.(msg.params);
       if (msg.id && callbacks.has(msg.id)) {
         callbacks.get(msg.id)(msg);
@@ -114,6 +118,13 @@ async function getJson(url) {
         }
       }
     }
+
+    await sendCmd('Network.enable');
+    await sendCmd('Page.enable');
+    const restartedGuestLoad = new Promise(resolve => { resolveGuestLoad = resolve; });
+    startupRequests = [];
+    await sendCmd('Page.reload');
+    await restartedGuestLoad;
 
     // Wait until document.readyState === 'complete' and #hq-carousel-wrapper exists
     await evalWithRetry(
@@ -175,6 +186,12 @@ async function getJson(url) {
     console.log('  ✔ Unauthenticated user automatically redirected to Member Login/Registration screen');
     console.log('  ✔ Internal portal tabs (home, tasks, badges, attendance) blocked by AuthGuard');
     console.log('  ✔ Intended destination remembered for post-authentication redirect');
+    assert.ok(!startupRequests.some(url => {
+      const target = decodeURIComponent(url);
+      return /\/rest\/v1\/(bb_gallery|bb_announcements|bb_tasks)\b|bb_uniform_items|bb_(wordle|trivia|arcade)_/.test(target);
+    }), 'The login screen must not fetch gallery, announcements, tasks, store inventory or game data');
+    await sendCmd('Network.disable');
+    startupRequests = null;
 
     // Authenticate test member session to unlock internal portal views for layout testing
     await sendCmd('Runtime.evaluate', {

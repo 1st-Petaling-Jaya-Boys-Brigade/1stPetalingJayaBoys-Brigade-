@@ -9,9 +9,11 @@ if (typeof window !== 'undefined') {
     || 'https://github.com/1st-Petaling-Jaya-Boys-Brigade/1stPetalingJayaBoys-Brigade-/releases/download/v1.0.0/app-release.apk';
 }
 
+var PORTAL_SUPABASE_URL = 'https://mjfclxcklkbgsivvvlfe.supabase.co';
+
 var SUPA_URL = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_URL)
   || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL))
-  || 'https://mjfclxcklkbgsivvvlfe.supabase.co';
+  || PORTAL_SUPABASE_URL;
 
 var SUPA_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_SUPABASE_ANON_KEY)
   || (typeof process !== 'undefined' && process.env && (process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY))
@@ -71,7 +73,11 @@ var FILE_LIMITS = {
   RECEIPT_MAX_BYTES: 10 * 1024 * 1024
 };
 
+var usesHostedPortalSchema = SUPA_URL.replace(/\/$/, '') === PORTAL_SUPABASE_URL;
 var APP_CONFIG = Object.freeze({
+  // The hosted portal uses direct member verification and stores Story Highlights in bb_config.
+  LEGACY_MEMBER_AUTH_RPCS: !usesHostedPortalSchema,
+  LEGACY_STORIES_TABLE: !usesHostedPortalSchema,
   SUPABASE_URL: SUPA_URL,
   SUPABASE_ANON_KEY: SUPA_KEY,
   // The portal's hosted schema uses the avatar directory. Custom schemas can opt into a member-row mirror.
