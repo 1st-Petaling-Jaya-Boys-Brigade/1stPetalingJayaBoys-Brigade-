@@ -3288,15 +3288,27 @@ async function getJson(url) {
           const memberRoutes = visibleRoutes();
           window.PortalNavigation = { setDarkMode: dark => themeEvents.push(dark) };
           const surface = () => getComputedStyle(document.getElementById('bottom-nav')).backgroundColor;
+          const headerStyle = () => {
+            const cs = getComputedStyle(document.getElementById('site-header'));
+            return [cs.backgroundColor, cs.backdropFilter];
+          };
           const meta = () => document.querySelector('meta[name="theme-color"]').content;
-          const paint = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          const paint = async () => {
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            for (const el of [document.getElementById('bottom-nav'), document.getElementById('site-header')]) {
+              if (el && el.getAnimations) el.getAnimations().forEach(a => a.finish());
+            }
+            await new Promise(resolve => requestAnimationFrame(resolve));
+          };
           themeApply('light', false);
           await paint();
           const light = [surface(), meta()];
+          const headerLight = headerStyle();
           themeApply('dark', false);
           await paint();
           const dark = [surface(), meta()];
-          return { taskRoutes, memberRoutes, light, dark, themeEvents };
+          const headerDark = headerStyle();
+          return { taskRoutes, memberRoutes, light, dark, headerLight, headerDark, themeEvents };
         } finally {
           window.hasDepartmentRole = originalRole;
           window.PortalNavigation = originalBridge;
@@ -3312,8 +3324,10 @@ async function getJson(url) {
     assert.deepStrictEqual(mobileNav.memberRoutes, ['home', 'parade', 'order', 'member']);
     assert.deepStrictEqual(mobileNav.light, ['rgb(255, 255, 255)', '#ffffff']);
     assert.deepStrictEqual(mobileNav.dark, ['rgb(27, 30, 37)', '#1b1e25']);
+    assert.deepStrictEqual(mobileNav.headerLight, ['rgb(255, 255, 255)', 'none'], 'Mobile top header must be solid opaque white with no backdrop blur in Light Mode');
+    assert.deepStrictEqual(mobileNav.headerDark, ['rgb(27, 30, 37)', 'none'], 'Mobile top header must be solid opaque dark surface with no backdrop blur in Dark Mode');
     assert.deepStrictEqual(mobileNav.themeEvents, [false, true], 'Live theme changes reach the Android bridge');
-    console.log('  ✔ Mobile tabs respect task access and both themes match the bar and system theme color');
+    console.log('  ✔ Mobile tabs respect task access and both top/bottom bars are solid opaque matching the system theme color');
 
     // Test Create Task Brief folder SVG icon sizing & mobile modal bounds at 390x844
     const createTaskModalDiag = await sendCmd('Runtime.evaluate', {
