@@ -5664,6 +5664,164 @@ async function getJson(url) {
     assert.strictEqual(nInbox.markAllPersistsZero, true, 'Mark All as Read must clear all notifications and remain cleared after reload');
     console.log('  ✔ Notification inbox persistence (no auto-vanish) and contextual source auto-clear verified in browser');
 
+    // ── Admin Catalog Products View Switcher & Docked Ask Stedfast Right Sidebar Verification ──
+    await sendCmd('Emulation.setDeviceMetricsOverride', {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false
+    });
+    await new Promise(r => setTimeout(r, 200));
+
+    const viewAndSidebarDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origTheme = document.documentElement.getAttribute('data-theme');
+        const origAdminView = typeof getAdminViewMode === 'function' ? getAdminViewMode() : 'list';
+        const drawer = document.getElementById('helper-agent-drawer');
+        const trigger = document.getElementById('helper-agent-trigger');
+        const main = document.getElementById('app-main');
+        const header = document.getElementById('site-header');
+        try {
+          if (typeof themeApply === 'function') themeApply('light', false);
+          if (typeof switchTabNav === 'function') switchTabNav('home', true);
+
+          // 1. Reproduce & verify fix for Admin Catalog Products Grid View / List View collision when Admin Home is in Grid View
+          if (typeof setAdminViewMode === 'function') setAdminViewMode('grid');
+          if (typeof setAdminProductsViewMode === 'function') setAdminProductsViewMode('list');
+          const subpanel = document.getElementById('subpanel-products');
+          const gridBtn = subpanel ? subpanel.querySelector('button.adm-view-btn.adm-view-grid') : null;
+          const listBtn = subpanel ? subpanel.querySelector('button.adm-view-btn.adm-view-list') : null;
+          const listActiveOnlyWhenAdminGrid = Boolean(
+            gridBtn && listBtn &&
+            !gridBtn.classList.contains('active') && gridBtn.getAttribute('aria-pressed') === 'false' &&
+            listBtn.classList.contains('active') && listBtn.getAttribute('aria-pressed') === 'true'
+          );
+
+          // Also check contrast distinction between active vs inactive buttons in Light Mode
+          const listCs = listBtn ? getComputedStyle(listBtn) : null;
+          const gridCs = gridBtn ? getComputedStyle(gridBtn) : null;
+          const lightDistinctColors = Boolean(
+            listCs && gridCs &&
+            listCs.backgroundColor !== gridCs.backgroundColor &&
+            listCs.color !== gridCs.color
+          );
+
+          // Switch Admin Home to List View, then switch Products back to Grid View
+          if (typeof setAdminViewMode === 'function') setAdminViewMode('list');
+          if (typeof setAdminProductsViewMode === 'function') setAdminProductsViewMode('grid');
+          const gridActiveOnlyWhenAdminList = Boolean(
+            gridBtn && listBtn &&
+            gridBtn.classList.contains('active') && gridBtn.getAttribute('aria-pressed') === 'true' &&
+            !listBtn.classList.contains('active') && listBtn.getAttribute('aria-pressed') === 'false'
+          );
+
+          // 2. Ask Stedfast Docked Right Sidebar at 1440x900
+          if (drawer && drawer.classList.contains('open')) toggleHelperAgent();
+          if (typeof clearHelperChat === 'function') clearHelperChat();
+          const mainWidthClosed = main ? Math.round(main.getBoundingClientRect().width) : 0;
+
+          if (trigger) trigger.click();
+          await new Promise(r => setTimeout(r, 300));
+
+          const drawerRect = drawer ? drawer.getBoundingClientRect() : null;
+          const headerRect = header ? header.getBoundingClientRect() : null;
+          const mainRectOpen = main ? main.getBoundingClientRect() : null;
+          const drawerCs = drawer ? getComputedStyle(drawer) : null;
+          const viewportRight = document.documentElement.clientWidth || window.innerWidth;
+          const dockedOnRight = Boolean(
+            drawer && drawer.classList.contains('open') &&
+            document.body.classList.contains('helper-sidebar-open') &&
+            drawer.getAttribute('role') === 'complementary' &&
+            drawerRect && headerRect &&
+            Math.abs(drawerRect.right - viewportRight) <= 1.5 &&
+            Math.abs(drawerRect.top - headerRect.bottom) <= 1.5 &&
+            Math.abs(drawerRect.bottom - window.innerHeight) <= 1.5 &&
+            drawerRect.width >= 335 && drawerRect.width <= 425 &&
+            drawerCs && drawerCs.borderRadius === '0px'
+          );
+          const dockedDebug = {
+            open: drawer?.classList.contains('open'),
+            bodyCls: document.body.classList.contains('helper-sidebar-open'),
+            authActive: document.body.classList.contains('auth-screen-active'),
+            role: drawer?.getAttribute('role'),
+            drawerRect: drawerRect ? { top: drawerRect.top, right: drawerRect.right, bottom: drawerRect.bottom, left: drawerRect.left, width: drawerRect.width } : null,
+            headerBottom: headerRect ? headerRect.bottom : null,
+            innerW: window.innerWidth,
+            clientW: document.documentElement.clientWidth,
+            innerH: window.innerHeight,
+            borderRadius: drawerCs ? drawerCs.borderRadius : null
+          };
+          const mainReflowedCleanly = Boolean(
+            mainRectOpen && drawerRect &&
+            mainRectOpen.width < mainWidthClosed - 200 &&
+            mainRectOpen.right <= drawerRect.left + 1.5 &&
+            document.documentElement.scrollWidth <= window.innerWidth + 1
+          );
+          const hasWelcomeStageAndComposer = Boolean(
+            drawer &&
+            drawer.querySelector('.helper-welcome-stage') &&
+            drawer.querySelectorAll('.helper-welcome-stage .helper-chip').length >= 3 &&
+            drawer.querySelector('.helper-composer-box #helper-agent-input')
+          );
+
+          // 3. Clicking a chip transitions from welcome stage into chat bubbles; New Chat restores welcome
+          const firstChip = drawer ? drawer.querySelector('.helper-welcome-stage .helper-chip') : null;
+          if (firstChip) firstChip.click();
+          await new Promise(r => setTimeout(r, 150));
+          const transitionedToChat = Boolean(
+            drawer && !drawer.querySelector('.helper-welcome-stage') &&
+            drawer.querySelectorAll('.helper-bubble').length >= 1
+          );
+          if (typeof clearHelperChat === 'function') clearHelperChat();
+          const resetRestoredWelcome = Boolean(drawer && drawer.querySelector('.helper-welcome-stage'));
+
+          // 4. Escape key while focused inside sidebar closes sidebar and restores #app-main width & trigger focus
+          const inp = document.getElementById('helper-agent-input');
+          if (inp) inp.focus();
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+          await new Promise(r => setTimeout(r, 280));
+          const closedCleanly = Boolean(
+            drawer && !drawer.classList.contains('open') &&
+            !document.body.classList.contains('helper-sidebar-open') &&
+            document.activeElement === trigger &&
+            main && Math.abs(Math.round(main.getBoundingClientRect().width) - mainWidthClosed) <= 2
+          );
+
+          return {
+            listActiveOnlyWhenAdminGrid,
+            lightDistinctColors,
+            gridActiveOnlyWhenAdminList,
+            dockedOnRight,
+            dockedDebug,
+            mainReflowedCleanly,
+            hasWelcomeStageAndComposer,
+            transitionedToChat,
+            resetRestoredWelcome,
+            closedCleanly
+          };
+        } finally {
+          if (drawer && drawer.classList.contains('open')) toggleHelperAgent();
+          if (typeof clearHelperChat === 'function') clearHelperChat();
+          if (typeof setAdminViewMode === 'function') setAdminViewMode(origAdminView || 'list');
+          if (typeof setAdminProductsViewMode === 'function') setAdminProductsViewMode('grid');
+          if (origTheme && typeof themeApply === 'function') themeApply(origTheme, false);
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const vs = (viewAndSidebarDiag.result && viewAndSidebarDiag.result.value) || {};
+    assert.strictEqual(vs.listActiveOnlyWhenAdminGrid, true, 'Clicking List View in Catalog Products must highlight ONLY List View even when Admin Home is in Grid View');
+    assert.strictEqual(vs.lightDistinctColors, true, 'Active and inactive Catalog Products view buttons must have distinct background and text colors in Light Mode');
+    assert.strictEqual(vs.gridActiveOnlyWhenAdminList, true, 'Clicking Grid View in Catalog Products must highlight ONLY Grid View even when Admin Home is in List View');
+    assert.strictEqual(vs.dockedOnRight, true, 'Ask Stedfast must open as a full-height docked right sidebar on desktop: ' + JSON.stringify(vs.dockedDebug));
+    assert.strictEqual(vs.mainReflowedCleanly, true, 'Opening Ask Stedfast right sidebar must cleanly reflow #app-main with 0px horizontal overflow');
+    assert.strictEqual(vs.hasWelcomeStageAndComposer, true, 'Ask Stedfast sidebar must show centered welcome stage, quick prompt chips, and bottom composer');
+    assert.strictEqual(vs.transitionedToChat, true, 'Selecting a prompt chip must transition smoothly into conversation bubbles');
+    assert.strictEqual(vs.resetRestoredWelcome, true, 'Starting a new conversation must restore the centered welcome stage');
+    assert.strictEqual(vs.closedCleanly, true, 'Pressing Escape inside Ask Stedfast sidebar must close it, restore #app-main width, and return focus to #helper-agent-trigger');
+    console.log('  ✔ Admin Catalog Products Grid/List exclusive selection and docked Ask Stedfast right sidebar verified in browser');
+
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
     ws.close();

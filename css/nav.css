@@ -1482,7 +1482,7 @@
     flex-direction: column !important;
     align-items: center !important;
     box-sizing: border-box !important;
-    transition: margin-left 0.25s cubic-bezier(0.16, 1, 0.3, 1), width 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition: margin-left 0.25s cubic-bezier(0.16, 1, 0.3, 1), margin-right 0.22s cubic-bezier(0.16, 1, 0.3, 1), width 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
   /* Collapsed (Unextended) Desktop Sidebar Mode */
@@ -1680,6 +1680,25 @@
   .sidebar-overlay.collapsed ~ .app-main {
     margin-left: 60px !important;
     width: calc(100% - 60px) !important;
+  }
+
+  /* Docked Ask Stedfast Right Sidebar Content Reflow */
+  body.helper-sidebar-open:not(.auth-screen-active) .app-main {
+    margin-right: var(--stedfast-sidebar-width, clamp(340px, 28vw, 400px)) !important;
+    width: calc(100% - 210px - var(--stedfast-sidebar-width, clamp(340px, 28vw, 400px))) !important;
+  }
+
+  body.sidebar-collapsed.helper-sidebar-open:not(.auth-screen-active) .app-main,
+  body.helper-sidebar-open:not(.auth-screen-active) .sidebar-overlay.collapsed ~ .app-main {
+    margin-right: var(--stedfast-sidebar-width, clamp(340px, 28vw, 400px)) !important;
+    width: calc(100% - 60px - var(--stedfast-sidebar-width, clamp(340px, 28vw, 400px))) !important;
+  }
+
+  @media (min-width: 1024px) and (max-width: 1360px) {
+    body.helper-sidebar-open:not(.auth-screen-active) .home-hero-calendar-row {
+      display: flex !important;
+      flex-direction: column !important;
+    }
   }
 
   /* Interactive Line Edge Toggle (Click line edge to extend / unextend) */

@@ -5031,18 +5031,29 @@ async function changeUniformOrderStatus(orderNum, status, memberId) {
 var _adminProductsViewMode = 'grid';
 var _draggedProdIndex = null;
 
+function syncAdminProductsViewButtons() {
+  if (typeof document === 'undefined') return;
+  var scope = document.getElementById('subpanel-products') || document;
+  var gridBtn = scope.querySelector('button.adm-view-btn.adm-view-grid, .adm-products-view-toggle .adm-view-grid');
+  var listBtn = scope.querySelector('button.adm-view-btn.adm-view-list, .adm-products-view-toggle .adm-view-list');
+  var isGrid = _adminProductsViewMode !== 'list';
+  if (gridBtn) {
+    gridBtn.classList.toggle('active', isGrid);
+    gridBtn.setAttribute('aria-pressed', isGrid ? 'true' : 'false');
+  }
+  if (listBtn) {
+    listBtn.classList.toggle('active', !isGrid);
+    listBtn.setAttribute('aria-pressed', !isGrid ? 'true' : 'false');
+  }
+}
+
 /**
  * Toggles Admin uniform products view mode between 'grid' and 'list'
  * @param {'grid'|'list'} mode
  */
 function setAdminProductsViewMode(mode) {
   _adminProductsViewMode = mode === 'list' ? 'list' : 'grid';
-  if (typeof document !== 'undefined') {
-    var gridBtn = document.querySelector('.adm-view-grid');
-    var listBtn = document.querySelector('.adm-view-list');
-    if (gridBtn) gridBtn.classList.toggle('active', _adminProductsViewMode === 'grid');
-    if (listBtn) listBtn.classList.toggle('active', _adminProductsViewMode === 'list');
-  }
+  syncAdminProductsViewButtons();
   renderAdminProducts();
 }
 
@@ -5051,6 +5062,7 @@ function setAdminProductsViewMode(mode) {
  */
 function renderAdminProducts() {
   if (typeof document === 'undefined') return;
+  syncAdminProductsViewButtons();
   var list = document.getElementById('admin-products-list');
   if (!list) return;
 

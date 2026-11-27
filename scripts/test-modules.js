@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127a',
-    'sw.js CACHE_VERSION must be 20261127a'
+    '20261127b',
+    'sw.js CACHE_VERSION must be 20261127b'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127a',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127b',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127a'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127b'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127a', 'Service Worker cache version must be 20261127a');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127b', 'Service Worker cache version must be 20261127b');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127a and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127b and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127a', 'sw.js CACHE_VERSION must be 20261127a');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127a', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127a', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127b', 'sw.js CACHE_VERSION must be 20261127b');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127b', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127b', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127a cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127b cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127a'), 'config.js must use v=20261127a');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127a'), 'forum.js must use v=20261127a');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127a'), 'variables.css must use v=20261127a');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127a'), 'base.css must use v=20261127a');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127a');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127b'), 'config.js must use v=20261127b');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127b'), 'forum.js must use v=20261127b');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127b'), 'variables.css must use v=20261127b');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127b'), 'base.css must use v=20261127b');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127b');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -18989,6 +18989,38 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const ids99 = (indexHtml99.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids99).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
     console.log('  ✔ Due-soon & overdue mobile push pipeline, inbox persistence, contextual auto-clear, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 100: Admin Catalog Grid/List View Toggle Fix & Docked Ask Stedfast Right Sidebar ---
+  console.log('\n--- Suite 100: Admin Catalog Grid/List View Toggle Fix & Docked Ask Stedfast Right Sidebar ---');
+  {
+    const ordersSrc100 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'orders.js'), 'utf8');
+    const forumSrc100 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'forum.js'), 'utf8');
+    const adminCss100 = fs.readFileSync(path.join(__dirname, '..', 'css', 'admin.css'), 'utf8');
+    const compCss100 = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8');
+    const navCss100 = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8');
+    const indexHtml100 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. Admin Catalog Products view switcher scopes to #subpanel-products buttons (no collision with .adm-section-nav)
+    assert.ok(ordersSrc100.includes('function syncAdminProductsViewButtons()'), 'orders.js must define syncAdminProductsViewButtons()');
+    assert.ok(ordersSrc100.includes("document.getElementById('subpanel-products')"), 'Catalog Products view switcher must scope queries to #subpanel-products');
+    assert.ok(ordersSrc100.includes("button.adm-view-btn.adm-view-grid") && ordersSrc100.includes("button.adm-view-btn.adm-view-list"), 'Catalog Products switcher must target button elements to avoid .adm-section-nav collisions');
+    assert.ok(ordersSrc100.includes("setAttribute('aria-pressed'"), 'Catalog Products switcher must update aria-pressed on toggle');
+    assert.ok(indexHtml100.includes('class="adm-products-view-toggle" role="group"'), 'index.html must wrap Catalog Products view buttons in accessible segmented toggle group');
+    assert.ok(adminCss100.includes('.adm-products-view-toggle') && adminCss100.includes("[data-theme='light'] .adm-view-btn.active") && !adminCss100.includes("[data-theme='light'] .adm-view-btn.active {\n  background: #f1f5f9;"), 'admin.css must style clear high-contrast active view pill in light and dark modes');
+
+    // 2. Ask Stedfast docked right sidebar, content reflow, welcome stage, composer & ARIA sync
+    assert.ok(forumSrc100.includes('function syncHelperDrawerAccessibility()'), 'forum.js must sync responsive sidebar/dialog ARIA role');
+    assert.ok(forumSrc100.includes("body.classList.toggle('helper-sidebar-open'"), 'forum.js must toggle body.helper-sidebar-open on desktop');
+    assert.ok(forumSrc100.includes("helper-welcome-stage") && forumSrc100.includes("helper-composer-box"), 'forum.js must render centered welcome stage and modern bottom composer');
+    assert.ok(compCss100.includes('--stedfast-sidebar-width') && compCss100.includes('border-left: 1px solid var(--border-card)') && compCss100.includes('overscroll-behavior: contain') && compCss100.includes('scrollbar-gutter: stable'), 'components.css must dock Ask Stedfast as a full-height right sidebar with contained scroll');
+    assert.ok(navCss100.includes('body.helper-sidebar-open:not(.auth-screen-active) .app-main'), 'nav.css must smoothly reflow .app-main when Ask Stedfast sidebar is open');
+    assert.ok(indexHtml100.includes("document.body.classList.remove('helper-sidebar-open')"), 'Sign-out guard must clear helper-sidebar-open class');
+
+    // 3. Strict 385 unique DOM IDs invariant preserved
+    const ids100 = (indexHtml100.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids100).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Admin Products Grid/List toggle fix, docked Ask Stedfast right sidebar, and 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

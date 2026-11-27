@@ -25,17 +25,17 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261127a"></script>
+<script src="js/core/theme.js?v=20261127b"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261127a">
-<link rel="stylesheet" href="css/base.css?v=20261127a">
-<link rel="stylesheet" href="css/nav.css?v=20261127a">
-<link rel="stylesheet" href="css/components.css?v=20261127a">
-<link rel="stylesheet" href="css/admin.css?v=20261127a">
+<link rel="stylesheet" href="css/variables.css?v=20261127b">
+<link rel="stylesheet" href="css/base.css?v=20261127b">
+<link rel="stylesheet" href="css/nav.css?v=20261127b">
+<link rel="stylesheet" href="css/components.css?v=20261127b">
+<link rel="stylesheet" href="css/admin.css?v=20261127b">
 <style>
 /* ── Guaranteed Critical Pre-Auth Shield (Prevents Any Flash of Home/Header/Sidebar Before Login) ── */
 :root.auth-screen-active #site-header,
@@ -2345,14 +2345,14 @@
               <span>Catalog Products</span>
               <span class="adm-products-count-badge" style="font-size:11px;padding:2px 8px;border-radius:12px;background:var(--bg-card-subtle);color:var(--text-secondary);border:1px solid var(--border-card);"></span>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;background:var(--bg-card);border-radius:10px;padding:3px;border:1px solid var(--border-card);">
-              <button type="button" class="adm-view-btn adm-view-grid active" onclick="setAdminProductsViewMode('grid')" title="Grid View" style="padding:6px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:7px;cursor:pointer;border:none;">
-                <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                Grid View
+            <div class="adm-products-view-toggle" role="group" aria-label="Catalog product view mode">
+              <button type="button" class="adm-view-btn adm-view-grid active" onclick="setAdminProductsViewMode('grid')" title="Grid View" aria-pressed="true">
+                <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>Grid View</span>
               </button>
-              <button type="button" class="adm-view-btn adm-view-list" onclick="setAdminProductsViewMode('list')" title="List View" style="padding:6px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;border-radius:7px;cursor:pointer;border:none;">
-                <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                List View
+              <button type="button" class="adm-view-btn adm-view-list" onclick="setAdminProductsViewMode('list')" title="List View" aria-pressed="false">
+                <svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                <span>List View</span>
               </button>
             </div>
           </div>
@@ -3319,31 +3319,31 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261127a"></script>
+<script src="js/config.js?v=20261127b"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261127a" defer></script>
-<script src="js/api/supabase.js?v=20261127a"></script>
-<script src="js/api/web-push.js?v=20261127a"></script>
-<script src="js/api/fcm.js?v=20261127a"></script>
-<script src="js/core/session.js?v=20261127a"></script>
-<script src="js/core/rbac.js?v=20261127a"></script>
-<script src="js/core/utils.js?v=20261127a"></script>
-<script src="js/core/ui.js?v=20261127a"></script>
-<script src="js/core/loading.js?v=20261127a"></script>
-<script src="js/modules/member.js?v=20261127a"></script>
-<script src="js/api/sheets.js?v=20261127a"></script>
-<script src="js/modules/attendance.js?v=20261127a"></script>
-<script src="js/modules/announcements.js?v=20261127a"></script>
-<script src="js/modules/gallery.js?v=20261127a"></script>
-<script src="js/modules/resources.js?v=20261127a"></script>
-<script src="js/modules/calendar.js?v=20261127a"></script>
-<script src="js/modules/orders.js?v=20261127a"></script>
-<script src="js/modules/forms.js?v=20261127a"></script>
-<script src="js/modules/badges.js?v=20261127a"></script>
-<script src="js/modules/tasks.js?v=20261127a"></script>
-<script src="js/modules/admin.js?v=20261127a"></script>
-<script src="js/modules/forum.js?v=20261127a"></script>
-<script src="js/modules/arcade.js?v=20261127a"></script>
+<script src="js/core/install.js?v=20261127b" defer></script>
+<script src="js/api/supabase.js?v=20261127b"></script>
+<script src="js/api/web-push.js?v=20261127b"></script>
+<script src="js/api/fcm.js?v=20261127b"></script>
+<script src="js/core/session.js?v=20261127b"></script>
+<script src="js/core/rbac.js?v=20261127b"></script>
+<script src="js/core/utils.js?v=20261127b"></script>
+<script src="js/core/ui.js?v=20261127b"></script>
+<script src="js/core/loading.js?v=20261127b"></script>
+<script src="js/modules/member.js?v=20261127b"></script>
+<script src="js/api/sheets.js?v=20261127b"></script>
+<script src="js/modules/attendance.js?v=20261127b"></script>
+<script src="js/modules/announcements.js?v=20261127b"></script>
+<script src="js/modules/gallery.js?v=20261127b"></script>
+<script src="js/modules/resources.js?v=20261127b"></script>
+<script src="js/modules/calendar.js?v=20261127b"></script>
+<script src="js/modules/orders.js?v=20261127b"></script>
+<script src="js/modules/forms.js?v=20261127b"></script>
+<script src="js/modules/badges.js?v=20261127b"></script>
+<script src="js/modules/tasks.js?v=20261127b"></script>
+<script src="js/modules/admin.js?v=20261127b"></script>
+<script src="js/modules/forum.js?v=20261127b"></script>
+<script src="js/modules/arcade.js?v=20261127b"></script>
 
 <script>
 
@@ -3703,7 +3703,18 @@ function syncSidebarAccess() {
       closeSidebar();
     }
     var helperDrawer = document.getElementById('helper-agent-drawer');
-    if (helperDrawer) helperDrawer.classList.remove('open');
+    if (helperDrawer) {
+      helperDrawer.classList.remove('open');
+      helperDrawer.style.display = 'none';
+    }
+    var helperTrigger = document.getElementById('helper-agent-trigger');
+    if (helperTrigger) {
+      helperTrigger.classList.remove('active');
+      helperTrigger.setAttribute('aria-expanded', 'false');
+    }
+    if (document.body && document.body.classList) {
+      document.body.classList.remove('helper-sidebar-open');
+    }
     document.querySelectorAll('.page').forEach(function(p) {
       p.classList.toggle('active', p.id === 'page-member');
     });

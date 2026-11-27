@@ -152,9 +152,11 @@ var _forumSearchQuery = '';
 
 // Helper Agent State
 var _isHelperAgentOpen = false;
+var _helperSidebarEventsBound = false;
 var _helperMessages = [
   {
     sender: 'agent',
+    isWelcome: true,
     text: 'Hello! I am **Stedfast**, your 1st Petaling Jaya Boys\' Brigade Helper.\n\nAsk me anything conversationally, or ask where features are located in our portal! I can also check your attendance qualification, search our Support Forum, or escalate technical issues for you.',
     time: 'Just now',
     chips: [
@@ -4164,7 +4166,7 @@ function detectTargetMemberName(query, currentUserName) {
  */
 function executeHelperAction(actionType, target) {
   if (actionType === 'navigate') {
-    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+    if (typeof window !== 'undefined' && window.innerWidth <= 1023) {
       if (typeof toggleHelperAgent === 'function') toggleHelperAgent();
     }
     if (target === 'admin') {
@@ -4200,7 +4202,7 @@ function executeHelperAction(actionType, target) {
       }
     }
   } else if (actionType === 'view-thread') {
-    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+    if (typeof window !== 'undefined' && window.innerWidth <= 1023) {
       if (typeof toggleHelperAgent === 'function') toggleHelperAgent();
     }
     if (typeof switchTabNav === 'function') {
@@ -4897,6 +4899,35 @@ function queryHelperAgent(userText) {
   };
 }
 
+function isDesktopHelperSidebarViewport() {
+  if (typeof window === 'undefined') return true;
+  if (typeof window.matchMedia === 'function') {
+    return window.matchMedia('(min-width: 1024px)').matches;
+  }
+  return (window.innerWidth || 1280) >= 1024;
+}
+
+function syncHelperDrawerAccessibility() {
+  if (typeof document === 'undefined') return;
+  var drawer = document.getElementById('helper-agent-drawer');
+  if (!drawer) return;
+  var isDesktopSidebar = isDesktopHelperSidebarViewport();
+  var isOpen = drawer.classList.contains('open');
+  if (isDesktopSidebar) {
+    drawer.setAttribute('role', 'complementary');
+    drawer.setAttribute('aria-label', 'Ask Stedfast AI sidebar');
+    drawer.removeAttribute('aria-modal');
+  } else {
+    drawer.setAttribute('role', 'dialog');
+    drawer.setAttribute('aria-label', 'Stedfast Helper Chat');
+    if (isOpen) drawer.setAttribute('aria-modal', 'true');
+    else drawer.removeAttribute('aria-modal');
+  }
+  if (document.body && document.body.classList) {
+    document.body.classList.toggle('helper-sidebar-open', Boolean(isOpen && isDesktopSidebar));
+  }
+}
+
 // ── Helper Agent DOM & UI Controller ─────────────────────────────────────────
 function ensureHelperAgentDOM() {
   if (typeof document === 'undefined') return;
@@ -4921,26 +4952,26 @@ function ensureHelperAgentDOM() {
     '</div>' +
     '<span class="helper-agent-label">Ask Stedfast</span>';
 
-  var chatBox = document.createElement('div');
+  var chatBox = document.createElement('aside');
   chatBox.id = 'helper-agent-drawer';
   chatBox.className = 'helper-agent-drawer';
   chatBox.style.display = 'none';
-  chatBox.setAttribute('role', 'dialog');
-  chatBox.setAttribute('aria-label', 'Stedfast Helper Chat');
+  chatBox.setAttribute('role', isDesktopHelperSidebarViewport() ? 'complementary' : 'dialog');
+  chatBox.setAttribute('aria-label', isDesktopHelperSidebarViewport() ? 'Ask Stedfast AI sidebar' : 'Stedfast Helper Chat');
 
   chatBox.innerHTML = 
     '<div class="helper-drawer-header">' +
-      '<div style="display:flex;align-items:center;gap:9px;">' +
-        '<div class="helper-drawer-avatar">' + FORUM_ICONS.anchor + '</div>' +
-        '<div>' +
-          '<div class="helper-drawer-title">Stedfast Helper</div>' +
+      '<div class="helper-drawer-title-group">' +
+        '<div class="helper-drawer-avatar" aria-hidden="true">' + FORUM_ICONS.anchor + '</div>' +
+        '<div class="helper-drawer-heading-stack">' +
+          '<div class="helper-drawer-title">Stedfast</div>' +
           '<div class="helper-drawer-sub" id="helper-engine-indicator">Company Handbook</div>' +
         '</div>' +
       '</div>' +
-      '<div style="display:flex;align-items:center;gap:6px;">' +
-        '<button type="button" class="helper-icon-btn" id="btn-helper-settings" onclick="toggleHelperSettingsPanel()" title="Configure Google Gemini">' + FORUM_ICONS.gear + '</button>' +
-        '<button type="button" class="helper-icon-btn" onclick="clearHelperChat()" title="Clear conversation">' + FORUM_ICONS.refresh + '</button>' +
-        '<button type="button" class="helper-icon-btn" onclick="toggleHelperAgent()" title="Close chat">&times;</button>' +
+      '<div class="helper-drawer-actions">' +
+        '<button type="button" class="helper-icon-btn" id="btn-helper-settings" onclick="toggleHelperSettingsPanel()" title="Configure Google Gemini" aria-label="Configure Google Gemini">' + FORUM_ICONS.gear + '</button>' +
+        '<button type="button" class="helper-icon-btn" onclick="clearHelperChat()" title="New conversation" aria-label="New conversation">' + FORUM_ICONS.plus + '</button>' +
+        '<button type="button" class="helper-icon-btn" onclick="toggleHelperAgent()" title="Close chat" aria-label="Close Ask Stedfast">&times;</button>' +
       '</div>' +
     '</div>' +
     '<div id="helper-settings-panel" class="helper-settings-panel" style="display:none;">' +
@@ -4950,7 +4981,7 @@ function ensureHelperAgentDOM() {
       '</div>' +
       '<p class="helper-settings-desc">Activate Google Gemini (Free Tier) for natural, conversational intelligence:</p>' +
       '<div class="helper-settings-input-group">' +
-        '<input type="password" id="helper-gemini-key-input" class="helper-settings-input" placeholder="Paste Gemini API Key..." />' +
+        '<input type="password" id="helper-gemini-key-input" class="helper-settings-input" placeholder="Paste Gemini API Key..." aria-label="Gemini API key" />' +
         '<button type="button" class="helper-settings-save-btn" onclick="saveGeminiKeyFromHelper(this)">Connect</button>' +
       '</div>' +
       '<div class="helper-settings-footer">' +
@@ -4959,12 +4990,37 @@ function ensureHelperAgentDOM() {
     '</div>' +
     '<div class="helper-drawer-body" id="helper-chat-body"></div>' +
     '<form class="helper-drawer-footer" onsubmit="handleHelperSubmit(event)">' +
-      '<input type="text" id="helper-agent-input" class="helper-chat-input" placeholder="Type your question…" aria-label="Question for Stedfast" autocomplete="off" />' +
-      '<button type="submit" class="helper-send-btn" aria-label="Send">' + FORUM_ICONS.send + '</button>' +
+      '<div class="helper-composer-box">' +
+        '<input type="text" id="helper-agent-input" class="helper-chat-input" placeholder="Ask Stedfast anything..." aria-label="Question for Stedfast" autocomplete="off" />' +
+        '<div class="helper-composer-bar">' +
+          '<span class="helper-composer-hint">1st PJ Handbook &amp; Portal</span>' +
+          '<button type="submit" class="helper-send-btn" aria-label="Send message">' + FORUM_ICONS.send + '</button>' +
+        '</div>' +
+      '</div>' +
     '</form>';
 
   document.getElementById('nav-search-trigger')?.after(trigger);
   document.body.appendChild(chatBox);
+  syncHelperDrawerAccessibility();
+  if (!_helperSidebarEventsBound && typeof window !== 'undefined') {
+    _helperSidebarEventsBound = true;
+    if (typeof window.matchMedia === 'function') {
+      var mq = window.matchMedia('(min-width: 1024px)');
+      var onViewportChange = function() { syncHelperDrawerAccessibility(); };
+      if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onViewportChange);
+      else if (typeof mq.addListener === 'function') mq.addListener(onViewportChange);
+    }
+    document.addEventListener('keydown', function(ev) {
+      if (!ev || ev.key !== 'Escape') return;
+      var activeDrawer = document.getElementById('helper-agent-drawer');
+      if (!activeDrawer || !activeDrawer.classList.contains('open')) return;
+      if (!isDesktopHelperSidebarViewport() || activeDrawer.contains(document.activeElement)) {
+        toggleHelperAgent();
+        var opener = document.getElementById('helper-agent-trigger');
+        if (opener && isDesktopHelperSidebarViewport()) opener.focus();
+      }
+    });
+  }
   renderHelperMessages();
 }
 
@@ -5148,6 +5204,7 @@ function toggleHelperAgent() {
     });
     drawer.style.display = 'flex';
     drawer.classList.add('open');
+    syncHelperDrawerAccessibility();
     if (trigger) {
       trigger.classList.add('active');
       trigger.setAttribute('aria-expanded', 'true');
@@ -5161,6 +5218,7 @@ function toggleHelperAgent() {
   } else {
     drawer.style.display = 'none';
     drawer.classList.remove('open');
+    syncHelperDrawerAccessibility();
     if (trigger) {
       trigger.classList.remove('active');
       trigger.setAttribute('aria-expanded', 'false');
@@ -5173,6 +5231,7 @@ function clearHelperChat() {
   _helperMessages = [
     {
       sender: 'agent',
+      isWelcome: true,
       text: 'Conversation reset. How may I assist you today regarding 1st PJ Boys\' Brigade?',
       time: 'Just now',
       chips: [
@@ -5192,8 +5251,23 @@ function renderHelperMessages() {
   var body = document.getElementById('helper-chat-body');
   if (!body) return;
 
+  var isFreshWelcome = _helperMessages.length === 1 && _helperMessages[0] && _helperMessages[0].isWelcome && _helperMessages[0].sender === 'agent';
+  if (isFreshWelcome) {
+    var welcomeMsg = _helperMessages[0];
+    body.innerHTML =
+      '<div class="helper-welcome-stage">' +
+        '<div class="helper-welcome-emblem" aria-hidden="true">' + FORUM_ICONS.anchor + '</div>' +
+        '<h2 class="helper-welcome-heading">Hi, I\'m Stedfast. How can I help?</h2>' +
+        '<p class="helper-welcome-sub">Ask a question about 1st PJ Boys\' Brigade, or start with one of these.</p>' +
+        (welcomeMsg.chips && welcomeMsg.chips.length ? renderChipsHtml(welcomeMsg.chips) : '') +
+      '</div>';
+    body.scrollTop = 0;
+    return;
+  }
+
   var html = '';
   _helperMessages.forEach(function(msg) {
+    if (msg && msg.isWelcome) return;
     var isUser = msg.sender === 'user';
     var safeText = formatHelperMarkdown(msg.text);
 
