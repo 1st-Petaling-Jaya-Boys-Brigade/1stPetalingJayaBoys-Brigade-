@@ -5832,6 +5832,98 @@ async function getJson(url) {
     assert.strictEqual(vs.closedCleanly, true, 'Pressing Escape inside Ask Stedfast sidebar must close it, restore #app-main width, and return focus to #helper-agent-trigger');
     console.log('  ✔ Admin Catalog Products Grid/List exclusive selection and docked Ask Stedfast right sidebar verified in browser');
 
+    // ── Tasks Project Breadcrumb Preservation Across Tab Switches & Mobile Calendar Fit Verification ──
+    const tasksBreadcrumbDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origDept = sessionGet('department');
+        try {
+          sessionSet('department', 'hq', { localOnly: true });
+          if (typeof switchTabNav === 'function') switchTabNav('tasks', true);
+          if (typeof openProjectBoard === 'function') openProjectBoard('Recruitment Programme');
+          const beforeSwitch = document.getElementById('tasks-dept-title')?.textContent?.trim() || '';
+          if (typeof switchTabNav === 'function') switchTabNav('home', true);
+          await new Promise(r => setTimeout(r, 80));
+          if (typeof switchTabNav === 'function') switchTabNav('tasks', true);
+          if (typeof checkTasksAccess === 'function') await checkTasksAccess();
+          await new Promise(r => setTimeout(r, 80));
+          const titleEl = document.getElementById('tasks-dept-title');
+          const afterSwitch = titleEl ? titleEl.textContent.trim() : '';
+          const visibleAfterSwitch = titleEl ? getComputedStyle(titleEl).display !== 'none' : false;
+          return { beforeSwitch, afterSwitch, visibleAfterSwitch };
+        } finally {
+          if (typeof setTasksViewMode === 'function') setTasksViewMode('projects');
+          if (origDept !== null && origDept !== undefined) sessionSet('department', origDept, { localOnly: true });
+          if (typeof switchTabNav === 'function') switchTabNav('home', true);
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const tb = (tasksBreadcrumbDiag.result && tasksBreadcrumbDiag.result.value) || {};
+    assert.strictEqual(tb.beforeSwitch, 'Recruitment Programme', 'Opening a project must show its name in the breadcrumb');
+    assert.strictEqual(tb.afterSwitch, 'Recruitment Programme', 'Returning to Projects & Tasks after visiting Home must preserve the active project name (never "HQ Department")');
+    assert.strictEqual(tb.visibleAfterSwitch, true, 'Active project breadcrumb must remain visible after tab switch');
+    console.log('  ✔ Active project breadcrumb preserved across tab switches (never reverts to HQ Department)');
+
+    for (const [mWidth, mHeight] of [[360, 780], [390, 844]]) {
+      await sendCmd('Emulation.setDeviceMetricsOverride', {
+        width: mWidth,
+        height: mHeight,
+        deviceScaleFactor: 2,
+        mobile: true
+      });
+      await new Promise(r => setTimeout(r, 220));
+      const mobCalDiag = await sendCmd('Runtime.evaluate', {
+        expression: `(async () => {
+          const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          document.documentElement.style.setProperty('--safe-area-left', '0px');
+          document.documentElement.style.setProperty('--safe-area-right', '0px');
+          switchTabNav('parade', true);
+
+          switchCalendarView('month');
+          await frame();
+          const mWrap = document.querySelector('.cal-month-table-wrapper');
+          const mHeads = [...document.querySelectorAll('.cal-month-head-cell')];
+          const mWrapRect = mWrap ? mWrap.getBoundingClientRect() : null;
+          const mSatRect = mHeads[6] ? mHeads[6].getBoundingClientRect() : null;
+          const monthNoScroll = Boolean(
+            mWrap && mWrapRect && mSatRect &&
+            mWrap.scrollWidth <= mWrap.clientWidth + 1 &&
+            mSatRect.right <= mWrapRect.right + 1 &&
+            document.documentElement.scrollWidth <= window.innerWidth + 1
+          );
+
+          switchCalendarView('year');
+          await frame();
+          const yBoxes = [...document.querySelectorAll('.cal-year-month-box')];
+          const yearNoScroll = yBoxes.length === 12 && yBoxes.every(box => {
+            const boxRect = box.getBoundingClientRect();
+            const days = box.querySelectorAll('.cal-year-weekdays > div');
+            const satRect = days[6] ? days[6].getBoundingClientRect() : null;
+            return box.scrollWidth <= box.clientWidth + 1 && (!satRect || satRect.right <= boxRect.right + 1);
+          }) && document.documentElement.scrollWidth <= window.innerWidth + 1;
+
+          switchCalendarView('week');
+          await frame();
+          const wWrap = document.querySelector('.cal-week-wrapper');
+          const weekNoScroll = Boolean(
+            wWrap && wWrap.scrollWidth <= wWrap.clientWidth + 1 &&
+            document.documentElement.scrollWidth <= window.innerWidth + 1
+          );
+
+          switchCalendarView('upcoming');
+          return { monthNoScroll, yearNoScroll, weekNoScroll };
+        })()`,
+        awaitPromise: true,
+        returnByValue: true
+      });
+      const mc = (mobCalDiag.result && mobCalDiag.result.value) || {};
+      assert.strictEqual(mc.monthNoScroll, true, 'Calendar Month view must fit all 7 days with 0px horizontal scroll at ' + mWidth + 'px');
+      assert.strictEqual(mc.yearNoScroll, true, 'Calendar Year view must fit all 12 month grids with 0px horizontal scroll at ' + mWidth + 'px');
+      assert.strictEqual(mc.weekNoScroll, true, 'Calendar Week view must fit with 0px horizontal scroll at ' + mWidth + 'px');
+    }
+    console.log('  ✔ Mobile Calendar Month, Year, and Week views fit all 7 columns cleanly at 360px & 390px with 0px horizontal scroll');
+
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
     ws.close();

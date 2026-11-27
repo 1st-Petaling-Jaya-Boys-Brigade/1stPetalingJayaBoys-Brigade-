@@ -15730,7 +15730,6 @@ body.light-theme .tb-mention-pill,
   .cal-nav-arrow,
   .cal-view-tab,
   .cal-year-month-name,
-  .cal-year-day-cell,
   .portal-modal-card button,
   .task-create-modal-card button {
     min-width: var(--min-touch-target) !important;
@@ -15742,25 +15741,63 @@ body.light-theme .tb-mention-pill,
     content: none;
   }
 
+  /* Touch & Mobile Calendar Grids: fit all 7 weekday columns with zero horizontal scroll */
   .cal-month-grid,
   .cal-month-head-row,
   .cal-year-days-grid,
   .cal-year-weekdays {
-    grid-template-columns: repeat(7, minmax(var(--min-touch-target), 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    width: 100%;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  .cal-month-head-cell {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+  }
+
+  .cal-month-day-cell {
+    min-width: 0 !important;
+    width: 100%;
+    min-height: 58px;
+  }
+
+  .cal-year-month-box {
+    max-width: 100%;
+    width: 100%;
+    padding: 10px 6px;
+    overflow-x: hidden !important;
+    box-sizing: border-box;
+  }
+
+  .cal-year-days-grid {
+    gap: 0 !important;
   }
 
   .cal-year-day-cell {
-    min-height: var(--min-touch-target);
+    min-width: 0 !important;
+    width: 100% !important;
+    min-height: var(--min-touch-target) !important;
+    aspect-ratio: 1;
+    padding: 0;
+    box-sizing: border-box;
   }
 
-  .cal-month-table-wrapper,
-  .cal-year-month-box {
+  .cal-month-table-wrapper {
     max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    overflow-x: hidden !important;
+    box-sizing: border-box;
   }
 
-  /* Homepage Calendar Widget - Fits 100% on Mobile with Zero Horizontal Scroll (Image 3) */
+  .cal-year-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr));
+    gap: 12px;
+  }
+
+  /* Homepage Calendar Widget - Fits 100% on Mobile with Zero Horizontal Scroll */
   .cal-widget-date-scroller {
     width: 100% !important;
     max-width: 100% !important;
@@ -15812,14 +15849,38 @@ body.light-theme .tb-mention-pill,
     overflow: hidden !important;
     text-align: center !important;
   }
+}
 
-  .cal-month-head-row,
-  .cal-month-grid {
-    min-width: calc(7 * var(--min-touch-target));
+/* Compact phone-width Calendar padding so all 7 columns keep >= 44px touch targets with 0px scroll */
+@media (max-width: 600px) {
+  #page-parade.page,
+  #page-parade.page.active {
+    padding-left: max(6px, var(--safe-area-left)) !important;
+    padding-right: max(6px, var(--safe-area-right)) !important;
+  }
+
+  #page-parade #tasks-no-dept.dark-card {
+    padding: 12px 2px !important;
+    border-radius: var(--radius-md);
+  }
+
+  #page-parade .cal-hub-header,
+  #page-parade .cal-nav-toolbar {
+    padding-inline: 8px;
+    box-sizing: border-box;
   }
 
   .cal-year-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .cal-year-month-box {
+    padding: 10px 0 !important;
+  }
+
+  .cal-year-month-name {
+    padding-inline: 10px;
+    box-sizing: border-box;
   }
 }
 
@@ -18332,8 +18393,32 @@ body.light-theme .tb-mention-pill,
     justify-content: space-between;
   }
 
+  .task-cal-month-frame {
+    overflow-x: hidden;
+  }
+
+  .task-cal-weekdays,
+  .task-cal-month-grid {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .task-cal-weekday {
+    padding: 8px 2px;
+    font-size: 9.5px;
+    letter-spacing: 0.2px;
+  }
+
   .task-cal-cell {
-    min-height: 98px;
+    min-height: 80px;
+    padding: 4px 2px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .task-cal-pill {
+    font-size: 9px;
+    padding: 2px 3px;
   }
 
   .task-cal-today-chip {

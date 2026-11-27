@@ -1016,7 +1016,20 @@ async function checkTasksAccess() {
     }
 
     var cfg = DEPT_CONFIG[cleanDeptKey];
-    var dt  = document.getElementById('tasks-dept-title');  if (dt) dt.textContent = cfg.label + ' Department';
+    var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
+    var dt  = document.getElementById('tasks-dept-title');
+    var sep = document.querySelector('.task-breadcrumb-sep');
+    if (dt) {
+      if (_tasksViewMode === 'board' && hasActiveProject) {
+        dt.textContent = _activeProject;
+        dt.style.display = 'inline';
+        if (sep) sep.style.display = 'inline';
+      } else {
+        dt.textContent = '';
+        dt.style.display = 'none';
+        if (sep) sep.style.display = 'none';
+      }
+    }
     var ds  = document.getElementById('tasks-dept-sub');    if (ds) ds.textContent = 'Projects & Tasks';
     var db  = document.getElementById('tasks-dept-badge');
     if (db) db.innerHTML = '<span class="dept-badge ' + cfg.cls + '">' + cfg.label + '</span>';
@@ -2011,20 +2024,17 @@ async function reorderProjectStatuses(fromIndex, toIndex) {
  */
 function changeTaskDeptFilter(dept) {
   _currentDeptFilter = dept || 'all';
+  var hasActiveProject = !!(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
   var titleEl = document.getElementById('tasks-dept-title');
-  if (titleEl) {
-    if (_currentDeptFilter === 'all') {
-      titleEl.textContent = 'All Departments';
-    } else if (DEPT_CONFIG[_currentDeptFilter]) {
-      titleEl.textContent = DEPT_CONFIG[_currentDeptFilter].label + ' Department';
-    } else {
-      titleEl.textContent = 'Department';
-    }
+  if (titleEl && _tasksViewMode === 'board' && hasActiveProject) {
+    titleEl.textContent = _activeProject;
   }
   if (_tasksViewMode === 'mytasks') {
     renderMyTasksView();
+  } else if (_tasksViewMode === 'board' && hasActiveProject) {
+    renderTasksBoard(_activeProject);
   } else {
-    renderTasksBoard(_currentDeptFilter);
+    renderProjectsView();
   }
 }
 
