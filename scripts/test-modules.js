@@ -4611,8 +4611,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127k',
-    'sw.js CACHE_VERSION must be 20261127k'
+    '20261127l',
+    'sw.js CACHE_VERSION must be 20261127l'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4640,7 +4640,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127k',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127l',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7571,7 +7571,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127k'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127l'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9058,12 +9058,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127k', 'Service Worker cache version must be 20261127k');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127l', 'Service Worker cache version must be 20261127l');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127k and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127l and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10359,25 +10359,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127k', 'sw.js CACHE_VERSION must be 20261127k');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127k', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127k', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127l', 'sw.js CACHE_VERSION must be 20261127l');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127l', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127l', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127k cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127l cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127k'), 'config.js must use v=20261127k');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127k'), 'forum.js must use v=20261127k');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127k'), 'variables.css must use v=20261127k');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127k'), 'base.css must use v=20261127k');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127k');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127l'), 'config.js must use v=20261127l');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127l'), 'forum.js must use v=20261127l');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127l'), 'variables.css must use v=20261127l');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127l'), 'base.css must use v=20261127l');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127l');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -12001,7 +12001,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(memberListEl.innerHTML.includes('data-col="age"'), 'Table includes split Age column');
     assert.ok(memberListEl.innerHTML.includes('data-col="dob"'), 'Table includes split DOB column');
     assert.ok(memberListEl.innerHTML.includes('data-col="status"'), 'Table includes Status column');
-    assert.ok(memberListEl.innerHTML.includes('data-col="consent"'), 'Table includes Consent column');
+    assert.ok(!memberListEl.innerHTML.includes('data-col="consent"'), 'Table omits retired COPPA/PDPA Consent column');
     assert.ok(memberListEl.innerHTML.includes('crm-th-chevron'), 'Table header includes downward dropdown chevron for sorting and filtering');
 
     // Section plain text & Department rounded rectangle badges
@@ -19051,11 +19051,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
 
     // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
-    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
-    assert.ok(indexHtml102.includes('css/base.css?v=20261127k') && indexHtml102.includes('css/components.css?v=20261127k'), 'index.html must reference cache-busted 20261127k CSS assets');
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261127l') && indexHtml102.includes('css/components.css?v=20261127l'), 'index.html must reference cache-busted 20261127l CSS assets');
     const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127k, and 385 DOM IDs verified');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127l, and 385 DOM IDs verified');
   }
 
   // --- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---
@@ -19140,11 +19140,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const mobileHeaderBlock104 = navCss104.slice(navCss104.indexOf('@media (max-width: 1023px)'));
     assert.ok(mobileHeaderBlock104.includes('background: var(--bg-card) !important;'), 'Mobile .nav header must use solid opaque var(--bg-card) background');
     assert.ok(mobileHeaderBlock104.includes('backdrop-filter: none !important;'), 'Mobile .nav header must disable translucent backdrop-filter');
-    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
-    assert.ok(indexHtml104.includes('css/nav.css?v=20261127k'), 'index.html must reference cache-busted 20261127k nav.css');
+    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
+    assert.ok(indexHtml104.includes('css/nav.css?v=20261127l'), 'index.html must reference cache-busted 20261127l nav.css');
     const ids104 = (indexHtml104.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids104).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127k, and 385 DOM IDs verified');
+    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127l, and 385 DOM IDs verified');
   }
 
   // --- Suite 105: Login with Google (Server-Verified OAuth, Family Account Picker & "Couldn't find your Google Account" Dialog) ---
@@ -19302,7 +19302,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col-body > * {\n  flex-shrink: 0;\n}'), 'Cards inside each scrolling column body must set flex-shrink: 0 so they never compress vertically');
     assert.ok(compCss106.includes('@supports not (scrollbar-color: auto) {') && compCss106.includes('scrollbar-color: var(--board-scrollbar-thumb) var(--board-scrollbar-track);'), 'Bottom horizontal board scrollbar must use standard scrollbar-color with @supports fallback');
     assert.ok(indexHtml106.includes('syncTasksBoardViewportLock()'), 'index.html switchTab must sync tasks board viewport lock on tab transitions');
-    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
+    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
     const ids106 = (indexHtml106.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids106).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
 
@@ -19423,10 +19423,66 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(!idx107.includes('PDPA 2010') && !idx107.includes('COPPA guidelines'), 'Privacy modal must not contain COPPA or PDPA copy');
     assert.ok(!forum107.includes('Under COPPA') && !forum107.includes('PDPA 2010'), 'Stedfast Helper FAQ must not reference removed COPPA/PDPA registration flow');
     assert.ok(!att107.includes('(PDPA / COPPA)'), 'Attendance integration summary must not reference PDPA / COPPA');
-    assert.ok(sw107.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
+    assert.ok(sw107.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
     const ids107 = (idx107.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids107).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
     console.log('  ✔ Registration COPPA/PDPA box removed, onboarding T&C preserved, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 108: Remove COPPA / PDPA from Admin Console Members Management ---
+  console.log('\n--- Suite 108: Remove COPPA / PDPA from Admin Console Members Management ---');
+  {
+    const idx108 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const adminSrc108 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'admin.js'), 'utf8');
+    const sw108 = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+
+    const emStart108 = idx108.indexOf('<div id="edit-member-modal"');
+    const emEnd108 = idx108.indexOf('<!-- ── FORMS SECTION', emStart108);
+    const emHtml108 = idx108.slice(emStart108, emEnd108);
+
+    assert.ok(
+      emHtml108.includes('id="em-child-safety-box" hidden aria-hidden="true" style="display:none !important;"'),
+      'Admin Edit Member modal must permanently hide retired #em-child-safety-box'
+    );
+    assert.ok(
+      !emHtml108.includes('Parent / Legal Guardian Name') &&
+      !emHtml108.includes('Parental Consent E-Signed') &&
+      !emHtml108.includes('Media &amp; Photography Release Opt-In'),
+      'Admin Edit Member modal must not render COPPA/PDPA parental consent fields'
+    );
+    assert.ok(
+      !adminSrc108.includes('Parental Consent OK') &&
+      !adminSrc108.includes('Parental Consent Pending') &&
+      !adminSrc108.includes('Consent OK') &&
+      !adminSrc108.includes("renderColumnHeader('consent'"),
+      'Admin Members table and filter popover must not render COPPA/PDPA consent column or filters'
+    );
+    assert.ok(
+      !adminSrc108.includes('rpc_admin_get_member_consent'),
+      'openEditMember must not issue legacy rpc_admin_get_member_consent RPC calls'
+    );
+
+    // Runtime check: handleAdminSectionChange keeps #em-child-safety-box hidden for Junior and Senior
+    const emBox108 = document.getElementById('em-child-safety-box');
+    const emSec108 = document.getElementById('em-section');
+    emSec108.value = 'Junior';
+    adminModule.handleAdminSectionChange();
+    assert.strictEqual(emBox108.style.display, 'none', '#em-child-safety-box must remain hidden for Junior in Admin');
+    assert.strictEqual(emBox108.hidden, true, '#em-child-safety-box hidden attribute must remain true');
+
+    // Runtime check: legacy stored consent filter in localStorage is stripped on restore
+    global.localStorage.setItem('bb_admin_member_filters', JSON.stringify({ section: 'Junior', consent: 'pending' }));
+    adminModule.restoreAdminFiltersAndSort();
+    adminModule.setAdminMemberFilter('section', 'Junior');
+    const restored108 = JSON.parse(global.localStorage.getItem('bb_admin_member_filters') || '{}');
+    assert.strictEqual(restored108.section, 'Junior');
+    assert.strictEqual(restored108.consent, undefined, 'Legacy stored consent filter must be stripped on restore');
+    await adminModule.clearAllAdminMemberFilters();
+
+    assert.ok(sw108.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
+    const ids108 = (idx108.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids108).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Admin Members Management COPPA/PDPA controls, table column & filters removed with 385 DOM IDs preserved');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

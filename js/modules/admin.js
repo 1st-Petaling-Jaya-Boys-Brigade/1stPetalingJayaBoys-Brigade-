@@ -88,7 +88,6 @@
     squad: '',
     dept: '',
     status: '',
-    consent: '',
     nameSearch: '',
     emailSearch: ''
   };
@@ -110,9 +109,15 @@
       if (savedFilters) {
         var parsed = JSON.parse(savedFilters);
         if (parsed && typeof parsed === 'object') {
-          _adminMemberFilters = Object.assign({
-            section: '', rank: '', squad: '', dept: '', status: '', consent: '', nameSearch: '', emailSearch: ''
-          }, parsed);
+          _adminMemberFilters = {
+            section: parsed.section || '',
+            rank: parsed.rank || '',
+            squad: parsed.squad || '',
+            dept: parsed.dept || '',
+            status: parsed.status || '',
+            nameSearch: parsed.nameSearch || '',
+            emailSearch: parsed.emailSearch || ''
+          };
         }
       }
       var savedRules = localStorage.getItem('bb_admin_member_sort_rules');
@@ -166,8 +171,7 @@
     dept:    { label: 'Department',      sortKey: 'dept',    filterType: 'options' },
     age:     { label: 'Age',             sortKey: 'age',     filterType: null },
     dob:     { label: 'DOB',             sortKey: 'dob',     filterType: null },
-    status:  { label: 'Status',          sortKey: 'status',  filterType: 'options' },
-    consent: { label: 'Consent',         sortKey: null,      filterType: 'options' }
+    status:  { label: 'Status',          sortKey: 'status',  filterType: 'options' }
   };
 
   function toggleColumnFilterMenu(col, ev) {
@@ -334,7 +338,6 @@
       squad: '',
       dept: '',
       status: '',
-      consent: '',
       nameSearch: '',
       emailSearch: ''
     };
@@ -363,7 +366,6 @@
       if (_adminMemberFilters.squad) count++;
       if (_adminMemberFilters.dept) count++;
       if (_adminMemberFilters.status) count++;
-      if (_adminMemberFilters.consent) count++;
       if (_adminMemberFilters.nameSearch) count++;
       if (_adminMemberFilters.emailSearch) count++;
 
@@ -483,8 +485,6 @@
         return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
       case 'status':
         return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
-      case 'consent':
-        return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>';
       case 'actions':
         return '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
       default:
@@ -582,12 +582,6 @@
           { val: 'processing', label: 'Processing' },
           { val: 'rejected', label: 'Rejected' },
           { val: 'not_verified', label: 'Not Verified' }
-        ];
-      } else if (colKey === 'consent') {
-        opts = [
-          { val: 'ok', label: 'Consent OK' },
-          { val: 'pending', label: 'Consent Pending' },
-          { val: 'no_media', label: 'No Media' }
         ];
       }
 
@@ -964,7 +958,6 @@
       if (_adminMemberFilters.squad) activeCount++;
       if (_adminMemberFilters.dept) activeCount++;
       if (_adminMemberFilters.status) activeCount++;
-      if (_adminMemberFilters.consent) activeCount++;
       if (_adminMemberFilters.nameSearch) activeCount++;
       if (_adminMemberFilters.emailSearch) activeCount++;
 
@@ -986,9 +979,6 @@
         }
         if (_adminMemberFilters.status) {
           chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Status</div><span class="adm-active-filter-chip"><span>' + _adminMemberFilters.status + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'status\')">\u2715</button></span></div>');
-        }
-        if (_adminMemberFilters.consent) {
-          chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Consent</div><span class="adm-active-filter-chip"><span>' + _adminMemberFilters.consent + '</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'consent\')">\u2715</button></span></div>');
         }
         if (_adminMemberFilters.nameSearch) {
           chips.push('<div class="adm-active-filter-item"><div class="adm-active-filter-label">Name Contains</div><span class="adm-active-filter-chip"><span>"' + _adminMemberFilters.nameSearch + '"</span><button type="button" class="adm-active-filter-chip-del" onclick="removeAdminMemberFilter(\'nameSearch\')">\u2715</button></span></div>');
@@ -1062,14 +1052,6 @@
                   var stLabel = (st === 'verified' ? 'Verified' : (st === 'processing' ? 'Processing' : (st === 'rejected' ? 'Rejected' : 'Not Verified')));
                   return '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.status === st ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'status\', \'' + st + '\')"><span>' + stLabel + '</span></button>';
                 }).join('') +
-              '</div>' +
-            '</div>' +
-            '<div class="adm-menu-item-with-submenu">' +
-              '<div class="adm-menu-item-row" onclick="this.parentElement.classList.toggle(\'is-open\')"><span>Consent</span><svg class="adm-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>' +
-              '<div class="adm-popover-submenu' + (isNarrow ? ' open-left' : '') + '">' +
-                '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.consent === 'ok' ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'consent\', \'ok\')"><span>Parental Consent OK</span></button>' +
-                '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.consent === 'pending' ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'consent\', \'pending\')"><span>Parental Consent Pending</span></button>' +
-                '<button type="button" class="adm-submenu-item' + (_adminMemberFilters.consent === 'no_media' ? ' is-selected' : '') + '" onclick="setAdminMemberFilter(\'consent\', \'no_media\')"><span>No Media Release</span></button>' +
               '</div>' +
             '</div>' +
             '<div class="adm-menu-item-with-submenu">' +
@@ -2647,7 +2629,7 @@
         members = _adminMembersCache;
       } else {
         try {
-          members = await loadAdminRoster(client, 'ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,verification_status,parental_consent_signed,media_consent');
+          members = await loadAdminRoster(client, 'ic,email,name,rank,squad,section,att_section,department,date_of_birth,joined_at,verification_status');
         } catch (selectErr) {
           if (!/PGRST204|42703|column.*does not exist/i.test(selectErr.message || '')) throw selectErr;
           members = await loadAdminRoster(client, 'ic,email,name,rank,squad,section,department,date_of_birth,joined_at');
@@ -2753,21 +2735,6 @@
           }
         }
 
-        // Consent filter
-        if (_adminMemberFilters.consent) {
-          var ageVal = calcAge(m.date_of_birth);
-          var isMinorVal = (typeof isMinorSection === 'function')
-            ? isMinorSection(m.att_section || m.section, ageVal)
-            : ((ageVal !== null && ageVal <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
-          if (_adminMemberFilters.consent === 'ok') {
-            if (!isMinorVal || (!m.parental_consent_signed && !m.parent_name)) return false;
-          } else if (_adminMemberFilters.consent === 'pending') {
-            if (!isMinorVal || (m.parental_consent_signed || m.parent_name)) return false;
-          } else if (_adminMemberFilters.consent === 'no_media') {
-            if (m.media_consent !== false) return false;
-          }
-        }
-
         return true;
       });
 
@@ -2849,7 +2816,7 @@
       // Update Selection UI & Row Actions Button Slot
       updateSelectionUI();
 
-      var isFilteringActive = !!(_adminMemberFilters.section || _adminMemberFilters.rank || _adminMemberFilters.squad || _adminMemberFilters.dept || _adminMemberFilters.status || _adminMemberFilters.consent || _adminMemberFilters.nameSearch || _adminMemberFilters.emailSearch || search);
+      var isFilteringActive = !!(_adminMemberFilters.section || _adminMemberFilters.rank || _adminMemberFilters.squad || _adminMemberFilters.dept || _adminMemberFilters.status || _adminMemberFilters.nameSearch || _adminMemberFilters.emailSearch || search);
 
       var toolbarHtml = '<div class="admin-members-toolbar">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">' +
@@ -2889,20 +2856,6 @@
           var age = calcAge(m.date_of_birth);
           var ageStr = age !== null ? (age + ' years') : '\u2014';
           var dobStr = m.date_of_birth ? m.date_of_birth.slice(0, 10) : '\u2014';
-          var isMinor = (typeof isMinorSection === 'function')
-            ? isMinorSection(m.att_section || m.section, age)
-            : ((age !== null && age <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
-
-          var consentBadge = '';
-          if (isMinor) {
-            var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
-            if (hasConsent) {
-              consentBadge = '<span title="Parental Consent Recorded" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;"><svg class="ui-icon-xs" style="width:10px;height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
-            }
-            if (m.media_consent === false) {
-              consentBadge += (consentBadge ? ' ' : '') + '<span title="No Public Media" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;margin-left:2px;">No Media</span>';
-            }
-          }
 
           var safeName = (typeof escapeHtml === 'function') ? escapeHtml(m.name || '\u2014') : (m.name || '\u2014');
           var safeIc   = (typeof escapeHtml === 'function') ? escapeHtml(m.ic) : m.ic;
@@ -2973,9 +2926,6 @@
               '<td style="white-space:nowrap;" onclick="event.stopPropagation();">' +
                 renderStatusBadge(vStatus) +
               '</td>' +
-              '<td style="white-space:nowrap;">' +
-                (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') +
-              '</td>' +
             '</tr>';
           } else {
             tableRowsHtml += '<tr class="admin-table-row admin-table-row-editing">' +
@@ -3017,7 +2967,6 @@
                 '<input type="date" class="admin-inline-input" value="' + (m.date_of_birth ? m.date_of_birth.slice(0, 10) : '') + '" onchange="updateMemberField(\'' + safeIc + '\', \'date_of_birth\', this.value)" title="Change Date of Birth" />' +
               '</td>' +
               '<td>' + renderStatusBadge(vStatus) + '</td>' +
-              '<td>' + (consentBadge || '<span style="font-size:11px;color:var(--text-muted);">\u2014</span>') + '</td>' +
             '</tr>';
           }
         });
@@ -3039,7 +2988,6 @@
                   renderColumnHeader('age', 'Age', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', 'age', null, filtered) +
                   renderColumnHeader('dob', 'DOB', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>', 'dob', null, filtered) +
                   renderColumnHeader('status', 'Status', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', 'status', 'options', filtered) +
-                  renderColumnHeader('consent', 'Consent', '<svg class="ui-icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>', null, 'options', filtered) +
                 '</tr>' +
               '</thead>' +
               '<tbody>' +
@@ -3056,20 +3004,6 @@
         visibleMembers.forEach(function(m) {
           var age = calcAge(m.date_of_birth);
           var ageStr = age !== null ? (age + ' years') : '\u2014';
-          var isMinor = (typeof isMinorSection === 'function')
-            ? isMinorSection(m.att_section || m.section, age)
-            : ((age !== null && age <= 11) || (m.att_section === 'Pre-Junior' || m.att_section === 'Junior'));
-
-          var consentBadge = '';
-          if (isMinor) {
-            var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
-            if (hasConsent) {
-              consentBadge = ' <span title="Parental Consent Recorded" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
-            }
-            if (m.media_consent === false) {
-              consentBadge += ' <span title="Privacy: Media release private / no public photos" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;vertical-align:middle;margin-left:2px;">No Media</span>';
-            }
-          }
 
           if (_adminSortBy === 'squad') {
             var sq = m.squad || 'No Platoon/Squad';
@@ -3113,7 +3047,7 @@
           cardRowsHtml += '<div class="admin-row" data-edit-ic="' + safeIc + '" style="cursor:pointer;display:flex;align-items:center;gap:12px;">'
             + avatarHtml
             + '<div style="flex:1;min-width:0;">'
-              + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + consentBadge + deptBadge + '</div>'
+              + '<div class="admin-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + safeName + deptBadge + '</div>'
               + '<div class="admin-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (m.ic.indexOf('@') !== -1 ? safeIc : ('ID: ' + safeIc)) + ' \xb7 ' + safeSquad + ' \xb7 ' + safeRank + (m.department ? (' \xb7 ' + ((typeof escapeHtml === 'function') ? escapeHtml((deptConfig && deptConfig.label) || m.department) : m.department)) : '') + ' \xb7 ' + presenceBadge + '</div>'
             + '</div>'
             + '<div style="text-align:right;flex-shrink:0;">'
@@ -3184,11 +3118,6 @@
   function handleAdminSectionChange(preserveRank, savedRank) {
     if (typeof document === 'undefined') return;
     var sec = (document.getElementById('em-section') || {}).value || '';
-    var dob = (document.getElementById('em-dob') || {}).value || '';
-    var age = (typeof calcAge === 'function') ? calcAge(dob) : null;
-    var isMinor = (typeof isMinorSection === 'function')
-      ? isMinorSection(sec, age)
-      : (sec === 'Pre-Junior' || sec === 'Junior' || (sec !== 'Officer' && age !== null && age <= 11));
 
     var rankEl = document.getElementById('em-rank');
     var popRank = (typeof populateRankOptions === 'function')
@@ -3221,13 +3150,8 @@
 
     var box = document.getElementById('em-child-safety-box');
     if (box) {
-      if (isMinor) {
-        box.style.border = '1px solid rgba(217,163,35,0.45)';
-        box.style.background = 'rgba(217,163,35,0.08)';
-      } else {
-        box.style.border = '1px solid var(--border-card)';
-        box.style.background = 'var(--bg-card-subtle)';
-      }
+      box.style.display = 'none';
+      box.hidden = true;
     }
   }
 
@@ -3272,16 +3196,18 @@
 
     var pc = document.getElementById('em-parent-consent');
     if (pc) pc.checked = false;
-    setAdminConsentControlsDisabled(false);
-    _adminConsentRequest++;
-    var existingPresCard = document.querySelector('.em-profile-presence-card');
-    if (existingPresCard) existingPresCard.style.display = 'none';
-
     var mc = document.getElementById('em-media-consent');
     if (mc) mc.checked = false;
-
     var cm = document.getElementById('em-consent-meta');
     if (cm) cm.textContent = '';
+    setAdminConsentControlsDisabled(true);
+    var csBoxAdd = document.getElementById('em-child-safety-box');
+    if (csBoxAdd) {
+      csBoxAdd.style.display = 'none';
+      csBoxAdd.hidden = true;
+    }
+    var existingPresCard = document.querySelector('.em-profile-presence-card');
+    if (existingPresCard) existingPresCard.style.display = 'none';
 
     var ic = document.getElementById('em-ic');
     if (ic) ic.readOnly = false;
@@ -3451,44 +3377,19 @@
       emStatusSel.value = getMemberVerificationStatus(m);
     }
     set('em-original-ic',  m.ic);
-    set('em-parent-name',  m.parent_name || '');
-    set('em-parent-contact', m.parent_contact || '');
-
+    set('em-parent-name',  '');
+    set('em-parent-contact', '');
     var pc = document.getElementById('em-parent-consent');
-    if (pc) pc.checked = !!m.parental_consent_signed;
-
+    if (pc) pc.checked = false;
     var mc = document.getElementById('em-media-consent');
-    if (mc) mc.checked = !!m.media_consent;
-
+    if (mc) mc.checked = false;
     var cm = document.getElementById('em-consent-meta');
-    if (cm) {
-      if (m.parental_consent_date) {
-        cm.textContent = 'Consent recorded on ' + new Date(m.parental_consent_date).toLocaleString('en-MY');
-      } else {
-        cm.textContent = '';
-      }
-    }
-
-    var request = ++_adminConsentRequest;
-    var client = getSupabaseClient();
+    if (cm) cm.textContent = '';
     setAdminConsentControlsDisabled(true);
-    if (cm) cm.textContent = 'Loading consent details…';
-    if (client && typeof client.rpc === 'function') {
-      client.rpc('rpc_admin_get_member_consent', { p_token: getAdminSessionToken(), p_member_id: ic }).then(function(consent) {
-        if (request !== _adminConsentRequest || !hasAdminModuleAccess('members')) return;
-        if (!consent || typeof consent.parental_consent_signed !== 'boolean') throw new Error('Consent unavailable');
-        set('em-parent-name', consent.parent_name);
-        set('em-parent-contact', consent.parent_contact);
-        if (pc) pc.checked = consent.parental_consent_signed;
-        if (mc) mc.checked = consent.media_consent === true;
-        if (cm) cm.textContent = consent.parental_consent_date
-          ? 'Consent recorded on ' + new Date(consent.parental_consent_date).toLocaleString('en-MY') : '';
-        setAdminConsentControlsDisabled(false);
-      }).catch(function() {
-        if (request === _adminConsentRequest && cm) cm.textContent = 'Consent details are unavailable. Profile edits can still be saved.';
-      });
-    } else if (cm) {
-      cm.textContent = 'Consent details are unavailable. Profile edits can still be saved.';
+    var csBoxEdit = document.getElementById('em-child-safety-box');
+    if (csBoxEdit) {
+      csBoxEdit.style.display = 'none';
+      csBoxEdit.hidden = true;
     }
 
     var icEl = document.getElementById('em-ic');
@@ -3509,7 +3410,6 @@
 
   function closeEditMember() {
     if (typeof document === 'undefined') return;
-    _adminConsentRequest++;
     var modal = document.getElementById('edit-member-modal');
     if (modal) modal.style.display = 'none';
   }
@@ -3538,7 +3438,6 @@
   }
 
   var _isSavingEditMember = false;
-  var _adminConsentRequest = 0;
 
   function setAdminConsentControlsDisabled(disabled) {
     ['em-parent-name', 'em-parent-contact', 'em-parent-consent', 'em-media-consent'].forEach(function(id) {
@@ -3584,18 +3483,6 @@
         squad = '';
       }
 
-      var rawPName      = ((document.getElementById('em-parent-name') || {}).value || '').trim();
-      var rawPContact   = ((document.getElementById('em-parent-contact') || {}).value || '').trim();
-      var parent_name   = (typeof sanitizeText === 'function') ? sanitizeText(rawPName, 100) : rawPName;
-      var parent_contact= (typeof sanitizeInput === 'function') ? sanitizeInput(rawPContact, 100) : rawPContact;
-
-      var pConsentCb    = document.getElementById('em-parent-consent');
-      var parental_consent_signed = pConsentCb ? !!pConsentCb.checked : false;
-      var canEditConsent = !pConsentCb?.disabled;
-
-      var mConsentCb    = document.getElementById('em-media-consent');
-      var media_consent = mConsentCb ? !!mConsentCb.checked : false;
-
       var emStatusSel   = document.querySelector('#edit-member-modal .em-status-select');
       var rawStatus     = emStatusSel ? emStatusSel.value : 'not_verified';
       var verification_status = (rawStatus || 'not_verified').toLowerCase().trim();
@@ -3614,10 +3501,6 @@
       }
       if (!VERIFICATION_STATES.includes(verification_status)) {
         if (typeof showToast === 'function') showToast('Please select a valid verification status.', 'warning');
-        return;
-      }
-      if (canEditConsent && parental_consent_signed && (!parent_name || !parent_contact)) {
-        if (typeof showToast === 'function') showToast('Add the guardian’s name and contact before recording verified consent.', 'warning');
         return;
       }
 
@@ -3689,13 +3572,9 @@
           date_of_birth: date_of_birth,
           password: defaultHash,
           joined_at: joined_at || new Date().toISOString(),
-          verification_status: verification_status || 'not_verified'
+          verification_status: verification_status || 'not_verified',
+          media_consent: false
         };
-
-        if (parent_name) newPayload.parent_name = parent_name;
-        if (parent_contact) newPayload.parent_contact = parent_contact;
-        newPayload.parental_consent_signed = parental_consent_signed;
-        newPayload.media_consent = media_consent;
 
         if (!hasAdminModuleAccess('members')) return false;
         await persistAdminMember(client, ic, true, newPayload);
@@ -3723,12 +3602,6 @@
         };
         if (joined_at)     updates.joined_at     = joined_at;
         if (date_of_birth) updates.date_of_birth = date_of_birth;
-        if (canEditConsent) {
-          updates.parent_name = parent_name || null;
-          updates.parent_contact = parent_contact || null;
-          updates.parental_consent_signed = parental_consent_signed;
-          updates.media_consent = media_consent;
-        }
 
         if (!hasAdminModuleAccess('members')) return false;
         await persistAdminMember(client, originalIc, false, updates);
@@ -3759,10 +3632,6 @@
         _adminMembers[memberTargetKey].department = department;
         _adminMembers[memberTargetKey].section = att_section;
         _adminMembers[memberTargetKey].att_section = att_section;
-        if (canEditConsent) {
-          _adminMembers[memberTargetKey].parental_consent_signed = parental_consent_signed;
-          _adminMembers[memberTargetKey].media_consent = media_consent;
-        }
         _adminMembers[memberTargetKey].verification_status = verification_status;
         _adminMembers[memberTargetKey].v_status = verification_status;
       }
@@ -3776,10 +3645,6 @@
             m.department = department;
             m.section = att_section;
             m.att_section = att_section;
-            if (canEditConsent) {
-              m.parental_consent_signed = parental_consent_signed;
-              m.media_consent = media_consent;
-            }
             m.verification_status = verification_status;
             m.v_status = verification_status;
           }

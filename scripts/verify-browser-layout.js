@@ -836,7 +836,13 @@ async function getJson(url) {
         'emSectionSel.value = "";' +
         'emSectionSel.dispatchEvent(new Event("change"));' +
         'const emChildSafetyBox = document.getElementById("em-child-safety-box");' +
-        'const emBoxHasCoppaPdpa = Boolean(emChildSafetyBox && /COPPA|PDPA/i.test(emChildSafetyBox.textContent || ""));' +
+        'const editMemberModal = document.getElementById("edit-member-modal");' +
+        'emSectionSel.value = "Junior";' +
+        'emSectionSel.dispatchEvent(new Event("change"));' +
+        'const emBoxHiddenForJunior = Boolean(emChildSafetyBox && emChildSafetyBox.hidden && getComputedStyle(emChildSafetyBox).display === "none" && emChildSafetyBox.getBoundingClientRect().height === 0);' +
+        'const emModalHasCoppaPdpa = Boolean(editMemberModal && /COPPA|PDPA|Parental Consent|Legal Guardian/i.test(editMemberModal.textContent || ""));' +
+        'emSectionSel.value = "";' +
+        'emSectionSel.dispatchEvent(new Event("change"));' +
         'const galleryAdvisory = document.getElementById("adm-section-gallery");' +
         'return {' +
         'hasConsentBox: !!consentBox,' +
@@ -852,7 +858,8 @@ async function getJson(url) {
         'preJuniorStaysInJunior,' +
         'staffSergeantStaysInOfficer,' +
         'hasEmChildSafety: !!emChildSafetyBox,' +
-        'emBoxHasCoppaPdpa,' +
+        'emBoxHiddenForJunior,' +
+        'emModalHasCoppaPdpa,' +
         'hasGalleryAdvisory: galleryAdvisory ? galleryAdvisory.textContent.includes("Child Safety & Media Release Advisory") : false' +
         '};' +
         '})()',
@@ -882,9 +889,18 @@ async function getJson(url) {
     assert.strictEqual(
       csInfo.hasEmChildSafety,
       true,
-      'Edit Member modal must preserve Parent / Guardian & Media Preferences controls'
+      'Retired em-child-safety-box DOM ID must stay preserved'
     );
-    assert.strictEqual(csInfo.emBoxHasCoppaPdpa, false, 'Edit Member modal must not display COPPA/PDPA text');
+    assert.strictEqual(
+      csInfo.emBoxHiddenForJunior,
+      true,
+      'Admin Edit Member modal must completely hide retired COPPA/PDPA box even for Junior section'
+    );
+    assert.strictEqual(
+      csInfo.emModalHasCoppaPdpa,
+      false,
+      'Admin Edit Member modal must not display any COPPA, PDPA, or Parental Consent copy'
+    );
     assert.strictEqual(
       csInfo.hasGalleryAdvisory,
       false,
