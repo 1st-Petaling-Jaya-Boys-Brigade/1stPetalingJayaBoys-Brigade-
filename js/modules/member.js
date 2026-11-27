@@ -841,7 +841,11 @@ function resetFamilyBanner() {
 
 var _isRegisteringMember = false;
 var _isLoggingInMember = false;
+var _isGoogleLoggingIn = false;
 var _isUpdatingSettingsPassword = false;
+var _googleAuthConfigCache = null;
+var _googleGsiScriptPromise = null;
+var GOOGLE_OIDC_STATE_KEY = 'bb_google_oidc_pending';
 
 async function registerMember() {
   if (_isRegisteringMember) return;
@@ -1992,6 +1996,590 @@ async function loginMember() {
   }
 }
 
+// ── Login with Google (Server-Verified OAuth / OIDC + Family Account Picker) ──
+
+function getGoogleAuthEndpoint() {
+  var base = (typeof window !== 'undefined' && window.SUPA_URL)
+    || (typeof SUPA_URL !== 'undefined' ? SUPA_URL : '')
+    || (typeof window !== 'undefined' && window.APP_CONFIG && window.APP_CONFIG.SUPABASE_URL)
+    || '';
+  return base ? (String(base).replace(/\/$/, '') + '/functions/v1/portal-google-auth') : '';
+}
+
+function isIOSStandalonePwa() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+    return false;
+  }
+  var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!isIOS) return false;
+  return navigator.standalone === true ||
+    Boolean(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+
+function generateCryptoRandomHex(byteLength) {
+  var len = byteLength || 16;
+  var bytes = new Uint8Array(len);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (var i = 0; i < len; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return Array.from(bytes, function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+async function getGoogleAuthConfig(forceRefresh) {
+  if (!forceRefresh && _googleAuthConfigCache && _googleAuthConfigCache.clientId) {
+    return _googleAuthConfigCache;
+  }
+
+  if (typeof window !== 'undefined' && window.__GOOGLE_AUTH_CONFIG__ && window.__GOOGLE_AUTH_CONFIG__.clientId) {
+    _googleAuthConfigCache = {
+      enabled: true,
+      clientId: String(window.__GOOGLE_AUTH_CONFIG__.clientId).trim()
+    };
+    return _googleAuthConfigCache;
+  }
+
+  var staticClientId = (typeof window !== 'undefined' && (
+    window.GOOGLE_OAUTH_CLIENT_ID ||
+    (window.APP_CONFIG && window.APP_CONFIG.GOOGLE_OAUTH_CLIENT_ID)
+  )) || (typeof GOOGLE_OAUTH_CLIENT_ID !== 'undefined' ? GOOGLE_OAUTH_CLIENT_ID : '');
+
+  if (staticClientId && String(staticClientId).trim()) {
+    _googleAuthConfigCache = { enabled: true, clientId: String(staticClientId).trim() };
+    return _googleAuthConfigCache;
+  }
+
+  var endpoint = getGoogleAuthEndpoint();
+  if (!endpoint || typeof fetch !== 'function') {
+    return { enabled: false, clientId: '' };
+  }
+
+  try {
+    var response = await fetch(endpoint, {
+      method: 'GET',
+      credentials: 'omit',
+      signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(8000)
+        : undefined
+    });
+    if (!response.ok) {
+      return { enabled: false, clientId: '' };
+    }
+    var payload = await response.json();
+    var clientId = (payload && typeof payload.clientId === 'string') ? payload.clientId.trim() : '';
+    var cfg = { enabled: Boolean(payload && payload.enabled && clientId), clientId: clientId };
+    if (cfg.enabled) _googleAuthConfigCache = cfg;
+    return cfg;
+  } catch (_) {
+    return { enabled: false, clientId: '' };
+  }
+}
+
+function loadGoogleIdentityScript() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return Promise.reject(new Error('Browser environment required'));
+  }
+  if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+    return Promise.resolve(window.google);
+  }
+  if (_googleGsiScriptPromise) return _googleGsiScriptPromise;
+
+  _googleGsiScriptPromise = new Promise(function(resolve, reject) {
+    var existing = document.querySelector('script[data-google-gsi-sdk="true"]');
+    if (existing) {
+      existing.addEventListener('load', function() {
+        if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+          resolve(window.google);
+        } else {
+          _googleGsiScriptPromise = null;
+          reject(new Error('Google Sign-In library failed to initialize'));
+        }
+      }, { once: true });
+      existing.addEventListener('error', function() {
+        _googleGsiScriptPromise = null;
+        reject(new Error('Failed to load Google Sign-In'));
+      }, { once: true });
+      return;
+    }
+
+    var script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.referrerPolicy = 'strict-origin-when-cross-origin';
+    script.setAttribute('data-google-gsi-sdk', 'true');
+    script.onload = function() {
+      if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+        resolve(window.google);
+      } else {
+        _googleGsiScriptPromise = null;
+        reject(new Error('Google Sign-In library unavailable'));
+      }
+    };
+    script.onerror = function() {
+      _googleGsiScriptPromise = null;
+      reject(new Error('Unable to load Google Sign-In script'));
+    };
+    document.head.appendChild(script);
+  });
+
+  return _googleGsiScriptPromise;
+}
+
+function startGoogleOidcRedirect(clientId, rememberMe) {
+  if (typeof window === 'undefined' || !window.location) return false;
+  var state = generateCryptoRandomHex(16);
+  var nonce = generateCryptoRandomHex(16);
+  var redirectUri = window.location.origin + window.location.pathname;
+  var pendingRecord = JSON.stringify({
+    state: state,
+    nonce: nonce,
+    remember: rememberMe !== false,
+    createdAt: Date.now()
+  });
+
+  try { sessionStorage.setItem(GOOGLE_OIDC_STATE_KEY, pendingRecord); } catch (_) {}
+  try { localStorage.setItem(GOOGLE_OIDC_STATE_KEY, pendingRecord); } catch (_) {}
+
+  var params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'id_token',
+    scope: 'openid email profile',
+    nonce: nonce,
+    state: state,
+    prompt: 'select_account'
+  });
+
+  window.location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + params.toString());
+  return true;
+}
+
+function readPendingGoogleOidcState() {
+  var raw = '';
+  try { raw = sessionStorage.getItem(GOOGLE_OIDC_STATE_KEY) || ''; } catch (_) {}
+  if (!raw) {
+    try { raw = localStorage.getItem(GOOGLE_OIDC_STATE_KEY) || ''; } catch (_) {}
+  }
+  try { sessionStorage.removeItem(GOOGLE_OIDC_STATE_KEY); } catch (_) {}
+  try { localStorage.removeItem(GOOGLE_OIDC_STATE_KEY); } catch (_) {}
+  if (!raw) return null;
+  try {
+    var parsed = JSON.parse(raw);
+    if (!parsed || !parsed.state || !parsed.nonce) return null;
+    if (parsed.createdAt && (Date.now() - parsed.createdAt) > 10 * 60 * 1000) return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function verifyGoogleLoginToken(payload) {
+  var endpoint = getGoogleAuthEndpoint();
+  if (!endpoint || typeof fetch !== 'function') {
+    return { ok: false, status: 503, code: 'SERVICE_UNAVAILABLE', error: LOGIN_UNAVAILABLE_MESSAGE };
+  }
+
+  try {
+    var response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'omit',
+      signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+        ? AbortSignal.timeout(12000)
+        : undefined
+    });
+    var data = {};
+    try {
+      data = await response.json();
+    } catch (_) {
+      data = {};
+    }
+    return Object.assign({ ok: response.ok, status: response.status }, data);
+  } catch (_) {
+    return { ok: false, status: 0, code: 'SERVICE_UNAVAILABLE', error: LOGIN_UNAVAILABLE_MESSAGE };
+  }
+}
+
+function closeGoogleAccountNotFoundModal() {
+  if (typeof document === 'undefined') return;
+  var dlg = document.querySelector('dialog.google-not-found-dialog');
+  if (dlg && dlg.open && typeof dlg.close === 'function') {
+    dlg.close('dismiss');
+  }
+}
+
+/**
+ * Displays a Google-styled native <dialog> when a Google account is not registered
+ * in the portal. Strictly prohibits account creation/registration from Google Sign-In.
+ * @param {string} email
+ * @returns {HTMLDialogElement|null}
+ */
+function showGoogleAccountNotFoundModal(email) {
+  if (typeof document === 'undefined') return null;
+
+  var cleanEmail = String(email || '').trim();
+  var dlg = document.querySelector('dialog.google-not-found-dialog');
+
+  if (!dlg) {
+    dlg = document.createElement('dialog');
+    dlg.className = 'google-not-found-dialog';
+    dlg.setAttribute('closedby', 'any');
+    dlg.setAttribute('aria-labelledby', 'google-not-found-title');
+    dlg.innerHTML =
+      '<div class="google-not-found-card">' +
+        '<div class="google-not-found-brand" aria-hidden="true">' +
+          '<span class="google-not-found-wordmark">' +
+            '<span style="color:#4285F4;">G</span>' +
+            '<span style="color:#EA4335;">o</span>' +
+            '<span style="color:#FBBC05;">o</span>' +
+            '<span style="color:#4285F4;">g</span>' +
+            '<span style="color:#34A853;">l</span>' +
+            '<span style="color:#EA4335;">e</span>' +
+          '</span>' +
+        '</div>' +
+        '<h1 id="google-not-found-title" class="google-not-found-title">Sign in</h1>' +
+        '<p class="google-not-found-sub">Use your Google Account</p>' +
+        '<div class="google-not-found-field">' +
+          '<div class="google-not-found-input-box" data-google-not-found-email tabindex="0" role="textbox" aria-readonly="true" aria-label="Google email address" aria-invalid="true" aria-describedby="google-not-found-error"></div>' +
+          '<div id="google-not-found-error" class="google-not-found-error-row" role="alert">' +
+            '<svg class="google-not-found-error-icon" viewBox="0 0 24 24" aria-hidden="true">' +
+              '<circle cx="12" cy="12" r="10" fill="currentColor"></circle>' +
+              '<rect x="11" y="7" width="2" height="6" rx="1" fill="#ffffff"></rect>' +
+              '<circle cx="12" cy="16.25" r="1.2" fill="#ffffff"></circle>' +
+            '</svg>' +
+            '<span>Couldn&#39;t find your Google Account</span>' +
+          '</div>' +
+        '</div>' +
+        '<p class="google-not-found-hint">This Google account is not registered in the 1st PJ Boys&#39; Brigade Portal. Try again with the Google email linked to your existing member account.</p>' +
+        '<div class="google-not-found-actions">' +
+          '<button type="button" class="google-not-found-back-btn" data-google-not-found-back>Back to Login</button>' +
+          '<button type="button" class="google-not-found-retry-btn" data-google-not-found-retry autofocus>Try another account</button>' +
+        '</div>' +
+      '</div>';
+
+    // Safari fallback for closedby="any" (pointer-bounds outside check)
+    if (typeof HTMLDialogElement !== 'undefined' && !('closedBy' in HTMLDialogElement.prototype)) {
+      var outside = function(ev, targetDlg) {
+        var r = targetDlg.getBoundingClientRect();
+        return ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom;
+      };
+      var pressedOutside = false;
+      dlg.addEventListener('pointerdown', function(ev) {
+        pressedOutside = outside(ev, dlg);
+      });
+      dlg.addEventListener('pointerup', function(ev) {
+        if (pressedOutside && outside(ev, dlg) && dlg.open) {
+          dlg.close('backdrop');
+        }
+        pressedOutside = false;
+      });
+    }
+
+    dlg.addEventListener('close', function() {
+      var reason = dlg.returnValue;
+      dlg.returnValue = '';
+      if (reason === 'retry') {
+        loginWithGoogle({ forceSelectAccount: true });
+      }
+    });
+
+    var backBtn = dlg.querySelector('[data-google-not-found-back]');
+    if (backBtn) {
+      backBtn.addEventListener('click', function() {
+        dlg.close('back');
+      });
+    }
+    var retryBtn = dlg.querySelector('[data-google-not-found-retry]');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', function() {
+        dlg.close('retry');
+      });
+    }
+
+    document.body.appendChild(dlg);
+  }
+
+  var emailBox = dlg.querySelector('[data-google-not-found-email]');
+  if (emailBox) {
+    emailBox.textContent = cleanEmail || 'Email or phone';
+  }
+
+  if (dlg.open && typeof dlg.close === 'function') {
+    dlg.close();
+  }
+  if (typeof dlg.showModal === 'function') {
+    dlg.showModal();
+  } else {
+    dlg.setAttribute('open', '');
+  }
+  return dlg;
+}
+
+async function handleGoogleAuthResult(result, rememberMe, options) {
+  var opts = (options && typeof options === 'object') ? options : {};
+  if (!result || !result.ok) {
+    var code = result && result.code ? result.code : '';
+    if (code === 'ACCOUNT_NOT_FOUND' || (result && result.status === 404)) {
+      showGoogleAccountNotFoundModal((result && result.email) || '');
+      return { ok: false, code: 'ACCOUNT_NOT_FOUND', email: (result && result.email) || '' };
+    }
+    if (code === 'ACCOUNT_BLOCKED' || (result && result.status === 403)) {
+      if (typeof showToast === 'function') {
+        showToast('This email address has been blocked by an administrator.', 'error', 6500);
+      }
+      return { ok: false, code: 'ACCOUNT_BLOCKED' };
+    }
+    if (code === 'GOOGLE_NOT_CONFIGURED') {
+      if (typeof showToast === 'function') {
+        showToast('Google Sign-In is not configured yet. Please sign in with your email and password or contact an officer.', 'warning', 5500);
+      }
+      return { ok: false, code: 'GOOGLE_NOT_CONFIGURED' };
+    }
+    if (code === 'RATE_LIMITED' || (result && result.status === 429)) {
+      if (typeof showToast === 'function') {
+        showToast('Too many Google sign-in attempts. Please wait a few minutes and try again.', 'error', 5000);
+      }
+      return { ok: false, code: 'RATE_LIMITED' };
+    }
+    if (typeof showToast === 'function') {
+      showToast((result && result.error) || LOGIN_UNAVAILABLE_MESSAGE, 'error', 4500);
+    }
+    return { ok: false, code: code || 'ERROR' };
+  }
+
+  var accounts = Array.isArray(result.accounts) ? result.accounts : [];
+  var verifiedEmail = String(result.email || (accounts[0] && accounts[0].email) || '').trim().toLowerCase();
+  if (!accounts.length) {
+    showGoogleAccountNotFoundModal(verifiedEmail);
+    return { ok: false, code: 'ACCOUNT_NOT_FOUND', email: verifiedEmail };
+  }
+
+  _authFailures.count = 0;
+  _authFailures.lockedUntil = 0;
+
+  if (typeof logAuditEvent === 'function') {
+    logAuditEvent({
+      action: 'auth.login_success',
+      targetType: 'auth',
+      targetId: verifiedEmail,
+      actorId: verifiedEmail,
+      actorRole: (accounts[0] && accounts[0].rank) || 'member',
+      details: { multi_account: accounts.length > 1, method: 'google' }
+    });
+  }
+
+  var remember = rememberMe !== false;
+  var adminSignIn = result.adminSignIn && result.adminSignIn.token ? result.adminSignIn : null;
+
+  if (typeof window !== 'undefined' && window.PortalWebPush && typeof window.PortalWebPush.saveSession === 'function' && result.pushSession && result.pushSession.token) {
+    window.PortalWebPush.saveSession(verifiedEmail, result.pushSession, remember);
+  }
+
+  if (accounts.length > 1) {
+    var chosen = await showAccountPickerModal(accounts, remember, adminSignIn, {
+      viaGoogle: true,
+      email: verifiedEmail,
+      skipReload: opts.skipReload === true
+    });
+    return { ok: Boolean(chosen), multiAccount: true, account: chosen };
+  }
+
+  completeLoginWithAccount(accounts[0], remember, adminSignIn);
+  if (!opts.skipReload && typeof window !== 'undefined' && window.location) {
+    var target = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
+      ? AuthGuard.getRedirectTarget()
+      : null;
+    if (target && target !== 'member') {
+      AuthGuard.clearRedirectTarget();
+      if (target !== 'admin' || adminSignIn) window.location.hash = '#' + target;
+      else if (typeof showToast === 'function') {
+        showToast('Your member sign-in succeeded. Admin access could not be verified.', 'warning');
+        return { ok: true, multiAccount: false, account: accounts[0] };
+      }
+    }
+    window.location.reload();
+  }
+  return { ok: true, multiAccount: false, account: accounts[0] };
+}
+
+async function handleGoogleOidcCallback(hashString) {
+  var cleanHash = String(hashString || '').replace(/^#/, '');
+  if (!cleanHash) return null;
+  var params = new URLSearchParams(cleanHash);
+  var returnedState = params.get('state') || '';
+  var idToken = params.get('id_token') || '';
+  var oauthError = params.get('error') || '';
+  var pending = readPendingGoogleOidcState();
+
+  if (!pending || !returnedState || pending.state !== returnedState) {
+    if (typeof showToast === 'function') {
+      showToast('Google sign-in session expired. Please try again.', 'warning', 4500);
+    }
+    return { ok: false, code: 'STATE_MISMATCH' };
+  }
+
+  if (oauthError || !idToken) {
+    if (oauthError && oauthError !== 'access_denied' && typeof showToast === 'function') {
+      showToast('Google sign-in could not be completed. Please try again.', 'warning', 4500);
+    }
+    return { ok: false, code: oauthError || 'MISSING_ID_TOKEN' };
+  }
+
+  var googleBtn = (typeof document !== 'undefined') ? document.querySelector('[data-google-login-btn]') : null;
+  _isGoogleLoggingIn = true;
+  if (typeof setButtonLoading === 'function' && googleBtn) {
+    setButtonLoading(googleBtn, true, 'Signing in with Google...', 'Verifying Google account...');
+  }
+  try {
+    var result = await verifyGoogleLoginToken({
+      idToken: idToken,
+      nonce: pending.nonce,
+      remember: pending.remember !== false
+    });
+    return await handleGoogleAuthResult(result, pending.remember !== false);
+  } finally {
+    _isGoogleLoggingIn = false;
+    if (typeof setButtonLoading === 'function' && googleBtn) {
+      setButtonLoading(googleBtn, false);
+    }
+  }
+}
+
+async function loginWithGoogle(options) {
+  if (_isGoogleLoggingIn || _isLoggingInMember) return null;
+  var opts = (options && typeof options === 'object') ? options : {};
+  var googleBtn = (typeof document !== 'undefined') ? document.querySelector('[data-google-login-btn]') : null;
+  var rememberEl = (typeof document !== 'undefined') ? document.getElementById('login-remember') : null;
+  var rememberMe = rememberEl ? rememberEl.checked : true;
+
+  _isGoogleLoggingIn = true;
+  if (typeof setButtonLoading === 'function' && googleBtn) {
+    setButtonLoading(googleBtn, true, 'Connecting to Google...', 'Opening Google Sign-In...');
+  }
+
+  var releaseLock = function() {
+    _isGoogleLoggingIn = false;
+    if (typeof setButtonLoading === 'function' && googleBtn) {
+      setButtonLoading(googleBtn, false);
+    }
+  };
+
+  try {
+    var config = await getGoogleAuthConfig();
+    if (!config || !config.enabled || !config.clientId) {
+      releaseLock();
+      if (typeof showToast === 'function') {
+        showToast('Google Sign-In is not configured yet. Please sign in with your email and password or contact an administrator.', 'warning', 5500);
+      }
+      return { ok: false, code: 'GOOGLE_NOT_CONFIGURED' };
+    }
+
+    var isNativeCapacitor = Boolean(
+      typeof window !== 'undefined' &&
+      window.Capacitor &&
+      typeof window.Capacitor.isNativePlatform === 'function' &&
+      window.Capacitor.isNativePlatform()
+    );
+
+    if (isIOSStandalonePwa() || opts.useRedirect === true) {
+      startGoogleOidcRedirect(config.clientId, rememberMe);
+      return { ok: true, redirecting: true };
+    }
+
+    var googleSdk;
+    try {
+      googleSdk = await loadGoogleIdentityScript();
+    } catch (_) {
+      if (!isNativeCapacitor) {
+        startGoogleOidcRedirect(config.clientId, rememberMe);
+        return { ok: true, redirecting: true };
+      }
+      releaseLock();
+      if (typeof showToast === 'function') {
+        showToast('Google Sign-In is unavailable in the embedded app. Please sign in with your email and password or open the portal in your browser.', 'warning', 5500);
+      }
+      return { ok: false, code: 'SDK_UNAVAILABLE' };
+    }
+
+    return await new Promise(function(resolve) {
+      var settled = false;
+      var finish = function(val) {
+        if (settled) return;
+        settled = true;
+        releaseLock();
+        resolve(val);
+      };
+
+      try {
+        var tokenClient = googleSdk.accounts.oauth2.initTokenClient({
+          client_id: config.clientId,
+          scope: 'openid email profile',
+          callback: async function(tokenResponse) {
+            if (!tokenResponse || tokenResponse.error || !tokenResponse.access_token) {
+              if (tokenResponse && tokenResponse.error && tokenResponse.error !== 'access_denied' && typeof showToast === 'function') {
+                showToast('Google sign-in was cancelled or could not be completed.', 'warning', 4000);
+              }
+              finish({ ok: false, code: (tokenResponse && tokenResponse.error) || 'CANCELLED' });
+              return;
+            }
+            if (typeof setButtonLoading === 'function' && googleBtn) {
+              setButtonLoading(googleBtn, true, 'Verifying account...', 'Verifying Google account...');
+            }
+            try {
+              var verifyRes = await verifyGoogleLoginToken({
+                accessToken: tokenResponse.access_token,
+                remember: rememberMe
+              });
+              var outcome = await handleGoogleAuthResult(verifyRes, rememberMe);
+              finish(outcome);
+            } catch (_) {
+              if (typeof showToast === 'function') showToast(LOGIN_UNAVAILABLE_MESSAGE, 'error');
+              finish({ ok: false, code: 'SERVICE_UNAVAILABLE' });
+            }
+          },
+          error_callback: function(err) {
+            var errType = (err && err.type) ? String(err.type) : '';
+            if (errType === 'popup_failed_to_open') {
+              if (!isNativeCapacitor) {
+                settled = true;
+                startGoogleOidcRedirect(config.clientId, rememberMe);
+                resolve({ ok: true, redirecting: true });
+                return;
+              }
+              if (typeof showToast === 'function') {
+                showToast('Google Sign-In popup was blocked. Please sign in with your email and password or open in Chrome/Safari.', 'warning', 5500);
+              }
+            }
+            finish({ ok: false, code: errType || 'POPUP_CLOSED' });
+          }
+        });
+
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+      } catch (_) {
+        if (!isNativeCapacitor) {
+          settled = true;
+          startGoogleOidcRedirect(config.clientId, rememberMe);
+          resolve({ ok: true, redirecting: true });
+          return;
+        }
+        if (typeof showToast === 'function') showToast(LOGIN_UNAVAILABLE_MESSAGE, 'error');
+        finish({ ok: false, code: 'INIT_FAILED' });
+      }
+    });
+  } catch (_) {
+    releaseLock();
+    if (typeof showToast === 'function') {
+      showToast(LOGIN_UNAVAILABLE_MESSAGE, 'error');
+    }
+    return { ok: false, code: 'SERVICE_UNAVAILABLE' };
+  }
+}
+
 /**
  * Dispatches an email notification when a login occurs on a new or unrecognized device.
  * @param {Object} info
@@ -2271,11 +2859,12 @@ function completeLoginWithAccount(m, rememberMe, adminSignIn) {
  * @param {boolean} rememberMe
  * @returns {Promise<Object|null>}
  */
-function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
+function showAccountPickerModal(accounts, rememberMe, adminSignIn, options) {
   if (typeof document === 'undefined') {
     completeLoginWithAccount(accounts[0], rememberMe, adminSignIn);
     return Promise.resolve(accounts[0]);
   }
+  var pickerOpts = (options && typeof options === 'object') ? options : {};
 
   return new Promise(function(resolve) {
     var old = document.querySelector('.account-picker-overlay');
@@ -2292,10 +2881,13 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
 
     var header = document.createElement('div');
     header.className = 'account-picker-header';
+    var subtitleHtml = pickerOpts.viaGoogle && pickerOpts.email
+      ? 'Multiple member accounts are linked to <strong>' + escapeHtml(pickerOpts.email) + '</strong>. Choose which member account to log in to:'
+      : 'Multiple accounts are linked to this email address. Choose which member to sign in as:';
     header.innerHTML = '<h3 id="account-picker-title">' +
       '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
       'Select Member Account</h3>' +
-      '<p>Multiple accounts are linked to this email address. Choose which member to sign in as:</p>';
+      '<p>' + subtitleHtml + '</p>';
     card.appendChild(header);
 
     var list = document.createElement('div');
@@ -2339,7 +2931,7 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
       item.addEventListener('click', function() {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         completeLoginWithAccount(acc, rememberMe, adminSignIn);
-        if (typeof window !== 'undefined' && window.location) {
+        if (!pickerOpts.skipReload && typeof window !== 'undefined' && window.location) {
           var pickerTarget = (typeof AuthGuard !== 'undefined' && typeof AuthGuard.getRedirectTarget === 'function')
             ? AuthGuard.getRedirectTarget()
             : null;
@@ -2352,7 +2944,9 @@ function showAccountPickerModal(accounts, rememberMe, adminSignIn) {
               return;
             }
           }
-          window.location.reload();
+          if (typeof window.location.reload === 'function') {
+            window.location.reload();
+          }
         }
         resolve(acc);
       });
@@ -7535,6 +8129,13 @@ if (typeof window !== 'undefined') {
   window.updateMemberMediaConsent     = updateMemberMediaConsent;
   window.registerMember               = registerMember;
   window.loginMember                  = loginMember;
+  window.loginWithGoogle              = loginWithGoogle;
+  window.getGoogleAuthConfig          = getGoogleAuthConfig;
+  window.verifyGoogleLoginToken       = verifyGoogleLoginToken;
+  window.handleGoogleAuthResult       = handleGoogleAuthResult;
+  window.handleGoogleOidcCallback     = handleGoogleOidcCallback;
+  window.showGoogleAccountNotFoundModal = showGoogleAccountNotFoundModal;
+  window.closeGoogleAccountNotFoundModal = closeGoogleAccountNotFoundModal;
   window.AVATAR_OUTLINE_STYLES          = AVATAR_OUTLINE_STYLES;
   window.getMemberAvatarOutline         = getMemberAvatarOutline;
   window.loadCustomAvatarOutlines       = loadCustomAvatarOutlines;
@@ -7679,6 +8280,13 @@ if (typeof module !== 'undefined' && module.exports) {
     goToMemberTab,
     registerMember,
     loginMember,
+    loginWithGoogle,
+    getGoogleAuthConfig,
+    verifyGoogleLoginToken,
+    handleGoogleAuthResult,
+    handleGoogleOidcCallback,
+    showGoogleAccountNotFoundModal,
+    closeGoogleAccountNotFoundModal,
     AVATAR_OUTLINE_STYLES,
     getMemberAvatarOutline,
     loadCustomAvatarOutlines,

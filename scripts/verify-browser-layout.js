@@ -5217,6 +5217,44 @@ async function getJson(url) {
         const fgtRect = forgotLink ? forgotLink.getBoundingClientRect() : null;
         const metaRowInline = Boolean(remRect && fgtRect && Math.abs(remRect.top - fgtRect.top) < 12 && fgtRect.left > remRect.right);
 
+        // Verify Login with Google button, unregistered Google account dialog, and family picker
+        const googleBtn = document.querySelector('#auth-login [data-google-login-btn]');
+        const gBtnRect = googleBtn ? googleBtn.getBoundingClientRect() : null;
+        const googleBtnVisible = Boolean(googleBtn && gBtnRect && gBtnRect.height >= 44 && gBtnRect.width >= 200 && googleBtn.type === 'button');
+        const regHasGoogleBtn = Boolean(document.querySelector('#auth-register [data-google-login-btn]'));
+
+        const nfDlg = showGoogleAccountNotFoundModal('unregistered.visitor@gmail.com');
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const nfBox = nfDlg ? nfDlg.querySelector('[data-google-not-found-email]') : null;
+        const nfErr = nfDlg ? nfDlg.querySelector('#google-not-found-error') : null;
+        const nfText = nfDlg ? nfDlg.textContent : '';
+        const googleNotFoundOk = Boolean(
+          nfDlg && nfDlg.tagName === 'DIALOG' && nfDlg.open &&
+          nfBox && nfBox.textContent.trim() === 'unregistered.visitor@gmail.com' &&
+          nfBox.getAttribute('aria-invalid') === 'true' &&
+          nfErr && nfErr.textContent.includes("Couldn't find your Google Account") &&
+          !/create account/i.test(nfText) &&
+          nfDlg.getBoundingClientRect().width <= window.innerWidth
+        );
+        closeGoogleAccountNotFoundModal();
+
+        const famPromise = showAccountPickerModal([
+          { ic: 'fam.test@gmail.com', email: 'fam.test@gmail.com', name: 'Aiden Lim', rank: 'Corporal', squad: 'Alpha', att_section: 'Senior' },
+          { ic: 'fam.test@gmail.com__chloe_lim', email: 'fam.test@gmail.com', name: 'Chloe Lim', rank: 'Junior', squad: '1', att_section: 'Junior' }
+        ], true, null, { viaGoogle: true, email: 'fam.test@gmail.com' });
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const famOverlay = document.querySelector('.account-picker-overlay');
+        const famItems = famOverlay ? famOverlay.querySelectorAll('.account-picker-item') : [];
+        const googleFamilyPickerOk = Boolean(
+          famOverlay && famItems.length === 2 &&
+          famOverlay.textContent.includes('fam.test@gmail.com') &&
+          famOverlay.textContent.includes('Aiden Lim') &&
+          famOverlay.textContent.includes('Chloe Lim')
+        );
+        const famCancel = famOverlay ? famOverlay.querySelector('.account-picker-footer button') : null;
+        if (famCancel) famCancel.click();
+        await famPromise;
+
         // Verify password eye toggle aria-pressed
         const eyeBtn = document.getElementById('login-eye');
         const passInp = document.getElementById('login-pass');
@@ -5253,6 +5291,7 @@ async function getJson(url) {
           hiddenExpanded, hiddenCollapsed, headerVisible, authChromeHidden,
           loginCardCentered, loginCardCompact, loginNoVerticalScroll,
           metaRowInline, eyeRevealed, eyeMasked,
+          googleBtnVisible, regHasGoogleBtn, googleNotFoundOk, googleFamilyPickerOk,
           registerCardWider, registerCardCentered, registerNoVerticalScroll,
           desktopOverflow, chromeRestoredAfterLogin
         };
@@ -5263,6 +5302,10 @@ async function getJson(url) {
     const dAuthRes = (desktopAuthDiag.result && desktopAuthDiag.result.value) || {};
     assert.strictEqual(dAuthRes.hiddenExpanded, true, 'Ask Stedfast must be hidden in desktop expanded sidebar');
     assert.strictEqual(dAuthRes.hiddenCollapsed, true, 'Ask Stedfast must be hidden in desktop collapsed sidebar');
+    assert.strictEqual(dAuthRes.googleBtnVisible, true, 'Login with Google button must be visible with >=44px height on desktop login card');
+    assert.strictEqual(dAuthRes.regHasGoogleBtn, false, 'Register form must not render a Login with Google button');
+    assert.strictEqual(dAuthRes.googleNotFoundOk, true, 'Unregistered Google account must open Google-styled "Couldn\'t find your Google Account" <dialog> with zero Create Account link');
+    assert.strictEqual(dAuthRes.googleFamilyPickerOk, true, 'Multi-member family Google login must display the member account picker with Google email context');
     assert.strictEqual(dAuthRes.headerVisible, true, 'Ask Stedfast must remain visible in desktop top header bar');
     assert.strictEqual(dAuthRes.authChromeHidden, true, 'Top header, side nav bar, and bottom nav must be hidden on Login/Register screen');
     assert.strictEqual(dAuthRes.loginCardCentered, true, 'Login auth card must be horizontally and vertically centered on the viewport');

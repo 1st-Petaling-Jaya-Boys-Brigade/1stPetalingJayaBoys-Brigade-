@@ -58,6 +58,10 @@ var GEMINI_API_KEY = (typeof window !== 'undefined' && window.__ENV__ && window.
   || (typeof process !== 'undefined' && process.env && (process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY))
   || '';
 
+var GOOGLE_OAUTH_CLIENT_ID = (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__.VITE_GOOGLE_OAUTH_CLIENT_ID)
+  || (typeof process !== 'undefined' && process.env && (process.env.VITE_GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID))
+  || '';
+
 var DEPARTMENT_KEYS = [
   'secretariat',
   'logistics',
@@ -85,6 +89,7 @@ var APP_CONFIG = Object.freeze({
     || (typeof process !== 'undefined' && process.env?.VITE_MEMBER_PHOTO_URL_COLUMN === 'true'),
   TURNSTILE_SITE_KEY: TURNSTILE_SITE_KEY,
   GEMINI_API_KEY: GEMINI_API_KEY,
+  GOOGLE_OAUTH_CLIENT_ID: GOOGLE_OAUTH_CLIENT_ID,
   DEPARTMENTS: DEPARTMENT_KEYS,
   LIMITS: FILE_LIMITS
 });
@@ -109,6 +114,7 @@ if (typeof window !== 'undefined') {
   window.SUPA_KEY = SUPA_KEY;
   window.TURNSTILE_SITE_KEY = TURNSTILE_SITE_KEY;
   window.GEMINI_API_KEY = GEMINI_API_KEY;
+  window.GOOGLE_OAUTH_CLIENT_ID = GOOGLE_OAUTH_CLIENT_ID;
   window.APP_CONFIG = APP_CONFIG;
   window.MEMBERS_JUNIORS_RANKS = MEMBERS_JUNIORS_RANKS;
   window.MEMBERS_SENIOR_RANKS = MEMBERS_SENIOR_RANKS;
@@ -126,6 +132,7 @@ if (typeof module !== 'undefined' && module.exports) {
     SUPA_KEY,
     TURNSTILE_SITE_KEY,
     GEMINI_API_KEY,
+    GOOGLE_OAUTH_CLIENT_ID,
     MEMBERS_JUNIORS_RANKS,
     MEMBERS_SENIOR_RANKS,
     NCO_RANKS,
