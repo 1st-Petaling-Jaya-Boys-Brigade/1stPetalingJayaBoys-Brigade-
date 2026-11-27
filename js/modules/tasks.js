@@ -1062,6 +1062,49 @@ function previewTasksBoardDemo() {
 }
 
 /**
+ * Preserves smooth horizontal touchpad swiping across vertically scrollable Kanban columns.
+ * Pure horizontal (dy === 0), pure vertical (dx === 0), vertical-dominant scrolls, and
+ * Shift+wheel remain 100% native compositor-driven; this only prevents Chromium from
+ * latching onto a scrollable column's vertical axis when a diagonal horizontal touchpad
+ * swipe has slight unintentional vertical drift (|dx| > |dy|).
+ * @param {WheelEvent} e
+ */
+function handleTasksBoardHorizontalWheel(e) {
+  if (!e || e.defaultPrevented || e.ctrlKey) return;
+  if (typeof document === 'undefined' || !document.body || !document.body.classList) return;
+  if (!document.body.classList.contains('tasks-board-viewport-lock')) return;
+  var target = e.target && typeof e.target.closest === 'function' ? e.target : null;
+  if (!target) return;
+  if (target.closest('.task-detail-modal, .task-create-modal, [role="dialog"]')) return;
+  var track = target.closest('.tasks-board-columns');
+  if (!track || track.scrollWidth <= track.clientWidth) return;
+
+  var dx = Number(e.deltaX) || 0;
+  var dy = Number(e.deltaY) || 0;
+  if (e.deltaMode === 1) {
+    dx *= 16;
+    dy *= 16;
+  } else if (e.deltaMode === 2) {
+    dx *= track.clientWidth || 320;
+    dy *= track.clientHeight || 320;
+  }
+
+  var colBody = target.closest('.task-col-body');
+  if (colBody && dx !== 0 && dy !== 0 && Math.abs(dx) > Math.abs(dy) && colBody.scrollHeight > colBody.clientHeight) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    track.scrollLeft += dx;
+  }
+}
+
+function initTasksBoardTouchpadScroll() {
+  if (typeof document === 'undefined') return;
+  var boardEl = document.getElementById('tasks-board');
+  if (!boardEl || boardEl._touchpadWheelBound || typeof boardEl.addEventListener !== 'function') return;
+  boardEl._touchpadWheelBound = true;
+  boardEl.addEventListener('wheel', handleTasksBoardHorizontalWheel, { passive: false });
+}
+
+/**
  * Synchronizes viewport-locked Kanban board scrolling on document.body.
  * Locks whole-page vertical scroll ONLY when an active Board View is shown on #page-tasks,
  * enabling independent per-column vertical scroll and a bottom-pinned horizontal scrollbar.
@@ -1081,6 +1124,9 @@ function syncTasksBoardViewportLock() {
   var shouldLock = isPageActive && isBoardVisible && !isAdminOpen && (isProjectBoard || isMyTasksBoard);
   var wasLocked = document.body.classList.contains('tasks-board-viewport-lock');
   document.body.classList.toggle('tasks-board-viewport-lock', shouldLock);
+  if (shouldLock) {
+    initTasksBoardTouchpadScroll();
+  }
   if (shouldLock && !wasLocked && typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
     window.scrollTo(0, 0);
   }
@@ -9485,8 +9531,9 @@ if (typeof window !== 'undefined') {
   window.normalizeTaskStatus        = normalizeTaskStatus;
   window.switchTaskSectionView      = switchTaskSectionView;
   window.checkTasksAccess           = checkTasksAccess;
-  window.setTasksViewMode           = setTasksViewMode;
-  window.syncTasksBoardViewportLock = syncTasksBoardViewportLock;
+  window.setTasksViewMode                = setTasksViewMode;
+  window.syncTasksBoardViewportLock      = syncTasksBoardViewportLock;
+  window.handleTasksBoardHorizontalWheel = handleTasksBoardHorizontalWheel;
   window.changeTaskDeptFilter       = changeTaskDeptFilter;
   window.filterProjectTasks         = filterProjectTasks;
   window.renderTasksBoard           = renderTasksBoard;
@@ -9766,6 +9813,7 @@ if (typeof module !== 'undefined' && module.exports) {
     checkTasksAccess,
     setTasksViewMode,
     syncTasksBoardViewportLock,
+    handleTasksBoardHorizontalWheel,
     changeTaskDeptFilter,
     filterProjectTasks,
     renderTasksBoard,

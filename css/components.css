@@ -3879,7 +3879,6 @@ dialog.google-not-found-dialog[open] {
 .tasks-board-columns {
   --board-scrollbar-thumb: #7b8ba1;
   --board-scrollbar-track: rgba(148, 163, 184, 0.16);
-  --board-col-scrollbar-thumb: #64748b;
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -3888,6 +3887,7 @@ dialog.google-not-found-dialog[open] {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
   padding-bottom: 12px;
   min-height: 0;
   box-sizing: border-box;
@@ -3899,7 +3899,6 @@ dialog.google-not-found-dialog[open] {
 [data-theme='light'] .tasks-board-columns {
   --board-scrollbar-thumb: #64748b;
   --board-scrollbar-track: #e2e8f0;
-  --board-col-scrollbar-thumb: #64748b;
 }
 
 .tasks-board-columns[style*="display: none"],
@@ -3936,22 +3935,14 @@ dialog.google-not-found-dialog[open] {
   .tasks-board-columns::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary, #475569);
   }
+}
 
-  body.tasks-board-viewport-lock .tasks-board-columns .task-col-body {
-    scrollbar-width: auto;
-  }
-
+/* Legacy WebKit fallback to hide per-column vertical scrollbars while preserving wheel/touchpad scrolling */
+@supports not (scrollbar-width: none) {
   body.tasks-board-viewport-lock .tasks-board-columns .task-col-body::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  body.tasks-board-viewport-lock .tasks-board-columns .task-col-body::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  body.tasks-board-viewport-lock .tasks-board-columns .task-col-body::-webkit-scrollbar-thumb {
-    background: var(--board-col-scrollbar-thumb);
-    border-radius: 999px;
+    display: none;
+    width: 0;
+    height: 0;
   }
 }
 
@@ -4098,13 +4089,11 @@ body.tasks-board-viewport-lock .tasks-board-columns .task-col-body {
   min-height: 0 !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding-inline-end: 2px;
+  overscroll-behavior: auto;
+  padding-inline-end: 0;
   padding-bottom: 8px;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--board-col-scrollbar-thumb) transparent;
+  scrollbar-width: none;
   transition-property: none !important;
 }
 
