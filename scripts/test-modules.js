@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127g',
-    'sw.js CACHE_VERSION must be 20261127g'
+    '20261127h',
+    'sw.js CACHE_VERSION must be 20261127h'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127g',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127h',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127g'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127h'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127g', 'Service Worker cache version must be 20261127g');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127h', 'Service Worker cache version must be 20261127h');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127g and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127h and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127g', 'sw.js CACHE_VERSION must be 20261127g');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127g', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127g', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127h', 'sw.js CACHE_VERSION must be 20261127h');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127h', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127h', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127g cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127h cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127g'), 'config.js must use v=20261127g');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127g'), 'forum.js must use v=20261127g');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127g'), 'variables.css must use v=20261127g');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127g'), 'base.css must use v=20261127g');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127g');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127h'), 'config.js must use v=20261127h');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127h'), 'forum.js must use v=20261127h');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127h'), 'variables.css must use v=20261127h');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127h'), 'base.css must use v=20261127h');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127h');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -19087,11 +19087,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
 
     // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
-    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127g';"), 'sw.js must bump CACHE_VERSION to 20261127g');
-    assert.ok(indexHtml102.includes('css/base.css?v=20261127g') && indexHtml102.includes('css/components.css?v=20261127g'), 'index.html must reference cache-busted 20261127g CSS assets');
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127h';"), 'sw.js must bump CACHE_VERSION to 20261127h');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261127h') && indexHtml102.includes('css/components.css?v=20261127h'), 'index.html must reference cache-busted 20261127h CSS assets');
     const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127g, and 385 DOM IDs verified');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127h, and 385 DOM IDs verified');
   }
 
   // --- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---
@@ -19176,11 +19176,149 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const mobileHeaderBlock104 = navCss104.slice(navCss104.indexOf('@media (max-width: 1023px)'));
     assert.ok(mobileHeaderBlock104.includes('background: var(--bg-card) !important;'), 'Mobile .nav header must use solid opaque var(--bg-card) background');
     assert.ok(mobileHeaderBlock104.includes('backdrop-filter: none !important;'), 'Mobile .nav header must disable translucent backdrop-filter');
-    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127g';"), 'sw.js must bump CACHE_VERSION to 20261127g');
-    assert.ok(indexHtml104.includes('css/nav.css?v=20261127g'), 'index.html must reference cache-busted 20261127g nav.css');
+    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127h';"), 'sw.js must bump CACHE_VERSION to 20261127h');
+    assert.ok(indexHtml104.includes('css/nav.css?v=20261127h'), 'index.html must reference cache-busted 20261127h nav.css');
     const ids104 = (indexHtml104.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids104).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127g, and 385 DOM IDs verified');
+    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127h, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 105: Login with Google (Server-Verified OAuth, Family Account Picker & "Couldn't find your Google Account" Dialog) ---
+  console.log('\n--- Suite 105: Login with Google ---');
+  {
+    const memberMod105 = require('../js/modules/member.js');
+    const indexHtml105 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const headers105 = fs.readFileSync(path.join(__dirname, '..', '_headers'), 'utf8');
+    const vercel105 = fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8');
+    const compCss105 = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8').replace(/\r\n/g, '\n');
+    const edgeFn105 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'portal-google-auth', 'index.ts'), 'utf8');
+    const grantSql105 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '040_google_auth_grants.sql'), 'utf8');
+
+    // 1. Markup, CSP, strict 385 DOM IDs & no Google button inside Register form
+    const loginFormStart105 = indexHtml105.indexOf('<form id="auth-login"');
+    const loginFormEnd105 = indexHtml105.indexOf('</form>', loginFormStart105);
+    const loginFormHtml105 = indexHtml105.slice(loginFormStart105, loginFormEnd105);
+    const regFormStart105 = indexHtml105.indexOf('<form id="auth-register"');
+    const regFormEnd105 = indexHtml105.indexOf('</form>', regFormStart105);
+    const regFormHtml105 = indexHtml105.slice(regFormStart105, regFormEnd105);
+
+    assert.ok(loginFormHtml105.includes('type="button"') && loginFormHtml105.includes('data-google-login-btn') && loginFormHtml105.includes('Login with Google'), 'Login form must include explicit type="button" Login with Google button');
+    assert.ok(!regFormHtml105.includes('data-google-login-btn') && !regFormHtml105.includes('loginWithGoogle'), 'Register form must not expose Google registration');
+    assert.ok(indexHtml105.includes('https://accounts.google.com/gsi/client') && headers105.includes('https://accounts.google.com/gsi/client') && vercel105.includes('https://accounts.google.com/gsi/client'), 'CSP allowlists must permit Google Identity Services client across hosting configs');
+    assert.ok(indexHtml105.includes('handleGoogleOidcCallback(googleOidcHash)'), 'index.html must intercept Google OIDC redirect callbacks before hash tab routing');
+    assert.ok(compCss105.includes('dialog.google-not-found-dialog:modal {\n  overscroll-behavior: contain;') && compCss105.includes('dialog.google-not-found-dialog::backdrop {') && compCss105.includes('overflow: hidden;\n  overscroll-behavior: contain;'), 'Google not-found native <dialog> must prevent page scroll under modal on both :modal and ::backdrop');
+    assert.ok(compCss105.includes('dialog.google-not-found-dialog[open] {\n  display: block;'), 'Native <dialog> display rule must be scoped to [open]');
+    const ids105 = (indexHtml105.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids105).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact after adding Login with Google');
+
+    // 2. Server-side Edge Function security checks
+    assert.ok(edgeFn105.includes('https://www.googleapis.com/oauth2/v3/certs') && edgeFn105.includes("algorithms: ['RS256']"), 'Edge Function must cryptographically verify Google ID tokens via Google RS256 JWKS');
+    assert.ok(edgeFn105.includes('oauth2.googleapis.com/tokeninfo') && edgeFn105.includes('ALLOWED_CLIENT_IDS.includes(aud)'), 'Edge Function must verify accessToken audience against GOOGLE_OAUTH_CLIENT_ID');
+    assert.ok(edgeFn105.includes("code: 'ACCOUNT_NOT_FOUND'") && edgeFn105.includes("Couldn't find your Google Account") && !edgeFn105.includes("'bb_members', 'POST'"), 'Edge Function must return 404 ACCOUNT_NOT_FOUND and never auto-register new members');
+    assert.ok(edgeFn105.includes("code: 'ACCOUNT_BLOCKED'") && edgeFn105.includes('bb_portal_push_sessions') && edgeFn105.includes('bb_admin_member_signins'), 'Edge Function must enforce blocked emails and issue push + admin sessions for verified members');
+    assert.ok(grantSql105.includes('bb_admin_member_signins') && grantSql105.includes('service_role'), 'Migration 040 must grant service_role privileges on bb_admin_member_signins');
+
+    // 3. Unregistered Google account flow -> native <dialog> "Couldn't find your Google Account" with NO registration link
+    global.sessionClear();
+    const notFoundRes105 = await memberMod105.handleGoogleAuthResult({
+      ok: false,
+      status: 404,
+      code: 'ACCOUNT_NOT_FOUND',
+      email: 'stranger@gmail.com'
+    }, true, { skipReload: true });
+    assert.strictEqual(notFoundRes105.ok, false);
+    assert.strictEqual(notFoundRes105.code, 'ACCOUNT_NOT_FOUND');
+    assert.strictEqual(global.sessionGet('email'), null, 'Unregistered Google account must never establish a member session');
+
+    const notFoundDlg105 = (document.body.children || []).find(c => c && c.className === 'google-not-found-dialog') ||
+      document.querySelector('dialog.google-not-found-dialog');
+    assert.ok(notFoundDlg105 && notFoundDlg105.tagName === 'DIALOG', 'Unregistered Google account must open a native <dialog> element');
+    assert.ok(notFoundDlg105.innerHTML.includes("Couldn&#39;t find your Google Account") || notFoundDlg105.innerHTML.includes("Couldn't find your Google Account"), 'Error dialog must display "Couldn\'t find your Google Account"');
+    assert.ok(!/create account|register here/i.test(notFoundDlg105.innerHTML), 'Google not-found dialog must NOT allow users to create/register an account');
+    memberMod105.closeGoogleAccountNotFoundModal();
+
+    // 4. Single registered Google account flow -> signs in directly & saves PortalWebPush session
+    let savedPushSession105 = null;
+    const origWebPush105 = window.PortalWebPush;
+    window.PortalWebPush = {
+      saveSession: (em, sess, rem) => { savedPushSession105 = { em, sess, rem }; },
+      signOut: () => Promise.resolve()
+    };
+    const singleRes105 = await memberMod105.handleGoogleAuthResult({
+      ok: true,
+      email: 'member.single@gmail.com',
+      accounts: [{
+        ic: 'member.single@gmail.com',
+        email: 'member.single@gmail.com',
+        name: 'Single Google Member',
+        rank: 'Private',
+        squad: 'Alpha',
+        att_section: 'Senior',
+        department: ''
+      }],
+      pushSession: { token: 'a'.repeat(64), expiresAt: new Date(Date.now() + 86400000).toISOString() },
+      adminSignIn: null
+    }, true, { skipReload: true });
+    assert.strictEqual(singleRes105.ok, true);
+    assert.strictEqual(singleRes105.multiAccount, false);
+    assert.strictEqual(global.sessionGet('email'), 'member.single@gmail.com');
+    assert.strictEqual(global.sessionGet('name'), 'Single Google Member');
+    assert.ok(savedPushSession105 && savedPushSession105.em === 'member.single@gmail.com', 'Google login must persist server-issued PortalWebPush session');
+
+    // 5. Multi-member family Google account flow -> opens account picker listing all linked members
+    global.sessionClear();
+    const familyAccounts105 = [
+      { ic: 'family.google@gmail.com', email: 'family.google@gmail.com', name: 'Ethan Tan', rank: 'Corporal', squad: 'Alpha', att_section: 'Senior', department: '' },
+      { ic: 'family.google@gmail.com__lucas_tan', email: 'family.google@gmail.com', name: 'Lucas Tan', rank: 'Junior', squad: '2', att_section: 'Junior', department: '' }
+    ];
+    const familyPromise105 = memberMod105.handleGoogleAuthResult({
+      ok: true,
+      email: 'family.google@gmail.com',
+      accounts: familyAccounts105,
+      pushSession: { token: 'b'.repeat(64), expiresAt: new Date(Date.now() + 86400000).toISOString() },
+      adminSignIn: null
+    }, true, { skipReload: true });
+
+    const pickerOverlay105 = (document.body.children || []).find(c => c && c.className === 'account-picker-overlay') ||
+      document.querySelector('.account-picker-overlay');
+    assert.ok(pickerOverlay105, 'Multi-member family Google login must display the member account picker modal');
+    const collectNodeText105 = node => {
+      if (!node) return '';
+      let out = (node.innerHTML || '') + ' ' + (node.textContent || '');
+      if (Array.isArray(node.children)) node.children.forEach(ch => { out += ' ' + collectNodeText105(ch); });
+      return out;
+    };
+    const pickerStr105 = collectNodeText105(pickerOverlay105);
+    assert.ok(pickerStr105.includes('family.google@gmail.com') && pickerStr105.includes('Ethan Tan') && pickerStr105.includes('Lucas Tan'), 'Family account picker must display Google email and all linked member accounts');
+
+    // Click the second family member ("Lucas Tan") and verify session switches to Lucas Tan
+    const findButtons105 = (node, acc) => {
+      if (!node) return acc;
+      if (node.className === 'account-picker-item') acc.push(node);
+      if (Array.isArray(node.children)) node.children.forEach(ch => findButtons105(ch, acc));
+      return acc;
+    };
+    const pickerItems105 = findButtons105(pickerOverlay105, []);
+    assert.strictEqual(pickerItems105.length, 2, 'Family account picker must render one button per family member');
+    if (typeof pickerItems105[1].click === 'function') {
+      pickerItems105[1].click();
+    } else if (pickerItems105[1]._listeners && pickerItems105[1]._listeners.click) {
+      pickerItems105[1]._listeners.click.forEach(fn => fn({ target: pickerItems105[1] }));
+    }
+    const familyRes105 = await familyPromise105;
+    assert.strictEqual(familyRes105.ok, true);
+    assert.strictEqual(familyRes105.multiAccount, true);
+    assert.strictEqual(global.sessionGet('name'), 'Lucas Tan', 'Choosing second family member must sign in as that specific member');
+    assert.strictEqual(global.sessionGet('ic'), 'family.google@gmail.com__lucas_tan');
+
+    // 6. OIDC state mismatch check
+    const badState105 = await memberMod105.handleGoogleOidcCallback('#id_token=fake.jwt.token&state=wrong-state');
+    assert.strictEqual(badState105.ok, false);
+    assert.strictEqual(badState105.code, 'STATE_MISMATCH');
+
+    window.PortalWebPush = origWebPush105;
+    global.sessionClear();
+    console.log('  ✔ Login with Google button, server-verified Edge Function, family account picker, and "Couldn\'t find your Google Account" dialog verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

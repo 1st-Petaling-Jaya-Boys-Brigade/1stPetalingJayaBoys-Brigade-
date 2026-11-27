@@ -61,18 +61,27 @@
     return response.json();
   }
 
+  function saveSession(memberEmail, session, remember) {
+    var cleanEmail = String(memberEmail || '').trim().toLowerCase();
+    if (!cleanEmail || !session || typeof session.token !== 'string' || !session.token) return '';
+    sessionStorage.removeItem(signInKey);
+    localStorage.removeItem(signInKey);
+    try {
+      (remember !== false ? localStorage : sessionStorage).setItem(signInKey, JSON.stringify({
+        token: session.token,
+        expiresAt: session.expiresAt,
+        email: cleanEmail
+      }));
+    } catch (_) {}
+    return session.token;
+  }
+
   async function authorize(memberEmail, password, remember, timeout = 3500) {
     if (!memberEmail || !password) return '';
     const version = sessionVersion;
     const result = await request('session', { email: memberEmail, password, remember }, timeout);
     if (version !== sessionVersion) return '';
-    sessionStorage.removeItem(signInKey);
-    localStorage.removeItem(signInKey);
-    (remember ? localStorage : sessionStorage).setItem(signInKey, JSON.stringify({
-      ...result,
-      email: memberEmail.trim().toLowerCase()
-    }));
-    return result.token;
+    return saveSession(memberEmail, result, remember);
   }
 
   function prepare() {
@@ -256,6 +265,6 @@
     return request('payment_proof_view', { order, token: adminToken });
   }
 
-  window.PortalWebPush = { isIOS, isEnabled, readyForSetup, authorize, enable, disable, signOut, test, notify, uploadPaymentProof, viewPaymentProof };
+  window.PortalWebPush = { isIOS, isEnabled, readyForSetup, authorize, saveSession, enable, disable, signOut, test, notify, uploadPaymentProof, viewPaymentProof };
   prepare();
 })();

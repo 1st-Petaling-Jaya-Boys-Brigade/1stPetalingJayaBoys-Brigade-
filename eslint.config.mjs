@@ -267,9 +267,10 @@ export default [
         getSupa: 'readonly',
         isAdminLoggedIn: 'readonly',
         revokeAdminSession: 'readonly',
-        // Cloudflare Turnstile CAPTCHA
+        // Cloudflare Turnstile CAPTCHA & Google OAuth
         turnstile: 'readonly',
         TURNSTILE_SITE_KEY: 'readonly',
+        GOOGLE_OAUTH_CLIENT_ID: 'readonly',
         renderTurnstileWidget: 'readonly',
         getTurnstileToken: 'readonly',
         resetTurnstileWidget: 'readonly',
