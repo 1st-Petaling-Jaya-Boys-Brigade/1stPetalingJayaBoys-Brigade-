@@ -765,6 +765,9 @@ function openFormForMember(formId) {
  */
 function backToFormsHub() {
   if (typeof document === 'undefined') return;
+  if (typeof window !== 'undefined' && typeof window.closeUniformProductDetail === 'function') {
+    window.closeUniformProductDetail();
+  }
   var hub = document.getElementById('forms-hub');
   var inline = document.getElementById('inline-form-view');
   if (hub) hub.style.display = 'block';

@@ -89,6 +89,10 @@ var UNIFORM_ORDER_TRANSITIONS = {
 var _tngScreenshotFile = null;
 var _stagedProductImgFile = null;
 var _isSavingProduct = false;
+var _detailModalKey = null;
+var _detailModalSize = '';
+var _detailModalQty = 1;
+var _detailModalCustomText = '';
 
 /**
  * Resolves Supabase client instance across environments
@@ -374,6 +378,24 @@ function getProductInCartSummary(key) {
 }
 
 /**
+ * Keeps the compact mobile card in-cart badge synchronized with current cart quantity
+ * @param {string} key
+ */
+function syncUniformMobileCartBadge(key) {
+  if (typeof document === 'undefined' || !key) return;
+  var badge = document.getElementById(key + '-mobile-cart-badge');
+  if (!badge) return;
+  var qty = itemQtys[key] || 0;
+  if (qty > 0) {
+    badge.textContent = qty + ' in cart';
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.textContent = '';
+    badge.style.display = 'none';
+  }
+}
+
+/**
  * Handles custom text specification changes on product cards (e.g. name tags, badges)
  * @param {string} key
  * @param {string} val
@@ -602,6 +624,7 @@ function addUniformToCart(key, customSize, quantity, customText) {
       inCartEl.textContent = getProductInCartSummary(key);
       inCartEl.style.display = 'block';
     }
+    syncUniformMobileCartBadge(key);
   }
 
   updateTotal();
@@ -651,12 +674,14 @@ function updateCartItemQty(cartId, delta) {
       var inCartEl2 = document.getElementById(removedKey + '-in-cart');
       if (inCartEl2) inCartEl2.textContent = getProductInCartSummary(removedKey);
     }
+    syncUniformMobileCartBadge(removedKey);
   } else {
     itemQtys[ci.key] = uniformCart.filter(function (x) { return x.key === ci.key; }).reduce(function (s, x) { return s + x.qty; }, 0);
     if (typeof document !== 'undefined') {
       var inCartEl3 = document.getElementById(ci.key + '-in-cart');
       if (inCartEl3) inCartEl3.textContent = getProductInCartSummary(ci.key);
     }
+    syncUniformMobileCartBadge(ci.key);
   }
 
   updateTotal();
@@ -689,6 +714,7 @@ function clearUniformCart() {
       if (card) card.classList.remove('has-qty');
       var inCartEl = document.getElementById(i.key + '-in-cart');
       if (inCartEl) inCartEl.style.display = 'none';
+      syncUniformMobileCartBadge(i.key);
     }
   });
   updateTotal();
@@ -1421,18 +1447,23 @@ function renderOrderItems(memberRank) {
 
     var matchCat = _activeUniformCategory === 'all' || cat === _activeUniformCategory;
     var inCartText = getProductInCartSummary(item.key);
+    var safeKey = escapeHtml(item.key);
+    var safeName = escapeHtml(item.name);
 
     html +=
-      '<div class="uniform-product-card uniform-item' +
+      '<article class="uniform-product-card uniform-item' +
       (currentQty > 0 ? ' has-qty' : '') + (staged > 0 ? ' has-staged-qty' : '') +
       '" id="ui-' +
-      escapeHtml(item.key) +
+      safeKey +
       '" data-category="' +
       escapeHtml(cat) +
+      '" data-product-key="' +
+      safeKey +
       '" style="display:' +
       (matchCat ? 'flex' : 'none') +
       ';">' +
       '<div class="product-card-media">' +
+      '<span class="product-card-mobile-cart-badge" id="' + safeKey + '-mobile-cart-badge" style="display:' + (currentQty > 0 ? 'inline-flex' : 'none') + ';">' + (currentQty > 0 ? currentQty + ' in cart' : '') + '</span>' +
       ncoBadge +
       imgHtml +
       '</div>' +
@@ -1441,10 +1472,12 @@ function renderOrderItems(memberRank) {
       escapeHtml(catLabel) +
       '</div>' +
       '<div class="product-card-name uniform-name">' +
-      escapeHtml(item.name) +
+      '<button type="button" class="product-card-open-btn" onclick="openUniformProductDetail(\'' + safeKey + '\')" aria-label="View details and order ' + safeName + '">' +
+      '<span>' + safeName + '</span>' +
+      '</button>' +
       '</div>' +
       '<div class="product-card-price uniform-price" id="' +
-      escapeHtml(item.key) +
+      safeKey +
       '-price-label">' +
       priceLabel +
       '</div>' +
@@ -1452,24 +1485,410 @@ function renderOrderItems(memberRank) {
       customWrap +
       '</div>' +
       '<div class="product-card-footer">' +
-      '<div class="product-card-in-cart" id="' + escapeHtml(item.key) + '-in-cart" style="display:' + (inCartText ? 'block' : 'none') + ';">' + escapeHtml(inCartText) + '</div>' +
+      '<div class="product-card-in-cart" id="' + safeKey + '-in-cart" style="display:' + (inCartText ? 'block' : 'none') + ';">' + escapeHtml(inCartText) + '</div>' +
       '<div class="product-card-action-row">' +
       '<div class="product-card-stepper qty-ctrl">' +
-      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-minus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',-1)" aria-label="Decrease quantity"' + (staged ? '' : ' disabled style="opacity:0.4;"') + '>&#8722;</button>' +
-      '<div class="stepper-count qty-display" id="' + escapeHtml(item.key) + '-qty">' + staged + '</div>' +
-      '<button type="button" class="stepper-btn qty-btn" id="' + escapeHtml(item.key) + '-plus-btn" onclick="stepCardQty(\'' + escapeHtml(item.key) + '\',1)" aria-label="Increase quantity"' + (!limit || price === null ? ' disabled' : '') + '>+</button>' +
+      '<button type="button" class="stepper-btn qty-btn" id="' + safeKey + '-minus-btn" onclick="stepCardQty(\'' + safeKey + '\',-1)" aria-label="Decrease quantity"' + (staged ? '' : ' disabled style="opacity:0.4;"') + '>&#8722;</button>' +
+      '<div class="stepper-count qty-display" id="' + safeKey + '-qty">' + staged + '</div>' +
+      '<button type="button" class="stepper-btn qty-btn" id="' + safeKey + '-plus-btn" onclick="stepCardQty(\'' + safeKey + '\',1)" aria-label="Increase quantity"' + (!limit || price === null ? ' disabled' : '') + '>+</button>' +
       '</div>' +
-      '<button type="button" class="add-to-cart-btn" id="' + escapeHtml(item.key) + '-add-btn" onclick="confirmAddToCart(\'' + escapeHtml(item.key) + '\')" style="display:' + (staged && price !== null ? 'inline-flex' : 'none') + ';">' +
+      '<button type="button" class="add-to-cart-btn" id="' + safeKey + '-add-btn" onclick="confirmAddToCart(\'' + safeKey + '\')" style="display:' + (staged && price !== null ? 'inline-flex' : 'none') + ';">' +
       '<svg class="ui-icon-xs" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
-      '<span id="' + escapeHtml(item.key) + '-add-label">' + (staged ? 'Add ' + staged + ' to Cart' : 'Add to Cart') + '</span>' +
+      '<span id="' + safeKey + '-add-label">' + (staged ? 'Add ' + staged + ' to Cart' : 'Add to Cart') + '</span>' +
       '</button>' +
       '</div>' +
       '</div>' +
-      '</div>';
+      '</article>';
   });
 
   container.innerHTML = html;
   updateTotal();
+}
+
+/**
+ * Ensures the singleton native <dialog> used for full product details exists in the DOM.
+ * Uses native closedby="any" with a pointer-bounds light-dismiss fallback for Safari.
+ * @returns {HTMLDialogElement|null}
+ */
+function ensureUniformDetailDialog() {
+  if (typeof document === 'undefined' || !document.body) return null;
+  var existing = document.querySelector('dialog#uniform-product-detail-dialog');
+  if (existing) return existing;
+
+  var dialog = document.createElement('dialog');
+  dialog.id = 'uniform-product-detail-dialog';
+  dialog.className = 'uniform-detail-dialog';
+  dialog.setAttribute('closedby', 'any');
+  dialog.setAttribute('aria-labelledby', 'upd-title');
+
+  dialog.addEventListener('close', function () {
+    dialog.returnValue = '';
+    _detailModalKey = null;
+  });
+
+  if (typeof HTMLDialogElement === 'undefined' || !('closedBy' in HTMLDialogElement.prototype)) {
+    var pressedOutside = false;
+    var isOutsideDialog = function (e) {
+      var r = dialog.getBoundingClientRect();
+      return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    };
+    dialog.addEventListener('pointerdown', function (e) {
+      pressedOutside = isOutsideDialog(e);
+    });
+    dialog.addEventListener('pointerup', function (e) {
+      if (pressedOutside && isOutsideDialog(e)) {
+        closeUniformProductDetail();
+      }
+      pressedOutside = false;
+    });
+  }
+
+  document.body.appendChild(dialog);
+  return dialog;
+}
+
+/**
+ * Updates live quantity display, stepper button states, and Add-to-Cart CTA subtotal inside the product detail modal
+ */
+function syncUniformDetailFooterUI() {
+  if (typeof document === 'undefined' || !_detailModalKey) return;
+  var dialog = document.querySelector('dialog#uniform-product-detail-dialog');
+  if (!dialog) return;
+  var item = UNIFORM_ITEMS.find(function (p) { return p.key === _detailModalKey; });
+  if (!item) return;
+
+  var price = uniformPriceInSen(item);
+  var limit = uniformQuantityLimit(item);
+  var available = limit > 0 && price !== null;
+
+  var qtyEl = dialog.querySelector('.uniform-detail-qty-val');
+  if (qtyEl) qtyEl.textContent = String(_detailModalQty);
+
+  var minusBtn = dialog.querySelector('.uniform-detail-minus');
+  if (minusBtn) {
+    var disableMinus = !available || _detailModalQty <= 1;
+    minusBtn.disabled = disableMinus;
+    minusBtn.style.opacity = disableMinus ? '0.4' : '1';
+  }
+
+  var plusBtn = dialog.querySelector('.uniform-detail-plus');
+  if (plusBtn) {
+    var disablePlus = !available || _detailModalQty >= limit;
+    plusBtn.disabled = disablePlus;
+    plusBtn.style.opacity = disablePlus ? '0.4' : '1';
+  }
+
+  var addBtn = dialog.querySelector('.uniform-detail-add-btn');
+  var addLabel = dialog.querySelector('.uniform-detail-add-label');
+  if (addBtn) {
+    addBtn.disabled = !available || _detailModalQty < 1;
+  }
+  if (addLabel) {
+    if (!limit) {
+      addLabel.textContent = 'Out of Stock';
+    } else if (price === null) {
+      addLabel.textContent = 'Price Unavailable';
+    } else {
+      var lineTotal = ((price * _detailModalQty) / 100).toFixed(2);
+      addLabel.textContent = (_detailModalQty > 1 ? 'Add ' + _detailModalQty + ' to Cart' : 'Add to Cart') + ' \u00b7 RM ' + lineTotal;
+    }
+  }
+}
+
+/**
+ * Opens the full Product Detail Modal (<dialog>) for a uniform item
+ * @param {string} key
+ */
+function openUniformProductDetail(key) {
+  if (typeof document === 'undefined' || !key) return;
+  var item = UNIFORM_ITEMS.find(function (p) { return p.key === key; });
+  if (!item || !canOrderUniformItem(item)) return;
+
+  var dialog = ensureUniformDetailDialog();
+  if (!dialog) return;
+
+  var sizes = getItemSizes(item);
+  var currentSize = itemSelectedSizes[key] || itemSizes[key] || '';
+  if (!sizes.includes(currentSize)) currentSize = '';
+
+  var price = uniformPriceInSen(item);
+  var limit = uniformQuantityLimit(item);
+  var available = limit > 0 && price !== null;
+  var priceLabel = !limit ? 'Out of stock' : price === null ? 'RM TBA' : 'RM ' + (price / 100).toFixed(2);
+
+  _detailModalKey = key;
+  _detailModalSize = currentSize;
+  _detailModalQty = available ? Math.min(limit, Math.max(1, itemStagedQtys[key] || 1)) : 0;
+  _detailModalCustomText = itemCustomTexts[key] || '';
+
+  var cat = getItemCategory(item);
+  var catLabel =
+    cat === 'apparel'
+      ? 'Apparel'
+      : cat === 'accessories'
+        ? 'Accessories'
+        : cat === 'insignia'
+          ? 'Insignia'
+          : cat.charAt(0).toUpperCase() + cat.slice(1);
+
+  var safeProdImg = item.image
+    ? typeof safeUrl === 'function'
+      ? safeUrl(item.image, '')
+      : item.image
+    : '';
+  var mediaHtml = safeProdImg
+    ? '<img src="' + escapeHtml(safeProdImg) + '" alt="' + escapeHtml(item.name) + '"/>'
+    : getItemIcon(item);
+
+  var badgeHtml = item.ncoOnly
+    ? '<span class="product-card-badge nco uniform-detail-badge">NCO Only</span>'
+    : '<span class="product-card-badge cat uniform-detail-badge">' + escapeHtml(catLabel) + '</span>';
+
+  var descHtml = item.description
+    ? '<p class="uniform-detail-desc">' + escapeHtml(item.description) + '</p>'
+    : '';
+
+  var sizeHtml = '';
+  if (sizes.length) {
+    var sizeBtns = sizes.map(function (s) {
+      var isSel = _detailModalSize === s;
+      return '<button type="button" class="size-pill size-btn' + (isSel ? ' selected' : '') +
+        '" data-detail-size="' + escapeHtml(s) +
+        '" aria-pressed="' + isSel + '"' +
+        ' onclick="selectUniformDetailSize(this.dataset.detailSize, this)">' +
+        escapeHtml(s) + '</button>';
+    }).join('');
+    sizeHtml =
+      '<div class="uniform-detail-size-section">' +
+        '<div class="size-pills-label">' +
+          '<span>Select Size:</span>' +
+          '<span class="selected-size-text uniform-detail-selected-size">' + escapeHtml(_detailModalSize || '\u2014') + '</span>' +
+        '</div>' +
+        '<div class="size-pills-row uniform-detail-size-grid">' + sizeBtns + '</div>' +
+      '</div>';
+  }
+
+  var customHtml = '';
+  if (item.hasCustomText) {
+    var promptText = item.customPrompt || 'Specify details (e.g. Name, Badge):';
+    customHtml =
+      '<div class="uniform-detail-custom-section">' +
+        '<label class="uniform-detail-field-label" for="upd-custom-text">' +
+          '<span>' + escapeHtml(promptText) + '</span>' +
+          '<span class="uniform-detail-required">*</span>' +
+        '</label>' +
+        '<input type="text" id="upd-custom-text" class="form-input uniform-detail-custom-input" placeholder="' +
+        escapeHtml(promptText) + '" value="' + escapeHtml(_detailModalCustomText) +
+        '" oninput="onUniformDetailCustomTextChange(this.value)"/>' +
+      '</div>';
+  }
+
+  var inCartText = getProductInCartSummary(key);
+  var inCartHtml = inCartText
+    ? '<div class="product-card-in-cart uniform-detail-in-cart">' + escapeHtml(inCartText) + '</div>'
+    : '';
+
+  dialog.innerHTML =
+    '<div class="uniform-detail-shell">' +
+      '<div class="uniform-detail-scroll">' +
+        '<div class="uniform-detail-media">' +
+          badgeHtml +
+          '<button type="button" class="uniform-detail-close-btn" onclick="closeUniformProductDetail()" aria-label="Close product details">' +
+            '<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+          '</button>' +
+          mediaHtml +
+        '</div>' +
+        '<div class="uniform-detail-body">' +
+          '<div class="product-card-cat-label">' + escapeHtml(catLabel) + '</div>' +
+          '<h1 id="upd-title" class="uniform-detail-title">' + escapeHtml(item.name) + '</h1>' +
+          '<div class="uniform-detail-price">' + escapeHtml(priceLabel) + '</div>' +
+          descHtml +
+          sizeHtml +
+          customHtml +
+          inCartHtml +
+        '</div>' +
+      '</div>' +
+      '<div class="uniform-detail-footer">' +
+        '<div class="uniform-detail-stepper qty-ctrl">' +
+          '<button type="button" class="stepper-btn qty-btn uniform-detail-minus" onclick="stepUniformDetailQty(-1)" aria-label="Decrease quantity">&#8722;</button>' +
+          '<span class="stepper-count qty-display uniform-detail-qty-val">' + _detailModalQty + '</span>' +
+          '<button type="button" class="stepper-btn qty-btn uniform-detail-plus" onclick="stepUniformDetailQty(1)" aria-label="Increase quantity">+</button>' +
+        '</div>' +
+        '<button type="button" class="add-to-cart-btn uniform-detail-add-btn" onclick="submitUniformDetailAddToCart()" autofocus>' +
+          '<svg class="ui-icon-sm" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>' +
+          '<span class="uniform-detail-add-label">Add to Cart</span>' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  syncUniformDetailFooterUI();
+
+  if (typeof dialog.showModal === 'function') {
+    if (!dialog.open) dialog.showModal();
+  } else {
+    dialog.setAttribute('open', '');
+  }
+}
+
+/**
+ * Closes the Product Detail Modal (<dialog>)
+ */
+function closeUniformProductDetail() {
+  if (typeof document === 'undefined') return;
+  var dialog = document.querySelector('dialog#uniform-product-detail-dialog');
+  if (!dialog) return;
+  if (dialog.open && typeof dialog.close === 'function') {
+    dialog.close();
+  } else {
+    dialog.removeAttribute('open');
+    _detailModalKey = null;
+  }
+}
+
+/**
+ * Selects a size inside the Product Detail Modal and keeps card selection synchronized
+ * @param {string} size
+ * @param {HTMLElement} [btn]
+ */
+function selectUniformDetailSize(size, btn) {
+  if (!_detailModalKey || _isSubmittingOrder) return;
+  var item = UNIFORM_ITEMS.find(function (p) { return p.key === _detailModalKey; });
+  if (!item || !getItemSizes(item).includes(size)) return;
+
+  _detailModalSize = size;
+  itemSelectedSizes[_detailModalKey] = size;
+  itemSizes[_detailModalKey] = size;
+
+  if (typeof document !== 'undefined') {
+    var dialog = document.querySelector('dialog#uniform-product-detail-dialog');
+    if (dialog) {
+      dialog.querySelectorAll('.uniform-detail-size-grid .size-pill').forEach(function (b) {
+        var match = b === btn || b.getAttribute('data-detail-size') === size;
+        b.classList.toggle('selected', match);
+        b.setAttribute('aria-pressed', String(match));
+      });
+      var lbl = dialog.querySelector('.uniform-detail-selected-size');
+      if (lbl) lbl.textContent = size;
+      var sec = dialog.querySelector('.uniform-detail-size-section');
+      if (sec) sec.classList.remove('needs-attention');
+    }
+    var cardGrid = document.getElementById(_detailModalKey + '-size-grid');
+    if (cardGrid) {
+      cardGrid.querySelectorAll('.size-btn, .size-pill').forEach(function (b) {
+        var isMatch = b.getAttribute('data-size') === size;
+        b.classList.toggle('selected', isMatch);
+        b.setAttribute('aria-pressed', String(isMatch));
+      });
+    }
+    var cardLbl = document.getElementById(_detailModalKey + '-selected-size-label');
+    if (cardLbl) cardLbl.textContent = size;
+  }
+}
+
+/**
+ * Steps quantity inside the Product Detail Modal
+ * @param {number} delta
+ * @returns {number}
+ */
+function stepUniformDetailQty(delta) {
+  if (!_detailModalKey || _isSubmittingOrder || !Number.isSafeInteger(delta)) return _detailModalQty;
+  var item = UNIFORM_ITEMS.find(function (p) { return p.key === _detailModalKey; });
+  if (!item || !canOrderUniformItem(item)) return _detailModalQty;
+  var limit = uniformQuantityLimit(item);
+  var price = uniformPriceInSen(item);
+  if (!limit || price === null) {
+    _detailModalQty = 0;
+  } else {
+    _detailModalQty = Math.min(limit, Math.max(1, _detailModalQty + delta));
+  }
+  syncUniformDetailFooterUI();
+  return _detailModalQty;
+}
+
+/**
+ * Tracks custom text details entered inside the Product Detail Modal
+ * @param {string} val
+ */
+function onUniformDetailCustomTextChange(val) {
+  _detailModalCustomText = val || '';
+  if (_detailModalKey) {
+    itemCustomTexts[_detailModalKey] = _detailModalCustomText;
+    if (typeof document !== 'undefined') {
+      var cardInp = document.getElementById(_detailModalKey + '-custom-text');
+      if (cardInp) cardInp.value = _detailModalCustomText;
+    }
+  }
+}
+
+/**
+ * Validates and adds the configured item from the Product Detail Modal into the shopping cart
+ * @returns {boolean}
+ */
+function submitUniformDetailAddToCart() {
+  if (!_detailModalKey || _isSubmittingOrder) return false;
+  var key = _detailModalKey;
+  var item = UNIFORM_ITEMS.find(function (p) { return p.key === key; });
+  if (!item) return false;
+
+  var sizes = getItemSizes(item);
+  if (sizes.length && !_detailModalSize) {
+    if (typeof showToast === 'function') showToast('Please select a size first!', 'warning');
+    if (typeof document !== 'undefined') {
+      var sec = document.querySelector('#uniform-product-detail-dialog .uniform-detail-size-section');
+      if (sec) {
+        sec.classList.add('needs-attention');
+        var firstBtn = sec.querySelector('.size-pill');
+        if (firstBtn && typeof firstBtn.focus === 'function') firstBtn.focus();
+      }
+    }
+    return false;
+  }
+
+  var customText = '';
+  if (item.hasCustomText) {
+    var rawText = _detailModalCustomText || '';
+    if (typeof document !== 'undefined') {
+      var inp = document.querySelector('#uniform-product-detail-dialog .uniform-detail-custom-input');
+      if (inp) rawText = inp.value;
+    }
+    customText = typeof sanitizeText === 'function' ? sanitizeText(rawText.trim(), 120) : rawText.trim();
+    if (!customText) {
+      var fieldPrompt = item.customPrompt || 'custom details (e.g. Name or Badge)';
+      if (typeof showToast === 'function') showToast('Please enter ' + fieldPrompt + ' first!', 'warning');
+      if (typeof document !== 'undefined') {
+        var inpEl = document.querySelector('#uniform-product-detail-dialog .uniform-detail-custom-input');
+        if (inpEl && typeof inpEl.focus === 'function') inpEl.focus();
+      }
+      return false;
+    }
+  }
+
+  var qtyToAdd = _detailModalQty;
+  if (!addUniformToCart(key, _detailModalSize, qtyToAdd, customText)) return false;
+
+  itemStagedQtys[key] = 0;
+  itemCustomTexts[key] = '';
+  if (typeof document !== 'undefined') {
+    var customCardInp = document.getElementById(key + '-custom-text');
+    if (customCardInp) customCardInp.value = '';
+    var qtyDisplay = document.getElementById(key + '-qty');
+    if (qtyDisplay) qtyDisplay.textContent = '0';
+    var minusBtn = document.getElementById(key + '-minus-btn');
+    if (minusBtn) {
+      minusBtn.disabled = true;
+      minusBtn.style.opacity = '0.4';
+    }
+    var addBtn = document.getElementById(key + '-add-btn');
+    if (addBtn) addBtn.style.display = 'none';
+    var card = document.getElementById('ui-' + key);
+    if (card) {
+      card.classList.remove('has-staged-qty');
+      card.classList.add('has-qty');
+    }
+  }
+
+  closeUniformProductDetail();
+  return true;
 }
 
 /**
@@ -1478,6 +1897,7 @@ function renderOrderItems(memberRank) {
 function goToOrderReview() {
   if (typeof document === 'undefined') return;
   if (_isSubmittingOrder) return;
+  closeUniformProductDetail();
   var cart;
   try {
     cart = readUniformCart();
@@ -5871,6 +6291,12 @@ if (typeof module !== 'undefined' && module.exports) {
     deleteCurrentProduct: deleteCurrentProduct,
     onCustomTextChange: onCustomTextChange,
     toggleProdCustomPrompt: toggleProdCustomPrompt,
-    itemCustomTexts: itemCustomTexts
+    itemCustomTexts: itemCustomTexts,
+    openUniformProductDetail: openUniformProductDetail,
+    closeUniformProductDetail: closeUniformProductDetail,
+    selectUniformDetailSize: selectUniformDetailSize,
+    stepUniformDetailQty: stepUniformDetailQty,
+    onUniformDetailCustomTextChange: onUniformDetailCustomTextChange,
+    submitUniformDetailAddToCart: submitUniformDetailAddToCart
   };
 }
