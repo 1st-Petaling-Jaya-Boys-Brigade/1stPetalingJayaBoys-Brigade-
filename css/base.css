@@ -105,6 +105,15 @@ textarea,
   overscroll-behavior-y: contain;
 }
 
+/* Unified Phone-Width Page Framing (Matches Company Calendar Compact Fit Across All Tabs) */
+@media (max-width: 600px) {
+  .page,
+  .page.active {
+    max-width: 100%;
+    padding: 12px max(6px, var(--safe-area-right)) var(--dock-clearance) max(6px, var(--safe-area-left));
+  }
+}
+
 @media (max-width: 1023px) {
   html {
     scroll-padding-top: var(--header-height);
@@ -248,6 +257,39 @@ textarea,
   color: var(--accent);
   letter-spacing: 0.5px;
   text-transform: none;
+}
+
+@media (max-width: 600px) {
+  .page-title {
+    font-size: clamp(1.25rem, 1.05rem + 1.2vw, 1.45rem);
+    line-height: 1.18;
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .page-desc {
+    font-size: 13px;
+    line-height: 1.48;
+    margin-bottom: 12px;
+  }
+
+  .section-header {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .section-header .s-title {
+    font-size: 1rem;
+  }
+
+  .section-header .s-badge {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 3px 9px;
+  }
 }
 
 .divider {

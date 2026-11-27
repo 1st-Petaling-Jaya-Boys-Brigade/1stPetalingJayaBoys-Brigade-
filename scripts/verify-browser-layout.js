@@ -5912,7 +5912,41 @@ async function getJson(url) {
           );
 
           switchCalendarView('upcoming');
-          return { monthNoScroll, yearNoScroll, weekNoScroll };
+
+          // Unified mobile fitting check across ALL portal tabs (same compact 6px side gutter, 12px top, 0px overflow as Calendar)
+          const unifiedTabs = ['home', 'parade', 'order', 'tasks', 'badges', 'attendance', 'forum', 'resources', 'gallery', 'arcade', 'member'];
+          const tabProblems = [];
+          for (const t of unifiedTabs) {
+            switchTabNav(t, true);
+            await frame();
+            const sec = document.getElementById('page-' + t);
+            if (!sec || !sec.classList.contains('active')) {
+              tabProblems.push(t + ':inactive');
+              continue;
+            }
+            const cs = getComputedStyle(sec);
+            const pLeft = parseFloat(cs.paddingLeft);
+            const pRight = parseFloat(cs.paddingRight);
+            const pTop = parseFloat(cs.paddingTop);
+            if (Math.abs(pLeft - 6) > 1 || Math.abs(pRight - 6) > 1 || Math.abs(pTop - 12) > 1) {
+              tabProblems.push(t + ':pad=' + cs.paddingTop + '/' + cs.paddingRight + '/' + cs.paddingLeft);
+            }
+            if (document.documentElement.scrollWidth > window.innerWidth + 1 || sec.scrollWidth > sec.clientWidth + 1) {
+              tabProblems.push(t + ':overflow');
+            }
+          }
+          switchTabNav('home', true);
+          await frame();
+          const heroRect = document.querySelector('#page-home .hero-banner')?.getBoundingClientRect();
+          const heroRadius = parseFloat(getComputedStyle(document.querySelector('#page-home .hero-banner')).borderRadius);
+          const homeCardsCompact = Boolean(heroRect && heroRect.width >= window.innerWidth - 14 && heroRadius <= 15);
+          switchTabNav('order', true);
+          document.getElementById('order-logged-in').style.display = 'block';
+          await frame();
+          const formsSearchRect = document.getElementById('form-search-input')?.getBoundingClientRect();
+          const formsInputCompact = Boolean(formsSearchRect && formsSearchRect.width >= window.innerWidth - 14 && formsSearchRect.height >= 44);
+          switchTabNav('home', true);
+          return { monthNoScroll, yearNoScroll, weekNoScroll, tabProblems, homeCardsCompact, formsInputCompact };
         })()`,
         awaitPromise: true,
         returnByValue: true
@@ -5921,8 +5955,11 @@ async function getJson(url) {
       assert.strictEqual(mc.monthNoScroll, true, 'Calendar Month view must fit all 7 days with 0px horizontal scroll at ' + mWidth + 'px');
       assert.strictEqual(mc.yearNoScroll, true, 'Calendar Year view must fit all 12 month grids with 0px horizontal scroll at ' + mWidth + 'px');
       assert.strictEqual(mc.weekNoScroll, true, 'Calendar Week view must fit with 0px horizontal scroll at ' + mWidth + 'px');
+      assert.deepStrictEqual(mc.tabProblems, [], 'All 11 portal tabs must share Calendar compact 6px horizontal / 12px top mobile fitting with 0px overflow at ' + mWidth + 'px');
+      assert.strictEqual(mc.homeCardsCompact, true, 'Home tab cards must span full compact width with crisp <=15px radius at ' + mWidth + 'px');
+      assert.strictEqual(mc.formsInputCompact, true, 'Forms search bar must span full compact width with >=44px touch height at ' + mWidth + 'px');
     }
-    console.log('  ✔ Mobile Calendar Month, Year, and Week views fit all 7 columns cleanly at 360px & 390px with 0px horizontal scroll');
+    console.log('  ✔ Mobile Calendar and unified compact fitting across all 11 portal tabs verified at 360px & 390px with 0px horizontal scroll');
 
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
