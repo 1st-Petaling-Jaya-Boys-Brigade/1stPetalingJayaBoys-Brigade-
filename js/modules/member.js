@@ -369,13 +369,11 @@ function handleRegRankChange() {
 function handleSectionChange() {
   if (typeof document === 'undefined') return;
   var secEl = document.getElementById('reg-section');
-  var ageEl = document.getElementById('reg-age');
   var rankEl = document.getElementById('reg-rank');
   var squadEl = document.getElementById('reg-squad');
   var box   = document.getElementById('parent-consent-box');
 
   var section = secEl ? secEl.value : '';
-  var age     = ageEl ? ageEl.value : '';
 
   if (rankEl) {
     var curRank = rankEl.value;
@@ -397,23 +395,16 @@ function handleSectionChange() {
 
   if (!box) return;
 
-  if (isMinorSection(section, age)) {
-    box.style.display = 'block';
-    var pName = document.getElementById('reg-parent-name');
-    var pContact = document.getElementById('reg-parent-contact');
-    var pConsent = document.getElementById('reg-parent-consent');
-    if (pName) pName.setAttribute('required', 'required');
-    if (pContact) pContact.setAttribute('required', 'required');
-    if (pConsent) pConsent.setAttribute('required', 'required');
-  } else {
-    box.style.display = 'none';
-    var pName = document.getElementById('reg-parent-name');
-    var pContact = document.getElementById('reg-parent-contact');
-    var pConsent = document.getElementById('reg-parent-consent');
-    if (pName) pName.removeAttribute('required');
-    if (pContact) pContact.removeAttribute('required');
-    if (pConsent) pConsent.removeAttribute('required');
-  }
+  // Registration COPPA/PDPA parental consent box is permanently hidden;
+  // T&C and privacy consent are collected during post-registration onboarding.
+  box.style.display = 'none';
+  box.hidden = true;
+  var pName = document.getElementById('reg-parent-name');
+  var pContact = document.getElementById('reg-parent-contact');
+  var pConsent = document.getElementById('reg-parent-consent');
+  if (pName) pName.removeAttribute('required');
+  if (pContact) pContact.removeAttribute('required');
+  if (pConsent) pConsent.removeAttribute('required');
 }
 
 function openChildSafetyModal(e) {
@@ -503,7 +494,7 @@ async function updateMemberMediaConsent(newConsent) {
         var audit = (rows && rows.length && rows[0].value) ? (typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value) : { email: id };
         audit.media_consent = consentVal;
         audit.media_consent_updated_at = new Date().toISOString();
-        audit.governance = 'COPPA/PDPA-2010';
+        audit.governance = 'Portal-Privacy-Terms';
         await client.upsert('bb_config', { key: consentKey, value: JSON.stringify(audit) }, 'key');
       } catch (cfgErr) {
         if (typeof showToast === 'function') {
@@ -926,39 +917,14 @@ async function registerMember() {
     return;
   }
 
-  // Child Safety Governance & Verifiable Parental Consent ( / COPPA & PDPA 2010)
+  // Registration no longer requires COPPA/PDPA parental consent fields;
+  // Code of Conduct, T&C, and privacy consent are collected during onboarding after registration.
   var isMinor = isMinorSection(section, parsedAge);
   var parentName = '';
   var parentContact = '';
   var parentConsent = false;
   var mediaConsent = false;
   var consentTimestamp = null;
-
-  if (isMinor) {
-    var rawParentName    = ((document.getElementById('reg-parent-name') || {}).value || '').trim();
-    var rawParentContact = ((document.getElementById('reg-parent-contact') || {}).value || '').trim();
-    var pConsentEl       = document.getElementById('reg-parent-consent');
-    var pMediaEl         = document.getElementById('reg-media-consent');
-
-    parentName    = (typeof sanitizeText === 'function') ? sanitizeText(rawParentName, 100) : rawParentName;
-    parentContact = (typeof sanitizeInput === 'function') ? sanitizeInput(rawParentContact, 100) : rawParentContact;
-    parentConsent = pConsentEl ? !!pConsentEl.checked : false;
-    mediaConsent  = pMediaEl ? !!pMediaEl.checked : false;
-
-    if (!parentName) {
-      if (typeof showToast === 'function') showToast('Parent or Legal Guardian Name is required for Pre-Junior and Junior members.', 'warning');
-      return;
-    }
-    if (!parentContact) {
-      if (typeof showToast === 'function') showToast('Parent or Legal Guardian Contact (Phone or Email) is required for Pre-Junior and Junior members.', 'warning');
-      return;
-    }
-    if (!parentConsent) {
-      if (typeof showToast === 'function') showToast('Verified Parental or Legal Guardian Consent is strictly required to register members under 12 years old.', 'warning');
-      return;
-    }
-    consentTimestamp = new Date().toISOString();
-  }
 
   var regBtn = (typeof document !== 'undefined') ? document.querySelector('#auth-register button[type="submit"]') : null;
   _isRegisteringMember = true;
@@ -1389,9 +1355,6 @@ async function verifyAndCompleteRegistration() {
 
 async function finalizeMemberRegistration(data) {
   var isMinor = isMinorSection(data.section, data.age);
-  if (isMinor && (!data.parentName || !data.parentContact || data.parentConsent !== true || !data.consentTimestamp)) {
-    throw new Error('Parental consent is required');
-  }
   var client = getSupa();
   var birthYear = new Date().getFullYear() - data.age;
   var approxDob = birthYear + '-01-01';
@@ -1412,11 +1375,13 @@ async function finalizeMemberRegistration(data) {
   };
 
   if (isMinor) {
-    memberPayload.parent_name = data.parentName;
-    memberPayload.parent_contact = data.parentContact;
-    memberPayload.parental_consent_signed = true;
-    memberPayload.parental_consent_date = data.consentTimestamp;
     memberPayload.media_consent = data.mediaConsent === true;
+    if (data.parentName) memberPayload.parent_name = data.parentName;
+    if (data.parentContact) memberPayload.parent_contact = data.parentContact;
+    if (data.parentConsent === true && data.consentTimestamp) {
+      memberPayload.parental_consent_signed = true;
+      memberPayload.parental_consent_date = data.consentTimestamp;
+    }
   }
 
   // Final safeguard: Name uniqueness verification before database write
@@ -1525,8 +1490,8 @@ async function finalizeMemberRegistration(data) {
     }
   } catch (_) {}
 
-  // Store parental consent audit in bb_config if minor
-  if (isMinor) {
+  // Store optional parental consent audit in bb_config only if explicitly submitted
+  if (isMinor && data.parentConsent === true && data.parentName && data.parentContact) {
     try {
       var auditRecord = {
         email: data.email,
@@ -1538,7 +1503,7 @@ async function finalizeMemberRegistration(data) {
         parental_consent_signed: true,
         parental_consent_date: data.consentTimestamp,
         media_consent: memberPayload.media_consent,
-        governance: 'COPPA/PDPA-2010',
+        governance: 'Portal-Privacy-Terms',
         recorded_at: new Date().toISOString()
       };
       var consentKey = 'bb_consent_' + data.ic.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -5404,53 +5369,11 @@ async function renderDashboard() {
     if (sessionGet('department') !== (m.department || '')) sessionSet('department', m.department || '', { localOnly: true });
     set('m-since-val', m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
-    // Child Safety & Parental Consent Status
-    var memberSection = m.att_section || m.section || sessionGet('section') || '';
-    var memberAge = sessionGet('age');
-    if (!memberAge && m.date_of_birth) {
-      var bYear = parseInt((m.date_of_birth || '').split('-')[0], 10);
-      if (bYear > 0 && bYear <= new Date().getFullYear()) memberAge = new Date().getFullYear() - bYear;
-    }
-    var isMinor = isMinorSection(memberSection, memberAge);
+    // Terms & privacy consent are handled during post-registration onboarding; keep legacy COPPA/PDPA banner hidden
     var consentWrap = document.getElementById('m-consent-status-wrap');
     if (consentWrap) {
-      if (isMinor) {
-        consentWrap.style.display = 'block';
-        var consentData = await fetchMemberConsent(id, m);
-        if ((sessionGet('ic') || sessionGet('email')) !== id) return;
-        var isVerified = consentData && consentData.parental_consent_signed;
-        var mediaConsent = !!(consentData && consentData.media_consent === true);
-        var consentDateStr = (consentData && consentData.parental_consent_date)
-          ? new Date(consentData.parental_consent_date).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })
-          : '';
-        var parentNameStr = (consentData && consentData.parent_name) ? (' by ' + (typeof escapeHtml === 'function' ? escapeHtml(consentData.parent_name) : consentData.parent_name)) : '';
-
-        var statusHtml = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">'
-          + '<div style="display:flex;align-items:center;gap:8px;">'
-            + '<div style="width:28px;height:28px;border-radius:50%;background:' + (isVerified ? 'rgba(74,222,128,0.15)' : 'rgba(234,179,8,0.15)') + ';display:flex;align-items:center;justify-content:center;color:' + (isVerified ? 'var(--green)' : 'var(--accent)') + ';">'
-              + '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>'
-            + '</div>'
-            + '<div>'
-              + '<div style="font-size:12px;font-weight:700;color:var(--text-primary);">'
-                + (isVerified ? ('Parental Consent Recorded' + parentNameStr) : 'Parental Consent Pending Verification')
-              + '</div>'
-              + '<div style="font-size:11px;color:var(--text-muted);">'
-                + (isVerified ? ('Submitted on ' + (consentDateStr || 'registration')) : 'Consent record missing. Contact Section Officer.')
-              + '</div>'
-            + '</div>'
-          + '</div>'
-          + '<div style="display:flex;align-items:center;gap:6px;">'
-            + (mediaConsent
-                ? '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Photo Consent Opted-In</span>'
-                : '<span style="font-size:11px;padding:3px 8px;border-radius:12px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/><line x1="2" x2="22" y1="2" y2="22"/></svg> Media Private (No Photos)</span>')
-            + '<button type="button" onclick="updateMemberMediaConsent(!' + mediaConsent + ')" style="background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;font-weight:600;" title="Update media release preference">' + (mediaConsent ? 'Withdraw Photo Consent' : 'Opt-In to Photos') + '</button>'
-            + '<a href="#" onclick="openChildSafetyModal(event)" style="font-size:11px;color:var(--accent);text-decoration:underline;margin-left:4px;">Policy</a>'
-          + '</div>'
-        + '</div>';
-        consentWrap.innerHTML = statusHtml;
-      } else {
-        consentWrap.style.display = 'none';
-      }
+      consentWrap.style.display = 'none';
+      consentWrap.innerHTML = '';
     }
 
     set('sidebar-user-name', m.name || 'Member');

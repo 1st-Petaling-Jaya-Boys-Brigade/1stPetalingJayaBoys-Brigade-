@@ -773,7 +773,7 @@ async function renderAdminMasterSheetPanel() {
         '</div>' +
       '</div>' +
       '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:14px;line-height:1.5;">' +
-        'To protect member privacy (PDPA / COPPA), the portal integration strips all sensitive PII (parent phone numbers, home addresses, IC numbers) and authenticates all sync requests with a shared-secret proxy token.' +
+        'To protect member privacy, the portal integration strips all sensitive PII (parent phone numbers, home addresses, IC numbers) and authenticates all sync requests with a shared-secret proxy token.' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">' +
         '<div>' +

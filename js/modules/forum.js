@@ -319,9 +319,9 @@ var PORTAL_100_FAQS = [
   {
     "id": "faq-007",
     "num": 7,
-    "question": "Why does the portal require parental consent for younger boys?",
-    "category": "Accounts, Registration, Security & Child Privacy",
-    "answer": "Under COPPA and Malaysian Personal Data Protection Act (PDPA 2010) guidelines, members under 18 (Pre-Junior and Junior sections) require a parent or legal guardian's name and contact number during registration, alongside media release preferences.",
+    "question": "Where do new members accept the portal terms and privacy consent?",
+    "category": "Accounts, Registration, Security & Member Privacy",
+    "answer": "All newly registered members review and accept the 1st PJ Boys' Brigade Code of Conduct and Privacy Terms during the guided onboarding right after registration—no separate parental consent form is required on the registration page.",
     "actions": [
       {
         "label": "Go to Member Hub",
@@ -331,13 +331,13 @@ var PORTAL_100_FAQS = [
       }
     ],
     "keywords": [
-      "require",
-      "under",
-      "2010",
+      "terms",
+      "privacy",
+      "onboarding",
       "portal",
       "parental",
       "consent",
-      "younger"
+      "register"
     ]
   },
   {
