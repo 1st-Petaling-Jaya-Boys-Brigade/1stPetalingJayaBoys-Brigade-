@@ -2897,12 +2897,10 @@
           if (isMinor) {
             var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
             if (hasConsent) {
-              consentBadge = '<span title="Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;"><svg class="ui-icon-xs" style="width:10px;height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
-            } else {
-              consentBadge = '<span title="Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;"><svg class="ui-icon-xs" style="width:10px;height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Pending</span>';
+              consentBadge = '<span title="Parental Consent Recorded" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;"><svg class="ui-icon-xs" style="width:10px;height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
             }
             if (m.media_consent === false) {
-              consentBadge += ' <span title="No Public Media" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;margin-left:2px;">No Media</span>';
+              consentBadge += (consentBadge ? ' ' : '') + '<span title="No Public Media" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:6px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;margin-left:2px;">No Media</span>';
             }
           }
 
@@ -3066,9 +3064,7 @@
           if (isMinor) {
             var hasConsent = !!m.parental_consent_signed || !!m.parent_name;
             if (hasConsent) {
-              consentBadge = ' <span title="Child Safety: Parental Consent Verified" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
-            } else {
-              consentBadge = ' <span title="Child Safety: Parental Consent Pending" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(234,179,8,0.15);color:var(--accent);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent Pending</span>';
+              consentBadge = ' <span title="Parental Consent Recorded" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(74,222,128,0.15);color:var(--green);font-weight:700;vertical-align:middle;margin-left:4px;"><svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Consent OK</span>';
             }
             if (m.media_consent === false) {
               consentBadge += ' <span title="Privacy: Media release private / no public photos" style="display:inline-flex;align-items:center;gap:2px;font-size:10px;padding:2px 6px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--red);font-weight:700;vertical-align:middle;margin-left:2px;">No Media</span>';

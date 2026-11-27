@@ -795,17 +795,33 @@ async function getJson(url) {
     );
     console.log('  ✔ Quick access carousel cards have optimal crisp font smoothing');
 
-    // 13. Test Child Safety (COPPA/PDPA) & Parental Consent Governance
-    console.log('\n[Child Safety & Parental Consent Governance]');
+    // 13. Test Registration COPPA/PDPA Removal & Admin Section Governance
+    console.log('\n[Registration Form Cleanup & Section Governance]');
     const evalChildSafety = await sendCmd('Runtime.evaluate', {
       expression:
         '(() => {' +
+        'const regForm = document.getElementById("auth-register");' +
+        'const regSec = document.getElementById("reg-section");' +
+        'const regAge = document.getElementById("reg-age");' +
         'const consentBox = document.getElementById("parent-consent-box");' +
         'const pNameInp = document.getElementById("reg-parent-name");' +
         'const pContactInp = document.getElementById("reg-parent-contact");' +
         'const pConsentCb = document.getElementById("reg-parent-consent");' +
         'const pMediaCb = document.getElementById("reg-media-consent");' +
+        'if (regSec && regAge) {' +
+        '  regSec.value = "Junior";' +
+        '  regAge.value = "9";' +
+        '  if (typeof handleSectionChange === "function") handleSectionChange();' +
+        '}' +
+        'const consentBoxHiddenForJunior = Boolean(consentBox && consentBox.hidden && getComputedStyle(consentBox).display === "none" && consentBox.getBoundingClientRect().height === 0);' +
+        'const regFormHasCoppaPdpa = Boolean(regForm && /COPPA|PDPA/i.test(regForm.textContent || ""));' +
+        'if (regSec && regAge) {' +
+        '  regSec.value = "";' +
+        '  regAge.value = "";' +
+        '  if (typeof handleSectionChange === "function") handleSectionChange();' +
+        '}' +
         'const policyModal = document.getElementById("child-safety-modal");' +
+        'const policyHasCoppaPdpa = Boolean(policyModal && /COPPA|PDPA/i.test(policyModal.textContent || ""));' +
         'const emSectionSel = document.getElementById("em-section");' +
         'const emRankSel = document.getElementById("em-rank");' +
         'const chooseRank = (section, rank) => {' +
@@ -820,19 +836,23 @@ async function getJson(url) {
         'emSectionSel.value = "";' +
         'emSectionSel.dispatchEvent(new Event("change"));' +
         'const emChildSafetyBox = document.getElementById("em-child-safety-box");' +
+        'const emBoxHasCoppaPdpa = Boolean(emChildSafetyBox && /COPPA|PDPA/i.test(emChildSafetyBox.textContent || ""));' +
         'const galleryAdvisory = document.getElementById("adm-section-gallery");' +
         'return {' +
         'hasConsentBox: !!consentBox,' +
+        'consentBoxHiddenForJunior,' +
+        'regFormHasCoppaPdpa,' +
         'hasParentName: !!pNameInp,' +
         'hasParentContact: !!pContactInp,' +
         'hasParentConsent: !!pConsentCb,' +
         'hasMediaConsent: !!pMediaCb,' +
-        'mediaDefaultChecked: pMediaCb ? pMediaCb.checked : null,' +
         'hasPolicyModal: !!policyModal,' +
+        'policyHasCoppaPdpa,' +
         'hasEmSection: !!emSectionSel,' +
         'preJuniorStaysInJunior,' +
         'staffSergeantStaysInOfficer,' +
         'hasEmChildSafety: !!emChildSafetyBox,' +
+        'emBoxHasCoppaPdpa,' +
         'hasGalleryAdvisory: galleryAdvisory ? galleryAdvisory.textContent.includes("Child Safety & Media Release Advisory") : false' +
         '};' +
         '})()',
@@ -841,21 +861,19 @@ async function getJson(url) {
     const csInfo = evalChildSafety.result.value;
     assert.ok(csInfo.preJuniorStaysInJunior, 'Selecting Pre-Junior keeps the Junior Section selected');
     assert.ok(csInfo.staffSergeantStaysInOfficer, 'Selecting Staff Sergeant keeps the Officer section selected');
-    assert.strictEqual(csInfo.hasConsentBox, true, 'Parent consent box must exist');
-    assert.strictEqual(csInfo.hasParentName, true, 'Parent name input must exist');
-    assert.strictEqual(csInfo.hasParentContact, true, 'Parent contact input must exist');
-    assert.strictEqual(csInfo.hasParentConsent, true, 'Parent consent checkbox must exist');
-    assert.strictEqual(csInfo.hasMediaConsent, true, 'Media consent checkbox must exist');
-    assert.strictEqual(
-      csInfo.mediaDefaultChecked,
-      false,
-      'Media release must be unchecked by default (privacy-first)'
-    );
+    assert.strictEqual(csInfo.hasConsentBox, true, 'Retired parent-consent-box DOM ID must stay preserved');
+    assert.strictEqual(csInfo.consentBoxHiddenForJunior, true, 'Registration COPPA/PDPA parental consent box must stay completely hidden even for Junior/age 9');
+    assert.strictEqual(csInfo.regFormHasCoppaPdpa, false, 'Registration form must not display any COPPA or PDPA text');
+    assert.strictEqual(csInfo.hasParentName, true, 'Retired reg-parent-name DOM ID must stay preserved');
+    assert.strictEqual(csInfo.hasParentContact, true, 'Retired reg-parent-contact DOM ID must stay preserved');
+    assert.strictEqual(csInfo.hasParentConsent, true, 'Retired reg-parent-consent DOM ID must stay preserved');
+    assert.strictEqual(csInfo.hasMediaConsent, true, 'Retired reg-media-consent DOM ID must stay preserved');
     console.log(
-      '  ✔ Registration form adheres to verified parental consent and privacy-first default media permission'
+      '  ✔ Registration form cleanly hides COPPA/PDPA parental consent box for Junior/Pre-Junior (onboarding handles T&C & consent)'
     );
 
-    assert.strictEqual(csInfo.hasPolicyModal, true, 'Child safety policy modal must exist in DOM');
+    assert.strictEqual(csInfo.hasPolicyModal, true, 'Privacy modal DOM ID must stay preserved');
+    assert.strictEqual(csInfo.policyHasCoppaPdpa, false, 'Privacy modal must not contain COPPA/PDPA text');
     assert.strictEqual(
       csInfo.hasEmSection,
       true,
@@ -864,15 +882,16 @@ async function getJson(url) {
     assert.strictEqual(
       csInfo.hasEmChildSafety,
       true,
-      'Edit Member modal must feature Child Safety consent controls'
+      'Edit Member modal must preserve Parent / Guardian & Media Preferences controls'
     );
+    assert.strictEqual(csInfo.emBoxHasCoppaPdpa, false, 'Edit Member modal must not display COPPA/PDPA text');
     assert.strictEqual(
       csInfo.hasGalleryAdvisory,
       false,
       'Gallery management Child Safety advisory box must be removed per user specification'
     );
     console.log(
-      '  ✔ Admin console provides full section governance and child safety advisory enforcement'
+      '  ✔ Admin console section governance and COPPA/PDPA-free modals verified in browser'
     );
 
     // 14. Test Instagram-Style Story Highlights & Event Gallery Reel

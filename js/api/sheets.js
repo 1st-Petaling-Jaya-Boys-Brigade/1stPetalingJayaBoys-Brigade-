@@ -818,7 +818,7 @@ function auditSheetSharingSecurity() {
       var warnMsg = '⚠️ CRITICAL PRIVACY ALERT:\n\n' +
         'This Google Sheet is currently shared as "Anyone with the link can ' + 
         (permission === DriveApp.Permission.EDIT ? 'EDIT' : 'VIEW') + '"!\n\n' +
-        'Anyone who gets this link could access the entire Master Sheet. To protect member data under BB Child Safety & PDPA rules, please change sharing to "Restricted" (Specific officers and NCOs only).';
+        'Anyone who gets this link could access the entire Master Sheet. To protect member privacy, please change sharing to "Restricted" (Specific officers and NCOs only).';
       notifyUser(warnMsg);
       return { secure: false, access: String(access), permission: String(permission), warning: warnMsg };
     }

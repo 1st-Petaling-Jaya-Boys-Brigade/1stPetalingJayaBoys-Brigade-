@@ -1086,7 +1086,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     '  ✔ isMinorSection correctly classifies Pre-Junior, Junior, and underage members as minors'
   );
 
-  // 2. handleSectionChange UI toggling
+  // 2. handleSectionChange keeps retired registration COPPA/PDPA box permanently hidden
   const mockBox = document.getElementById('parent-consent-box');
   const mockPName = document.getElementById('reg-parent-name');
   const mockPContact = document.getElementById('reg-parent-contact');
@@ -1094,26 +1094,36 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   const mockSection = document.getElementById('reg-section');
   const mockAge = document.getElementById('reg-age');
 
-  // Simulate selecting Pre-Junior
+  // Simulate selecting Pre-Junior — box must stay hidden (T&C & consent are in onboarding)
   mockSection.value = 'Pre-Junior';
   mockAge.value = '7';
   memberModule.handleSectionChange();
   assert.strictEqual(
     mockBox.style.display,
-    'block',
-    'parent-consent-box must be revealed for Pre-Junior'
+    'none',
+    'parent-consent-box must remain hidden for Pre-Junior (T&C & consent handled in onboarding)'
   );
 
-  // Simulate selecting Senior
+  // Simulate selecting Junior — box must stay hidden
+  mockSection.value = 'Junior';
+  mockAge.value = '10';
+  memberModule.handleSectionChange();
+  assert.strictEqual(
+    mockBox.style.display,
+    'none',
+    'parent-consent-box must remain hidden for Junior (T&C & consent handled in onboarding)'
+  );
+
+  // Simulate selecting Senior — box stays hidden
   mockSection.value = 'Senior';
   mockAge.value = '15';
   memberModule.handleSectionChange();
-  assert.strictEqual(mockBox.style.display, 'none', 'parent-consent-box must be hidden for Senior');
+  assert.strictEqual(mockBox.style.display, 'none', 'parent-consent-box must remain hidden for Senior');
   console.log(
-    '  ✔ handleSectionChange dynamically toggles parent-consent-box based on section and age'
+    '  ✔ handleSectionChange keeps retired COPPA/PDPA parental consent box hidden across all sections'
   );
 
-  // 3. Parental Consent & Data Minimization Validation during Registration
+  // 3. Streamlined Junior Registration (No COPPA/PDPA registration blocker; strict data minimization preserved)
   let lastAlertMsg = null;
   global.alert = msg => {
     lastAlertMsg = msg;
@@ -1134,54 +1144,17 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   mockEmail.value = 'junior@test.com';
   mockSection.value = 'Junior';
   mockAge.value = '10';
-  mockRankInp.value = 'Recruit';
+  mockRankInp.value = 'Junior';
   mockSquadInp.value = 'Alpha';
   mockPass.value = 'secret123';
   mockPass2.value = 'secret123';
-
-  // Case A: Missing parent name
   mockPName.value = '';
-  mockPContact.value = '+6012-3456789';
-  mockPConsent.checked = true;
-  await memberModule.registerMember();
-  assert.ok(
-    lastAlertMsg && lastAlertMsg.includes('Parent or Legal Guardian Name is required'),
-    'Registration must block if parent name is missing'
-  );
-
-  // Case B: Missing parent contact
-  mockPName.value = 'Sarah Tan';
   mockPContact.value = '';
-  mockPConsent.checked = true;
-  await memberModule.registerMember();
-  assert.ok(
-    lastAlertMsg && lastAlertMsg.includes('Parent or Legal Guardian Contact'),
-    'Registration must block if parent contact is missing'
-  );
-
-  // Case C: Unchecked parental consent e-signature
-  mockPName.value = 'Sarah Tan';
-  mockPContact.value = '+6012-3456789';
   mockPConsent.checked = false;
-  await memberModule.registerMember();
-  assert.ok(
-    lastAlertMsg &&
-      lastAlertMsg.includes('Verified Parental or Legal Guardian Consent is strictly required'),
-    'Registration must block if consent checkbox is unchecked'
-  );
-  console.log(
-    '  ✔ registerMember strictly enforces verifiable parental consent for minor sections'
-  );
+  mockMediaConsent.checked = false;
 
-  // Case D: Valid Pre-Junior / Junior Registration
-  mockPConsent.checked = true;
-  mockMediaConsent.checked = false; // Privacy-first default
   lastPosted = null;
-  let lastUpsertedAudit = null;
-  global.supa.upsert = async (path, body, onConflict) => {
-    lastUpsertedAudit = { path, body, onConflict };
-    return [{ id: 'upsert_1', ...body }];
-  };
+  global.supa.upsert = async (path, body) => [{ id: 'upsert_1', ...body }];
   global.supa.get = async path => {
     if (path.includes('bb_members?ic=')) return []; // No existing user
     if (path.includes('bb_config?key=')) return [];
@@ -1190,13 +1163,15 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
   await memberModule.registerMember();
 
-  assert.ok(lastPosted && lastPosted.body, 'Registration payload must be posted to bb_members');
+  assert.ok(
+    !lastAlertMsg || !/parent|coppa|pdpa/i.test(String(lastAlertMsg)),
+    'Junior registration must not trigger a parental consent / COPPA / PDPA alert'
+  );
+  assert.ok(lastPosted && lastPosted.body, 'Junior member registration must succeed without COPPA/PDPA form fields');
   const payload = lastPosted.body;
   assert.strictEqual(payload.name, 'Junior Member');
-  assert.strictEqual(payload.parent_name, 'Sarah Tan');
-  assert.strictEqual(payload.parent_contact, '+6012-3456789');
-  assert.strictEqual(payload.parental_consent_signed, true);
-  assert.ok(payload.parental_consent_date, 'Consent timestamp must be recorded');
+  assert.strictEqual(payload.parent_name, undefined, 'Registration must not require or collect COPPA/PDPA parent_name');
+  assert.strictEqual(payload.parent_contact, undefined, 'Registration must not require or collect COPPA/PDPA parent_contact');
   assert.strictEqual(
     payload.media_consent,
     false,
@@ -1209,25 +1184,14 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.strictEqual(payload.mykid, undefined, 'MyKid must never be collected or stored');
   assert.strictEqual(payload.address, undefined, 'Home address must never be collected or stored');
   console.log(
-    '  ✔ registerMember adheres to strict data minimization (No IC/MyKad/address) and privacy-first default media permission'
+    '  ✔ Junior registration proceeds cleanly without COPPA/PDPA blocker while preserving strict data minimization and privacy-first media default'
   );
 
-  // Verify durable consent audit trail stored in bb_config
-  assert.ok(lastUpsertedAudit, 'Consent audit trail must be persisted to bb_config');
-  assert.strictEqual(lastUpsertedAudit.path, 'bb_config');
-  assert.ok(
-    lastUpsertedAudit.body.key.startsWith('bb_consent_'),
-    'Audit key must start with bb_consent_'
-  );
-  const parsedAudit = JSON.parse(lastUpsertedAudit.body.value);
-  assert.strictEqual(parsedAudit.parent_name, 'Sarah Tan');
-  assert.strictEqual(parsedAudit.governance, 'COPPA/PDPA-2010');
-  console.log('  ✔ Verifiable parental consent audit trail persisted durably in bb_config');
-
-  // 4. fetchMemberConsent retrieval
+  // 4. fetchMemberConsent retrieval for legacy/officer-recorded consent entries
+  const sampleAudit = { parent_name: 'Sarah Tan', parental_consent_signed: true, media_consent: false, governance: 'Portal-Privacy-Terms' };
   global.supa.get = async path => {
     if (path.includes('bb_config?key=')) {
-      return [{ value: JSON.stringify(parsedAudit) }];
+      return [{ value: JSON.stringify(sampleAudit) }];
     }
     return [];
   };
@@ -1235,7 +1199,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   assert.ok(retrievedConsent, 'fetchMemberConsent must retrieve consent from bb_config');
   assert.strictEqual(retrievedConsent.parent_name, 'Sarah Tan');
   assert.strictEqual(retrievedConsent.parental_consent_signed, true);
-  console.log('  ✔ fetchMemberConsent retrieves consent records across storage fallbacks');
+  console.log('  ✔ fetchMemberConsent retrieves legacy consent records across storage fallbacks');
 
   // 5. Senior Registration without requiring parental consent
   mockFullname.value = 'Senior Member';
@@ -4647,8 +4611,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127j',
-    'sw.js CACHE_VERSION must be 20261127j'
+    '20261127k',
+    'sw.js CACHE_VERSION must be 20261127k'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4640,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127j',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127k',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7571,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127j'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127k'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9058,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127j', 'Service Worker cache version must be 20261127j');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127k', 'Service Worker cache version must be 20261127k');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127j and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127k and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10359,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127j', 'sw.js CACHE_VERSION must be 20261127j');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127j', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127j', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127k', 'sw.js CACHE_VERSION must be 20261127k');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127k', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127k', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127j cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127k cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127j'), 'config.js must use v=20261127j');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127j'), 'forum.js must use v=20261127j');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127j'), 'variables.css must use v=20261127j');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127j'), 'base.css must use v=20261127j');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127j');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127k'), 'config.js must use v=20261127k');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127k'), 'forum.js must use v=20261127k');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127k'), 'variables.css must use v=20261127k');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127k'), 'base.css must use v=20261127k');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127k');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -19087,11 +19051,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
 
     // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
-    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127j';"), 'sw.js must bump CACHE_VERSION to 20261127j');
-    assert.ok(indexHtml102.includes('css/base.css?v=20261127j') && indexHtml102.includes('css/components.css?v=20261127j'), 'index.html must reference cache-busted 20261127j CSS assets');
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261127k') && indexHtml102.includes('css/components.css?v=20261127k'), 'index.html must reference cache-busted 20261127k CSS assets');
     const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127j, and 385 DOM IDs verified');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127k, and 385 DOM IDs verified');
   }
 
   // --- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---
@@ -19176,11 +19140,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const mobileHeaderBlock104 = navCss104.slice(navCss104.indexOf('@media (max-width: 1023px)'));
     assert.ok(mobileHeaderBlock104.includes('background: var(--bg-card) !important;'), 'Mobile .nav header must use solid opaque var(--bg-card) background');
     assert.ok(mobileHeaderBlock104.includes('backdrop-filter: none !important;'), 'Mobile .nav header must disable translucent backdrop-filter');
-    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127j';"), 'sw.js must bump CACHE_VERSION to 20261127j');
-    assert.ok(indexHtml104.includes('css/nav.css?v=20261127j'), 'index.html must reference cache-busted 20261127j nav.css');
+    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
+    assert.ok(indexHtml104.includes('css/nav.css?v=20261127k'), 'index.html must reference cache-busted 20261127k nav.css');
     const ids104 = (indexHtml104.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids104).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127j, and 385 DOM IDs verified');
+    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127k, and 385 DOM IDs verified');
   }
 
   // --- Suite 105: Login with Google (Server-Verified OAuth, Family Account Picker & "Couldn't find your Google Account" Dialog) ---
@@ -19338,7 +19302,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col-body > * {\n  flex-shrink: 0;\n}'), 'Cards inside each scrolling column body must set flex-shrink: 0 so they never compress vertically');
     assert.ok(compCss106.includes('@supports not (scrollbar-color: auto) {') && compCss106.includes('scrollbar-color: var(--board-scrollbar-thumb) var(--board-scrollbar-track);'), 'Bottom horizontal board scrollbar must use standard scrollbar-color with @supports fallback');
     assert.ok(indexHtml106.includes('syncTasksBoardViewportLock()'), 'index.html switchTab must sync tasks board viewport lock on tab transitions');
-    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261127j';"), 'sw.js must bump CACHE_VERSION to 20261127j');
+    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
     const ids106 = (indexHtml106.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids106).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
 
@@ -19440,6 +19404,29 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(document.body.classList.contains('tasks-board-viewport-lock'), false);
 
     console.log('  ✔ Viewport-locked Kanban board, per-column independent vertical scroll, bottom horizontal scroller, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 107: Removal of Registration COPPA / PDPA Box (Onboarding Handles T&C & Consent) ---
+  console.log('\n--- Suite 107: Remove Registration COPPA / PDPA Box ---');
+  {
+    const idx107 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const forum107 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'forum.js'), 'utf8');
+    const att107 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'attendance.js'), 'utf8');
+    const sw107 = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+
+    const regStart107 = idx107.indexOf('<form id="auth-register"');
+    const regEnd107 = idx107.indexOf('</form>', regStart107);
+    const regHtml107 = idx107.slice(regStart107, regEnd107);
+    assert.ok(regHtml107.includes('id="parent-consent-box" hidden aria-hidden="true" style="display:none !important;"'), 'Registration form must permanently hide #parent-consent-box');
+    assert.ok(!regHtml107.includes('Parental Consent &amp; Child Safety'), 'Registration form must not render COPPA/PDPA parental consent card copy');
+    assert.ok(!idx107.includes('Child Safety &amp; Parental Consent (COPPA/PDPA)'), 'Admin Edit Member modal must not display (COPPA/PDPA)');
+    assert.ok(!idx107.includes('PDPA 2010') && !idx107.includes('COPPA guidelines'), 'Privacy modal must not contain COPPA or PDPA copy');
+    assert.ok(!forum107.includes('Under COPPA') && !forum107.includes('PDPA 2010'), 'Stedfast Helper FAQ must not reference removed COPPA/PDPA registration flow');
+    assert.ok(!att107.includes('(PDPA / COPPA)'), 'Attendance integration summary must not reference PDPA / COPPA');
+    assert.ok(sw107.includes("const CACHE_VERSION = '20261127k';"), 'sw.js must bump CACHE_VERSION to 20261127k');
+    const ids107 = (idx107.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids107).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Registration COPPA/PDPA box removed, onboarding T&C preserved, and 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
