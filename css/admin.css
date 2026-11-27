@@ -412,12 +412,24 @@
 .adm-view-toggle {
   display: inline-flex;
   align-items: center;
-  background: var(--bg-card);
+  gap: 4px;
+  background: var(--bg-card-subtle);
   border: 1px solid var(--border-card);
   border-radius: 9999px;
   padding: 3px;
   user-select: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-subtle);
+}
+
+.adm-products-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 3px;
+  user-select: none;
 }
 
 .adm-view-btn {
@@ -425,11 +437,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 14px;
-  border: none;
+  padding: 6px 13px;
+  border: 1px solid transparent;
   border-radius: 9999px;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   font-family: var(--font-headline);
   font-size: 12px;
@@ -437,18 +449,31 @@
   transition: var(--transition-smooth);
   touch-action: manipulation;
   min-height: 32px;
+  white-space: nowrap;
+}
+
+.adm-products-view-toggle .adm-view-btn {
+  border-radius: 7px;
+}
+
+.adm-view-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (hover: hover) {
   .adm-view-btn:hover:not(.active) {
     color: var(--text-primary);
-    background: var(--bg-card-subtle);
+    background: var(--surface-tint);
   }
 }
 
 .adm-view-btn.active {
-  background: var(--accent-soft, rgba(217, 163, 35, 0.18));
-  color: var(--gold, #f5c542);
+  background: var(--accent-soft, rgba(245, 197, 66, 0.16));
+  border-color: var(--accent-border, rgba(245, 197, 66, 0.42));
+  color: var(--accent, #f5c542);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
 .adm-view-btn .adm-view-check {
@@ -3273,26 +3298,6 @@
   padding: 10px 14px;
 }
 
-.adm-view-btn {
-  background: transparent;
-  color: var(--text-secondary);
-  border: none;
-  transition: all 0.15s ease;
-}
-
-@media (hover: hover) {
-  .adm-view-btn:hover {
-    color: var(--text-primary);
-    background: var(--bg-card-hover);
-  }
-}
-
-.adm-view-btn.active {
-  background: var(--bg-card-subtle);
-  color: var(--gold);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-}
-
 /* Admin Grid View */
 .admin-product-grid {
   display: grid;
@@ -3485,9 +3490,21 @@
   border-color: #cbd5e1;
 }
 
-[data-theme='light'] .adm-view-btn.active {
+[data-theme='light'] .adm-view-toggle,
+[data-theme='light'] .adm-products-view-toggle {
   background: #f1f5f9;
-  color: var(--gold);
+  border-color: #cbd5e1;
+}
+
+[data-theme='light'] .adm-view-btn {
+  color: #475569;
+}
+
+[data-theme='light'] .adm-view-btn.active {
+  background: rgba(154, 52, 18, 0.12);
+  border-color: rgba(154, 52, 18, 0.36);
+  color: #9a3412;
+  box-shadow: 0 1px 3px rgba(154, 52, 18, 0.14);
 }
 
 [data-theme='light'] .adm-prod-edit-btn {
