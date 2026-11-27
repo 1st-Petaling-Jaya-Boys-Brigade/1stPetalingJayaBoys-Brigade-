@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127c',
-    'sw.js CACHE_VERSION must be 20261127c'
+    '20261127d',
+    'sw.js CACHE_VERSION must be 20261127d'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127c',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127d',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127c'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127d'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127c', 'Service Worker cache version must be 20261127c');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127d', 'Service Worker cache version must be 20261127d');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127c and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127d and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127c', 'sw.js CACHE_VERSION must be 20261127c');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127c', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127c', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127d', 'sw.js CACHE_VERSION must be 20261127d');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127d', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127d', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127c cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127d cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127c'), 'config.js must use v=20261127c');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127c'), 'forum.js must use v=20261127c');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127c'), 'variables.css must use v=20261127c');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127c'), 'base.css must use v=20261127c');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127c');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127d'), 'config.js must use v=20261127d');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127d'), 'forum.js must use v=20261127d');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127d'), 'variables.css must use v=20261127d');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127d'), 'base.css must use v=20261127d');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127d');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -19021,6 +19021,30 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const ids100 = (indexHtml100.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids100).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
     console.log('  ✔ Admin Products Grid/List toggle fix, docked Ask Stedfast right sidebar, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 101: Tasks Project Breadcrumb Preservation & Mobile Calendar Zero Horizontal Scroll ---
+  console.log('\n--- Suite 101: Tasks Project Breadcrumb Preservation & Mobile Calendar Zero Horizontal Scroll ---');
+  {
+    const tasksSrc101 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'tasks.js'), 'utf8');
+    const compCss101 = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8').replace(/\r\n/g, '\n');
+    const indexHtml101 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. checkTasksAccess() & changeTaskDeptFilter() never overwrite active project breadcrumb with "<Dept> Department"
+    assert.ok(!tasksSrc101.includes("dt.textContent = cfg.label + ' Department'"), 'checkTasksAccess must never overwrite #tasks-dept-title with "<Dept> Department"');
+    assert.ok(tasksSrc101.includes("if (_tasksViewMode === 'board' && hasActiveProject)") && tasksSrc101.includes("dt.textContent = _activeProject;"), 'checkTasksAccess must preserve _activeProject in breadcrumb when returning to Projects & Tasks');
+    assert.ok(!tasksSrc101.includes("titleEl.textContent = DEPT_CONFIG[_currentDeptFilter].label + ' Department'"), 'changeTaskDeptFilter must not clobber project breadcrumb with department label');
+
+    // 2. Mobile Calendar Month, Year & Task Calendar grids fit without horizontal scroll
+    assert.ok(compCss101.includes('grid-template-columns: repeat(7, minmax(0, 1fr)) !important;'), 'Mobile calendar month/year grids must fit 7 equal columns within container width');
+    assert.ok(compCss101.includes('.cal-month-table-wrapper {\n    max-width: 100%;\n    width: 100%;\n    overflow-x: hidden !important;'), 'Mobile calendar month wrapper must prevent horizontal scrollbar');
+    assert.ok(compCss101.includes('.cal-year-month-box {') && compCss101.includes('overflow-x: hidden !important;'), 'Mobile calendar year cards must prevent horizontal scrollbar');
+    assert.ok(compCss101.includes('.task-cal-month-frame {\n    overflow-x: hidden;\n  }'), 'Mobile Tasks calendar month view must prevent horizontal scrollbar');
+
+    // 3. Strict 385 unique DOM IDs invariant preserved
+    const ids101 = (indexHtml101.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids101).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Active project breadcrumb preservation, mobile Calendar zero-horizontal-scroll rules, and 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
