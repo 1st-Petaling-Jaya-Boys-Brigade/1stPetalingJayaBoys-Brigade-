@@ -3877,6 +3877,9 @@ dialog.google-not-found-dialog[open] {
 }
 
 .tasks-board-columns {
+  --board-scrollbar-thumb: #7b8ba1;
+  --board-scrollbar-track: rgba(148, 163, 184, 0.16);
+  --board-col-scrollbar-thumb: #64748b;
   display: flex;
   flex-direction: row;
   align-items: stretch;
@@ -3885,13 +3888,18 @@ dialog.google-not-found-dialog[open] {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 24px;
-  min-height: calc(100vh - 250px);
-  min-height: 580px;
+  padding-bottom: 12px;
+  min-height: 0;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-card, #cbd5e1) transparent;
+  scrollbar-width: auto;
+  scrollbar-color: var(--board-scrollbar-thumb) var(--board-scrollbar-track);
+}
+
+[data-theme='light'] .tasks-board-columns {
+  --board-scrollbar-thumb: #64748b;
+  --board-scrollbar-track: #e2e8f0;
+  --board-col-scrollbar-thumb: #64748b;
 }
 
 .tasks-board-columns[style*="display: none"],
@@ -3909,22 +3917,227 @@ dialog.google-not-found-dialog[open] {
   display: none !important;
 }
 
-.tasks-board-columns::-webkit-scrollbar {
-  height: 8px;
+/* Legacy WebKit scrollbar fallback (scoped so standard scrollbar-color is never overridden) */
+@supports not (scrollbar-color: auto) {
+  .tasks-board-columns::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .tasks-board-columns::-webkit-scrollbar-track {
+    background: var(--board-scrollbar-track);
+    border-radius: 5px;
+  }
+
+  .tasks-board-columns::-webkit-scrollbar-thumb {
+    background: var(--board-scrollbar-thumb);
+    border-radius: 5px;
+  }
+
+  .tasks-board-columns::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary, #475569);
+  }
+
+  body.tasks-board-viewport-lock .tasks-board-columns .task-col-body {
+    scrollbar-width: auto;
+  }
+
+  body.tasks-board-viewport-lock .tasks-board-columns .task-col-body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  body.tasks-board-viewport-lock .tasks-board-columns .task-col-body::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  body.tasks-board-viewport-lock .tasks-board-columns .task-col-body::-webkit-scrollbar-thumb {
+    background: var(--board-col-scrollbar-thumb);
+    border-radius: 999px;
+  }
 }
 
-.tasks-board-columns::-webkit-scrollbar-track {
-  background: var(--bg-card-subtle, rgba(0, 0, 0, 0.02));
-  border-radius: 4px;
+/* ── Viewport-Locked Kanban Board: Zero Whole-Page Vertical Scroll, Per-Column Vertical Scroll & Pinned Bottom Horizontal Scrollbar ── */
+html:has(body.tasks-board-viewport-lock),
+body.tasks-board-viewport-lock {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden !important;
 }
 
-.tasks-board-columns::-webkit-scrollbar-thumb {
-  background: var(--border-card, #cbd5e1);
-  border-radius: 4px;
+body.tasks-board-viewport-lock .app-shell-layout {
+  height: 100% !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100%;
+  display: flex !important;
+  flex-direction: column;
+  overflow: hidden;
+  transition-property: none !important;
 }
 
-.tasks-board-columns::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted, #94a3b8);
+body.tasks-board-viewport-lock .app-main {
+  height: 100% !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+body.tasks-board-viewport-lock #page-tasks.page.active {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding-top: 12px !important;
+  padding-bottom: 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  animation: none !important;
+  transform: none !important;
+  transition-property: none !important;
+}
+
+@media (max-width: 1023px) {
+  body.tasks-board-viewport-lock #page-tasks.page.active {
+    padding-top: 10px !important;
+    padding-bottom: calc(var(--dock-clearance, 76px) - 8px) !important;
+  }
+}
+
+body.tasks-board-viewport-lock #page-tasks.page.active > div,
+body.tasks-board-viewport-lock #tasks-board {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transition-property: none !important;
+}
+
+body.tasks-board-viewport-lock .task-board-header-unified,
+body.tasks-board-viewport-lock .task-board-toolbar {
+  flex-shrink: 0 !important;
+  position: relative;
+  z-index: 20;
+}
+
+body.tasks-board-viewport-lock #task-col-tabs {
+  flex-shrink: 0 !important;
+}
+
+body.tasks-board-viewport-lock #tasks-columns.tasks-board-columns:not(.hidden):not([style*="display: none"]):not([style*="display:none"]) {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  align-items: stretch !important;
+  padding-bottom: 10px !important;
+  transition-property: none !important;
+}
+
+body.tasks-board-viewport-lock .my-tasks-container:not([style*="display: none"]):not([style*="display:none"]) {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transition-property: none !important;
+}
+
+body.tasks-board-viewport-lock .my-tasks-container > .projects-overview-header,
+body.tasks-board-viewport-lock .my-tasks-container > .my-tasks-controls-row,
+body.tasks-board-viewport-lock .my-tasks-container > .my-tasks-summary-strip {
+  flex-shrink: 0 !important;
+}
+
+body.tasks-board-viewport-lock .my-tasks-container > .my-tasks-controls-row {
+  position: relative;
+  z-index: 20;
+}
+
+body.tasks-board-viewport-lock .my-tasks-view-body[data-mytasks-active-view="board"],
+body.tasks-board-viewport-lock .my-tasks-board-card {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transition-property: none !important;
+}
+
+body.tasks-board-viewport-lock .my-tasks-board-columns {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  align-items: stretch !important;
+  padding-bottom: 10px !important;
+  transition-property: none !important;
+}
+
+body.tasks-board-viewport-lock .tasks-board-columns .task-col {
+  content-visibility: visible !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transition-property: none !important;
+}
+
+body.tasks-board-viewport-lock .tasks-board-columns .task-col-header {
+  flex-shrink: 0 !important;
+}
+
+body.tasks-board-viewport-lock .tasks-board-columns .task-col-body {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-inline-end: 2px;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--board-col-scrollbar-thumb) transparent;
+  transition-property: none !important;
+}
+
+body.tasks-board-viewport-lock .tasks-board-columns .task-col-body > * {
+  flex-shrink: 0;
+}
+
+body.tasks-board-viewport-lock .task-col-add-status-wrapper {
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  body.tasks-board-viewport-lock #tasks-columns.tasks-board-columns:not(.hidden) {
+    overflow-x: hidden !important;
+    padding-bottom: 0 !important;
+  }
+
+  body.tasks-board-viewport-lock #tasks-columns .task-col:not(.mobile-active) {
+    display: none !important;
+  }
+
+  body.tasks-board-viewport-lock #tasks-columns .task-col.mobile-active {
+    display: flex !important;
+  }
+
+  body.tasks-board-viewport-lock .my-tasks-container > .projects-overview-header {
+    margin-bottom: 6px;
+  }
+
+  body.tasks-board-viewport-lock .my-tasks-container > .my-tasks-summary-strip {
+    margin-bottom: 6px;
+  }
 }
 
 .task-col {

@@ -4924,6 +4924,73 @@ async function getJson(url) {
           if (prevThemeCal) document.documentElement.setAttribute('data-theme', prevThemeCal);
           else document.documentElement.removeAttribute('data-theme');
 
+          // Verify viewport-locked per-column vertical scroll & bottom-visible horizontal scrollbar
+          openProjectBoard('Portal Development', { skipRemoteFetch: true });
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const denseTasks = [];
+          for (let di = 1; di <= 12; di++) {
+            denseTasks.push({
+              id: 'scroll_task_' + di,
+              title: 'Tall Column Deliverable #' + di + ' — Verify Independent Column Vertical Scrolling',
+              department: 'hq',
+              project_name: 'Portal Development',
+              status: 'inprogress',
+              priority: di % 3 === 0 ? 'high' : 'medium',
+              assignee_name: 'Jeshua Koh',
+              due_date: '2026-12-' + String(10 + di).padStart(2, '0'),
+              estimate: '2h'
+            });
+          }
+          const prevTasksForScroll = _allLoadedTasks.slice();
+          _allLoadedTasks = prevTasksForScroll.concat(denseTasks);
+          window._allLoadedTasks = _allLoadedTasks;
+          renderColumnsFromTasks(_allLoadedTasks);
+          syncTasksBoardViewportLock();
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+          const boardTrack = document.getElementById('tasks-columns');
+          const inProgCol = boardTrack ? boardTrack.querySelector('.task-col[data-col-status="inprogress"]') : null;
+          const todoCol = boardTrack ? boardTrack.querySelector('.task-col[data-col-status="todo"]') : null;
+          const inProgBody = inProgCol ? inProgCol.querySelector('.task-col-body') : null;
+          const todoBody = todoCol ? todoCol.querySelector('.task-col-body') : null;
+          const inProgHeader = inProgCol ? inProgCol.querySelector('.task-col-header') : null;
+          const boardRect = boardTrack ? boardTrack.getBoundingClientRect() : null;
+          const headerTopBefore = inProgHeader ? inProgHeader.getBoundingClientRect().top : -1;
+          if (inProgBody) inProgBody.scrollTop = 240;
+          const headerTopAfter = inProgHeader ? inProgHeader.getBoundingClientRect().top : -2;
+          if (boardTrack) boardTrack.scrollLeft = 180;
+          const boardViewportLocked = document.body.classList.contains('tasks-board-viewport-lock')
+            && document.documentElement.scrollHeight <= window.innerHeight + 1
+            && window.scrollY === 0;
+          const boardHorizontalBottomVisible = Boolean(
+            boardTrack && boardRect &&
+            boardTrack.scrollWidth > boardTrack.clientWidth &&
+            boardTrack.scrollLeft > 0 &&
+            boardRect.bottom <= window.innerHeight + 2 &&
+            boardRect.bottom >= window.innerHeight - 28
+          );
+          const columnIndependentVerticalScroll = Boolean(
+            inProgBody && todoBody &&
+            inProgBody.scrollHeight > inProgBody.clientHeight + 40 &&
+            inProgBody.scrollTop > 100 &&
+            todoBody.scrollTop === 0 &&
+            Math.abs(headerTopBefore - headerTopAfter) <= 1
+          );
+          _allLoadedTasks = prevTasksForScroll;
+          window._allLoadedTasks = prevTasksForScroll;
+          renderColumnsFromTasks(_allLoadedTasks);
+          setProjectDisplayMode('list');
+          const lockReleasedInList = !document.body.classList.contains('tasks-board-viewport-lock');
+          setProjectDisplayMode('board');
+          switchTabNav('home', true);
+          const lockReleasedOnOtherTab = !document.body.classList.contains('tasks-board-viewport-lock');
+          switchTabNav('tasks', true);
+          setTasksViewMode('mytasks');
+          setMyTasksDisplayMode('board');
+          const myTasksBoardLocked = document.body.classList.contains('tasks-board-viewport-lock')
+            && document.documentElement.scrollHeight <= window.innerHeight + 1;
+          setMyTasksDisplayMode('list');
+
           return {
             projDefaultIsBoard, projResetsToBoardOnReentry, tasksDefaultIsList,
             tasksResetsToListAfterLeaving, tasksResetsToListAfterTabSwitch,
@@ -4938,7 +5005,9 @@ async function getJson(url) {
             allBoardCols, allBoardHasMultiProjects, allBoardHasOverdueAndLate,
             allListRows, allListHasOverdueAndLate, allCalHasAllColors,
             autoResetAfterLeavingSection, autoResetAfterTabSwitch,
-            desktopBoardOverflow, desktopCalOverflow
+            desktopBoardOverflow, desktopCalOverflow,
+            boardViewportLocked, boardHorizontalBottomVisible, columnIndependentVerticalScroll,
+            lockReleasedInList, lockReleasedOnOtherTab, myTasksBoardLocked
           };
         } finally {
           if (origClientCal) getSupaClient = origClientCal;
@@ -4994,6 +5063,12 @@ async function getJson(url) {
     assert.strictEqual(taskCalRes.allCalHasAllColors, true, 'Tasks Calendar View must display red, orange-red late, yellow, green, and gray task pills');
     assert.strictEqual(taskCalRes.desktopBoardOverflow, 0, 'Tasks Board View must have 0px horizontal overflow on desktop');
     assert.strictEqual(taskCalRes.desktopCalOverflow, 0, 'Tasks Calendar View must have 0px horizontal overflow on desktop');
+    assert.strictEqual(taskCalRes.boardViewportLocked, true, 'Board View must lock outer viewport height so the whole screen never scrolls vertically');
+    assert.strictEqual(taskCalRes.boardHorizontalBottomVisible, true, 'Board horizontal scrollbar must remain visible at the bottom of the screen and pan cleanly');
+    assert.strictEqual(taskCalRes.columnIndependentVerticalScroll, true, 'Each status column must scroll vertically on its own while keeping column header pinned and sibling columns stationary');
+    assert.strictEqual(taskCalRes.lockReleasedInList, true, 'Switching to List View must release tasks-board-viewport-lock');
+    assert.strictEqual(taskCalRes.lockReleasedOnOtherTab, true, 'Switching to another portal tab must release tasks-board-viewport-lock');
+    assert.strictEqual(taskCalRes.myTasksBoardLocked, true, 'All-Tasks Board View must also lock viewport height with per-column scrolling');
 
     // Verify 0px mobile page overflow (390px) across Tasks Calendar and Tasks Board views
     await sendCmd('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });

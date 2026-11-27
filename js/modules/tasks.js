@@ -937,6 +937,7 @@ async function checkTasksAccess() {
     if (boardPill) boardPill.style.display = 'none';
     if (gate) gate.style.display = 'block';
     if (board) board.style.display = 'none';
+    syncTasksBoardViewportLock();
     return;
   }
 
@@ -948,6 +949,8 @@ async function checkTasksAccess() {
   if (fastAllowed) {
     setTasksViewMode(_tasksViewMode || 'projects');
     fetchDepartmentMembers().catch(function() {});
+  } else {
+    syncTasksBoardViewportLock();
   }
   if (typeof window !== 'undefined' && typeof window.syncSidebarAccess === 'function') {
     window.syncSidebarAccess();
@@ -1056,6 +1059,32 @@ function previewTasksBoardDemo() {
   if (gate) gate.style.display = 'none';
   if (board) board.style.display = 'block';
   setTasksViewMode('projects');
+}
+
+/**
+ * Synchronizes viewport-locked Kanban board scrolling on document.body.
+ * Locks whole-page vertical scroll ONLY when an active Board View is shown on #page-tasks,
+ * enabling independent per-column vertical scroll and a bottom-pinned horizontal scrollbar.
+ * @returns {boolean} Whether viewport lock is currently active
+ */
+function syncTasksBoardViewportLock() {
+  if (typeof document === 'undefined' || !document.body || !document.body.classList) return false;
+  var pageTasks = document.getElementById('page-tasks');
+  var tasksBoard = document.getElementById('tasks-board');
+  var isPageActive = Boolean(pageTasks && pageTasks.classList && pageTasks.classList.contains('active'));
+  var isBoardVisible = Boolean(tasksBoard && tasksBoard.style && tasksBoard.style.display !== 'none');
+  var hasActiveProject = Boolean(_activeProject && _activeProject.toLowerCase() !== 'all tasks' && _activeProject.toLowerCase() !== 'all');
+  var isProjectBoard = _tasksViewMode === 'board' && _projectDisplayMode === 'board' && hasActiveProject;
+  var isMyTasksBoard = _tasksViewMode === 'mytasks' && _myTasksDisplayMode === 'board';
+  var adminOverlay = document.getElementById('admin-overlay');
+  var isAdminOpen = Boolean(adminOverlay && adminOverlay.style && adminOverlay.style.display && adminOverlay.style.display !== 'none');
+  var shouldLock = isPageActive && isBoardVisible && !isAdminOpen && (isProjectBoard || isMyTasksBoard);
+  var wasLocked = document.body.classList.contains('tasks-board-viewport-lock');
+  document.body.classList.toggle('tasks-board-viewport-lock', shouldLock);
+  if (shouldLock && !wasLocked && typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+    window.scrollTo(0, 0);
+  }
+  return shouldLock;
 }
 
 /**
@@ -1190,6 +1219,7 @@ function setTasksViewMode(mode, options) {
     if (cur) cur.style.display = 'none';
     renderMyTasksView();
   }
+  syncTasksBoardViewportLock();
 }
 
 /**
@@ -2628,6 +2658,7 @@ function setProjectDisplayMode(mode) {
     if (colTabs) showElementDisplay(colTabs, (typeof window !== 'undefined' && window.innerWidth <= 768) ? 'flex' : 'none');
     renderColumnsFromTasks(_allLoadedTasks);
   }
+  syncTasksBoardViewportLock();
 }
 
 /**
@@ -3551,6 +3582,7 @@ async function renderTasksBoard(deptOrProject, options) {
     }
     var calElP = document.querySelector('.tasks-board-calendar-view');
     if (calElP) setElementDisplayNone(calElP);
+    syncTasksBoardViewportLock();
     return;
   }
 
@@ -3572,6 +3604,7 @@ async function renderTasksBoard(deptOrProject, options) {
     if (calView) setElementDisplayNone(calView);
     if (projToggle) projToggle.style.display = 'none';
     if (noProjEl) noProjEl.style.display = 'block';
+    syncTasksBoardViewportLock();
     return;
   }
 
@@ -3603,6 +3636,7 @@ async function renderTasksBoard(deptOrProject, options) {
 
   // 1. Instant synchronous render from local cache (< 2ms)
   renderActiveProjectSubView();
+  syncTasksBoardViewportLock();
 
   // 2. Background fetch and refresh
   if (!(options && options.skipRemoteFetch)) {
@@ -3669,6 +3703,7 @@ function refreshCurrentTasksView(affectedTaskId) {
       var cTabsP = document.getElementById('task-col-tabs');
       if (cTabsP) setElementDisplayNone(cTabsP);
     }
+    syncTasksBoardViewportLock();
   }
 
   var admOverlay = document.getElementById('admin-overlay');
@@ -4523,6 +4558,7 @@ function renderMyTasksView(bodyOnly) {
   container.innerHTML = html;
   if (_myTasksDisplayMode === 'board') setupKanbanDragAndDrop();
   if (_myTasksDisplayMode === 'calendar') wireTaskCalendarToolbarKeys(container);
+  syncTasksBoardViewportLock();
 }
 
 function buildMyTasksSummaryHtml(stats) {
@@ -9450,6 +9486,7 @@ if (typeof window !== 'undefined') {
   window.switchTaskSectionView      = switchTaskSectionView;
   window.checkTasksAccess           = checkTasksAccess;
   window.setTasksViewMode           = setTasksViewMode;
+  window.syncTasksBoardViewportLock = syncTasksBoardViewportLock;
   window.changeTaskDeptFilter       = changeTaskDeptFilter;
   window.filterProjectTasks         = filterProjectTasks;
   window.renderTasksBoard           = renderTasksBoard;
@@ -9728,6 +9765,7 @@ if (typeof module !== 'undefined' && module.exports) {
     switchTaskSectionView,
     checkTasksAccess,
     setTasksViewMode,
+    syncTasksBoardViewportLock,
     changeTaskDeptFilter,
     filterProjectTasks,
     renderTasksBoard,
