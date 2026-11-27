@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127e',
-    'sw.js CACHE_VERSION must be 20261127e'
+    '20261127f',
+    'sw.js CACHE_VERSION must be 20261127f'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127e',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127f',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127e'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127f'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127e', 'Service Worker cache version must be 20261127e');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127f', 'Service Worker cache version must be 20261127f');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127e and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127f and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127e', 'sw.js CACHE_VERSION must be 20261127e');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127e', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127e', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127f', 'sw.js CACHE_VERSION must be 20261127f');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127f', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127f', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127e cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127f cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127e'), 'config.js must use v=20261127e');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127e'), 'forum.js must use v=20261127e');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127e'), 'variables.css must use v=20261127e');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127e'), 'base.css must use v=20261127e');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127e');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127f'), 'config.js must use v=20261127f');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127f'), 'forum.js must use v=20261127f');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127f'), 'variables.css must use v=20261127f');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127f'), 'base.css must use v=20261127f');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127f');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -13154,11 +13154,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtml.includes('aspect-ratio:1/1') && indexHtml.includes('closeCalendarDayModal()'), 'Calendar day close button uses aspect-ratio 1/1');
     console.log('  ✔ Modal close button geometry enforced as true circle across all devices');
 
-    // 3. Uniform Order Grid Horizontal Scroll & Sticky Checkout Bar Single Line
-    assert.ok(compCss.includes('scroll-snap-type: x mandatory;'), 'Uniform product grid supports 1-row horizontal swipe on mobile');
+    // 3. Uniform Order Grid Mobile 2-Column Vertical Layout & Sticky Checkout Bar Single Line
+    assert.ok(compCss.includes('grid-template-columns: repeat(2, minmax(0, 1fr));'), 'Uniform product grid uses 2-column vertical grid on mobile with no horizontal scroll');
     assert.ok(compCss.includes('.uniform-product-grid.list-view'), 'Uniform product grid supports vertical list view');
     assert.ok(compCss.includes('white-space: nowrap;') && compCss.includes('.sticky-checkout-bar'), 'Sticky checkout bar enforces single-line layout');
-    console.log('  ✔ Uniform order horizontal swipe track and single-line checkout bar verified');
+    console.log('  ✔ Uniform order 2-column mobile grid and single-line checkout bar verified');
 
     // 4. Member Profile Details & Points Breakdown Alignment
     assert.ok(compCss.includes('.mic-details-row'), 'Member details row class defined');
@@ -19087,11 +19087,83 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
 
     // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
-    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127e';"), 'sw.js must bump CACHE_VERSION to 20261127e');
-    assert.ok(indexHtml102.includes('css/base.css?v=20261127e') && indexHtml102.includes('css/components.css?v=20261127e'), 'index.html must reference cache-busted 20261127e CSS assets');
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127f';"), 'sw.js must bump CACHE_VERSION to 20261127f');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261127f') && indexHtml102.includes('css/components.css?v=20261127f'), 'index.html must reference cache-busted 20261127f CSS assets');
     const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127e, and 385 DOM IDs verified');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127f, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---
+  console.log('\n--- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---');
+  {
+    const ordersMod103 = require('../js/modules/orders.js');
+    const compCss103 = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8').replace(/\r\n/g, '\n');
+    const ordersSrc103 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'orders.js'), 'utf8');
+    const indexHtml103 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    // 1. CSS enforces 2-col vertical mobile grid (no horizontal scroll), compact image+name+price cards, and native <dialog> scroll containment
+    assert.ok(compCss103.includes('.uniform-product-grid {\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));'), 'Mobile uniform grid must use 2-column CSS grid');
+    assert.ok(!compCss103.includes('.uniform-product-grid {\n  display: flex;'), 'Mobile uniform grid must not use horizontal flex scrolling');
+    assert.ok(compCss103.includes('dialog.uniform-detail-dialog[open] {\n  display: flex;'), 'Native <dialog> display must be scoped strictly to [open]');
+    assert.ok(compCss103.includes('dialog.uniform-detail-dialog:modal {\n  overscroll-behavior: contain;') && compCss103.includes('dialog.uniform-detail-dialog::backdrop {') && compCss103.includes('overflow: hidden;\n  overscroll-behavior: contain;'), 'Native <dialog> must prevent underlying page scroll on both :modal and ::backdrop');
+    assert.ok(ordersSrc103.includes("dialog.setAttribute('closedby', 'any')") && ordersSrc103.includes("!('closedBy' in HTMLDialogElement.prototype)"), 'Product detail dialog must use closedby="any" with Safari pointer-bounds light-dismiss fallback');
+
+    // 2. Programmatic product detail modal workflow: open -> select size -> custom text -> step qty -> add to cart
+    const origItems103 = ordersMod103.UNIFORM_ITEMS.slice();
+    const customBadgeProd103 = {
+      key: 'nametag_detail_test',
+      name: 'Embroidered Name Tag',
+      category: 'insignia',
+      price: 12.5,
+      sizes: ['Standard', 'Large'],
+      hasCustomText: true,
+      customPrompt: 'Name to embroider'
+    };
+    ordersMod103.UNIFORM_ITEMS.push(customBadgeProd103);
+    ordersMod103.clearUniformCart();
+
+    let grid103 = document.getElementById('uniform-items');
+    if (!grid103) {
+      grid103 = document.createElement('div');
+      grid103.id = 'uniform-items';
+      document.body.appendChild(grid103);
+    }
+    ordersMod103.renderOrderItems('Sergeant');
+    assert.ok(grid103.innerHTML.includes('openUniformProductDetail(\'nametag_detail_test\')'), 'Product cards must render accessible trigger to open product detail modal');
+
+    ordersMod103.openUniformProductDetail('nametag_detail_test');
+    const detailDialog103 = document.getElementById('uniform-product-detail-dialog') ||
+      (document.body.children || []).find(c => c && c.id === 'uniform-product-detail-dialog');
+    assert.ok(detailDialog103 && detailDialog103.tagName === 'DIALOG', 'Product detail modal must be a native <dialog> element');
+    assert.ok(detailDialog103.innerHTML.includes('Embroidered Name Tag') && detailDialog103.innerHTML.includes('RM 12.50'), 'Detail modal must render product title and formatted price');
+    assert.ok(detailDialog103.innerHTML.includes('Name to embroider'), 'Detail modal must render custom writing prompt when hasCustomText is enabled');
+
+    // Size validation blocks submit when unselected
+    assert.strictEqual(ordersMod103.submitUniformDetailAddToCart(), false, 'Submitting without selecting size must be blocked');
+    ordersMod103.selectUniformDetailSize('Large');
+    // Custom text validation blocks submit when empty
+    assert.strictEqual(ordersMod103.submitUniformDetailAddToCart(), false, 'Submitting without required custom text must be blocked');
+
+    ordersMod103.onUniformDetailCustomTextChange('SGT J. KOH');
+    assert.strictEqual(ordersMod103.stepUniformDetailQty(2), 3, 'Stepping qty +2 from default 1 must yield 3');
+    assert.strictEqual(ordersMod103.submitUniformDetailAddToCart(), true, 'Submitting valid size, custom text, and qty must succeed');
+
+    const addedLine103 = ordersMod103.uniformCart.find(ci => ci.key === 'nametag_detail_test');
+    assert.ok(addedLine103, 'Cart must contain item added from product detail modal');
+    assert.strictEqual(addedLine103.size, 'Large');
+    assert.strictEqual(addedLine103.qty, 3);
+    assert.strictEqual(addedLine103.customText, 'SGT J. KOH');
+
+    ordersMod103.clearUniformCart();
+    ordersMod103.closeUniformProductDetail();
+    ordersMod103.UNIFORM_ITEMS.length = 0;
+    origItems103.forEach(x => ordersMod103.UNIFORM_ITEMS.push(x));
+
+    // 3. Strict 385 unique DOM IDs invariant preserved in index.html
+    const ids103 = (indexHtml103.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids103).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Mobile 2-column uniform grid, native <dialog> product detail flow, custom text validation, and 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

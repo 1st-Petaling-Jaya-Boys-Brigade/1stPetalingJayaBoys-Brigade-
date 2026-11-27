@@ -3508,7 +3508,36 @@ async function getJson(url) {
           document.getElementById('forms-hub').style.display = 'none';
           document.getElementById('inline-form-view').style.display = 'block';
           window.scrollTo({ top: 0, behavior: 'instant' });
-          problems.push(...sizes(['.uniform-product-card .qty-btn', 'button.size-pill', '.uniform-cat-tab', '.checkout-cta-btn']));
+          if (viewport < 640) {
+            const uGrid = document.getElementById('uniform-items');
+            const uCards = [...document.querySelectorAll('#uniform-items .uniform-product-card')];
+            const firstRect = uCards[0]?.getBoundingClientRect();
+            const secondRect = uCards[1]?.getBoundingClientRect();
+            if (!uGrid || uGrid.scrollWidth > uGrid.clientWidth + 1) problems.push('mobile uniform grid horizontal overflow');
+            if (!firstRect || !secondRect || Math.abs(firstRect.top - secondRect.top) > 4 || secondRect.left <= firstRect.right - 2) {
+              problems.push('mobile uniform grid not 2 items per row');
+            }
+            if (uCards[0]?.querySelector('.product-size-section')?.getClientRects().length || uCards[0]?.querySelector('.product-card-footer')?.getClientRects().length) {
+              problems.push('mobile uniform card should hide inline size/stepper until opened');
+            }
+            problems.push(...sizes(['.uniform-cat-tab', '.checkout-cta-btn']));
+            uCards[0]?.querySelector('.product-card-open-btn')?.click();
+            await frame();
+            const detailDlg = document.getElementById('uniform-product-detail-dialog');
+            if (!detailDlg || !detailDlg.open) {
+              problems.push('mobile uniform detail dialog failed to open');
+            } else {
+              const dBox = rect(detailDlg);
+              if (dBox.left < 15.5 || dBox.right > viewport - 23.5 || dBox.top < 47.5 || dBox.bottom > innerHeight - 33.5) {
+                problems.push('uniform detail dialog safe area');
+              }
+              problems.push(...sizes(['.uniform-detail-dialog .qty-btn', '.uniform-detail-dialog button.size-pill', '.uniform-detail-add-btn', '.uniform-detail-close-btn']));
+              closeUniformProductDetail();
+              await frame();
+            }
+          } else {
+            problems.push(...sizes(['.uniform-product-card .qty-btn', 'button.size-pill', '.uniform-cat-tab', '.checkout-cta-btn']));
+          }
           const bar = document.querySelector('.sticky-checkout-bar');
           if (getComputedStyle(dock).display !== 'none' && rect(bar).bottom > rect(dock).top) {
             problems.push('checkout dock clearance');
@@ -5945,8 +5974,70 @@ async function getJson(url) {
           await frame();
           const formsSearchRect = document.getElementById('form-search-input')?.getBoundingClientRect();
           const formsInputCompact = Boolean(formsSearchRect && formsSearchRect.width >= window.innerWidth - 14 && formsSearchRect.height >= 44);
+
+          // Mobile Uniform Store 2-column vertical grid & full Product Detail <dialog> interactive flow
+          const origUniformItems = window.UNIFORM_ITEMS.slice();
+          const origAvailFn = window.isUniformOrdersAcceptingResponses;
+          let uniformMobileGridOk = false;
+          let uniformDetailFlowOk = false;
+          try {
+            window.UNIFORM_ITEMS = window.DEFAULT_UNIFORM_ITEMS.map((item, idx) => ({
+              ...item,
+              price: idx === 0 ? 35 : 15,
+              hasCustomText: idx === 2,
+              customPrompt: idx === 2 ? 'Engraving name' : ''
+            }));
+            window.isUniformOrdersAcceptingResponses = () => ({ open: true });
+            clearUniformCart();
+            openFormForMember('__uniform__');
+            await frame();
+            const uGrid = document.getElementById('uniform-items');
+            const uCards = [...document.querySelectorAll('#uniform-items .uniform-product-card')];
+            const c0 = uCards[0]?.getBoundingClientRect();
+            const c1 = uCards[1]?.getBoundingClientRect();
+            const c2 = uCards[2]?.getBoundingClientRect();
+            uniformMobileGridOk = Boolean(
+              uGrid &&
+              uGrid.scrollWidth <= uGrid.clientWidth + 1 &&
+              document.documentElement.scrollWidth <= window.innerWidth + 1 &&
+              c0 && c1 && c2 &&
+              Math.abs(c0.top - c1.top) <= 4 &&
+              c1.left >= c0.right - 1 &&
+              c2.top > c0.bottom - 1 &&
+              getComputedStyle(uCards[0].querySelector('.product-size-section')).display === 'none' &&
+              getComputedStyle(uCards[0].querySelector('.product-card-footer')).display === 'none'
+            );
+
+            // Tap first card (shirt) -> open native <dialog> -> select M -> step qty to 2 -> Add to Cart
+            uCards[0]?.querySelector('.product-card-open-btn')?.click();
+            await frame();
+            const dlg = document.getElementById('uniform-product-detail-dialog');
+            const opened = Boolean(dlg && dlg.tagName === 'DIALOG' && dlg.open);
+            const sizeBtn = dlg?.querySelector('[data-detail-size="M"]');
+            sizeBtn?.click();
+            dlg?.querySelector('.uniform-detail-plus')?.click();
+            const ctaText = dlg?.querySelector('.uniform-detail-add-label')?.textContent || '';
+            dlg?.querySelector('.uniform-detail-add-btn')?.click();
+            await frame();
+            const closedAfterAdd = Boolean(dlg && !dlg.open);
+            const mobileBadgeText = document.getElementById('shirt-mobile-cart-badge')?.textContent?.trim() || '';
+            const stickyTotal = document.getElementById('order-total-sticky')?.textContent?.trim() || '';
+            uniformDetailFlowOk = Boolean(
+              opened &&
+              ctaText.includes('RM 70.00') &&
+              closedAfterAdd &&
+              mobileBadgeText === '2 in cart' &&
+              stickyTotal === 'RM 70.00'
+            );
+            clearUniformCart();
+            backToFormsHub();
+          } finally {
+            window.UNIFORM_ITEMS = origUniformItems;
+            window.isUniformOrdersAcceptingResponses = origAvailFn;
+          }
+
           switchTabNav('home', true);
-          return { monthNoScroll, yearNoScroll, weekNoScroll, tabProblems, homeCardsCompact, formsInputCompact };
+          return { monthNoScroll, yearNoScroll, weekNoScroll, tabProblems, homeCardsCompact, formsInputCompact, uniformMobileGridOk, uniformDetailFlowOk };
         })()`,
         awaitPromise: true,
         returnByValue: true
@@ -5958,8 +6049,10 @@ async function getJson(url) {
       assert.deepStrictEqual(mc.tabProblems, [], 'All 11 portal tabs must share Calendar compact 6px horizontal / 12px top mobile fitting with 0px overflow at ' + mWidth + 'px');
       assert.strictEqual(mc.homeCardsCompact, true, 'Home tab cards must span full compact width with crisp <=15px radius at ' + mWidth + 'px');
       assert.strictEqual(mc.formsInputCompact, true, 'Forms search bar must span full compact width with >=44px touch height at ' + mWidth + 'px');
+      assert.strictEqual(mc.uniformMobileGridOk, true, 'Mobile Uniform Store must render 2 compact cards per row (image+name+price) with 0px horizontal scroll at ' + mWidth + 'px');
+      assert.strictEqual(mc.uniformDetailFlowOk, true, 'Tapping a mobile Uniform Store card must open the native <dialog> detail view, allow size+qty selection, add to cart, and update card badge & total at ' + mWidth + 'px');
     }
-    console.log('  ✔ Mobile Calendar and unified compact fitting across all 11 portal tabs verified at 360px & 390px with 0px horizontal scroll');
+    console.log('  ✔ Mobile Calendar, unified compact fitting across all 11 tabs, and 2-column Uniform Store + detail dialog verified at 360px & 390px');
 
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
