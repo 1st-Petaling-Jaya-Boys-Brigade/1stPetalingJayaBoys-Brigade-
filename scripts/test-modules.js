@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127i',
-    'sw.js CACHE_VERSION must be 20261127i'
+    '20261127j',
+    'sw.js CACHE_VERSION must be 20261127j'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127i',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127j',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127i'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127j'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127i', 'Service Worker cache version must be 20261127i');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127j', 'Service Worker cache version must be 20261127j');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127i and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127j and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127i', 'sw.js CACHE_VERSION must be 20261127i');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127i', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127i', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127j', 'sw.js CACHE_VERSION must be 20261127j');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127j', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127j', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127i cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127j cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127i'), 'config.js must use v=20261127i');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127i'), 'forum.js must use v=20261127i');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127i'), 'variables.css must use v=20261127i');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127i'), 'base.css must use v=20261127i');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127i');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127j'), 'config.js must use v=20261127j');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127j'), 'forum.js must use v=20261127j');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127j'), 'variables.css must use v=20261127j');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127j'), 'base.css must use v=20261127j');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127j');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -19087,11 +19087,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
 
     // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
-    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127i';"), 'sw.js must bump CACHE_VERSION to 20261127i');
-    assert.ok(indexHtml102.includes('css/base.css?v=20261127i') && indexHtml102.includes('css/components.css?v=20261127i'), 'index.html must reference cache-busted 20261127i CSS assets');
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127j';"), 'sw.js must bump CACHE_VERSION to 20261127j');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261127j') && indexHtml102.includes('css/components.css?v=20261127j'), 'index.html must reference cache-busted 20261127j CSS assets');
     const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127i, and 385 DOM IDs verified');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127j, and 385 DOM IDs verified');
   }
 
   // --- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---
@@ -19176,11 +19176,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const mobileHeaderBlock104 = navCss104.slice(navCss104.indexOf('@media (max-width: 1023px)'));
     assert.ok(mobileHeaderBlock104.includes('background: var(--bg-card) !important;'), 'Mobile .nav header must use solid opaque var(--bg-card) background');
     assert.ok(mobileHeaderBlock104.includes('backdrop-filter: none !important;'), 'Mobile .nav header must disable translucent backdrop-filter');
-    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127i';"), 'sw.js must bump CACHE_VERSION to 20261127i');
-    assert.ok(indexHtml104.includes('css/nav.css?v=20261127i'), 'index.html must reference cache-busted 20261127i nav.css');
+    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127j';"), 'sw.js must bump CACHE_VERSION to 20261127j');
+    assert.ok(indexHtml104.includes('css/nav.css?v=20261127j'), 'index.html must reference cache-busted 20261127j nav.css');
     const ids104 = (indexHtml104.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids104).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127i, and 385 DOM IDs verified');
+    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127j, and 385 DOM IDs verified');
   }
 
   // --- Suite 105: Login with Google (Server-Verified OAuth, Family Account Picker & "Couldn't find your Google Account" Dialog) ---
@@ -19329,16 +19329,60 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const indexHtml106 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
     const swSrc106 = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
-    // 1. Verify viewport lock, per-column independent vertical scroll, and accessible scrollbar CSS rules
+    // 1. Verify viewport lock, hidden column vertical scrollbar, touchpad horizontal chaining, and bottom horizontal scrollbar CSS rules
     assert.ok(compCss106.includes('html:has(body.tasks-board-viewport-lock),\nbody.tasks-board-viewport-lock {') && compCss106.includes('height: 100dvh;'), 'Board viewport lock must constrain html/body to 100dvh with no whole-page vertical scroll');
+    assert.ok(compCss106.includes('.tasks-board-columns {') && compCss106.includes('overscroll-behavior-x: contain;'), 'Horizontal board track must contain horizontal overscroll to prevent accidental back/forward navigation');
     assert.ok(compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col {') && compCss106.includes('height: 100% !important;') && compCss106.includes('overflow: hidden !important;'), 'Each board column must stretch to 100% of remaining viewport height with pinned header');
-    assert.ok(compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col-body {') && compCss106.includes('overflow-y: auto !important;') && compCss106.includes('overscroll-behavior: contain;') && compCss106.includes('scrollbar-gutter: stable;'), 'Each status column body must independently scroll vertically with overscroll containment');
+    assert.ok(compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col-body {') && compCss106.includes('overflow-y: auto !important;') && compCss106.includes('overscroll-behavior: auto;') && compCss106.includes('scrollbar-width: none;'), 'Each status column body must hide its vertical scrollbar while allowing wheel/touchpad vertical scroll and horizontal touchpad chaining');
+    assert.ok(compCss106.includes('@supports not (scrollbar-width: none) {') && compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col-body::-webkit-scrollbar {\n    display: none;'), 'Legacy WebKit fallback must hide per-column vertical scrollbars without conflicting with standard scrollbar-width');
     assert.ok(compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col-body > * {\n  flex-shrink: 0;\n}'), 'Cards inside each scrolling column body must set flex-shrink: 0 so they never compress vertically');
-    assert.ok(compCss106.includes('@supports not (scrollbar-color: auto) {') && compCss106.includes('scrollbar-color: var(--board-scrollbar-thumb) var(--board-scrollbar-track);'), 'Board scrollbars must use standard scrollbar-color with @supports fallback');
+    assert.ok(compCss106.includes('@supports not (scrollbar-color: auto) {') && compCss106.includes('scrollbar-color: var(--board-scrollbar-thumb) var(--board-scrollbar-track);'), 'Bottom horizontal board scrollbar must use standard scrollbar-color with @supports fallback');
     assert.ok(indexHtml106.includes('syncTasksBoardViewportLock()'), 'index.html switchTab must sync tasks board viewport lock on tab transitions');
-    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261127i';"), 'sw.js must bump CACHE_VERSION to 20261127i');
+    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261127j';"), 'sw.js must bump CACHE_VERSION to 20261127j');
     const ids106 = (indexHtml106.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids106).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+
+    // 1b. Verify diagonal horizontal touchpad wheel bridge
+    assert.strictEqual(typeof tasksMod106.handleTasksBoardHorizontalWheel, 'function', 'handleTasksBoardHorizontalWheel must be exported');
+    document.body.classList.add('tasks-board-viewport-lock');
+    const mockTrack106 = { scrollLeft: 10, scrollWidth: 1600, clientWidth: 1000 };
+    const mockColBody106 = { scrollHeight: 1400, clientHeight: 450 };
+    const mockTarget106 = {
+      closest: sel => {
+        if (sel === '.tasks-board-columns') return mockTrack106;
+        if (sel === '.task-col-body') return mockColBody106;
+        return null;
+      }
+    };
+    let preventedDiag106 = false;
+    tasksMod106.handleTasksBoardHorizontalWheel({
+      target: mockTarget106, deltaX: 120, deltaY: 10, deltaMode: 0, ctrlKey: false, defaultPrevented: false,
+      preventDefault: () => { preventedDiag106 = true; }
+    });
+    assert.strictEqual(preventedDiag106, true, 'Diagonal horizontal touchpad swipe over scrollable column must prevent Chromium vertical latching');
+    assert.strictEqual(mockTrack106.scrollLeft, 130, 'Diagonal horizontal touchpad swipe must pan board scrollLeft by deltaX');
+
+    let preventedPureVert106 = false;
+    tasksMod106.handleTasksBoardHorizontalWheel({
+      target: mockTarget106, deltaX: 0, deltaY: 140, deltaMode: 0, ctrlKey: false, defaultPrevented: false,
+      preventDefault: () => { preventedPureVert106 = true; }
+    });
+    assert.strictEqual(preventedPureVert106, false, 'Pure vertical scroll wheel / touchpad swipe must stay 100% native');
+
+    let preventedPureHoriz106 = false;
+    tasksMod106.handleTasksBoardHorizontalWheel({
+      target: mockTarget106, deltaX: 140, deltaY: 0, deltaMode: 0, ctrlKey: false, defaultPrevented: false,
+      preventDefault: () => { preventedPureHoriz106 = true; }
+    });
+    assert.strictEqual(preventedPureHoriz106, false, 'Pure horizontal touchpad swipe (dy === 0) must stay 100% native via CSS overscroll-behavior: auto');
+
+    let preventedPinch106 = false;
+    tasksMod106.handleTasksBoardHorizontalWheel({
+      target: mockTarget106, deltaX: 120, deltaY: 10, deltaMode: 0, ctrlKey: true, defaultPrevented: false,
+      preventDefault: () => { preventedPinch106 = true; }
+    });
+    assert.strictEqual(preventedPinch106, false, 'Ctrl+wheel pinch zoom must never be intercepted');
+    document.body.classList.remove('tasks-board-viewport-lock');
 
     // 2. Verify syncTasksBoardViewportLock runtime behavior across Project Board, List, Calendar, Projects Overview, and All-Tasks Board
     assert.strictEqual(typeof tasksMod106.syncTasksBoardViewportLock, 'function', 'syncTasksBoardViewportLock must be exported');

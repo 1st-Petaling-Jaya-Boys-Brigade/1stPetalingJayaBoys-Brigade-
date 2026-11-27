@@ -4976,6 +4976,12 @@ async function getJson(url) {
             todoBody.scrollTop === 0 &&
             Math.abs(headerTopBefore - headerTopAfter) <= 1
           );
+          const columnVerticalScrollbarHidden = Boolean(
+            inProgBody &&
+            getComputedStyle(inProgBody).scrollbarWidth === 'none' &&
+            inProgBody.offsetWidth === inProgBody.clientWidth &&
+            getComputedStyle(inProgBody).overscrollBehaviorX === 'auto'
+          );
           _allLoadedTasks = prevTasksForScroll;
           window._allLoadedTasks = prevTasksForScroll;
           renderColumnsFromTasks(_allLoadedTasks);
@@ -5007,7 +5013,7 @@ async function getJson(url) {
             autoResetAfterLeavingSection, autoResetAfterTabSwitch,
             desktopBoardOverflow, desktopCalOverflow,
             boardViewportLocked, boardHorizontalBottomVisible, columnIndependentVerticalScroll,
-            lockReleasedInList, lockReleasedOnOtherTab, myTasksBoardLocked
+            columnVerticalScrollbarHidden, lockReleasedInList, lockReleasedOnOtherTab, myTasksBoardLocked
           };
         } finally {
           if (origClientCal) getSupaClient = origClientCal;
@@ -5066,9 +5072,113 @@ async function getJson(url) {
     assert.strictEqual(taskCalRes.boardViewportLocked, true, 'Board View must lock outer viewport height so the whole screen never scrolls vertically');
     assert.strictEqual(taskCalRes.boardHorizontalBottomVisible, true, 'Board horizontal scrollbar must remain visible at the bottom of the screen and pan cleanly');
     assert.strictEqual(taskCalRes.columnIndependentVerticalScroll, true, 'Each status column must scroll vertically on its own while keeping column header pinned and sibling columns stationary');
+    assert.strictEqual(taskCalRes.columnVerticalScrollbarHidden, true, 'Status column vertical scrollbar must be hidden (scrollbar-width: none, 0px gutter) while allowing horizontal touchpad chaining');
     assert.strictEqual(taskCalRes.lockReleasedInList, true, 'Switching to List View must release tasks-board-viewport-lock');
     assert.strictEqual(taskCalRes.lockReleasedOnOtherTab, true, 'Switching to another portal tab must release tasks-board-viewport-lock');
     assert.strictEqual(taskCalRes.myTasksBoardLocked, true, 'All-Tasks Board View must also lock viewport height with per-column scrolling');
+
+    // Verify real Chromium touchpad horizontal swipe (pure + diagonal) and mouse wheel vertical scroll over status columns
+    const touchpadSetup = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        window.__origSupaTouchpad = typeof getSupaClient === 'function' ? getSupaClient : null;
+        if (typeof getSupaClient === 'function') {
+          getSupaClient = () => ({
+            get: async (url) => String(url).startsWith('bb_members?') ? [{ name: 'Jeshua Koh', department: 'HQ', rank: 'Sergeant', section: 'Senior' }] : [],
+            patch: async () => [],
+            post: async () => []
+          });
+        }
+        openProjectBoard('Portal Development', { skipRemoteFetch: true });
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        window.__prevTasksTouchpad = _allLoadedTasks.slice();
+        const extra = [];
+        for (let i = 1; i <= 12; i++) {
+          extra.push({ id: 'tp_task_' + i, title: 'Touchpad Test Card #' + i, department: 'hq', project_name: 'Portal Development', status: 'todo', priority: 'medium', assignee_name: 'Jeshua Koh', due_date: '2026-12-15', estimate: '1h' });
+        }
+        _allLoadedTasks = window.__prevTasksTouchpad.concat(extra);
+        window._allLoadedTasks = _allLoadedTasks;
+        renderColumnsFromTasks(_allLoadedTasks);
+        syncTasksBoardViewportLock();
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const track = document.getElementById('tasks-columns');
+        const todoBody = track.querySelector('.task-col[data-col-status="todo"] .task-col-body');
+        const planBody = track.querySelector('.task-col[data-col-status="planning"] .task-col-body');
+        track.scrollLeft = 0;
+        todoBody.scrollTop = 0;
+        const tr = todoBody.getBoundingClientRect();
+        const pr = planBody.getBoundingClientRect();
+        return {
+          todoX: Math.round(tr.left + tr.width / 2),
+          todoY: Math.round(tr.top + tr.height / 2),
+          planX: Math.round(pr.left + pr.width / 2),
+          planY: Math.round(pr.top + pr.height / 2)
+        };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const tpCoords = (touchpadSetup.result && touchpadSetup.result.value) || {};
+    const readTpState = async () => {
+      const r = await sendCmd('Runtime.evaluate', {
+        expression: `(() => {
+          const track = document.getElementById('tasks-columns');
+          const tb = track.querySelector('.task-col[data-col-status="todo"] .task-col-body');
+          return { boardX: Math.round(track.scrollLeft), todoY: Math.round(tb.scrollTop), winY: Math.round(window.scrollY) };
+        })()`,
+        returnByValue: true
+      });
+      return (r.result && r.result.value) || {};
+    };
+    const resetTpScroll = async () => {
+      await sendCmd('Runtime.evaluate', {
+        expression: `(() => { const t = document.getElementById('tasks-columns'); t.scrollLeft = 0; t.querySelectorAll('.task-col-body').forEach(b => b.scrollTop = 0); })()`
+      });
+    };
+
+    // 1) Pure horizontal touchpad swipe over scrollable To Do column
+    await sendCmd('Input.dispatchMouseEvent', { type: 'mouseWheel', x: tpCoords.todoX, y: tpCoords.todoY, deltaX: 180, deltaY: 0 });
+    await new Promise(r => setTimeout(r, 90));
+    const tpPureHoriz = await readTpState();
+    assert.ok(tpPureHoriz.boardX >= 100 && tpPureHoriz.todoY === 0, 'Two-finger horizontal touchpad swipe over a scrollable column must pan the board horizontally');
+
+    // 2) Diagonal horizontal touchpad swipe (slight accidental vertical drift) over scrollable To Do column
+    await resetTpScroll();
+    await sendCmd('Input.dispatchMouseEvent', { type: 'mouseWheel', x: tpCoords.todoX, y: tpCoords.todoY, deltaX: 180, deltaY: 12 });
+    await new Promise(r => setTimeout(r, 90));
+    const tpDiagHoriz = await readTpState();
+    assert.ok(tpDiagHoriz.boardX >= 100 && tpDiagHoriz.todoY === 0, 'Diagonal horizontal touchpad swipe over a scrollable column must pan the board horizontally without vertical column jitter');
+
+    // 3) Diagonal horizontal touchpad swipe over short Planning column
+    await resetTpScroll();
+    await sendCmd('Input.dispatchMouseEvent', { type: 'mouseWheel', x: tpCoords.planX, y: tpCoords.planY, deltaX: 180, deltaY: 6 });
+    await new Promise(r => setTimeout(r, 90));
+    const tpShortHoriz = await readTpState();
+    assert.ok(tpShortHoriz.boardX >= 100, 'Horizontal touchpad swipe over a non-scrollable status column must pan the board horizontally');
+
+    // 4) Mouse scroll wheel / vertical touchpad swipe over scrollable To Do column (vertical scrollbar hidden)
+    await resetTpScroll();
+    await sendCmd('Input.dispatchMouseEvent', { type: 'mouseWheel', x: tpCoords.todoX, y: tpCoords.todoY, deltaX: 0, deltaY: 200 });
+    await new Promise(r => setTimeout(r, 90));
+    const tpVert = await readTpState();
+    assert.ok(tpVert.todoY >= 100 && tpVert.boardX === 0 && tpVert.winY === 0, 'Mouse wheel / vertical touchpad swipe over a column must scroll that column vertically with 0px page scroll even with vertical scrollbar hidden');
+
+    // Clean up touchpad test state before continuing to mobile checks
+    await sendCmd('Runtime.evaluate', {
+      expression: `(() => {
+        if (window.__prevTasksTouchpad) {
+          _allLoadedTasks = window.__prevTasksTouchpad;
+          window._allLoadedTasks = _allLoadedTasks;
+          renderColumnsFromTasks(_allLoadedTasks);
+          delete window.__prevTasksTouchpad;
+        }
+        if (window.__origSupaTouchpad) {
+          getSupaClient = window.__origSupaTouchpad;
+          delete window.__origSupaTouchpad;
+        }
+        setTasksViewMode('mytasks');
+        setMyTasksDisplayMode('list');
+      })()`
+    });
 
     // Verify 0px mobile page overflow (390px) across Tasks Calendar and Tasks Board views
     await sendCmd('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
