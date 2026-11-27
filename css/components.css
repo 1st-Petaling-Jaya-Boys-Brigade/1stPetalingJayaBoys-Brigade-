@@ -255,8 +255,8 @@ select.form-input,
 [data-theme='light'] .task-card-avatar *,
 [data-theme='light'] .forum-avatar-mini,
 [data-theme='light'] .forum-avatar-mini *,
-[data-theme='light'] [class*='avatar'],
-[data-theme='light'] [class*='avatar'] *,
+[data-theme='light'] [class*='avatar']:not(.helper-drawer-avatar):not(.helper-avatar-badge),
+[data-theme='light'] [class*='avatar']:not(.helper-drawer-avatar):not(.helper-avatar-badge) *,
 [data-theme='light'] #m-pfp-ph,
 [data-theme='light'] #sidebar-user-avatar-ph {
   color: #ffffff !important;
@@ -11500,6 +11500,22 @@ body.light-theme .tb-mention-pill,
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.helper-drawer-avatar svg,
+.helper-avatar-badge svg {
+  color: var(--accent);
+  stroke: currentColor;
+  display: block;
+}
+
+@media (forced-colors: active) {
+  .helper-drawer-avatar,
+  .helper-avatar-badge,
+  .helper-welcome-emblem {
+    color: CanvasText;
+    border-color: CanvasText;
+  }
 }
 
 .helper-drawer-heading-stack {

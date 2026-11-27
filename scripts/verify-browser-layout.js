@@ -5763,6 +5763,14 @@ async function getJson(url) {
             drawer.querySelectorAll('.helper-welcome-stage .helper-chip').length >= 3 &&
             drawer.querySelector('.helper-composer-box #helper-agent-input')
           );
+          const headerAvatarEl = drawer ? drawer.querySelector('.helper-drawer-avatar') : null;
+          const headerAvatarSvg = headerAvatarEl ? headerAvatarEl.querySelector('svg') : null;
+          const lightAvatarColor = headerAvatarSvg ? getComputedStyle(headerAvatarSvg).color : '';
+          const headerAvatarContrastOk = Boolean(
+            headerAvatarEl && headerAvatarSvg &&
+            lightAvatarColor && lightAvatarColor !== 'rgb(255, 255, 255)' &&
+            lightAvatarColor === getComputedStyle(drawer.querySelector('.helper-welcome-emblem')).color
+          );
 
           // 3. Clicking a chip transitions from welcome stage into chat bubbles; New Chat restores welcome
           const firstChip = drawer ? drawer.querySelector('.helper-welcome-stage .helper-chip') : null;
@@ -5795,6 +5803,7 @@ async function getJson(url) {
             dockedDebug,
             mainReflowedCleanly,
             hasWelcomeStageAndComposer,
+            headerAvatarContrastOk,
             transitionedToChat,
             resetRestoredWelcome,
             closedCleanly
@@ -5817,6 +5826,7 @@ async function getJson(url) {
     assert.strictEqual(vs.dockedOnRight, true, 'Ask Stedfast must open as a full-height docked right sidebar on desktop: ' + JSON.stringify(vs.dockedDebug));
     assert.strictEqual(vs.mainReflowedCleanly, true, 'Opening Ask Stedfast right sidebar must cleanly reflow #app-main with 0px horizontal overflow');
     assert.strictEqual(vs.hasWelcomeStageAndComposer, true, 'Ask Stedfast sidebar must show centered welcome stage, quick prompt chips, and bottom composer');
+    assert.strictEqual(vs.headerAvatarContrastOk, true, 'Ask Stedfast header avatar SVG must use high-contrast accent color in Light Mode (not white-on-light)');
     assert.strictEqual(vs.transitionedToChat, true, 'Selecting a prompt chip must transition smoothly into conversation bubbles');
     assert.strictEqual(vs.resetRestoredWelcome, true, 'Starting a new conversation must restore the centered welcome stage');
     assert.strictEqual(vs.closedCleanly, true, 'Pressing Escape inside Ask Stedfast sidebar must close it, restore #app-main width, and return focus to #helper-agent-trigger');
