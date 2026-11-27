@@ -5540,6 +5540,130 @@ async function getJson(url) {
     assert.strictEqual(uRec.warnBadgeClearsWhenHealthy, true, 'Settings top-right warning badge must hide when Sheets and Drive sync are healthy');
     console.log('  ✔ Uniform Orders receipt previews (without Enlarge), Settings top-right warning badge, and live Sheets/Drive diagnostics verified');
 
+    // ── Notification Inbox Persistence & Contextual Auto-Clear Verification ──
+    const notifInboxDiag = await sendCmd('Runtime.evaluate', {
+      expression: `(async () => {
+        const origEmail = sessionGet('email');
+        const origIc = sessionGet('ic');
+        const origName = sessionGet('name');
+        const origForumPosts = Array.isArray(window.forumPosts) ? window.forumPosts.slice() : [];
+        const origAllTasks = Array.isArray(window._allLoadedTasks) ? window._allLoadedTasks.slice() : [];
+        const testEmail = 'inbox.persist.test@pjbb.org';
+        const userDismissKey = 'bb_dismissed_notifs_' + encodeURIComponent(testEmail);
+        const userInboxKey = 'bb_portal_inbox_notifs_' + encodeURIComponent(testEmail);
+        try {
+          sessionSet('email', testEmail, { localOnly: true });
+          sessionSet('ic', testEmail, { localOnly: true });
+          sessionSet('name', 'Inbox Tester', { localOnly: true });
+          localStorage.removeItem(userDismissKey);
+          localStorage.removeItem(userInboxKey);
+          window._allPortalNotifications = [];
+
+          // 1. Push unread notifications across forum threads, tasks (including old 30d task + due-soon + overdue), resource, and order status
+          const oldTs = Date.now() - 30 * 86400000;
+          addPortalNotification({
+            id: 'notif-forum-reply-rep-A1', category: 'announcements', tab: 'forum', targetId: 'post-A',
+            routeCategory: 'forum_reply', group: 'Today', timestamp: Date.now(),
+            title: 'Reply on Thread A', snippet: 'Check thread A', time: 'Just now', unread: true
+          });
+          addPortalNotification({
+            id: 'notif-forum-reply-rep-B1', category: 'announcements', tab: 'forum', targetId: 'post-B',
+            routeCategory: 'forum_reply', group: 'Today', timestamp: Date.now(),
+            title: 'Reply on Thread B', snippet: 'Check thread B', time: 'Just now', unread: true
+          });
+          addPortalNotification({
+            id: 'notif-task-901', category: 'tasks', tab: 'tasks', targetId: '901',
+            routeCategory: 'task_assigned', group: 'Earlier', timestamp: oldTs,
+            title: 'Old unread task assignment', snippet: 'Task 901', time: 'Earlier', unread: true
+          });
+          addPortalNotification({
+            id: 'notif-task-due-901-2026-11-28', dailyDueSoon: true, category: 'tasks', tab: 'tasks', targetId: '901',
+            routeCategory: 'task_due_soon', group: 'Today', timestamp: Date.now(),
+            title: 'Due Date Nearing: Task 901', snippet: 'Due Tomorrow', time: 'Today', unread: true
+          });
+          addPortalNotification({
+            id: 'notif-task-overdue-902-2026-11-27', dailyOverdue: true, category: 'tasks', tab: 'tasks', targetId: '902',
+            routeCategory: 'task_overdue', group: 'Today', timestamp: Date.now(),
+            title: 'Overdue task: Task 902', snippet: 'Due 26 Nov', time: 'Today', unread: true
+          });
+          addPortalNotification({
+            id: 'notif-order-status-BB-2026NovG53-paid', category: 'announcements', tab: 'member', targetId: 'BB-2026NovG53',
+            routeCategory: 'order_status', group: 'Today', timestamp: Date.now(),
+            title: 'Uniform order updated', snippet: 'BB-2026NovG53 · Paid', time: 'Just now', unread: true
+          });
+
+          const countBeforeReload = Number(document.getElementById('notif-unread-count')?.textContent || 0);
+
+          // 2. Simulate full page reload: wipe in-memory array and re-hydrate from persisted inbox store
+          window._allPortalNotifications = [];
+          hydratePersistedInboxNotifications();
+          renderNotifications();
+          const countAfterReload = Number(document.getElementById('notif-unread-count')?.textContent || 0);
+          const allSixSurvivedReload = countBeforeReload === 6 && countAfterReload === 6;
+
+          // 3. Navigate directly to Support Forum Thread A (openForumPostDetail) -> ONLY Thread A clears; Thread B stays!
+          if (typeof window.forumPosts !== 'undefined') {
+            window.forumPosts.push({
+              id: 'post-A', title: 'Thread A', content: 'Body A', authorName: 'Inbox Tester',
+              authorEmail: testEmail, category: 'general', status: 'open',
+              replies: [{ id: 'rep-A1', authorName: 'Other', content: 'Reply A1' }]
+            });
+          }
+          if (typeof openForumPostDetail === 'function') openForumPostDetail('post-A');
+          const forumModal = document.getElementById('forum-detail-modal');
+          if (forumModal) forumModal.remove();
+          const afterForumAIds = Array.from(document.querySelectorAll('#notif-items-list .notif-item')).map(el => el.getAttribute('data-notif-id'));
+          const forumAClearedOnlyA = !afterForumAIds.includes('notif-forum-reply-rep-A1') && afterForumAIds.includes('notif-forum-reply-rep-B1');
+
+          // 4. Open Task 901 directly -> clears BOTH assignment & due-soon for 901 while Task 902 overdue stays!
+          window.dismissPortalNotificationsForTarget('tasks', '901');
+          const afterTask901Ids = Array.from(document.querySelectorAll('#notif-items-list .notif-item')).map(el => el.getAttribute('data-notif-id'));
+          const task901ClearedOnly901 = !afterTask901Ids.includes('notif-task-901') &&
+            !afterTask901Ids.includes('notif-task-due-901-2026-11-28') &&
+            afterTask901Ids.includes('notif-task-overdue-902-2026-11-27') &&
+            afterTask901Ids.includes('notif-order-status-BB-2026NovG53-paid');
+
+          // 5. Mark All as Read clears all remaining and stays cleared after simulated reload
+          markAllNotificationsRead();
+          window._allPortalNotifications = [];
+          hydratePersistedInboxNotifications();
+          renderNotifications();
+          const countAfterMarkAllReload = Number(document.getElementById('notif-unread-count')?.textContent || 0);
+
+          return {
+            allSixSurvivedReload,
+            forumAClearedOnlyA,
+            task901ClearedOnly901,
+            markAllPersistsZero: countAfterMarkAllReload === 0
+          };
+        } finally {
+          localStorage.removeItem(userDismissKey);
+          localStorage.removeItem(userInboxKey);
+          window._allPortalNotifications = [];
+          if (Array.isArray(window.forumPosts)) {
+            window.forumPosts.length = 0;
+            origForumPosts.forEach(p => window.forumPosts.push(p));
+          }
+          if (Array.isArray(window._allLoadedTasks)) {
+            window._allLoadedTasks.length = 0;
+            origAllTasks.forEach(t => window._allLoadedTasks.push(t));
+          }
+          if (origEmail) sessionSet('email', origEmail, { localOnly: true });
+          if (origIc) sessionSet('ic', origIc, { localOnly: true });
+          if (origName) sessionSet('name', origName, { localOnly: true });
+          renderNotifications();
+        }
+      })()`,
+      awaitPromise: true,
+      returnByValue: true
+    });
+    const nInbox = (notifInboxDiag.result && notifInboxDiag.result.value) || {};
+    assert.strictEqual(nInbox.allSixSurvivedReload, true, 'Unread inbox notifications (including 30d task, due-soon, overdue, forum, and order status) must persist across reloads without disappearing');
+    assert.strictEqual(nInbox.forumAClearedOnlyA, true, 'Opening a specific Support Forum thread must clear only that thread notification while leaving other threads unread');
+    assert.strictEqual(nInbox.task901ClearedOnly901, true, 'Opening a specific task must clear only that task notifications (assignment + due-soon) while leaving other tasks and orders unread');
+    assert.strictEqual(nInbox.markAllPersistsZero, true, 'Mark All as Read must clear all notifications and remain cleared after reload');
+    console.log('  ✔ Notification inbox persistence (no auto-vanish) and contextual source auto-clear verified in browser');
+
     await sendCmd('Emulation.clearDeviceMetricsOverride');
 
     ws.close();

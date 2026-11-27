@@ -730,6 +730,13 @@ function openFormForMember(formId) {
   });
   if (!form) return;
 
+  if (typeof window !== 'undefined' && typeof window.dismissPortalNotificationsForTarget === 'function') {
+    window.dismissPortalNotificationsForTarget('order', formId, ['notif-form-' + formId]);
+  } else if (typeof window !== 'undefined' && typeof window.setDismissedNotifId === 'function') {
+    window.setDismissedNotifId('notif-form-' + formId);
+    if (typeof window.renderNotifications === 'function') window.renderNotifications();
+  }
+
   var avail = isFormAcceptingResponses(form);
 
   if (form.type === 'link') {

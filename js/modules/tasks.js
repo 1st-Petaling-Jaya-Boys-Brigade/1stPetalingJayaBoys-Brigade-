@@ -2126,6 +2126,13 @@ function getOverdueTaskReminder(task, now = Date.now()) {
   return due !== null && due < 0 ? 'notif-task-overdue-' + task.id + '-' + getTaskMalaysiaDay(now) : null;
 }
 
+function getDueSoonTaskReminder(task, now = Date.now()) {
+  if (!task || !task.id || String(task.id).startsWith('temp_') || isTaskCompleted(task, getTaskProjectName(task) || 'General Project')) return null;
+  var due = getTaskDaysUntilDue(task.due_date, now);
+  var dueDay = getTaskDueDay(task.due_date);
+  return due !== null && due >= 0 && due <= 2 && dueDay ? 'notif-task-due-' + task.id + '-' + dueDay : null;
+}
+
 function getTaskAssigneeKeys(task) {
   return [task.assignee_ic, task.assignee_email].flatMap(function(value) {
     return String(value || '').split(',').map(function(key) { return key.trim().toLowerCase(); }).filter(Boolean);
@@ -4627,14 +4634,22 @@ function openTaskDetail(id) {
   if (typeof window !== 'undefined') {
     window._activeDetailTaskId = id;
   }
-  if (typeof setDismissedNotifId === 'function') {
-    var toDismiss = ['notif-task-' + id, 'notif-task-desc-mention-' + id];
-    var openComments = getTaskComments(id);
-    if (Array.isArray(openComments)) {
-      openComments.forEach(function(c) {
-        if (c && c.id) toDismiss.push('notif-mention-' + c.id);
-      });
-    }
+  var toDismiss = ['notif-task-' + id, 'notif-task-desc-mention-' + id];
+  var openComments = getTaskComments(id);
+  if (Array.isArray(openComments)) {
+    openComments.forEach(function(c) {
+      if (c && c.id) toDismiss.push('notif-mention-' + c.id);
+    });
+  }
+  if (t && t.id) {
+    var dueReminderId = getDueSoonTaskReminder(t);
+    if (dueReminderId) toDismiss.push(dueReminderId);
+    var overdueReminderId = getOverdueTaskReminder(t);
+    if (overdueReminderId) toDismiss.push(overdueReminderId);
+  }
+  if (typeof window !== 'undefined' && typeof window.dismissPortalNotificationsForTarget === 'function') {
+    window.dismissPortalNotificationsForTarget('tasks', id, toDismiss);
+  } else if (typeof setDismissedNotifId === 'function') {
     setDismissedNotifId(toDismiss);
     if (typeof renderNotifications === 'function') renderNotifications();
   }
@@ -7659,11 +7674,14 @@ async function saveTaskField(id, field, value) {
     renderProjectsView();
   }
 
-  if (field === 'description') {
+  if (field === 'description' || field === 'due_date') {
     if (typeof syncTaskNotifications === 'function' && typeof _allLoadedTasks !== 'undefined') {
       syncTaskNotifications(_allLoadedTasks);
     } else if (typeof window !== 'undefined' && typeof window.syncTaskNotifications === 'function' && typeof window._allLoadedTasks !== 'undefined') {
       window.syncTaskNotifications(window._allLoadedTasks);
+    }
+    if (field === 'due_date') {
+      notifyTaskDueUrgency(t);
     }
   }
 
@@ -7893,6 +7911,61 @@ function publishTaskAssignment(task) {
       targetId: task.id
     }).catch(function() {});
   }
+}
+
+/**
+ * Dispatches an immediate mobile push alert (FCM + Web Push) when a task's due date
+ * is set/created within 2 days (due soon) or already overdue.
+ * Deduplicated once per task + alert kind + day to avoid repeat pushes on edits.
+ * @param {Object} task
+ */
+function notifyTaskDueUrgency(task) {
+  if (!task || !task.id || String(task.id).startsWith('temp_') || !task.due_date) return false;
+  if (!task.assignee_ic && !task.assignee_email && !task.assignee_name && !task.assignee) return false;
+  var overdueId = getOverdueTaskReminder(task);
+  var dueSoonId = overdueId ? null : getDueSoonTaskReminder(task);
+  var reminderId = overdueId || dueSoonId;
+  if (!reminderId) return false;
+
+  var pushKey = reminderId + ':' + getTaskMalaysiaDay(Date.now());
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var sentList = JSON.parse(localStorage.getItem('bb_pushed_task_due_alerts') || '[]');
+      if (Array.isArray(sentList) && sentList.indexOf(pushKey) !== -1) return false;
+      sentList = Array.isArray(sentList) ? sentList : [];
+      sentList.push(pushKey);
+      if (sentList.length > 200) sentList = sentList.slice(-150);
+      localStorage.setItem('bb_pushed_task_due_alerts', JSON.stringify(sentList));
+    }
+  } catch (_) {}
+
+  var identities = getTaskAssigneeKeys(task);
+  var recipients = identities.length ? identities : taskAssigneeTokens(task.assignee_name || task.assignee);
+  var targetUsers = Array.from(new Set(recipients.filter(function(value) {
+    return value && value !== 'unassigned';
+  })));
+  if (!targetUsers.length) return false;
+
+  var dispatch = typeof sendPortalPushNotification === 'function'
+    ? sendPortalPushNotification
+    : (typeof window !== 'undefined' && typeof window.sendPortalPushNotification === 'function' ? window.sendPortalPushNotification : null);
+  if (!dispatch) return false;
+
+  var isOverdue = Boolean(overdueId);
+  var diffDays = getTaskDaysUntilDue(task.due_date);
+  var dueText = isOverdue
+    ? ('Overdue since ' + formatTaskDueDateStr(task.due_date))
+    : (diffDays === 0 ? 'Due today' : (diffDays === 1 ? 'Due tomorrow' : 'Due in 2 days'));
+  var safeTitle = task.title || 'Assigned task';
+  dispatch({
+    type: isOverdue ? 'task_overdue' : 'task_due_soon',
+    title: isOverdue ? ('Overdue task: ' + safeTitle) : ('Task due soon: ' + safeTitle),
+    body: dueText + ' — open Projects & Tasks to review.',
+    targetUsers: targetUsers,
+    tab: 'tasks',
+    targetId: task.id
+  }).catch(function() {});
+  return true;
 }
 
 async function selectTaskDetailAssignee(ic, name) {
@@ -8895,6 +8968,7 @@ async function handleCreateTaskSubmit(e) {
             window.PortalRealtime.broadcast('tasks', 'reconcile', { tempId: tempId, task: saved });
           }
           if (assigneeName) publishTaskAssignment(localTask);
+          if (localTask.due_date) notifyTaskDueUrgency(localTask);
           return saved.id;
         } else if (!inserted) {
           throw new Error('Server returned empty task response');
@@ -9559,6 +9633,8 @@ window.resetTasksFiltersToDefault = resetTasksFiltersToDefault;
   window.setMyTasksDisplayMode        = setMyTasksDisplayMode;
   window.setMyTasksAssigneeFilter     = setMyTasksAssigneeFilter;
   window.getFilteredMyTasks           = getFilteredMyTasks;
+  window.getDueSoonTaskReminder       = getDueSoonTaskReminder;
+  window.notifyTaskDueUrgency         = notifyTaskDueUrgency;
 
   if (typeof window.addEventListener === 'function') {
     window.addEventListener('bb_avatar_outlines_changed', function() {
@@ -9775,6 +9851,8 @@ if (typeof module !== 'undefined' && module.exports) {
     getTaskMalaysiaDay,
     getTaskDueDisplay,
     getOverdueTaskReminder,
+    getDueSoonTaskReminder,
+    notifyTaskDueUrgency,
     getTaskAssigneeKeys,
     saveProjectStatusesCatalog,
     loadProjectStatusesCatalog,

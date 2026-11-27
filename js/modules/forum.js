@@ -6336,14 +6336,16 @@ function openForumPostDetail(postId) {
   var p = forumPosts.find(function(x) { return x.id === postId; });
   if (!p) return;
 
-  if (typeof setDismissedNotifId === 'function') {
-    var toDismiss = ['notif-forum-post-mention-' + postId];
-    if (p.replies && p.replies.length) {
-      p.replies.forEach(function(r, idx) {
-        var rId = r.id || (postId + '-rep-' + idx);
-        toDismiss.push('notif-forum-reply-' + rId);
-      });
-    }
+  var toDismiss = ['notif-forum-post-mention-' + postId];
+  if (p.replies && p.replies.length) {
+    p.replies.forEach(function(r, idx) {
+      var rId = r.id || (postId + '-rep-' + idx);
+      toDismiss.push('notif-forum-reply-' + rId);
+    });
+  }
+  if (typeof window !== 'undefined' && typeof window.dismissPortalNotificationsForTarget === 'function') {
+    window.dismissPortalNotificationsForTarget('forum', postId, toDismiss);
+  } else if (typeof setDismissedNotifId === 'function') {
     setDismissedNotifId(toDismiss);
     if (typeof renderNotifications === 'function') renderNotifications();
   }

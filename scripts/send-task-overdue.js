@@ -7,31 +7,52 @@ const { getGoogleOAuthToken, getUserTopic } = require('../js/api/fcm.js');
 const tasksModule = require('../js/modules/tasks.js');
 
 const normalize = value => String(value || '').trim().toLowerCase();
+const memberAccountIdentity = member => normalize(member?.email || String(member?.ic || '').split('__')[0]);
+const isActiveMember = member =>
+  Boolean(member) &&
+  !['deleted', 'archived_deleted'].includes(normalize(member.department)) &&
+  !normalize(member.ic).startsWith('archived_');
 
-function buildReminderTopics(tasks, members, blockedEmails, now) {
+function collectReminderTopics(tasks, members, blockedEmails, now, matcher) {
   const topics = new Set();
   const blocked = new Set(blockedEmails.map(normalize));
+  const activeMembers = (Array.isArray(members) ? members : []).filter(isActiveMember);
   const uniqueMatch = (key, field) => {
     if (!key) return null;
-    const matches = members.filter(member => normalize(member[field]) === key);
+    const matches = activeMembers.filter(member => normalize(member[field]) === key);
     return matches.length === 1 ? matches[0] : null;
   };
+  const topicCounts = new Map();
+  for (const row of activeMembers) {
+    const id = memberAccountIdentity(row);
+    if (!id) continue;
+    const t = getUserTopic(id);
+    if (t) topicCounts.set(t, (topicCounts.get(t) || 0) + 1);
+  }
   for (const task of tasks) {
-    if (!tasksModule.getOverdueTaskReminder(task, now)) continue;
+    if (!matcher(task, now)) continue;
     const keys = tasksModule.getTaskAssigneeKeys(task);
     const recipients = keys.length
       ? keys.map(key => uniqueMatch(key, 'ic') || uniqueMatch(key, 'email'))
       : [uniqueMatch(normalize(task.assignee_name || task.assignee), 'name')];
     for (const member of recipients) {
-      const email = normalize(member?.email);
-      if (!email || blocked.has(email)) continue;
-      const topic = getUserTopic(email);
-      if (members.filter(row => normalize(row.email) && getUserTopic(normalize(row.email)) === topic).length === 1) {
+      const identity = memberAccountIdentity(member);
+      if (!identity || blocked.has(identity)) continue;
+      const topic = getUserTopic(identity);
+      if (topic && topicCounts.get(topic) === 1) {
         topics.add(topic);
       }
     }
   }
   return [...topics].sort();
+}
+
+function buildReminderTopics(tasks, members, blockedEmails, now) {
+  return collectReminderTopics(tasks, members, blockedEmails, now, tasksModule.getOverdueTaskReminder);
+}
+
+function buildDueSoonReminderTopics(tasks, members, blockedEmails, now) {
+  return collectReminderTopics(tasks, members, blockedEmails, now, tasksModule.getDueSoonTaskReminder);
 }
 
 function buildAndroidReminder(topic, day) {
@@ -55,8 +76,32 @@ function buildAndroidReminder(topic, day) {
   };
 }
 
-async function sendIOSReminders(db, key, topics) {
+function buildAndroidDueSoonReminder(topic, day) {
+  const title = 'Task due soon';
+  const body = 'You have tasks due within 2 days. Open Projects & Tasks to review.';
+  return {
+    message: {
+      topic,
+      notification: { title, body },
+      data: { title, body, category: 'task_due_soon', tab: 'tasks', targetId: '' },
+      android: {
+        priority: 'HIGH',
+        ttl: '43200s',
+        notification: {
+          channel_id: 'portal-alerts-v2',
+          sound: 'portal_chime',
+          tag: 'portal_task_due_soon_' + day
+        }
+      }
+    }
+  };
+}
+
+async function sendIOSReminders(db, key, topics, dueSoonTopics = []) {
   // The Edge Function deduplicates each iPhone subscription in the daily delivery ledger.
+  const payload = dueSoonTopics.length
+    ? { action: 'remind', topics, dueSoonTopics }
+    : { action: 'remind', topics };
   const response = await fetch(new URL('/functions/v1/portal-web-push', db), {
     method: 'POST',
     headers: {
@@ -64,7 +109,7 @@ async function sendIOSReminders(db, key, topics) {
       apikey: key,
       ...(key.startsWith('sb_secret_') ? {} : { Authorization: 'Bearer ' + key })
     },
-    body: JSON.stringify({ action: 'remind', topics }),
+    body: JSON.stringify(payload),
     redirect: 'error',
     signal: AbortSignal.timeout(120000)
   });
@@ -73,7 +118,7 @@ async function sendIOSReminders(db, key, topics) {
   console.log('iPhone and iPad overdue reminders sent: ' + sent + '.');
 }
 
-async function sendAndroidReminders(serviceAccount, request, topics, now, day) {
+async function sendAndroidReminders(serviceAccount, request, topics, now, day, dueSoonTopics = []) {
   if (!serviceAccount?.trim()) throw new Error('Missing GitHub Actions secret: TASK_REMINDER_FCM_SERVICE_ACCOUNT.');
   let credentials;
   try {
@@ -84,7 +129,7 @@ async function sendAndroidReminders(serviceAccount, request, topics, now, day) {
   if (!credentials?.project_id || !credentials.client_email || !credentials.private_key) {
     throw new Error('TASK_REMINDER_FCM_SERVICE_ACCOUNT must contain project_id, client_email and private_key.');
   }
-  if (!topics.length) return;
+  if (!topics.length && !dueSoonTopics.length) return;
   const token = await getGoogleOAuthToken(credentials);
   if (!token) throw new Error('Could not authenticate the FCM reminder sender.');
   const endpoint = 'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(credentials.project_id) + '/messages:send';
@@ -92,8 +137,12 @@ async function sendAndroidReminders(serviceAccount, request, topics, now, day) {
   await request(ledger + '?reminder_day=lt.' + tasksModule.getTaskMalaysiaDay(now - 7 * 86400000), { method: 'DELETE' });
   let sent = 0;
   let failed = 0;
-  for (const topic of topics) {
-    const key = createHash('sha256').update(topic).digest('hex');
+  const queue = [
+    ...topics.map(topic => ({ topic, hashInput: topic, build: buildAndroidReminder })),
+    ...dueSoonTopics.map(topic => ({ topic, hashInput: 'due_soon/' + topic, build: buildAndroidDueSoonReminder }))
+  ];
+  for (const entry of queue) {
+    const key = createHash('sha256').update(entry.hashInput).digest('hex');
     const claim = await request(ledger + '?on_conflict=reminder_day,recipient_key', {
       method: 'POST',
       headers: { Prefer: 'resolution=ignore-duplicates,return=representation' },
@@ -104,7 +153,7 @@ async function sendAndroidReminders(serviceAccount, request, topics, now, day) {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildAndroidReminder(topic, day)),
+        body: JSON.stringify(entry.build(entry.topic, day)),
         signal: AbortSignal.timeout(15000)
       });
       if (!response.ok) {
@@ -159,7 +208,7 @@ async function runOverdueReminders(env) {
   }
   const [tasks, members, config] = await Promise.all([
     fetchRows('bb_tasks?select=*&due_date=not.is.null&order=id.asc'),
-    fetchRows('bb_members?select=ic,email,name&order=ic.asc'),
+    fetchRows('bb_members?select=ic,email,name,department&order=ic.asc'),
     request('bb_config?select=key,value&key=in.(bb_project_statuses,bb_blocked_emails)')
   ]);
   const readConfig = (key, fallback) => {
@@ -169,11 +218,13 @@ async function runOverdueReminders(env) {
   tasksModule._projectStatusesMap = readConfig('bb_project_statuses', {});
   const now = Date.now();
   const day = tasksModule.getTaskMalaysiaDay(now);
-  const topics = buildReminderTopics(tasks, members, readConfig('bb_blocked_emails', []), now);
-  if (!topics.length) console.log('No overdue task reminders to send.');
+  const blocked = readConfig('bb_blocked_emails', []);
+  const topics = buildReminderTopics(tasks, members, blocked, now);
+  const dueSoonTopics = buildDueSoonReminderTopics(tasks, members, blocked, now);
+  if (!topics.length && !dueSoonTopics.length) console.log('No overdue or due-soon task reminders to send.');
 
-  const deliveries = [sendAndroidReminders(TASK_REMINDER_FCM_SERVICE_ACCOUNT, request, topics, now, day)];
-  if (sendWebPush) deliveries.push(sendIOSReminders(db, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, topics));
+  const deliveries = [sendAndroidReminders(TASK_REMINDER_FCM_SERVICE_ACCOUNT, request, topics, now, day, dueSoonTopics)];
+  if (sendWebPush) deliveries.push(sendIOSReminders(db, TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY, topics, dueSoonTopics));
   const failures = (await Promise.allSettled(deliveries)).filter(result => result.status === 'rejected');
   if (failures.length) throw new Error(failures.map(result => result.reason.message).join(' '));
 }
@@ -185,4 +236,10 @@ if (require.main === module) {
   });
 }
 
-module.exports = { buildReminderTopics, buildAndroidReminder, runOverdueReminders };
+module.exports = {
+  buildReminderTopics,
+  buildDueSoonReminderTopics,
+  buildAndroidReminder,
+  buildAndroidDueSoonReminder,
+  runOverdueReminders
+};

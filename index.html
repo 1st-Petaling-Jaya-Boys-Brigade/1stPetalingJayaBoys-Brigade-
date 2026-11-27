@@ -25,17 +25,17 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
 <meta http-equiv="X-Frame-Options" content="DENY">
-<script src="js/core/theme.js?v=20261126h"></script>
+<script src="js/core/theme.js?v=20261127a"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://generativelanguage.googleapis.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer">
 <!-- Modular Stylesheets -->
-<link rel="stylesheet" href="css/variables.css?v=20261126h">
-<link rel="stylesheet" href="css/base.css?v=20261126h">
-<link rel="stylesheet" href="css/nav.css?v=20261126h">
-<link rel="stylesheet" href="css/components.css?v=20261126h">
-<link rel="stylesheet" href="css/admin.css?v=20261126h">
+<link rel="stylesheet" href="css/variables.css?v=20261127a">
+<link rel="stylesheet" href="css/base.css?v=20261127a">
+<link rel="stylesheet" href="css/nav.css?v=20261127a">
+<link rel="stylesheet" href="css/components.css?v=20261127a">
+<link rel="stylesheet" href="css/admin.css?v=20261127a">
 <style>
 /* ── Guaranteed Critical Pre-Auth Shield (Prevents Any Flash of Home/Header/Sidebar Before Login) ── */
 :root.auth-screen-active #site-header,
@@ -3319,31 +3319,31 @@
   </section>
 </dialog>
 
-<script src="js/config.js?v=20261126h"></script>
+<script src="js/config.js?v=20261127a"></script>
 <script src="assets/vendor/qrcode-generator.js?v=2.0.4" defer></script>
-<script src="js/core/install.js?v=20261126h" defer></script>
-<script src="js/api/supabase.js?v=20261126h"></script>
-<script src="js/api/web-push.js?v=20261126h"></script>
-<script src="js/api/fcm.js?v=20261126h"></script>
-<script src="js/core/session.js?v=20261126h"></script>
-<script src="js/core/rbac.js?v=20261126h"></script>
-<script src="js/core/utils.js?v=20261126h"></script>
-<script src="js/core/ui.js?v=20261126h"></script>
-<script src="js/core/loading.js?v=20261126h"></script>
-<script src="js/modules/member.js?v=20261126h"></script>
-<script src="js/api/sheets.js?v=20261126h"></script>
-<script src="js/modules/attendance.js?v=20261126h"></script>
-<script src="js/modules/announcements.js?v=20261126h"></script>
-<script src="js/modules/gallery.js?v=20261126h"></script>
-<script src="js/modules/resources.js?v=20261126h"></script>
-<script src="js/modules/calendar.js?v=20261126h"></script>
-<script src="js/modules/orders.js?v=20261126h"></script>
-<script src="js/modules/forms.js?v=20261126h"></script>
-<script src="js/modules/badges.js?v=20261126h"></script>
-<script src="js/modules/tasks.js?v=20261126h"></script>
-<script src="js/modules/admin.js?v=20261126h"></script>
-<script src="js/modules/forum.js?v=20261126h"></script>
-<script src="js/modules/arcade.js?v=20261126h"></script>
+<script src="js/core/install.js?v=20261127a" defer></script>
+<script src="js/api/supabase.js?v=20261127a"></script>
+<script src="js/api/web-push.js?v=20261127a"></script>
+<script src="js/api/fcm.js?v=20261127a"></script>
+<script src="js/core/session.js?v=20261127a"></script>
+<script src="js/core/rbac.js?v=20261127a"></script>
+<script src="js/core/utils.js?v=20261127a"></script>
+<script src="js/core/ui.js?v=20261127a"></script>
+<script src="js/core/loading.js?v=20261127a"></script>
+<script src="js/modules/member.js?v=20261127a"></script>
+<script src="js/api/sheets.js?v=20261127a"></script>
+<script src="js/modules/attendance.js?v=20261127a"></script>
+<script src="js/modules/announcements.js?v=20261127a"></script>
+<script src="js/modules/gallery.js?v=20261127a"></script>
+<script src="js/modules/resources.js?v=20261127a"></script>
+<script src="js/modules/calendar.js?v=20261127a"></script>
+<script src="js/modules/orders.js?v=20261127a"></script>
+<script src="js/modules/forms.js?v=20261127a"></script>
+<script src="js/modules/badges.js?v=20261127a"></script>
+<script src="js/modules/tasks.js?v=20261127a"></script>
+<script src="js/modules/admin.js?v=20261127a"></script>
+<script src="js/modules/forum.js?v=20261127a"></script>
+<script src="js/modules/arcade.js?v=20261127a"></script>
 
 <script>
 
@@ -4568,14 +4568,32 @@ function findMemberOverdueTasks(tasksList) {
   });
 }
 
+function findMemberDueSoonTasks(tasksList) {
+  var list = Array.isArray(tasksList) ? tasksList : [];
+  var myIc = (typeof sessionGet === 'function') ? String(sessionGet('ic') || '').trim().toLowerCase() : '';
+  var myEmail = (typeof sessionGet === 'function') ? String(sessionGet('email') || '').trim().toLowerCase() : '';
+  var myName = (typeof sessionGet === 'function') ? String(sessionGet('name') || '').trim().toLowerCase() : '';
+  return list.filter(function(t) {
+    if (!t || !t.id) return false;
+    if (typeof getDueSoonTaskReminder !== 'function' || !getDueSoonTaskReminder(t)) return false;
+    var keys = (typeof getTaskAssigneeKeys === 'function') ? getTaskAssigneeKeys(t) : [];
+    if (keys.length) {
+      return (myIc && keys.indexOf(myIc) !== -1) || (myEmail && keys.indexOf(myEmail) !== -1);
+    }
+    var aName = String(t.assignee_name || t.assignee || '').trim().toLowerCase();
+    return Boolean(myName && aName && aName === myName);
+  });
+}
+
 async function openDeepLinkedTask(targetId, category) {
   var task = findLoadedTaskById(targetId);
+  var isReminderCategory = category === 'task_overdue' || category === 'task_due_soon' || category === 'task_due';
 
   if (targetId && typeof window !== 'undefined') {
     window._deepLinkTaskGuard = { id: String(targetId), expiresAt: Date.now() + 4000 };
   }
 
-  if ((!task && targetId) || (!targetId && category === 'task_overdue')) {
+  if ((!task && targetId) || (!targetId && isReminderCategory)) {
     if (typeof fetchAllRemoteTasks === 'function') {
       try {
         await fetchAllRemoteTasks(true, { cache: false });
@@ -4604,14 +4622,19 @@ async function openDeepLinkedTask(targetId, category) {
     }
   }
 
-  if (!task && !targetId && category === 'task_overdue') {
+  if (!task && !targetId && isReminderCategory) {
     var loadedList = (typeof window !== 'undefined' && Array.isArray(window._allLoadedTasks)) ? window._allLoadedTasks : [];
-    var overdueTasks = findMemberOverdueTasks(loadedList);
-    if (overdueTasks.length === 1) {
-      task = overdueTasks[0];
+    var matchingTasks = (category === 'task_due_soon' || category === 'task_due')
+      ? findMemberDueSoonTasks(loadedList)
+      : findMemberOverdueTasks(loadedList);
+    if (matchingTasks.length === 1) {
+      task = matchingTasks[0];
     } else {
       if (typeof setTasksViewMode === 'function') {
         setTasksViewMode('mytasks');
+      }
+      if (typeof setMyTasksStatusFilter === 'function') {
+        setMyTasksStatusFilter((category === 'task_due_soon' || category === 'task_due') ? 'near' : 'overdue');
       }
       return;
     }
@@ -4655,9 +4678,12 @@ async function handlePortalNotificationDeepLink(rawRoute) {
     var matchingNotif = _allPortalNotifications.find(function(n) { return n && n.id === route.notifId; });
     if (matchingNotif) {
       matchingNotif.unread = false;
-      setDismissedNotifId(route.notifId);
-      if (typeof renderNotifications === 'function') renderNotifications();
     }
+    setDismissedNotifId(route.notifId);
+    if (typeof renderNotifications === 'function') renderNotifications();
+  }
+  if (route.targetId && typeof dismissPortalNotificationsForTarget === 'function') {
+    dismissPortalNotificationsForTarget(route.tab, route.targetId);
   }
 
   // Close transient overlays before navigating
@@ -4801,6 +4827,88 @@ async function handlePortalNotificationDeepLink(rawRoute) {
 // ── Header Utilities & App Shell Controllers ────────────────────────────────
 var _allPortalNotifications = [];
 var _initialNotifSyncDone = false;
+var _hydratedNotifUserKey = '';
+
+function getPersistedInboxStorageKey() {
+  var u = getCanonicalNotifUserKey();
+  return u ? ('bb_portal_inbox_notifs_' + encodeURIComponent(u)) : '';
+}
+
+function serializeInboxNotification(n) {
+  if (!n || !n.id) return null;
+  return {
+    id: String(n.id),
+    category: n.category || 'announcements',
+    tab: n.tab || 'home',
+    targetId: n.targetId !== undefined && n.targetId !== null ? String(n.targetId) : '',
+    routeCategory: n.routeCategory || n.category || '',
+    group: n.group || 'Today',
+    timestamp: Number.isFinite(n.timestamp) ? n.timestamp : Date.now(),
+    title: n.title || '',
+    snippet: n.snippet || '',
+    time: n.time || 'Today',
+    avatarInitials: n.avatarInitials || '',
+    avatarMemberName: n.avatarMemberName || '',
+    avatarMemberIc: n.avatarMemberIc || '',
+    dailyOverdue: Boolean(n.dailyOverdue),
+    dailyDueSoon: Boolean(n.dailyDueSoon)
+  };
+}
+
+function persistPortalInboxNotifications() {
+  if (typeof localStorage === 'undefined') return;
+  var key = getPersistedInboxStorageKey();
+  if (!key) return;
+  try {
+    var dismissed = getDismissedNotifIds();
+    var toStore = _allPortalNotifications
+      .filter(function(n) {
+        return n && n.id && n.unread !== false && dismissed.indexOf(n.id) === -1 &&
+          n.id !== 'notif-parade' && n.id !== 'notif-band' && n.id !== 'notif-orders' && n.id !== 'notif-leaderboard';
+      })
+      .slice(0, 150)
+      .map(serializeInboxNotification)
+      .filter(Boolean);
+    localStorage.setItem(key, JSON.stringify(toStore));
+  } catch (_) {}
+}
+
+function hydratePersistedInboxNotifications() {
+  if (typeof localStorage === 'undefined') return;
+  var uKey = getCanonicalNotifUserKey();
+  if (!uKey) return;
+  if (_hydratedNotifUserKey && _hydratedNotifUserKey !== uKey) {
+    _allPortalNotifications = [];
+  }
+  _hydratedNotifUserKey = uKey;
+  var key = getPersistedInboxStorageKey();
+  if (!key) return;
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return;
+    var parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.length) return;
+    var dismissed = getDismissedNotifIds();
+    var accTs = (typeof getAccountCreationTimestamp === 'function') ? getAccountCreationTimestamp() : 0;
+    parsed.forEach(function(item) {
+      if (!item || !item.id || dismissed.indexOf(item.id) !== -1) return;
+      if (accTs > 0 && item.timestamp && item.timestamp < (accTs - 60000)) return;
+      if (_allPortalNotifications.some(function(existing) { return existing && existing.id === item.id; })) return;
+      var notifCopy = Object.assign({}, item, {
+        unread: true,
+        action: function() {
+          handlePortalNotificationDeepLink({
+            tab: item.tab || 'home',
+            targetId: item.targetId || '',
+            category: item.routeCategory || item.category || '',
+            notifId: item.id
+          });
+        }
+      });
+      _allPortalNotifications.push(notifCopy);
+    });
+  } catch (_) {}
+}
 
 function getSeenNotifIds() {
   if (typeof localStorage === 'undefined') return [];
@@ -4834,11 +4942,15 @@ function pushPortalNotification(notif, isSilent, isLive) {
   var alreadySeen = (seenList.indexOf(notif.id) !== -1);
   if (existing && (!isLive || alreadySeen)) return false;
 
-  if (!existing) _allPortalNotifications.unshift(notif);
+  if (!existing) {
+    _allPortalNotifications.unshift(notif);
+    persistPortalInboxNotifications();
+  }
+  var isDailyReminder = Boolean(notif.dailyOverdue || notif.dailyDueSoon);
   var age = Date.now() - notif.timestamp;
   var isFresh = Number.isFinite(notif.timestamp) && age >= -5000 && age <= 60000;
-  if (!isFresh || (!isSilent && (_initialNotifSyncDone || isLive || notif.dailyOverdue))) markNotifSeen(notif.id);
-  if ((_initialNotifSyncDone || isLive || notif.dailyOverdue) && !isSilent && !alreadySeen && (isFresh || notif.dailyOverdue)) {
+  if (!isFresh || (!isSilent && (_initialNotifSyncDone || isLive || isDailyReminder))) markNotifSeen(notif.id);
+  if ((_initialNotifSyncDone || isLive || isDailyReminder) && !isSilent && !alreadySeen && (isFresh || isDailyReminder)) {
     if (typeof showToast === 'function') {
       var snippetText = notif.snippet ? (' — ' + notif.snippet) : '';
       showToast('🔔 ' + (notif.title || 'New Notification') + snippetText, 'info', 5000);
@@ -4846,7 +4958,7 @@ function pushPortalNotification(notif, isSilent, isLive) {
     // On native mobile (Capacitor), do not schedule a duplicate OS notification card if app is already active in the foreground
     var isBackgrounded = (typeof document !== 'undefined' && document.hidden);
     var isNative = (typeof window !== 'undefined' && Boolean(window.Capacitor?.isNativePlatform?.()));
-    var androidPush = notif.dailyOverdue && isNative && window.Capacitor.getPlatform?.() === 'android';
+    var androidPush = isDailyReminder && isNative && window.Capacitor.getPlatform?.() === 'android';
     var soundOn = true;
     try { soundOn = localStorage.getItem('bb_notif_sound_enabled') !== 'false'; } catch (_) {}
     if (!isBackgrounded && !androidPush && soundOn && typeof playNotificationSound === 'function') playNotificationSound();
@@ -4854,9 +4966,9 @@ function pushPortalNotification(notif, isSilent, isLive) {
       if (typeof triggerPortalSystemNotification === 'function') {
         var notifTitle = notif.title || "1st Petaling Jaya Boys' Brigade";
         var notifBody = notif.snippet || notif.message || notif.text || (notif.title ? ('Update: ' + notif.title) : 'Tap to view company updates.');
-        var notifTab = notif.tab || (notif.route && notif.route.tab) || (notif.dailyOverdue ? 'tasks' : (notif.category === 'tasks' ? 'tasks' : 'home'));
+        var notifTab = notif.tab || (notif.route && notif.route.tab) || (isDailyReminder ? 'tasks' : (notif.category === 'tasks' ? 'tasks' : 'home'));
         var notifTargetId = notif.targetId || (notif.route && notif.route.targetId) || '';
-        var notifRouteCat = notif.routeCategory || (notif.route && notif.route.category) || (notif.dailyOverdue ? 'task_overdue' : notif.category) || '';
+        var notifRouteCat = notif.routeCategory || (notif.route && notif.route.category) || (notif.dailyOverdue ? 'task_overdue' : (notif.dailyDueSoon ? 'task_due_soon' : notif.category)) || '';
         triggerPortalSystemNotification(
           notifTitle,
           notifBody,
@@ -4906,9 +5018,10 @@ function getDismissedNotifStorageKey() {
 }
 
 function getDismissedNotifIds() {
+  var uKey = getCanonicalNotifUserKey();
   var key = getDismissedNotifStorageKey();
   try {
-    var raw = localStorage.getItem(key) || localStorage.getItem('bb_dismissed_notifications');
+    var raw = uKey ? localStorage.getItem(key) : localStorage.getItem('bb_dismissed_notifications');
     return raw ? JSON.parse(raw) : [];
   } catch (e) {
     return [];
@@ -4920,6 +5033,7 @@ function setDismissedNotifId(idOrIds) {
   var toAdd = Array.isArray(idOrIds) ? idOrIds.filter(Boolean) : [idOrIds];
   if (!toAdd.length) return;
   try {
+    var uKey = getCanonicalNotifUserKey();
     var ids = getDismissedNotifIds();
     var newAdded = [];
     toAdd.forEach(function(item) {
@@ -4928,13 +5042,19 @@ function setDismissedNotifId(idOrIds) {
         newAdded.push(item);
       }
     });
+    _allPortalNotifications.forEach(function(n) {
+      if (n && toAdd.indexOf(n.id) !== -1) {
+        n.unread = false;
+      }
+    });
     if (newAdded.length) {
       var key = getDismissedNotifStorageKey();
       localStorage.setItem(key, JSON.stringify(ids));
-      localStorage.setItem('bb_dismissed_notifications', JSON.stringify(ids));
+      if (!uKey) {
+        localStorage.setItem('bb_dismissed_notifications', JSON.stringify(ids));
+      }
 
       // Asynchronously persist to Supabase bb_config so it syncs across devices & logins
-      var uKey = getCanonicalNotifUserKey();
       if (uKey) {
         var client = (typeof supa !== 'undefined' ? supa : (typeof getSupa === 'function' ? getSupa() : null));
         if (client) {
@@ -4950,7 +5070,38 @@ function setDismissedNotifId(idOrIds) {
         }
       }
     }
+    persistPortalInboxNotifications();
   } catch (e) {}
+}
+
+function normalizeDismissTargetTab(tab) {
+  var t = String(tab || '').trim().toLowerCase().replace(/^#/, '').replace(/^page-/, '');
+  if (t === 'calendar') return 'parade';
+  if (t === 'orders') return 'member';
+  if (t === 'forms') return 'order';
+  return t;
+}
+
+function dismissPortalNotificationsForTarget(tab, targetId, extraIds) {
+  var normTab = normalizeDismissTargetTab(tab);
+  var normTarget = targetId !== undefined && targetId !== null ? String(targetId).trim() : '';
+  var toDismiss = Array.isArray(extraIds) ? extraIds.filter(Boolean).map(String) : [];
+
+  if (normTab && normTarget) {
+    _allPortalNotifications.forEach(function(n) {
+      if (!n || !n.id) return;
+      var nTab = normalizeDismissTargetTab(n.tab || (n.route && n.route.tab) || '');
+      var nTarget = String(n.targetId !== undefined && n.targetId !== null ? n.targetId : ((n.route && n.route.targetId) || '')).trim();
+      if (nTab === normTab && nTarget === normTarget && toDismiss.indexOf(n.id) === -1) {
+        toDismiss.push(n.id);
+      }
+    });
+  }
+
+  if (!toDismiss.length) return [];
+  setDismissedNotifId(toDismiss);
+  if (typeof renderNotifications === 'function') renderNotifications();
+  return toDismiss;
 }
 
 async function fetchRemoteDismissedNotifs() {
@@ -4990,7 +5141,8 @@ async function fetchRemoteDismissedNotifs() {
       var mergedList = Object.keys(mergedMap);
       var key = getDismissedNotifStorageKey();
       localStorage.setItem(key, JSON.stringify(mergedList));
-      localStorage.setItem('bb_dismissed_notifications', JSON.stringify(mergedList));
+      if (!uKey) localStorage.setItem('bb_dismissed_notifications', JSON.stringify(mergedList));
+      persistPortalInboxNotifications();
       renderNotifications();
     }
   } catch (err) {
@@ -5048,7 +5200,6 @@ function notifyPortalTaskAssignment(task, isSilent, isLive) {
   if (!isTaskNotificationAssignee(task, name, ic, email)) return;
 
   var date = getTaskNotifDateMeta(task.updated_at || task.created_at);
-  if (date.isStale) return;
   var creator = task.creator_name || 'A member';
   var same = function(value, target) {
     return value && target && String(value).trim().toLowerCase() === String(target).trim().toLowerCase();
@@ -5130,7 +5281,6 @@ function syncTaskNotifications(tasks, isSilent) {
 
   var dismissed = getDismissedNotifIds();
 
-  var dailyIds = new Set();
   var canReceiveReminders = typeof AuthGuard !== 'undefined' && AuthGuard.isUserAuthenticated() &&
     typeof hasDepartmentRole === 'function' && hasDepartmentRole() &&
     (typeof navigator === 'undefined' || navigator.onLine !== false);
@@ -5139,7 +5289,10 @@ function syncTaskNotifications(tasks, isSilent) {
     var isAssigned = isTaskNotificationAssignee(t, myName, myIc, myEmail);
     var overdueId = canReceiveReminders && isAssigned && typeof getOverdueTaskReminder === 'function' && getOverdueTaskReminder(t);
     if (overdueId) {
-      dailyIds.add(overdueId);
+      // Replace any superseded earlier-day overdue reminder for this exact task without clearing other unread items
+      _allPortalNotifications = _allPortalNotifications.filter(function(existing) {
+        return !(existing && existing.dailyOverdue && String(existing.targetId) === String(t.id) && existing.id !== overdueId);
+      });
       pushPortalNotification({
         id: overdueId,
         dailyOverdue: true,
@@ -5162,22 +5315,24 @@ function syncTaskNotifications(tasks, isSilent) {
     if (!isAssigned) return;
     notifyPortalTaskAssignment(t, isSilent);
 
-    // 2. Due Date Nearing Notification
+    // 2. Due Date Nearing Notification (Due Today, Tomorrow, or in 2 Days)
     if (t.due_date && typeof isTaskCompleted === 'function' && !isTaskCompleted(t, getTaskProjectName(t) || 'General Project')) {
       try {
         var diffDays = getTaskDaysUntilDue(t.due_date);
         if (diffDays !== null && diffDays >= 0 && diffDays <= 2) {
           var dueNotice = diffDays === 0 ? 'Due Today' : diffDays === 1 ? 'Due Tomorrow' : 'Due in 2 days';
-          var dueId = 'notif-task-due-' + t.id + '-' + String(t.due_date).split('T')[0];
+          var dueId = (typeof getDueSoonTaskReminder === 'function' && getDueSoonTaskReminder(t))
+            || ('notif-task-due-' + t.id + '-' + String(t.due_date).split('T')[0]);
           if (dismissed.indexOf(dueId) === -1) {
             var existingDue = _allPortalNotifications.find(function(n) { return n.id === dueId; });
             if (!existingDue) {
               pushPortalNotification({
                 id: dueId,
+                dailyDueSoon: true,
                 category: 'tasks',
                 tab: 'tasks',
                 targetId: String(t.id),
-                routeCategory: 'task_due',
+                routeCategory: 'task_due_soon',
                 group: 'Today',
                 timestamp: Date.now(),
                 icon: '<svg class="ui-icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
@@ -5186,17 +5341,14 @@ function syncTaskNotifications(tasks, isSilent) {
                 time: 'Today',
                 unread: true,
                 action: function() {
-                  handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'task_due', notifId: dueId });
+                  handlePortalNotificationDeepLink({ tab: 'tasks', targetId: String(t.id), category: 'task_due_soon', notifId: dueId });
                 }
-              }, isSilent);
+              }, false);
             }
           }
         }
       } catch (_) {}
     }
-  });
-  _allPortalNotifications = _allPortalNotifications.filter(function(notif) {
-    return !notif.dailyOverdue || dailyIds.has(notif.id);
   });
 
   // 3. Mentions in Task Brief & Comments
@@ -5223,7 +5375,6 @@ function syncTaskNotifications(tasks, isSilent) {
     if (dismissed.indexOf(notifId) !== -1) return;
 
     var dMeta = getTaskNotifDateMeta(t.updated_at || t.created_at);
-    if (dMeta.isStale) return;
 
     var fullTaskText = (t.title || '') + ' ' + (t.description || '');
     var isSelfCreated = (myIc && t.creator_ic === myIc)
@@ -5277,7 +5428,6 @@ function syncTaskNotifications(tasks, isSilent) {
         if (isSelfComment && !isExplicitSelfMention(c.text, myName, myEmail)) return;
 
         var cMeta = getTaskNotifDateMeta(c.edited_at || c.created_at);
-        if (cMeta.isStale) return;
 
         var isMentioned = checkFn ? checkFn(c.text, c.author_email, c.author_name, myName, myEmail, myDept, myRank) : false;
         if (isMentioned) {
@@ -5612,6 +5762,9 @@ function syncForumNotifications(postsList, isSilent) {
 function syncAllPortalNotifications(isSilent) {
   if (!sessionGet('ic') && !sessionGet('email')) return Promise.resolve();
   if (typeof isSilent === 'undefined') isSilent = true;
+  if (typeof hydratePersistedInboxNotifications === 'function') {
+    hydratePersistedInboxNotifications();
+  }
   var promises = [];
   if (typeof fetchRemoteMemberPresence === 'function') {
     promises.push(fetchRemoteMemberPresence().catch(function() {}));
@@ -6166,6 +6319,10 @@ window.getCanonicalNotifUserKey    = getCanonicalNotifUserKey;
 window.getDismissedNotifStorageKey = getDismissedNotifStorageKey;
 window.getDismissedNotifIds       = getDismissedNotifIds;
 window.setDismissedNotifId        = setDismissedNotifId;
+window.dismissPortalNotificationsForTarget = dismissPortalNotificationsForTarget;
+window.persistPortalInboxNotifications = persistPortalInboxNotifications;
+window.hydratePersistedInboxNotifications = hydratePersistedInboxNotifications;
+window.findMemberDueSoonTasks     = findMemberDueSoonTasks;
 window.getSeenNotifIds            = getSeenNotifIds;
 window.markNotifSeen              = markNotifSeen;
 window.syncTaskNotifications       = syncTaskNotifications;
