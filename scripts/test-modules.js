@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127d',
-    'sw.js CACHE_VERSION must be 20261127d'
+    '20261127e',
+    'sw.js CACHE_VERSION must be 20261127e'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127d',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127e',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127d'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127e'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127d', 'Service Worker cache version must be 20261127d');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127e', 'Service Worker cache version must be 20261127e');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127d and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127e and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127d', 'sw.js CACHE_VERSION must be 20261127d');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127d', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127d', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127e', 'sw.js CACHE_VERSION must be 20261127e');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127e', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127e', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127d cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127e cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127d'), 'config.js must use v=20261127d');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127d'), 'forum.js must use v=20261127d');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127d'), 'variables.css must use v=20261127d');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127d'), 'base.css must use v=20261127d');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127d');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127e'), 'config.js must use v=20261127e');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127e'), 'forum.js must use v=20261127e');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127e'), 'variables.css must use v=20261127e');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127e'), 'base.css must use v=20261127e');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127e');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -19045,6 +19045,53 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const ids101 = (indexHtml101.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids101).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
     console.log('  ✔ Active project breadcrumb preservation, mobile Calendar zero-horizontal-scroll rules, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 102: Unified Mobile Tab Fitting & Compact Proportions Across All Portal Tabs ---
+  console.log('\n--- Suite 102: Unified Mobile Tab Fitting & Compact Proportions Across All Portal Tabs ---');
+  {
+    const baseCss102 = fs.readFileSync(path.join(__dirname, '..', 'css', 'base.css'), 'utf8').replace(/\r\n/g, '\n');
+    const navCss102 = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8').replace(/\r\n/g, '\n');
+    const compCss102 = fs.readFileSync(path.join(__dirname, '..', 'css', 'components.css'), 'utf8').replace(/\r\n/g, '\n');
+    const indexHtml102 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const swSrc102 = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+
+    // 1. Unified phone-width page container framing & fluid typography in base.css
+    assert.ok(baseCss102.includes('padding: 12px max(6px, var(--safe-area-right)) var(--dock-clearance) max(6px, var(--safe-area-left));'), 'base.css must apply unified compact 6px horizontal safe-area-aware padding across all mobile pages');
+    assert.ok(baseCss102.includes('font-size: clamp(1.25rem, 1.05rem + 1.2vw, 1.45rem);'), 'base.css must scale .page-title cleanly on phone screens using fluid clamp()');
+    assert.ok(navCss102.includes('@media (max-width: 600px)') && navCss102.includes('left: max(6px, var(--safe-area-left)) !important;'), 'nav.css must align mobile notification dropdown insets with unified 6px page gutters');
+
+    // 2. Unified mobile card sizing & tab-specific compact rules in components.css covering all portal tabs
+    const requiredTabSelectors102 = [
+      '.card:not(#m-auth),\n  .dark-card:not(#tasks-no-dept)',
+      '#page-home .hero-banner',
+      '#page-home .home-next-parade',
+      '#page-home .hq-card',
+      '#page-order .forms-search-input',
+      '#page-order .form-card-hub',
+      '#page-tasks .task-board-header-unified',
+      '#page-tasks .projects-search-bar',
+      '#page-badges .presidents-tracker-card',
+      '#page-attendance .squad-podium-card',
+      '#page-forum .forum-hero-card',
+      '#page-resources .page-header-card',
+      '#page-gallery .page-header-card',
+      '#page-arcade .arcade-hero-card',
+      '#page-arcade .arcade-nav-tabs',
+      '#m-dashboard .member-id-card',
+      '#admin-overlay .admin-container'
+    ];
+    for (const sel of requiredTabSelectors102) {
+      assert.ok(compCss102.includes(sel), 'components.css must include unified mobile fitting rule for: ' + sel);
+    }
+    assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
+
+    // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127e';"), 'sw.js must bump CACHE_VERSION to 20261127e');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261127e') && indexHtml102.includes('css/components.css?v=20261127e'), 'index.html must reference cache-busted 20261127e CSS assets');
+    const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127e, and 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

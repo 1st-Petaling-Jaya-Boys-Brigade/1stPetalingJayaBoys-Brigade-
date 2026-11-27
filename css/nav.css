@@ -2137,6 +2137,14 @@
 
 }
 
+@media (max-width: 600px) {
+  .notif-dropdown-card {
+    left: max(6px, var(--safe-area-left)) !important;
+    right: max(6px, var(--safe-area-right)) !important;
+    border-radius: var(--radius-md);
+  }
+}
+
 @media (max-width: 480px) {
   .nav-name-full {
     display: none;
