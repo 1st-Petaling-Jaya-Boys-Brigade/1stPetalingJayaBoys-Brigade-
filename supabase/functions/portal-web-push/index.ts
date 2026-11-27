@@ -27,13 +27,14 @@ const MESSAGES: Record<string, [string, string, string]> = {
   resource: ['New resource', 'A resource is available in the portal.', 'resources'],
   order_status: ['Order update', 'Open the portal to view your order status.', 'member'],
   forum_reply: ['Forum activity', 'There is a new reply or mention in the portal.', 'forum'],
+  task_due_soon: ['Task due soon', 'You have tasks due within 2 days. Open Projects & Tasks to review.', 'tasks'],
   task_overdue: ['Overdue task reminder', 'Open Projects & Tasks to review your overdue tasks.', 'tasks'],
   test: ['1st PJ BB test notification', 'Background notifications are working on this device.', 'home'],
 };
 
 type Member = { ic: string; email: string; name: string; rank: string; department: string; password?: string };
 type Device = { endpoint: string; member_ic: string; device_hash: string; p256dh: string; auth_key: string };
-type ReminderAssignment = { assignee_ic?: string; assignee_email?: string; assignee_name?: string };
+type ReminderAssignment = { assignee_ic?: string; assignee_email?: string; assignee_name?: string; reminder_kind?: string; due_day?: string };
 type SignIn = { email: string; expires_at: string };
 type FcmServiceAccount = { project_id: string; client_email: string; private_key: string };
 type PushMeta = { title?: string; body?: string; tab?: string };
@@ -145,13 +146,13 @@ async function getFcmAccessToken(account: FcmServiceAccount): Promise<string> {
   return fcmTokenCache;
 }
 
-async function sendFcmTopic(account: FcmServiceAccount, accessToken: string, topic: string, category: string, targetId: string, meta?: PushMeta): Promise<boolean> {
+async function sendFcmTopic(account: FcmServiceAccount, accessToken: string, topic: string, category: string, targetId: string, meta?: PushMeta, tagOverride?: string): Promise<boolean> {
   const [defaultTitle, defaultBody, defaultTab] = MESSAGES[category];
   const title = cleanPushText(meta?.title, 80) || defaultTitle;
   const body = cleanPushText(meta?.body, 160) || defaultBody;
   const rawTab = typeof meta?.tab === 'string' ? meta.tab.trim().toLowerCase() : '';
   const tab = ALLOWED_TABS.has(rawTab) ? rawTab : defaultTab;
-  const notifTag = 'portal_' + String(targetId || category || 'general');
+  const notifTag = tagOverride || ('portal_' + String(targetId || category || 'general'));
   const fcmUrl = 'https://fcm.googleapis.com/v1/projects/' + encodeURIComponent(account.project_id) + '/messages:send';
   const payload = {
     message: {
@@ -195,7 +196,7 @@ async function sendFcmTopic(account: FcmServiceAccount, accessToken: string, top
   return true;
 }
 
-async function fanoutFcm(topics: string[], category: string, target: string, targetId = '', meta?: PushMeta) {
+async function fanoutFcm(topics: string[], category: string, target: string, targetId = '', meta?: PushMeta, dedupDaily = false) {
   const account = getFcmServiceAccount();
   if (!account || !topics.length) return { sent: 0, failed: 0 };
   let accessToken = '';
@@ -204,17 +205,19 @@ async function fanoutFcm(topics: string[], category: string, target: string, tar
   } catch {
     return { sent: 0, failed: topics.length };
   }
+  const ledgerPrefix = category === 'task_due_soon' ? 'fcm/due_soon/' : 'fcm/';
+  const dailyTag = dedupDaily ? ('portal_' + category + '_' + target) : undefined;
   let sent = 0;
   let failed = 0;
   for (let index = 0; index < topics.length; index += 10) {
     const results = await Promise.allSettled(topics.slice(index, index + 10).map(async topic => {
-      if (category !== 'task_overdue') return sendFcmTopic(account, accessToken, topic, category, targetId, meta);
-      const key = await hash('fcm/' + topic);
+      if (!dedupDaily) return sendFcmTopic(account, accessToken, topic, category, targetId, meta);
+      const key = await hash(ledgerPrefix + topic);
       const claim = await db<unknown[]>('bb_task_reminder_deliveries?on_conflict=reminder_day,recipient_key', 'POST',
         { reminder_day: target, recipient_key: key }, 'resolution=ignore-duplicates,return=representation');
       if (!claim.length) return false;
       try {
-        return await sendFcmTopic(account, accessToken, topic, category, '', meta);
+        return await sendFcmTopic(account, accessToken, topic, category, '', meta, dailyTag);
       } catch (error) {
         if (error instanceof ProviderRejected) {
           await db('bb_task_reminder_deliveries?' + filter('reminder_day', target) + '&' + filter('recipient_key', key), 'DELETE');
@@ -348,11 +351,24 @@ function topicPart(value: string) {
 }
 
 async function scheduledReminderTopics() {
-  const [assignments, blocked] = await Promise.all([
-    db<ReminderAssignment[]>('rpc/rpc_overdue_reminder_assignments', 'POST', {}),
-    blockedEmails(),
-  ]);
-  if (!assignments.length) return [];
+  let assignments: ReminderAssignment[] = [];
+  let blocked: Set<string>;
+  try {
+    const [rows, blockedSet] = await Promise.all([
+      db<ReminderAssignment[]>('rpc/rpc_task_reminder_assignments', 'POST', {}),
+      blockedEmails(),
+    ]);
+    assignments = Array.isArray(rows) ? rows : [];
+    blocked = blockedSet;
+  } catch {
+    const [rows, blockedSet] = await Promise.all([
+      db<ReminderAssignment[]>('rpc/rpc_overdue_reminder_assignments', 'POST', {}),
+      blockedEmails(),
+    ]);
+    assignments = Array.isArray(rows) ? rows.map(row => ({ ...row, reminder_kind: 'overdue' })) : [];
+    blocked = blockedSet;
+  }
+  if (!assignments.length) return { overdueTopics: [] as string[], dueSoonTopics: [] as string[] };
 
   const members: Member[] = [];
   for (let offset = 0; ; offset += 200) {
@@ -360,29 +376,37 @@ async function scheduledReminderTopics() {
     members.push(...page);
     if (page.length < 200) break;
   }
+  const activeMembers = members.filter(active);
   const topicCounts = new Map<string, number>();
-  for (const member of members) {
-    const part = topicPart(member.email);
+  for (const member of activeMembers) {
+    const part = topicPart(accountEmail(member));
     if (part) topicCounts.set(part, (topicCounts.get(part) || 0) + 1);
   }
   const findMember = (key: string, field: 'ic' | 'email' | 'name') => {
     if (!key) return null;
-    const matches = members.filter(member => normalize(member[field]) === key);
+    const matches = activeMembers.filter(member => normalize(member[field]) === key);
     return matches.length === 1 ? matches[0] : null;
   };
-  const topics = new Set<string>();
+  const overdueTopics = new Set<string>();
+  const dueSoonTopics = new Set<string>();
   for (const assignment of assignments) {
     const keys = [assignment.assignee_ic, assignment.assignee_email]
       .flatMap(value => (value || '').split(',').map(normalize)).filter(Boolean);
     const matches = keys.length ? keys.map(key => findMember(key, 'ic') || findMember(key, 'email'))
       : [findMember(normalize(assignment.assignee_name), 'name')];
+    const targetSet = assignment.reminder_kind === 'due_soon' ? dueSoonTopics : overdueTopics;
     for (const member of matches) {
-      if (!member || !active(member) || blocked.has(normalize(member.email))) continue;
-      const part = topicPart(member.email);
-      if (part && topicCounts.get(part) === 1) topics.add('user_' + part);
+      if (!member || !active(member)) continue;
+      const memberIdentity = accountEmail(member);
+      if (!memberIdentity || blocked.has(memberIdentity)) continue;
+      const part = topicPart(memberIdentity);
+      if (part && topicCounts.get(part) === 1) targetSet.add('user_' + part);
     }
   }
-  return [...topics].sort();
+  return {
+    overdueTopics: [...overdueTopics].sort(),
+    dueSoonTopics: [...dueSoonTopics].sort(),
+  };
 }
 
 const nco = (member: Member) => ['lance corporal', 'corporal', 'sergeant', 'staff sergeant', 'warrant officer'].includes(normalize(member.rank));
@@ -394,7 +418,7 @@ function targetTopics(member: Member) {
     'announcements', departmentTopic(member),
     ...(nco(member) || officer(member) ? ['dept_nco'] : []),
     ...(officer(member) || normalize(member.rank) === 'staff sergeant' ? ['dept_officers'] : []),
-    ...[member.ic, member.email, member.name, member.name?.replace(/\s+/g, '')].filter(Boolean).map(id => 'user_' + topicPart(id)),
+    ...[member.ic, member.email, accountEmail(member), member.name, member.name?.replace(/\s+/g, '')].filter(Boolean).map(id => 'user_' + topicPart(id)),
   ]);
 }
 
@@ -421,16 +445,21 @@ async function recipients(topics: string[]) {
   return devices.filter(device => eligible.has(device.member_ic));
 }
 
-async function deliver(device: Device, type: string, target: string, targetId = '') {
+async function deliver(device: Device, type: string, target: string, targetId = '', meta?: PushMeta) {
   const endpoint = appleEndpoint(device.endpoint);
   if (!endpoint) return false;
-  const [title, body, tab] = MESSAGES[type];
+  const [defaultTitle, defaultBody, defaultTab] = MESSAGES[type];
+  const title = cleanPushText(meta?.title, 80) || defaultTitle;
+  const body = cleanPushText(meta?.body, 160) || defaultBody;
+  const rawTab = typeof meta?.tab === 'string' ? meta.tab.trim().toLowerCase() : '';
+  const tab = ALLOWED_TABS.has(rawTab) ? rawTab : defaultTab;
   const params = new URLSearchParams({ notif_tab: tab, notif_cat: type });
   if (targetId) params.set('notif_target', targetId);
   const url = './index.html?' + params.toString() + '#' + tab;
+  const isReminder = type === 'task_overdue' || type === 'task_due_soon';
   const details = webPush.generateRequestDetails({ endpoint, keys: { p256dh: device.p256dh, auth: device.auth_key } }, JSON.stringify({
     title, body, tab, category: type, targetId, tag: 'portal-web-' + type + '-' + target, url,
-  }), { TTL: type === 'task_overdue' ? 43_200 : 3_600, urgency: 'high', vapidDetails: { subject: SITE, publicKey: PUBLIC_KEY, privateKey: PRIVATE_KEY } });
+  }), { TTL: isReminder ? 43_200 : 3_600, urgency: 'high', vapidDetails: { subject: SITE, publicKey: PUBLIC_KEY, privateKey: PRIVATE_KEY } });
   const response = await fetch(endpoint, {
     method: 'POST', headers: details.headers as HeadersInit, body: new Uint8Array(details.body!),
     redirect: 'error', signal: AbortSignal.timeout(8000),
@@ -444,18 +473,19 @@ async function deliver(device: Device, type: string, target: string, targetId = 
   return true;
 }
 
-async function fanout(devices: Device[], type: string, target: string, targetId = '') {
+async function fanout(devices: Device[], type: string, target: string, targetId = '', meta?: PushMeta, dedupDaily = false) {
+  const ledgerPrefix = type === 'task_due_soon' ? 'web/due_soon/' : 'web/';
   let sent = 0;
   let failed = 0;
   for (let index = 0; index < devices.length; index += 10) {
     const results = await Promise.allSettled(devices.slice(index, index + 10).map(async device => {
-      if (type !== 'task_overdue') return deliver(device, type, target, targetId);
-      const key = await hash('web/' + device.endpoint);
+      if (!dedupDaily) return deliver(device, type, target, targetId, meta);
+      const key = await hash(ledgerPrefix + device.endpoint);
       const claim = await db<unknown[]>('bb_task_reminder_deliveries?on_conflict=reminder_day,recipient_key', 'POST',
         { reminder_day: target, recipient_key: key }, 'resolution=ignore-duplicates,return=representation');
       if (!claim.length) return false;
       try {
-        return await deliver(device, type, target, '');
+        return await deliver(device, type, target, '', meta);
       } catch (error) {
         // Retry explicit provider rejections on the next run. Keep the claim if the outcome is unknown.
         if (error instanceof ProviderRejected) {
@@ -560,10 +590,22 @@ Deno.serve(async request => {
       const authorized = scheduled ? await isScheduledReminderJob(request) : await isReminderSender(request);
       if (!authorized) return json({ error: 'Unauthorized' }, 401);
       if (scheduled && (!hasWebPush || !hasFcm)) return json({ error: 'Push provider configuration is incomplete' }, 503);
-      const userTopics = scheduled ? await scheduledReminderTopics() : topics.filter(topic => topic.startsWith('user_'));
+      const rawDueSoon = Array.isArray(data?.dueSoonTopics) ? data.dueSoonTopics : [];
+      const sanitizedDueSoon = Array.from(new Set<string>(rawDueSoon.slice(0, 100).filter((topic: unknown) =>
+        typeof topic === 'string' && /^user_[\w~-]{1,108}$/.test(topic))));
+      const topicBuckets = scheduled
+        ? await scheduledReminderTopics()
+        : { overdueTopics: topics.filter(topic => topic.startsWith('user_')), dueSoonTopics: sanitizedDueSoon };
+      const overdueTopics = topicBuckets.overdueTopics;
+      const dueSoonTopics = topicBuckets.dueSoonTopics;
       if (scheduled && data.dryRun === true) {
         await getFcmAccessToken(getFcmServiceAccount()!);
-        return json({ dryRun: true, recipients: userTopics.length });
+        return json({
+          dryRun: true,
+          recipients: overdueTopics.length + dueSoonTopics.length,
+          overdueRecipients: overdueTopics.length,
+          dueSoonRecipients: dueSoonTopics.length,
+        });
       }
       const day = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
       const expired = encodeURIComponent(new Date().toISOString());
@@ -572,18 +614,26 @@ Deno.serve(async request => {
         db('bb_portal_push_limits?resets_at=lt.' + expired, 'DELETE'),
         db('bb_task_reminder_deliveries?reminder_day=lt.' + new Date(Date.now() - 7 * dayMs).toISOString().slice(0, 10), 'DELETE'),
       ]);
-      const [webResult, fcmResult] = await Promise.all([
-        hasWebPush ? fanout(await recipients(userTopics), 'task_overdue', day) : Promise.resolve({ sent: 0, failed: 0 }),
-        hasFcm ? fanoutFcm(userTopics, 'task_overdue', day) : Promise.resolve({ sent: 0, failed: 0 }),
+      const [webOverdue, fcmOverdue, webDueSoon, fcmDueSoon] = await Promise.all([
+        hasWebPush && overdueTopics.length ? fanout(await recipients(overdueTopics), 'task_overdue', day, '', undefined, true) : Promise.resolve({ sent: 0, failed: 0 }),
+        hasFcm && overdueTopics.length ? fanoutFcm(overdueTopics, 'task_overdue', day, '', undefined, true) : Promise.resolve({ sent: 0, failed: 0 }),
+        hasWebPush && dueSoonTopics.length ? fanout(await recipients(dueSoonTopics), 'task_due_soon', day, '', undefined, true) : Promise.resolve({ sent: 0, failed: 0 }),
+        hasFcm && dueSoonTopics.length ? fanoutFcm(dueSoonTopics, 'task_due_soon', day, '', undefined, true) : Promise.resolve({ sent: 0, failed: 0 }),
       ]);
+      const webSent = webOverdue.sent + webDueSoon.sent;
+      const webFailed = webOverdue.failed + webDueSoon.failed;
+      const fcmSent = fcmOverdue.sent + fcmDueSoon.sent;
+      const fcmFailed = fcmOverdue.failed + fcmDueSoon.failed;
       const combined = {
-        sent: webResult.sent,
-        failed: webResult.failed,
-        fcmSent: fcmResult.sent,
-        fcmFailed: fcmResult.failed,
+        sent: webSent,
+        failed: webFailed,
+        fcmSent,
+        fcmFailed,
+        overdueSent: webOverdue.sent + fcmOverdue.sent,
+        dueSoonSent: webDueSoon.sent + fcmDueSoon.sent,
       };
-      const failed = webResult.failed || fcmResult.failed;
-      return json(combined, failed && (scheduled || !(webResult.sent || fcmResult.sent)) ? 502 : 200);
+      const failed = webFailed || fcmFailed;
+      return json(combined, failed && (scheduled || !(webSent || fcmSent)) ? 502 : 200);
     }
     if (!trustedOrigin) return json({ error: 'Invalid request origin' }, 403);
     if (action === 'session') {
@@ -684,7 +734,7 @@ Deno.serve(async request => {
       return json(result, result.sent ? 200 : 409);
     }
     if (action !== 'notify' || typeof data.category !== 'string' || !Object.hasOwn(MESSAGES, data.category)
-        || ['test', 'task_overdue'].includes(data.category)) return json({ error: 'Invalid notification' }, 400);
+        || data.category === 'test') return json({ error: 'Invalid notification' }, 400);
     if (!await budget('notify:' + await hash(session.email), 20, 60)) return json({ error: 'Too many notifications' }, 429);
     const category: string = data.category;
     const privileged = ['announcement', 'order_status', 'resource'].includes(category) || topics.some(topic => !topic.startsWith('user_'));
@@ -694,10 +744,11 @@ Deno.serve(async request => {
       staff = ['admin', 'super_admin'].includes(role?.role || '');
     }
     if (['announcement', 'order_status', 'resource'].includes(category) && !staff) return json({ error: 'Notification audience restricted' }, 403);
-    if (['task_assigned', 'task_comment', 'mention'].includes(category) && !staff && !nco(actor) && !departmentTopic(actor)) {
+    if (['task_assigned', 'task_comment', 'task_due_soon', 'task_overdue', 'mention'].includes(category) && !staff && !nco(actor) && !departmentTopic(actor)) {
       return json({ error: 'Task access required' }, 403);
     }
-    const permitted = topics.filter(topic => topic.startsWith('user_') || staff || (category !== 'forum_reply' && topic === departmentTopic(actor)));
+    const isTaskReminderCategory = category === 'task_due_soon' || category === 'task_overdue';
+    const permitted = topics.filter(topic => topic.startsWith('user_') || (!isTaskReminderCategory && (staff || (category !== 'forum_reply' && topic === departmentTopic(actor)))));
     const targetId = String(data.target || '').replace(/[^\w-]/g, '').slice(0, 80);
     const target = targetId || String(Date.now());
     const meta: PushMeta = {
@@ -706,8 +757,8 @@ Deno.serve(async request => {
       tab: typeof data.tab === 'string' ? data.tab : undefined,
     };
     const [webResult, fcmResult] = await Promise.all([
-      hasWebPush ? fanout(await recipients(permitted), category, target, targetId) : Promise.resolve({ sent: 0, failed: 0 }),
-      hasFcm ? fanoutFcm(permitted, category, target, targetId, meta) : Promise.resolve({ sent: 0, failed: 0 }),
+      hasWebPush ? fanout(await recipients(permitted), category, target, targetId, meta, false) : Promise.resolve({ sent: 0, failed: 0 }),
+      hasFcm ? fanoutFcm(permitted, category, target, targetId, meta, false) : Promise.resolve({ sent: 0, failed: 0 }),
     ]);
     const combined = {
       sent: webResult.sent,

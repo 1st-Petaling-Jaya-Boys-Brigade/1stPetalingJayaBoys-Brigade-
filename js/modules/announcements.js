@@ -817,11 +817,29 @@ function renderAnnouncements() {
 
   list.innerHTML = html;
 
+  // Clear specific announcement notification only when the user explicitly interacts with that card
+  function dismissAnnouncementNotif(annId) {
+    if (!annId) return;
+    if (typeof window !== 'undefined' && typeof window.dismissPortalNotificationsForTarget === 'function') {
+      window.dismissPortalNotificationsForTarget('home', annId, ['notif-announcement-' + annId]);
+    } else if (typeof window !== 'undefined' && typeof window.setDismissedNotifId === 'function') {
+      window.setDismissedNotifId('notif-announcement-' + annId);
+      if (typeof window.renderNotifications === 'function') window.renderNotifications();
+    }
+  }
+
+  list.querySelectorAll('[data-ann-card-id]').forEach(function(card) {
+    card.addEventListener('click', function() {
+      dismissAnnouncementNotif(card.getAttribute('data-ann-card-id'));
+    });
+  });
+
   // Click listener for full large infographic zoom lightbox
   list.querySelectorAll('[data-ann-img-idx]').forEach(function(wrap) {
     wrap.addEventListener('click', function() {
       var idx = parseInt(wrap.getAttribute('data-ann-img-idx'), 10);
       var item = announcements[idx];
+      if (item && item.id) dismissAnnouncementNotif(item.id);
       var imgEl = wrap.querySelector('.ann-infographic-img');
       var url = (item && item.image_url) || (imgEl ? imgEl.src : '');
       var title = (item && item.title) || '';
@@ -835,6 +853,8 @@ function renderAnnouncements() {
   list.querySelectorAll('[data-react]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var idx = parseInt(btn.getAttribute('data-react'), 10);
+      var item = announcements[idx];
+      if (item && item.id) dismissAnnouncementNotif(item.id);
       var emoji = btn.getAttribute('data-emoji');
       toggleReaction(idx, emoji);
     });

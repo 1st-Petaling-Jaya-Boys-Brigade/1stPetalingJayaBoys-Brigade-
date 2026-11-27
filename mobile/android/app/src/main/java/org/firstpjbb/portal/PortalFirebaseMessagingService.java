@@ -112,6 +112,10 @@ public class PortalFirebaseMessagingService extends FirebaseMessagingService {
             if (body.isEmpty()) {
                 if ("task_assigned".equals(category)) {
                     body = "You have been assigned to a new task. Tap to view requirements.";
+                } else if ("task_due_soon".equals(category) || "task_due".equals(category)) {
+                    body = "You have tasks due within 2 days. Open Projects & Tasks to review.";
+                } else if ("task_overdue".equals(category)) {
+                    body = "Open Projects & Tasks to review your overdue tasks.";
                 } else if ("mention".equals(category) || "task_comment".equals(category)) {
                     body = "You were mentioned in a task discussion. Tap to view.";
                 } else if ("resource".equals(category)) {

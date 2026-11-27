@@ -195,3 +195,90 @@ test('iPhone reminders still run when the Android secret is missing or invalid',
   await assert.rejects(reminders.runOverdueReminders({ ...shared, TASK_REMINDER_FCM_SERVICE_ACCOUNT: '{' }), /must contain JSON/);
   assert.deepEqual(iosRequests, Array.from({ length: 2 }, () => ({ action: 'remind', topics: ['user_member1_example_test'] })));
 });
+
+test('due-soon (0..2 days) and null-email (ic-as-email) assignees both receive mobile reminders', async ({ mock }) => {
+  // Malaysia time: 2026-11-27 00:00:00 MYT = 2026-11-26T16:00:00Z
+  const nowMyt = Date.parse('2026-11-26T16:00:00Z');
+  const members = [
+    { ic: 'jeshuakoh2008@gmail.com', email: null, name: 'Jeshua Koh', department: 'hq' },
+    { ic: 'archived_1793867619926_jeshuakoh2008@gmail.com', email: null, name: 'Jeshua Koh', department: 'deleted' },
+    { ic: '080116-14-0615', email: 'jeshuakoh2008@gmail.com', name: 'Jeshua Koh', department: 'archived_deleted' },
+    { ic: 'member-2', email: 'ethan@example.test', name: 'Ethan', department: 'hq' }
+  ];
+  const taskRows = [
+    { id: 'T-OVER', due_date: '2026-11-26', status: 'inprogress', assignee_ic: 'jeshuakoh2008@gmail.com', title: 'Secret Overdue' },
+    { id: 'T-TODAY', due_date: '2026-11-27', status: 'todo', assignee_ic: 'jeshuakoh2008@gmail.com', title: 'Secret Due Today' },
+    { id: 'T-2DAYS', due_date: '2026-11-29', status: 'todo', assignee_ic: 'member-2', title: 'Secret Due 2 Days' },
+    { id: 'T-3DAYS', due_date: '2026-11-30', status: 'todo', assignee_ic: 'member-2', title: 'Not Due Soon Yet' },
+    { id: 'T-DONE', due_date: '2026-11-28', status: 'completed', assignee_ic: 'member-2', title: 'Done Task' }
+  ];
+
+  assert.equal(tasks.getDueSoonTaskReminder(taskRows[0], nowMyt), null);
+  assert.equal(tasks.getDueSoonTaskReminder(taskRows[1], nowMyt), 'notif-task-due-T-TODAY-2026-11-27');
+  assert.equal(tasks.getDueSoonTaskReminder(taskRows[2], nowMyt), 'notif-task-due-T-2DAYS-2026-11-29');
+  assert.equal(tasks.getDueSoonTaskReminder(taskRows[3], nowMyt), null);
+  assert.equal(tasks.getDueSoonTaskReminder(taskRows[4], nowMyt), null);
+
+  assert.deepEqual(reminders.buildReminderTopics(taskRows, members, [], nowMyt), ['user_jeshuakoh2008_gmail_com']);
+  assert.deepEqual(reminders.buildDueSoonReminderTopics(taskRows, members, [], nowMyt), [
+    'user_ethan_example_test',
+    'user_jeshuakoh2008_gmail_com'
+  ]);
+
+  const claims = new Set();
+  const fcmPayloads = [];
+  const iosPayloads = [];
+  const { privateKey } = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' }
+  });
+  mock.method(Date, 'now', () => nowMyt);
+  mock.method(global, 'fetch', async (input, options = {}) => {
+    const url = new URL(input);
+    if (url.hostname === 'oauth2.googleapis.com') return Response.json({ access_token: 'fixture' });
+    if (url.hostname === 'fcm.googleapis.com') {
+      fcmPayloads.push(JSON.parse(options.body));
+      return Response.json({ name: 'sent' });
+    }
+    switch (url.pathname) {
+      case '/functions/v1/portal-web-push':
+        iosPayloads.push(JSON.parse(options.body));
+        return Response.json({ sent: 2 });
+      case '/rest/v1/bb_tasks':
+        return Response.json(taskRows);
+      case '/rest/v1/bb_members':
+        return Response.json(members);
+      case '/rest/v1/bb_config':
+        return Response.json([]);
+      case '/rest/v1/bb_task_reminder_deliveries': {
+        if (options.method === 'DELETE') return new Response(null, { status: 204 });
+        const claim = JSON.parse(options.body);
+        const key = claim.reminder_day + claim.recipient_key;
+        if (claims.has(key)) return Response.json([]);
+        claims.add(key);
+        return Response.json([claim]);
+      }
+      default:
+        throw new Error('Unexpected test request: ' + url.pathname);
+    }
+  });
+  await reminders.runOverdueReminders({
+    PORTAL_WEB_PUSH_REMINDERS: 'true',
+    TASK_REMINDER_SUPABASE_URL: 'https://db.example.test',
+    TASK_REMINDER_SUPABASE_SERVICE_ROLE_KEY: 'test',
+    TASK_REMINDER_FCM_SERVICE_ACCOUNT: JSON.stringify({
+      client_email: 'sender@example.test', private_key: privateKey, project_id: 'portal-test'
+    })
+  });
+  assert.equal(fcmPayloads.length, 3, 'Must send 1 overdue + 2 due-soon FCM pushes');
+  assert.ok(fcmPayloads.some(p => p.message.topic === 'user_jeshuakoh2008_gmail_com' && p.message.data.category === 'task_overdue'));
+  assert.ok(fcmPayloads.some(p => p.message.topic === 'user_jeshuakoh2008_gmail_com' && p.message.data.category === 'task_due_soon'));
+  assert.ok(fcmPayloads.some(p => p.message.topic === 'user_ethan_example_test' && p.message.data.category === 'task_due_soon'));
+  assert.doesNotMatch(JSON.stringify(fcmPayloads), /Secret Overdue|Secret Due Today|Secret Due 2 Days/);
+  assert.deepEqual(iosPayloads, [{
+    action: 'remind',
+    topics: ['user_jeshuakoh2008_gmail_com'],
+    dueSoonTopics: ['user_ethan_example_test', 'user_jeshuakoh2008_gmail_com']
+  }]);
+});

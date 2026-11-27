@@ -1,8 +1,8 @@
-name: Mobile overdue task reminders
+name: Mobile due soon and overdue task reminders
 
 on:
   schedule:
-    - cron: '5,35 0 * * *'
+    - cron: '5 0,4,8,12 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -54,6 +54,9 @@ jobs:
           });
           if (!response.ok) throw new Error('Scheduled reminders failed (HTTP ' + response.status + ').');
           const result = await response.json();
-          if (result.dryRun) console.log('Reminder configuration verified for ' + result.recipients + ' eligible recipients.');
-          else console.log('Overdue reminders sent: Android ' + result.fcmSent + ', iPhone/iPad ' + result.sent + '.');
+          if (result.dryRun) {
+            console.log('Reminder configuration verified: ' + result.recipients + ' total eligible recipients (overdue: ' + (result.overdueRecipients ?? 0) + ', due soon: ' + (result.dueSoonRecipients ?? 0) + ').');
+          } else {
+            console.log('Task reminders sent: Android ' + result.fcmSent + ', iPhone/iPad ' + result.sent + ' (overdue: ' + (result.overdueSent ?? 0) + ', due soon: ' + (result.dueSoonSent ?? 0) + ').');
+          }
           NODE

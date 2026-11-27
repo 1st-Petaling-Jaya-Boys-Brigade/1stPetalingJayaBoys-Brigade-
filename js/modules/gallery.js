@@ -1603,6 +1603,16 @@ function openStoryViewer(highlightIdx, slideIdx) {
   var hIdx = Math.max(0, Math.min(highlightIdx, activeHighlights.length - 1));
   _currentStoryHighlightIdx = hIdx;
   _currentStorySlideIdx = slideIdx || 0;
+  var openedHighlight = activeHighlights[hIdx];
+  var openedHighlightKey = openedHighlight && (openedHighlight.id || openedHighlight.title);
+  if (openedHighlightKey) {
+    if (typeof window !== 'undefined' && typeof window.dismissPortalNotificationsForTarget === 'function') {
+      window.dismissPortalNotificationsForTarget('gallery', openedHighlightKey, ['notif-highlight-' + openedHighlightKey]);
+    } else if (typeof window !== 'undefined' && typeof window.setDismissedNotifId === 'function') {
+      window.setDismissedNotifId('notif-highlight-' + openedHighlightKey);
+      if (typeof window.renderNotifications === 'function') window.renderNotifications();
+    }
+  }
   _isStoryMuted = false;
   _isStoryPaused = false;
   updateSoundIcon(false);

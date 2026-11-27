@@ -12,7 +12,7 @@ if (typeof importScripts === 'function') {
   } catch (_) {}
 }
 
-const CACHE_VERSION = '20261126h';
+const CACHE_VERSION = '20261127a';
 const STATIC_CACHE_NAME = 'bb-portal-static-' + CACHE_VERSION;
 const DATA_CACHE_NAME = 'bb-portal-data-' + CACHE_VERSION;
 

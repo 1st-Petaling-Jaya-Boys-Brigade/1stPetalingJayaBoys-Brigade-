@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261126h',
-    'sw.js CACHE_VERSION must be 20261126h'
+    '20261127a',
+    'sw.js CACHE_VERSION must be 20261127a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261126h',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261126h'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126h', 'Service Worker cache version must be 20261126h');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127a', 'Service Worker cache version must be 20261127a');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261126h and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127a and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261126h', 'sw.js CACHE_VERSION must be 20261126h');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261126h', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261126h', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127a', 'sw.js CACHE_VERSION must be 20261127a');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127a', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127a', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261126h cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127a cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261126h'), 'config.js must use v=20261126h');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261126h'), 'forum.js must use v=20261126h');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261126h'), 'variables.css must use v=20261126h');
-    assert.ok(indexRaw.includes('css/base.css?v=20261126h'), 'base.css must use v=20261126h');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261126h');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127a'), 'config.js must use v=20261127a');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127a'), 'forum.js must use v=20261127a');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127a'), 'variables.css must use v=20261127a');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127a'), 'base.css must use v=20261127a');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127a');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -18920,6 +18920,75 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss98.includes('.uniform-proof-thumb-btn') && compCss98.includes('.uniform-proof-card-btn') && compCss98.includes('.uniform-proof-pdf-frame'), 'components.css must style table thumbnail, card preview strip, and enlarged PDF viewer');
     assert.ok(compCss98.includes('.admin-orders-settings-btn') && compCss98.includes('.orders-settings-warn-badge') && compCss98.includes('.orders-sync-health-card'), 'components.css must style Settings top-right warning badge and sync health diagnostics card');
     console.log('  ✔ Uniform Orders receipt previews, readable Order IDs (BB-2026NovG53), Settings warning badge, and CORS Sheets/Drive sync verified');
+  }
+
+  // ── Suite 99: Due-Soon & Overdue Mobile Push Pipeline + Notification Inbox Persistence & Contextual Auto-Clear ──
+  {
+    console.log('\nSuite 99: Due-Soon & Overdue Mobile Push Pipeline + Notification Inbox Persistence & Contextual Auto-Clear...');
+    const migration039 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '039_task_due_and_overdue_reminders.sql'), 'utf8');
+    const edgePush99 = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'functions', 'portal-web-push', 'index.ts'), 'utf8');
+    const workflow99 = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'task-overdue-reminders.yml'), 'utf8');
+    const indexHtml99 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const tasksSrc99 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'tasks.js'), 'utf8');
+    const forumSrc99 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'forum.js'), 'utf8');
+    const resSrc99 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'resources.js'), 'utf8');
+    const formsSrc99 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'forms.js'), 'utf8');
+    const gallerySrc99 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'gallery.js'), 'utf8');
+    const annSrc99 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'announcements.js'), 'utf8');
+    const memberSrc99 = fs.readFileSync(path.join(__dirname, '..', 'js', 'modules', 'member.js'), 'utf8');
+    const tasksMod99 = require('../js/modules/tasks.js');
+
+    // 1. Server SQL migration, Edge Function, and GitHub Actions schedule
+    assert.ok(migration039.includes('CREATE OR REPLACE FUNCTION public.rpc_task_reminder_assignments()'), 'Migration 039 must define rpc_task_reminder_assignments()');
+    assert.ok(migration039.includes('(config.today_date + 2)') && migration039.includes("'due_soon'") && migration039.includes("'overdue'"), 'Migration 039 must cover both overdue and due_soon (0..2 days)');
+    assert.ok(edgePush99.includes('task_due_soon:'), 'portal-web-push must define task_due_soon message payload');
+    assert.ok(edgePush99.includes('topicPart(accountEmail(member))'), 'scheduledReminderTopics must resolve members with null email via accountEmail(member)');
+    assert.ok(edgePush99.includes('rpc/rpc_task_reminder_assignments') && edgePush99.includes('fcm/due_soon/') && edgePush99.includes('web/due_soon/'), 'portal-web-push must deliver and deduplicate both due_soon and overdue reminders');
+    assert.ok(workflow99.includes("cron: '5 0,4,8,12 * * *'"), 'Scheduled reminders workflow must run 4x daily for reliable due-soon & overdue delivery');
+
+    // 2. Immediate task due-date urgency push helper + deduplication
+    assert.strictEqual(typeof tasksMod99.getDueSoonTaskReminder, 'function', 'tasks.js must export getDueSoonTaskReminder');
+    assert.strictEqual(typeof tasksMod99.notifyTaskDueUrgency, 'function', 'tasks.js must export notifyTaskDueUrgency');
+    const origPush99 = global.sendPortalPushNotification;
+    const pushedAlerts99 = [];
+    try {
+      global.localStorage.removeItem('bb_pushed_task_due_alerts');
+      global.sendPortalPushNotification = async p => { pushedAlerts99.push(p); return true; };
+      const todayIso99 = tasksMod99.getTaskMalaysiaDay(Date.now());
+      const dueSoonTask99 = { id: 'T-DUE-99', title: 'Prep Parade', due_date: todayIso99, status: 'todo', assignee_ic: 'jeshuakoh2008@gmail.com' };
+      assert.strictEqual(tasksMod99.notifyTaskDueUrgency(dueSoonTask99), true, 'notifyTaskDueUrgency must dispatch mobile push for task due today');
+      assert.strictEqual(tasksMod99.notifyTaskDueUrgency(dueSoonTask99), false, 'notifyTaskDueUrgency must deduplicate repeat pushes on the same day');
+      assert.strictEqual(pushedAlerts99.length, 1);
+      assert.strictEqual(pushedAlerts99[0].type, 'task_due_soon');
+      assert.deepStrictEqual(pushedAlerts99[0].targetUsers, ['jeshuakoh2008@gmail.com']);
+
+      const pastIso99 = tasksMod99.getTaskMalaysiaDay(Date.now() - 86400000);
+      const overdueTask99 = { id: 'T-OVR-99', title: 'Past Due Task', due_date: pastIso99, status: 'inprogress', assignee_ic: 'jeshuakoh2008@gmail.com' };
+      assert.strictEqual(tasksMod99.notifyTaskDueUrgency(overdueTask99), true, 'notifyTaskDueUrgency must dispatch mobile push for overdue task');
+      assert.strictEqual(pushedAlerts99[1].type, 'task_overdue');
+    } finally {
+      global.sendPortalPushNotification = origPush99;
+      global.localStorage.removeItem('bb_pushed_task_due_alerts');
+    }
+
+    // 3. Notification Inbox persistence (no auto-expiration, per-user isolation) & contextual auto-clear hooks
+    assert.ok(indexHtml99.includes('function persistPortalInboxNotifications()') && indexHtml99.includes('function hydratePersistedInboxNotifications()'), 'index.html must persist and hydrate unread inbox notifications');
+    assert.ok(indexHtml99.includes('function dismissPortalNotificationsForTarget('), 'index.html must define unified dismissPortalNotificationsForTarget helper');
+    assert.ok(!indexHtml99.includes('if (date.isStale) return;') && !indexHtml99.includes('if (dMeta.isStale) return;') && !indexHtml99.includes('if (cMeta.isStale) return;'), 'Unread task notifications must never auto-expire after 14 days');
+    assert.ok(!indexHtml99.includes('return !notif.dailyOverdue || dailyIds.has(notif.id);'), 'syncTaskNotifications must not silently strip unread overdue notifications');
+    assert.ok(indexHtml99.includes('dailyDueSoon: true'), 'Due-soon task notifications must trigger non-silent popups once per due date');
+    assert.ok(tasksSrc99.includes("dismissPortalNotificationsForTarget('tasks'"), 'Opening a task brief must clear that specific task notifications (including due-soon & overdue)');
+    assert.ok(forumSrc99.includes("dismissPortalNotificationsForTarget('forum'"), 'Opening a support forum thread must clear that specific thread notifications');
+    assert.ok(resSrc99.includes("dismissPortalNotificationsForTarget('resources'"), 'Opening a resource document must clear that specific resource notification');
+    assert.ok(formsSrc99.includes("dismissPortalNotificationsForTarget('order'"), 'Opening a form must clear that specific form notification');
+    assert.ok(gallerySrc99.includes("dismissPortalNotificationsForTarget('gallery'"), 'Opening a story highlight must clear that specific highlight notification');
+    assert.ok(annSrc99.includes("dismissPortalNotificationsForTarget('home'"), 'Interacting with an announcement card must clear that specific announcement notification');
+    assert.ok(memberSrc99.includes("dismissPortalNotificationsForTarget('member'"), 'Viewing member uniform orders must clear order-status notifications');
+
+    // 4. Strict 385 unique DOM IDs invariant preserved in index.html
+    const ids99 = (indexHtml99.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids99).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Due-soon & overdue mobile push pipeline, inbox persistence, contextual auto-clear, and 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

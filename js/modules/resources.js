@@ -412,6 +412,13 @@ async function openResourceDocument(resourceId) {
     return;
   }
 
+  if (typeof window !== 'undefined' && typeof window.dismissPortalNotificationsForTarget === 'function') {
+    window.dismissPortalNotificationsForTarget('resources', resourceId, ['notif-resource-' + resourceId]);
+  } else if (typeof window !== 'undefined' && typeof window.setDismissedNotifId === 'function') {
+    window.setDismissedNotifId('notif-resource-' + resourceId);
+    if (typeof window.renderNotifications === 'function') window.renderNotifications();
+  }
+
   var storage = getResourceStorageObject(url);
   if (!storage) {
     window.open(url.href, '_blank', 'noopener,noreferrer');

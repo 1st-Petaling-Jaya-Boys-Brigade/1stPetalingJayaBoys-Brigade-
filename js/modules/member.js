@@ -5084,6 +5084,17 @@ async function loadMemberOrders(statusUpdate) {
         return order.order_number === statusUpdate.order_number && order.status === statusUpdate.status;
       });
       if (updated) window.notifyPortalOrderStatus?.(updated, statusUpdate.updated_at, SL[updated.status]);
+    } else if (typeof document !== 'undefined') {
+      var memberPage = document.getElementById('page-member');
+      if (memberPage && memberPage.classList && memberPage.classList.contains('active') && uniformOrders.length) {
+        uniformOrders.forEach(function(o) {
+          if (!o || !o.order_number) return;
+          var oNotifId = 'notif-order-status-' + o.order_number + '-' + (o.status || 'pending');
+          if (typeof window !== 'undefined' && typeof window.dismissPortalNotificationsForTarget === 'function') {
+            window.dismissPortalNotificationsForTarget('member', o.order_number, [oNotifId]);
+          }
+        });
+      }
     }
 
     // 1. Render Uniform Orders

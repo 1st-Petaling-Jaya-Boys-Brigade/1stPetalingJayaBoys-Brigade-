@@ -298,6 +298,10 @@
     if (!cleanBody) {
       if (category === 'task_assigned') {
         cleanBody = 'You have been assigned to a new task. Tap to view requirements.';
+      } else if (category === 'task_due_soon' || category === 'task_due') {
+        cleanBody = 'You have tasks due within 2 days. Open Projects & Tasks to review.';
+      } else if (category === 'task_overdue') {
+        cleanBody = 'Open Projects & Tasks to review your overdue tasks.';
       } else if (category === 'mention' || category === 'task_comment') {
         cleanBody = 'You were mentioned in a task discussion. Tap to view.';
       } else if (category === 'resource') {
