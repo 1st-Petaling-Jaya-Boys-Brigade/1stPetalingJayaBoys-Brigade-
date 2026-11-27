@@ -4647,8 +4647,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127f',
-    'sw.js CACHE_VERSION must be 20261127f'
+    '20261127g',
+    'sw.js CACHE_VERSION must be 20261127g'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4676,7 +4676,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127f',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127g',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -7607,7 +7607,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127f'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127g'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9094,12 +9094,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127f', 'Service Worker cache version must be 20261127f');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127g', 'Service Worker cache version must be 20261127g');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127f and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261127g and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10395,25 +10395,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127f', 'sw.js CACHE_VERSION must be 20261127f');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127f', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127f', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261127g', 'sw.js CACHE_VERSION must be 20261127g');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127g', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127g', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127f cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261127g cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127f'), 'config.js must use v=20261127f');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127f'), 'forum.js must use v=20261127f');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127f'), 'variables.css must use v=20261127f');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127f'), 'base.css must use v=20261127f');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127f');
+    assert.ok(indexRaw.includes('js/config.js?v=20261127g'), 'config.js must use v=20261127g');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127g'), 'forum.js must use v=20261127g');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261127g'), 'variables.css must use v=20261127g');
+    assert.ok(indexRaw.includes('css/base.css?v=20261127g'), 'base.css must use v=20261127g');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127g');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -19087,11 +19087,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
 
     // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
-    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127f';"), 'sw.js must bump CACHE_VERSION to 20261127f');
-    assert.ok(indexHtml102.includes('css/base.css?v=20261127f') && indexHtml102.includes('css/components.css?v=20261127f'), 'index.html must reference cache-busted 20261127f CSS assets');
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127g';"), 'sw.js must bump CACHE_VERSION to 20261127g');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261127g') && indexHtml102.includes('css/components.css?v=20261127g'), 'index.html must reference cache-busted 20261127g CSS assets');
     const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127f, and 385 DOM IDs verified');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127g, and 385 DOM IDs verified');
   }
 
   // --- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---
@@ -19164,6 +19164,23 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const ids103 = (indexHtml103.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids103).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
     console.log('  ✔ Mobile 2-column uniform grid, native <dialog> product detail flow, custom text validation, and 385 DOM IDs verified');
+  }
+
+  // --- Suite 104: Mobile Opaque Top Header Bar ---
+  console.log('\n--- Suite 104: Mobile Opaque Top Header Bar ---');
+  {
+    const navCss104 = fs.readFileSync(path.join(__dirname, '..', 'css', 'nav.css'), 'utf8').replace(/\r\n/g, '\n');
+    const swSrc104 = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+    const indexHtml104 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+    const mobileHeaderBlock104 = navCss104.slice(navCss104.indexOf('@media (max-width: 1023px)'));
+    assert.ok(mobileHeaderBlock104.includes('background: var(--bg-card) !important;'), 'Mobile .nav header must use solid opaque var(--bg-card) background');
+    assert.ok(mobileHeaderBlock104.includes('backdrop-filter: none !important;'), 'Mobile .nav header must disable translucent backdrop-filter');
+    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127g';"), 'sw.js must bump CACHE_VERSION to 20261127g');
+    assert.ok(indexHtml104.includes('css/nav.css?v=20261127g'), 'index.html must reference cache-busted 20261127g nav.css');
+    const ids104 = (indexHtml104.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids104).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127g, and 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');
