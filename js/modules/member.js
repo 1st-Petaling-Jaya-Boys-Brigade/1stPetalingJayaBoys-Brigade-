@@ -1963,6 +1963,10 @@ async function loginMember() {
 
 // ── Login with Google (Server-Verified OAuth / OIDC + Family Account Picker) ──
 
+var PORTAL_GOOGLE_OAUTH_REDIRECT_URI = 'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/';
+var PORTAL_NATIVE_AUTH_SCHEME = 'firstpjbb://auth/google';
+var PORTAL_ANDROID_PACKAGE = 'org.firstpjbb.portal';
+
 function getGoogleAuthEndpoint() {
   var base = (typeof window !== 'undefined' && window.SUPA_URL)
     || (typeof SUPA_URL !== 'undefined' ? SUPA_URL : '')
@@ -1971,16 +1975,53 @@ function getGoogleAuthEndpoint() {
   return base ? (String(base).replace(/\/$/, '') + '/functions/v1/portal-google-auth') : '';
 }
 
+function isNativeCapacitorApp() {
+  if (typeof window === 'undefined') return false;
+  if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
+    return true;
+  }
+  if (window.PortalAuth || window.AndroidFCM) {
+    return true;
+  }
+  return false;
+}
+
 function isIOSStandalonePwa() {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-  if (window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) {
-    return false;
-  }
+  if (isNativeCapacitorApp()) return false;
   var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (!isIOS) return false;
   return navigator.standalone === true ||
     Boolean(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+
+function shouldUseMobileGoogleRedirect() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  if (isNativeCapacitorApp()) return false;
+  if (isIOSStandalonePwa()) return true;
+  var ua = navigator.userAgent || '';
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return true;
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+  return false;
+}
+
+function getGoogleOidcRedirectUri(forNativeApp) {
+  if (forNativeApp) {
+    return PORTAL_GOOGLE_OAUTH_REDIRECT_URI;
+  }
+  if (typeof window === 'undefined' || !window.location || !window.location.origin) {
+    return PORTAL_GOOGLE_OAUTH_REDIRECT_URI;
+  }
+  var origin = String(window.location.origin);
+  var pathname = String(window.location.pathname || '/');
+  // Installed PWAs launch at .../index.html; strip trailing index.html to match the registered redirect URI
+  pathname = pathname.replace(/\/index\.html$/i, '/');
+  if (pathname === '/1stPetalingJayaBoys-Brigade-') {
+    pathname = '/1stPetalingJayaBoys-Brigade-/';
+  }
+  return origin + pathname;
 }
 
 function generateCryptoRandomHex(byteLength) {
@@ -2094,15 +2135,18 @@ function loadGoogleIdentityScript() {
   return _googleGsiScriptPromise;
 }
 
-function startGoogleOidcRedirect(clientId, rememberMe) {
+function startGoogleOidcRedirect(clientId, rememberMe, options) {
   if (typeof window === 'undefined' || !window.location) return false;
-  var state = generateCryptoRandomHex(16);
+  var opts = (options && typeof options === 'object') ? options : {};
+  var forNativeApp = Boolean(opts.forNativeApp);
+  var state = (forNativeApp ? 'app_' : '') + generateCryptoRandomHex(16);
   var nonce = generateCryptoRandomHex(16);
-  var redirectUri = window.location.origin + window.location.pathname;
+  var redirectUri = getGoogleOidcRedirectUri(forNativeApp);
   var pendingRecord = JSON.stringify({
     state: state,
     nonce: nonce,
     remember: rememberMe !== false,
+    nativeApp: forNativeApp,
     createdAt: Date.now()
   });
 
@@ -2119,8 +2163,141 @@ function startGoogleOidcRedirect(clientId, rememberMe) {
     prompt: 'select_account'
   });
 
-  window.location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + params.toString());
+  var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  if (forNativeApp) {
+    if (window.PortalAuth && typeof window.PortalAuth.openExternalAuthUrl === 'function') {
+      var launched = window.PortalAuth.openExternalAuthUrl(authUrl);
+      if (launched) return { ok: true, launchedExternal: true, authUrl: authUrl };
+    }
+    if (typeof window.open === 'function') {
+      window.open(authUrl, '_blank', 'noopener');
+      return { ok: true, launchedExternal: true, authUrl: authUrl };
+    }
+    return false;
+  }
+
+  window.location.assign(authUrl);
   return true;
+}
+
+function buildNativeGoogleAuthHandoffUrls(hashString) {
+  var cleanHash = String(hashString || '').replace(/^#/, '').trim();
+  if (!cleanHash || cleanHash.length > 16384) return null;
+  var params = new URLSearchParams(cleanHash);
+  var returnedState = params.get('state') || '';
+  if (returnedState.indexOf('app_') !== 0) return null;
+  if (!params.get('id_token') && !params.get('error')) return null;
+
+  var deepLinkUrl = PORTAL_NATIVE_AUTH_SCHEME + '#' + cleanHash;
+  var intentUrl = 'intent://auth/google#Intent;scheme=firstpjbb;package=' +
+    PORTAL_ANDROID_PACKAGE + ';S.auth_hash=' + encodeURIComponent(cleanHash) + ';end';
+  return { deepLinkUrl: deepLinkUrl, intentUrl: intentUrl, cleanHash: cleanHash };
+}
+
+function closeGoogleAppHandoffModal() {
+  if (typeof document === 'undefined') return;
+  var dlg = document.querySelector('dialog.google-app-handoff-dialog');
+  if (dlg && dlg.open && typeof dlg.close === 'function') {
+    dlg.close('dismiss');
+  }
+}
+
+function handoffGoogleAuthToNativeApp(hashString, options) {
+  var urls = buildNativeGoogleAuthHandoffUrls(hashString);
+  if (!urls) return { ok: false, code: 'INVALID_HANDOFF' };
+  var opts = (options && typeof options === 'object') ? options : {};
+
+  if (typeof document !== 'undefined') {
+    var dlg = document.querySelector('dialog.google-app-handoff-dialog');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.className = 'google-not-found-dialog google-app-handoff-dialog';
+      dlg.setAttribute('closedby', 'any');
+      dlg.setAttribute('aria-labelledby', 'google-app-handoff-title');
+
+      var card = document.createElement('div');
+      card.className = 'google-not-found-card';
+
+      var brand = document.createElement('div');
+      brand.className = 'google-not-found-brand';
+      brand.setAttribute('aria-hidden', 'true');
+      var wordmark = document.createElement('span');
+      wordmark.className = 'google-not-found-wordmark';
+      var letters = [
+        ['G', '#4285F4'], ['o', '#EA4335'], ['o', '#FBBC05'],
+        ['g', '#4285F4'], ['l', '#34A853'], ['e', '#EA4335']
+      ];
+      letters.forEach(function(pair) {
+        var sp = document.createElement('span');
+        sp.style.color = pair[1];
+        sp.textContent = pair[0];
+        wordmark.appendChild(sp);
+      });
+      brand.appendChild(wordmark);
+
+      var heading = document.createElement('h1');
+      heading.id = 'google-app-handoff-title';
+      heading.className = 'google-not-found-title';
+      heading.textContent = 'Returning to 1st PJ BB App';
+
+      var sub = document.createElement('p');
+      sub.className = 'google-not-found-hint';
+      sub.textContent = 'Google sign-in verified. Tap below if the 1st PJ Boys\' Brigade app does not reopen automatically.';
+
+      var actions = document.createElement('div');
+      actions.className = 'google-not-found-actions';
+
+      var cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'google-not-found-back-btn';
+      cancelBtn.setAttribute('data-google-handoff-cancel', '');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', function() {
+        if (typeof dlg.close === 'function') dlg.close('cancel');
+      });
+
+      var openLink = document.createElement('a');
+      openLink.className = 'google-not-found-retry-btn google-app-handoff-link';
+      openLink.setAttribute('data-google-handoff-open', '');
+      openLink.textContent = 'Open 1st PJ BB App';
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(openLink);
+      card.appendChild(brand);
+      card.appendChild(heading);
+      card.appendChild(sub);
+      card.appendChild(actions);
+      dlg.appendChild(card);
+
+      if (typeof HTMLDialogElement !== 'undefined' && !('closedBy' in HTMLDialogElement.prototype)) {
+        dlg.addEventListener('click', function(ev) {
+          if (ev.target !== dlg) return;
+          var r = dlg.getBoundingClientRect();
+          var inside = r.top <= ev.clientY && ev.clientY <= r.top + r.height &&
+            r.left <= ev.clientX && ev.clientX <= r.left + r.width;
+          if (!inside && dlg.open && typeof dlg.close === 'function') dlg.close('backdrop');
+        });
+      }
+
+      document.body.appendChild(dlg);
+    }
+
+    var linkEl = dlg.querySelector('[data-google-handoff-open]');
+    if (linkEl) {
+      linkEl.setAttribute('href', urls.intentUrl);
+    }
+    if (dlg.open && typeof dlg.close === 'function') dlg.close();
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+    else dlg.setAttribute('open', '');
+  }
+
+  if (!opts.skipAutoNavigate && typeof window !== 'undefined' && window.location && typeof window.location.assign === 'function') {
+    try {
+      window.location.assign(urls.deepLinkUrl);
+    } catch (_) {}
+  }
+
+  return { ok: true, handedOffToApp: true, deepLinkUrl: urls.deepLinkUrl, intentUrl: urls.intentUrl };
 }
 
 function readPendingGoogleOidcState() {
@@ -2372,13 +2549,20 @@ async function handleGoogleAuthResult(result, rememberMe, options) {
   return { ok: true, multiAccount: false, account: accounts[0] };
 }
 
-async function handleGoogleOidcCallback(hashString) {
+async function handleGoogleOidcCallback(hashString, options) {
   var cleanHash = String(hashString || '').replace(/^#/, '');
   if (!cleanHash) return null;
   var params = new URLSearchParams(cleanHash);
   var returnedState = params.get('state') || '';
   var idToken = params.get('id_token') || '';
   var oauthError = params.get('error') || '';
+
+  // If this OAuth callback originated from the native Android app (state starts with "app_")
+  // and landed in the mobile browser on GitHub Pages, hand it back to the installed app.
+  if (returnedState.indexOf('app_') === 0 && !isNativeCapacitorApp()) {
+    return handoffGoogleAuthToNativeApp(cleanHash, options);
+  }
+
   var pending = readPendingGoogleOidcState();
 
   if (!pending || !returnedState || pending.state !== returnedState) {
@@ -2406,13 +2590,17 @@ async function handleGoogleOidcCallback(hashString) {
       nonce: pending.nonce,
       remember: pending.remember !== false
     });
-    return await handleGoogleAuthResult(result, pending.remember !== false);
+    return await handleGoogleAuthResult(result, pending.remember !== false, options);
   } finally {
     _isGoogleLoggingIn = false;
     if (typeof setButtonLoading === 'function' && googleBtn) {
       setButtonLoading(googleBtn, false);
     }
   }
+}
+
+async function handleNativeGoogleAuthCallback(hashString, options) {
+  return handleGoogleOidcCallback(hashString, options);
 }
 
 async function loginWithGoogle(options) {
@@ -2444,15 +2632,24 @@ async function loginWithGoogle(options) {
       return { ok: false, code: 'GOOGLE_NOT_CONFIGURED' };
     }
 
-    var isNativeCapacitor = Boolean(
-      typeof window !== 'undefined' &&
-      window.Capacitor &&
-      typeof window.Capacitor.isNativePlatform === 'function' &&
-      window.Capacitor.isNativePlatform()
-    );
+    var isNativeCapacitor = isNativeCapacitorApp();
 
-    if (isIOSStandalonePwa() || opts.useRedirect === true) {
-      startGoogleOidcRedirect(config.clientId, rememberMe);
+    // Native Capacitor APK runs on https://localhost, which cannot use Google JS popup origin checks.
+    // Launch Google OIDC in the system browser using the registered production redirect URI and hand back via deep link.
+    if (isNativeCapacitor) {
+      var nativeLaunch = startGoogleOidcRedirect(config.clientId, rememberMe, { forNativeApp: true });
+      releaseLock();
+      if (nativeLaunch) {
+        return { ok: true, redirecting: true, nativeApp: true };
+      }
+      if (typeof showToast === 'function') {
+        showToast('Google Sign-In could not open your browser. Please sign in with your email and password.', 'warning', 5500);
+      }
+      return { ok: false, code: 'NATIVE_LAUNCH_FAILED' };
+    }
+
+    if (shouldUseMobileGoogleRedirect() || opts.useRedirect === true) {
+      startGoogleOidcRedirect(config.clientId, rememberMe, { forNativeApp: false });
       return { ok: true, redirecting: true };
     }
 
@@ -8053,6 +8250,14 @@ if (typeof window !== 'undefined') {
   window.registerMember               = registerMember;
   window.loginMember                  = loginMember;
   window.loginWithGoogle              = loginWithGoogle;
+  window.isNativeCapacitorApp         = isNativeCapacitorApp;
+  window.shouldUseMobileGoogleRedirect = shouldUseMobileGoogleRedirect;
+  window.getGoogleOidcRedirectUri     = getGoogleOidcRedirectUri;
+  window.startGoogleOidcRedirect      = startGoogleOidcRedirect;
+  window.buildNativeGoogleAuthHandoffUrls = buildNativeGoogleAuthHandoffUrls;
+  window.handoffGoogleAuthToNativeApp = handoffGoogleAuthToNativeApp;
+  window.closeGoogleAppHandoffModal   = closeGoogleAppHandoffModal;
+  window.handleNativeGoogleAuthCallback = handleNativeGoogleAuthCallback;
   window.getGoogleAuthConfig          = getGoogleAuthConfig;
   window.verifyGoogleLoginToken       = verifyGoogleLoginToken;
   window.handleGoogleAuthResult       = handleGoogleAuthResult;
@@ -8204,6 +8409,14 @@ if (typeof module !== 'undefined' && module.exports) {
     registerMember,
     loginMember,
     loginWithGoogle,
+    isNativeCapacitorApp,
+    shouldUseMobileGoogleRedirect,
+    getGoogleOidcRedirectUri,
+    startGoogleOidcRedirect,
+    buildNativeGoogleAuthHandoffUrls,
+    handoffGoogleAuthToNativeApp,
+    closeGoogleAppHandoffModal,
+    handleNativeGoogleAuthCallback,
     getGoogleAuthConfig,
     verifyGoogleLoginToken,
     handleGoogleAuthResult,
