@@ -4611,8 +4611,8 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   );
   assert.strictEqual(
     swMod.CACHE_VERSION,
-    '20261127l',
-    'sw.js CACHE_VERSION must be 20261127l'
+    '20261128a',
+    'sw.js CACHE_VERSION must be 20261128a'
   );
 
   // 4g. Network-First navigation caching for HTML document app shell (fixes stale reload issue)
@@ -4640,7 +4640,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
   // 4i. Explicit browser reload requests (request.cache === 'reload' / 'no-cache') fetch fresh from network
   const reloadScriptReq = {
     method: 'GET',
-    url: 'https://localhost:3000/js/modules/arcade.js?v=20261127l',
+    url: 'https://localhost:3000/js/modules/arcade.js?v=20261128a',
     cache: 'reload'
   };
   let reloadFetchCalled = false;
@@ -6038,7 +6038,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(indexHtml.includes("form-action 'self'"), "CSP contains form-action 'self'");
 
     // Anti-clickjacking & Referrer headers
-    assert.ok(indexHtml.includes('meta name="referrer" content="no-referrer"'), 'index.html contains Referrer-Policy no-referrer meta tag');
+    assert.ok(indexHtml.includes('meta name="referrer" content="strict-origin-when-cross-origin"'), 'index.html contains Referrer-Policy strict-origin-when-cross-origin meta tag (required for Google Identity Services)');
     assert.ok(indexHtml.includes('http-equiv="X-Content-Type-Options" content="nosniff"'), 'index.html contains X-Content-Type-Options nosniff meta tag');
     assert.ok(indexHtml.includes('http-equiv="X-Frame-Options" content="DENY"'), 'index.html contains X-Frame-Options DENY meta tag');
     assert.ok(indexHtml.includes('window.top !== window.self'), 'index.html contains inline frame-busting anti-clickjacking guard');
@@ -6053,7 +6053,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const headersContent = fs.readFileSync('_headers', 'utf8');
     assert.ok(headersContent.includes("frame-ancestors 'none'"), "_headers contains frame-ancestors 'none'");
     assert.ok(headersContent.includes('X-Frame-Options: DENY'), '_headers contains X-Frame-Options: DENY');
-    assert.ok(headersContent.includes('Referrer-Policy: no-referrer'), '_headers contains Referrer-Policy: no-referrer');
+    assert.ok(headersContent.includes('Referrer-Policy: strict-origin-when-cross-origin'), '_headers contains Referrer-Policy: strict-origin-when-cross-origin');
 
     assert.ok(fs.existsSync('vercel.json'), 'vercel.json configuration file exists');
     const vercelConfig = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
@@ -6061,10 +6061,10 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const rootHeaders = vercelConfig.headers[0].headers;
     const hasCsp = rootHeaders.some(h => h.key === 'Content-Security-Policy' && h.value.includes("frame-ancestors 'none'"));
     const hasXfo = rootHeaders.some(h => h.key === 'X-Frame-Options' && h.value === 'DENY');
-    const hasRef = rootHeaders.some(h => h.key === 'Referrer-Policy' && h.value === 'no-referrer');
+    const hasRef = rootHeaders.some(h => h.key === 'Referrer-Policy' && h.value === 'strict-origin-when-cross-origin');
     assert.ok(hasCsp, "vercel.json enforces CSP with frame-ancestors 'none'");
     assert.ok(hasXfo, 'vercel.json enforces X-Frame-Options: DENY');
-    assert.ok(hasRef, 'vercel.json enforces Referrer-Policy: no-referrer');
+    assert.ok(hasRef, 'vercel.json enforces Referrer-Policy: strict-origin-when-cross-origin');
 
     const devServerContent = fs.readFileSync('scripts/dev-server.js', 'utf8');
     assert.ok(devServerContent.includes("frame-ancestors 'none'"), "scripts/dev-server.js serves frame-ancestors 'none'");
@@ -7571,7 +7571,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 6. index.html Navigation & Exact 385 Unique DOM IDs Invariant
     assert.ok(idxHtml.includes('data-nav="forum"'), 'index.html must include sidebar navigation button for Support Forum');
-    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261127l'), 'index.html must load forum.js with cache bust version');
+    assert.ok(idxHtml.includes('js/modules/forum.js?v=20261128a'), 'index.html must load forum.js with cache bust version');
 
     const idMatches = idxHtml.match(/\bid=["']([^"']+)["']/g) || [];
     const extractedIds = idMatches.map(m => m.replace(/^id=["']/, '').slice(0, -1));
@@ -9058,12 +9058,12 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
 
     // 3. Service Worker Precaching of Sound Asset
     const swMod = require('../sw.js');
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127l', 'Service Worker cache version must be 20261127l');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261128a', 'Service Worker cache version must be 20261128a');
     assert.ok(
       swMod.PRECACHE_ASSETS.some(a => a.includes('Notification%20Sound_PopSound')),
       'PRECACHE_ASSETS in sw.js must precache notification sound effect'
     );
-    console.log('  ✔ Service Worker cache version 20261127l and sound effect precaching verified');
+    console.log('  ✔ Service Worker cache version 20261128a and sound effect precaching verified');
 
     // 4. Strict 385 Unique DOM IDs Invariant
     const idxHtmlCheck = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
@@ -10359,25 +10359,25 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     console.log('  ✔ clearPortalCache purges CacheStorage, cleans local state, and reports status');
 
     // 2. Service Worker Cache Version & Precache Alignment
-    assert.strictEqual(swMod.CACHE_VERSION, '20261127l', 'sw.js CACHE_VERSION must be 20261127l');
-    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261127l', 'Static cache name must match version');
-    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261127l', 'Data cache name must match version');
+    assert.strictEqual(swMod.CACHE_VERSION, '20261128a', 'sw.js CACHE_VERSION must be 20261128a');
+    assert.strictEqual(swMod.STATIC_CACHE_NAME, 'bb-portal-static-20261128a', 'Static cache name must match version');
+    assert.strictEqual(swMod.DATA_CACHE_NAME, 'bb-portal-data-20261128a', 'Data cache name must match version');
 
     const swRaw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
     assert.ok(swRaw.includes("addEventListener('message'"), 'sw.js must implement message event listener');
     assert.ok(swRaw.includes('CLEAR_CACHES'), 'sw.js message listener must handle CLEAR_CACHES');
     assert.ok(swRaw.includes('SKIP_WAITING'), 'sw.js message listener must handle SKIP_WAITING');
-    console.log('  ✔ Service Worker 20261127l cache version and postMessage CLEAR_CACHES support verified');
+    console.log('  ✔ Service Worker 20261128a cache version and postMessage CLEAR_CACHES support verified');
 
     // 3. index.html Cache Query Strings Uniformity
     const indexRaw = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     assert.ok(!indexRaw.includes('v=20261106a'), 'index.html must not contain obsolete v=20261106a parameters');
     assert.ok(!indexRaw.includes('v=20261106b'), 'index.html must not contain obsolete v=20261106b parameters');
-    assert.ok(indexRaw.includes('js/config.js?v=20261127l'), 'config.js must use v=20261127l');
-    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261127l'), 'forum.js must use v=20261127l');
-    assert.ok(indexRaw.includes('css/variables.css?v=20261127l'), 'variables.css must use v=20261127l');
-    assert.ok(indexRaw.includes('css/base.css?v=20261127l'), 'base.css must use v=20261127l');
-    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261127l');
+    assert.ok(indexRaw.includes('js/config.js?v=20261128a'), 'config.js must use v=20261128a');
+    assert.ok(indexRaw.includes('js/modules/forum.js?v=20261128a'), 'forum.js must use v=20261128a');
+    assert.ok(indexRaw.includes('css/variables.css?v=20261128a'), 'variables.css must use v=20261128a');
+    assert.ok(indexRaw.includes('css/base.css?v=20261128a'), 'base.css must use v=20261128a');
+    console.log('  ✔ index.html scripts and stylesheets strictly synchronized to ?v=20261128a');
   }
 
   // ── 44. Arcade Multi-Device Sync, Default Light Mode, Mobile Mentions & Bug Forum Screenshots ──
@@ -19051,11 +19051,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss102.includes('#page-parade.page,\n  #page-parade.page.active {\n    padding-top: 12px !important;'), 'Calendar tab must align top padding (12px) with all other mobile tabs');
 
     // 3. Cache version bumped consistently and strict 385 DOM IDs preserved
-    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
-    assert.ok(indexHtml102.includes('css/base.css?v=20261127l') && indexHtml102.includes('css/components.css?v=20261127l'), 'index.html must reference cache-busted 20261127l CSS assets');
+    assert.ok(swSrc102.includes("const CACHE_VERSION = '20261128a';"), 'sw.js must bump CACHE_VERSION to 20261128a');
+    assert.ok(indexHtml102.includes('css/base.css?v=20261128a') && indexHtml102.includes('css/components.css?v=20261128a'), 'index.html must reference cache-busted 20261128a CSS assets');
     const ids102 = (indexHtml102.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids102).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261127l, and 385 DOM IDs verified');
+    console.log('  ✔ Unified mobile tab fitting rules across all portal tabs, cache version 20261128a, and 385 DOM IDs verified');
   }
 
   // --- Suite 103: Mobile Uniform Store 2-Column Grid & Full Product Detail Dialog ---
@@ -19140,11 +19140,11 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     const mobileHeaderBlock104 = navCss104.slice(navCss104.indexOf('@media (max-width: 1023px)'));
     assert.ok(mobileHeaderBlock104.includes('background: var(--bg-card) !important;'), 'Mobile .nav header must use solid opaque var(--bg-card) background');
     assert.ok(mobileHeaderBlock104.includes('backdrop-filter: none !important;'), 'Mobile .nav header must disable translucent backdrop-filter');
-    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
-    assert.ok(indexHtml104.includes('css/nav.css?v=20261127l'), 'index.html must reference cache-busted 20261127l nav.css');
+    assert.ok(swSrc104.includes("const CACHE_VERSION = '20261128a';"), 'sw.js must bump CACHE_VERSION to 20261128a');
+    assert.ok(indexHtml104.includes('css/nav.css?v=20261128a'), 'index.html must reference cache-busted 20261128a nav.css');
     const ids104 = (indexHtml104.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids104).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
-    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261127l, and 385 DOM IDs verified');
+    console.log('  ✔ Mobile opaque top header bar rules, cache version 20261128a, and 385 DOM IDs verified');
   }
 
   // --- Suite 105: Login with Google (Server-Verified OAuth, Family Account Picker & "Couldn't find your Google Account" Dialog) ---
@@ -19302,7 +19302,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(compCss106.includes('body.tasks-board-viewport-lock .tasks-board-columns .task-col-body > * {\n  flex-shrink: 0;\n}'), 'Cards inside each scrolling column body must set flex-shrink: 0 so they never compress vertically');
     assert.ok(compCss106.includes('@supports not (scrollbar-color: auto) {') && compCss106.includes('scrollbar-color: var(--board-scrollbar-thumb) var(--board-scrollbar-track);'), 'Bottom horizontal board scrollbar must use standard scrollbar-color with @supports fallback');
     assert.ok(indexHtml106.includes('syncTasksBoardViewportLock()'), 'index.html switchTab must sync tasks board viewport lock on tab transitions');
-    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
+    assert.ok(swSrc106.includes("const CACHE_VERSION = '20261128a';"), 'sw.js must bump CACHE_VERSION to 20261128a');
     const ids106 = (indexHtml106.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids106).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
 
@@ -19423,7 +19423,7 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.ok(!idx107.includes('PDPA 2010') && !idx107.includes('COPPA guidelines'), 'Privacy modal must not contain COPPA or PDPA copy');
     assert.ok(!forum107.includes('Under COPPA') && !forum107.includes('PDPA 2010'), 'Stedfast Helper FAQ must not reference removed COPPA/PDPA registration flow');
     assert.ok(!att107.includes('(PDPA / COPPA)'), 'Attendance integration summary must not reference PDPA / COPPA');
-    assert.ok(sw107.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
+    assert.ok(sw107.includes("const CACHE_VERSION = '20261128a';"), 'sw.js must bump CACHE_VERSION to 20261128a');
     const ids107 = (idx107.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids107).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
     console.log('  ✔ Registration COPPA/PDPA box removed, onboarding T&C preserved, and 385 DOM IDs verified');
@@ -19479,10 +19479,115 @@ console.log('  ✔ HTML Sanitizer properly strips dangerous script/event tags');
     assert.strictEqual(restored108.consent, undefined, 'Legacy stored consent filter must be stripped on restore');
     await adminModule.clearAllAdminMemberFilters();
 
-    assert.ok(sw108.includes("const CACHE_VERSION = '20261127l';"), 'sw.js must bump CACHE_VERSION to 20261127l');
+    assert.ok(sw108.includes("const CACHE_VERSION = '20261128a';"), 'sw.js must bump CACHE_VERSION to 20261128a');
     const ids108 = (idx108.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
     assert.strictEqual(new Set(ids108).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
     console.log('  ✔ Admin Members Management COPPA/PDPA controls, table column & filters removed with 385 DOM IDs preserved');
+  }
+
+  // --- Suite 109: Google Sign-In Origin Mismatch Fix (Android APK Deep-Link Bridge, Mobile/PWA Redirect URI & Referrer-Policy) ---
+  console.log('\n--- Suite 109: Google Sign-In Origin Mismatch Fix ---');
+  {
+    const memberMod109 = require('../js/modules/member.js');
+    const idx109 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    const sw109 = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+    const manifestXml109 = fs.readFileSync(path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'AndroidManifest.xml'), 'utf8');
+    const mainAct109 = fs.readFileSync(path.join(__dirname, '..', 'mobile', 'android', 'app', 'src', 'main', 'java', 'org', 'firstpjbb', 'portal', 'MainActivity.java'), 'utf8');
+    const devSrv109 = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'dev-server.js'), 'utf8');
+    const viteCfg109 = fs.readFileSync(path.join(__dirname, '..', 'vite.config.mjs'), 'utf8');
+
+    // 1. Referrer-Policy across dev & build servers
+    assert.ok(devSrv109.includes("'Referrer-Policy': 'strict-origin-when-cross-origin'"), 'dev-server.js must set Referrer-Policy: strict-origin-when-cross-origin');
+    assert.ok(viteCfg109.includes("'Referrer-Policy': 'strict-origin-when-cross-origin'"), 'vite.config.mjs must set Referrer-Policy: strict-origin-when-cross-origin');
+
+    // 2. AndroidManifest & MainActivity deep-link OAuth bridge
+    assert.ok(manifestXml109.includes('android:scheme="firstpjbb"') && manifestXml109.includes('android:host="auth"'), 'AndroidManifest.xml must declare firstpjbb://auth intent filter');
+    assert.ok(mainAct109.includes('PortalAuthBridge') && mainAct109.includes('addJavascriptInterface(new PortalAuthBridge(), "PortalAuth")'), 'MainActivity.java must expose PortalAuth bridge');
+    assert.ok(mainAct109.includes('https://accounts.google.com/o/oauth2/v2/auth?'), 'PortalAuth.openExternalAuthUrl must strictly validate Google OAuth URL prefix');
+    assert.ok(mainAct109.includes('handleNativeGoogleAuthCallback') && mainAct109.includes('consumePendingAuthCallback'), 'MainActivity.java must dispatch and expose pending native auth callbacks');
+    assert.ok(idx109.includes('window.PortalAuth.consumePendingAuthCallback()'), 'index.html boot must consume cold-start native Google auth callback');
+
+    // 3. Redirect URI normalization (strips /index.html for installed PWAs, uses registered GitHub Pages URI for native APK)
+    const origLoc109 = global.window.location;
+    global.window.location = {
+      origin: 'https://1st-petaling-jaya-boys-brigade.github.io',
+      pathname: '/1stPetalingJayaBoys-Brigade-/index.html',
+      assign: () => {}
+    };
+    assert.strictEqual(
+      memberMod109.getGoogleOidcRedirectUri(false),
+      'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/',
+      'Installed PWA redirect_uri must strip trailing /index.html to match registered Google OAuth redirect URI'
+    );
+    global.window.location.pathname = '/1stPetalingJayaBoys-Brigade-';
+    assert.strictEqual(
+      memberMod109.getGoogleOidcRedirectUri(false),
+      'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/',
+      'Missing trailing slash on GitHub Pages repo root must normalize with trailing slash'
+    );
+    global.window.location = { origin: 'https://localhost', pathname: '/', assign: () => {} };
+    assert.strictEqual(
+      memberMod109.getGoogleOidcRedirectUri(true),
+      'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/',
+      'Native Capacitor APK must always use registered GitHub Pages redirect_uri (never https://localhost)'
+    );
+
+    // 4. Native Capacitor loginWithGoogle launches system browser with registered redirect_uri & app_ state (never calls GIS popup on https://localhost)
+    const origCap109 = global.window.Capacitor;
+    const origPortalAuth109 = global.window.PortalAuth;
+    const origGoogle109 = global.window.google;
+    const origGoogleCfg109 = global.window.__GOOGLE_AUTH_CONFIG__;
+    let launchedExternalUrl109 = '';
+    let gisInitCalled109 = false;
+
+    global.window.Capacitor = { isNativePlatform: () => true };
+    global.window.PortalAuth = {
+      openExternalAuthUrl: url => { launchedExternalUrl109 = url; return true; }
+    };
+    global.window.google = {
+      accounts: { oauth2: { initTokenClient: () => { gisInitCalled109 = true; } } }
+    };
+    global.window.__GOOGLE_AUTH_CONFIG__ = {
+      enabled: true,
+      clientId: '728446967392-t93b8pfdiole6pmkshvqcjf99u23g46c.apps.googleusercontent.com'
+    };
+
+    const nativeLoginRes109 = await memberMod109.loginWithGoogle();
+    assert.strictEqual(nativeLoginRes109.ok, true, 'Native Capacitor Google sign-in must launch cleanly');
+    assert.strictEqual(nativeLoginRes109.nativeApp, true);
+    assert.strictEqual(gisInitCalled109, false, 'Native Capacitor APK must NEVER call GIS initTokenClient on https://localhost');
+    assert.ok(launchedExternalUrl109.startsWith('https://accounts.google.com/o/oauth2/v2/auth?'), 'Native APK must launch Google OIDC endpoint in external browser');
+    const launchedParams109 = new URL(launchedExternalUrl109).searchParams;
+    assert.strictEqual(
+      launchedParams109.get('redirect_uri'),
+      'https://1st-petaling-jaya-boys-brigade.github.io/1stPetalingJayaBoys-Brigade-/',
+      'Native APK OAuth URL must use registered GitHub Pages redirect_uri'
+    );
+    const nativeState109 = launchedParams109.get('state') || '';
+    assert.ok(nativeState109.startsWith('app_'), 'Native APK OAuth state must carry app_ prefix for browser-to-app handoff');
+
+    // 5. GitHub Pages web browser receiving #state=app_... hands off to firstpjbb:// & intent:// instead of failing with STATE_MISMATCH
+    delete global.window.Capacitor;
+    delete global.window.PortalAuth;
+    const fakeAppCallbackHash109 = '#state=' + encodeURIComponent(nativeState109) + '&id_token=fake.jwt.payload';
+    const handoffRes109 = await memberMod109.handleGoogleOidcCallback(fakeAppCallbackHash109, { skipAutoNavigate: true });
+    assert.strictEqual(handoffRes109.ok, true, 'Web browser must hand app_ callback back to native Android app');
+    assert.strictEqual(handoffRes109.handedOffToApp, true);
+    assert.ok(handoffRes109.deepLinkUrl.startsWith('firstpjbb://auth/google#'), 'Handoff must produce firstpjbb:// deep link');
+    assert.ok(handoffRes109.intentUrl.includes('package=org.firstpjbb.portal') && handoffRes109.intentUrl.includes('S.auth_hash='), 'Handoff must produce Android intent:// fallback URL');
+    memberMod109.closeGoogleAppHandoffModal();
+
+    // Restore globals
+    global.window.location = origLoc109;
+    if (origCap109 === undefined) delete global.window.Capacitor; else global.window.Capacitor = origCap109;
+    if (origPortalAuth109 === undefined) delete global.window.PortalAuth; else global.window.PortalAuth = origPortalAuth109;
+    if (origGoogle109 === undefined) delete global.window.google; else global.window.google = origGoogle109;
+    if (origGoogleCfg109 === undefined) delete global.window.__GOOGLE_AUTH_CONFIG__; else global.window.__GOOGLE_AUTH_CONFIG__ = origGoogleCfg109;
+
+    assert.ok(sw109.includes("const CACHE_VERSION = '20261128a';"), 'sw.js must bump CACHE_VERSION to 20261128a');
+    const ids109 = (idx109.match(/\bid=["']([^"']+)["']/g) || []).map(m => m.replace(/^id=["']/, '').slice(0, -1));
+    assert.strictEqual(new Set(ids109).size, 385, 'Strict 385 unique DOM IDs invariant must remain intact');
+    console.log('  ✔ Google Sign-In Android APK deep-link bridge, PWA redirect_uri normalization, Referrer-Policy & 385 DOM IDs verified');
   }
 
   console.log('\n🎉 ALL MODULE UNIT & INTEGRATION TESTS PASSED 100%!\n');

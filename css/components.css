@@ -1218,6 +1218,14 @@ dialog.google-not-found-dialog[open] {
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.google-app-handoff-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
 @media (hover: hover) {
   .google-not-found-retry-btn:hover {
     background: #1557b0;

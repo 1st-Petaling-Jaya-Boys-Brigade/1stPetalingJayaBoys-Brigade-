@@ -24,6 +24,7 @@ import org.json.JSONObject;
 public class MainActivity extends BridgeActivity {
     private static final int PERMISSION_REQUEST_POST_NOTIFICATIONS = 101;
     private volatile String pendingNotificationRouteJson = null;
+    private volatile String pendingAuthCallbackHash = null;
 
     private String readIntentStringExtra(Intent intent, String key) {
         if (intent == null || key == null) return "";
@@ -79,6 +80,55 @@ public class MainActivity extends BridgeActivity {
                         getBridge().getWebView().evaluateJavascript(js, result -> {
                             if (result != null && result.contains("handled") && routeJson.equals(pendingNotificationRouteJson)) {
                                 pendingNotificationRouteJson = null;
+                            }
+                        });
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void captureAuthCallbackIntent(Intent intent) {
+        if (intent == null) return;
+        try {
+            Uri data = intent.getData();
+            if (data == null) return;
+            if (!"firstpjbb".equalsIgnoreCase(data.getScheme()) || !"auth".equalsIgnoreCase(data.getHost())) {
+                return;
+            }
+            String fragment = intent.getStringExtra("auth_hash");
+            if (fragment == null || fragment.trim().isEmpty()) {
+                fragment = data.getEncodedFragment();
+            }
+            if (fragment == null || fragment.trim().isEmpty()) {
+                fragment = data.getEncodedQuery();
+            }
+            if (fragment != null) {
+                String clean = fragment.trim();
+                if (clean.startsWith("#")) clean = clean.substring(1);
+                if (!clean.isEmpty() && clean.length() <= 16384
+                    && (clean.contains("id_token=") || clean.contains("error="))
+                    && clean.contains("state=")) {
+                    pendingAuthCallbackHash = "#" + clean;
+                }
+            }
+            intent.setData(null);
+            intent.removeExtra("auth_hash");
+        } catch (Exception ignored) {}
+    }
+
+    private void dispatchPendingAuthCallbackToWebView() {
+        final String authHash = pendingAuthCallbackHash;
+        if (authHash == null || authHash.isEmpty()) return;
+        try {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().post(() -> {
+                    try {
+                        String quoted = JSONObject.quote(authHash);
+                        String js = "(function(){if(typeof window.handleNativeGoogleAuthCallback==='function'){try{window.handleNativeGoogleAuthCallback(" + quoted + ");return 'handled';}catch(e){return 'error';}}return 'pending';})();";
+                        getBridge().getWebView().evaluateJavascript(js, result -> {
+                            if (result != null && result.contains("handled") && authHash.equals(pendingAuthCallbackHash)) {
+                                pendingAuthCallbackHash = null;
                             }
                         });
                     } catch (Exception ignored) {}
@@ -252,10 +302,46 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    public final class PortalAuthBridge {
+        @JavascriptInterface
+        public String consumePendingAuthCallback() {
+            String hash = pendingAuthCallbackHash;
+            pendingAuthCallbackHash = null;
+            return hash != null ? hash : "";
+        }
+
+        @JavascriptInterface
+        public boolean openExternalAuthUrl(String url) {
+            if (url == null) return false;
+            String trimmed = url.trim();
+            if (!trimmed.startsWith("https://accounts.google.com/o/oauth2/v2/auth?")) {
+                return false;
+            }
+            try {
+                Uri parsed = Uri.parse(trimmed);
+                if (!"https".equalsIgnoreCase(parsed.getScheme())
+                    || !"accounts.google.com".equalsIgnoreCase(parsed.getHost())) {
+                    return false;
+                }
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, parsed);
+                browserIntent.addCategory(Intent.CATEGORY_BROWSABLE);
+                runOnUiThread(() -> {
+                    try {
+                        startActivity(browserIntent);
+                    } catch (Exception ignored) {}
+                });
+                return true;
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         captureNotificationIntent(getIntent());
+        captureAuthCallbackIntent(getIntent());
         AnnouncementSyncReceiver.createNotificationChannel(this);
         AnnouncementSyncReceiver.scheduleNext(this);
 
@@ -270,11 +356,12 @@ public class MainActivity extends BridgeActivity {
             }
         } catch (Exception ignored) {}
 
-        // Expose AndroidFCM JavaScript bridge on the WebView
+        // Expose AndroidFCM, PortalNavigation, and PortalAuth JavaScript bridges on the WebView
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 getBridge().getWebView().addJavascriptInterface(new AndroidFcmBridge(), "AndroidFCM");
                 getBridge().getWebView().addJavascriptInterface(new PortalNavigationBridge(), "PortalNavigation");
+                getBridge().getWebView().addJavascriptInterface(new PortalAuthBridge(), "PortalAuth");
             }
         } catch (Exception ignored) {}
 
@@ -295,13 +382,16 @@ public class MainActivity extends BridgeActivity {
         super.onNewIntent(intent);
         setIntent(intent);
         captureNotificationIntent(intent);
+        captureAuthCallbackIntent(intent);
         dispatchPendingNotificationToWebView();
+        dispatchPendingAuthCallbackToWebView();
     }
 
     @Override
     public void onResume() {
         super.onResume();
         captureNotificationIntent(getIntent());
+        captureAuthCallbackIntent(getIntent());
         AnnouncementSyncReceiver.createNotificationChannel(this);
         AnnouncementSyncReceiver.scheduleNext(this);
         try {
@@ -316,6 +406,7 @@ public class MainActivity extends BridgeActivity {
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 getBridge().getWebView().addJavascriptInterface(new AndroidFcmBridge(), "AndroidFCM");
+                getBridge().getWebView().addJavascriptInterface(new PortalAuthBridge(), "PortalAuth");
                 getBridge().getWebView().post(() -> {
                     try {
                         getBridge().getWebView().evaluateJavascript(
@@ -325,6 +416,7 @@ public class MainActivity extends BridgeActivity {
                     } catch (Exception ignored) {}
                 });
                 dispatchPendingNotificationToWebView();
+                dispatchPendingAuthCallbackToWebView();
             }
         } catch (Exception ignored) {}
     }
